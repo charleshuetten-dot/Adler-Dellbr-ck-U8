@@ -561,6 +561,12 @@ h1.print-header{display:none}
   <div style="background:var(--blue-bg);border:1px solid #93c5fd;border-radius:var(--rl);padding:12px;margin-bottom:1rem;font-size:12px;color:#1e40af;line-height:1.6">
     <strong>Wie funktioniert das?</strong> Der Algorithmus berechnet die beste Kombination aus dem Kader nach Rollenfit, Komplementaritat und sozialer Vertraglichkeit.
   </div>
+  <div style="background:#fff7ed;border:1px solid #fdba74;border-radius:var(--rl);padding:12px;margin-bottom:1rem;font-size:12px;color:#9a3412;line-height:1.7">
+    <strong>🦅 ADLER vs. IGEL – unsere zwei Rauten-Formen</strong><br>
+    <strong>ADLER (offensiv, breit):</strong> Flitzer L/R ziehen breit auf die Außenbahnen, Jäger besetzt die Spitze – Feld wird groß gemacht, Passwege öffnen sich.<br>
+    <strong>IGEL (defensiv, eng):</strong> Alle 4 Feldspieler ziehen zusammen, enge Abstände, Räume eng halten – Verteidigungspositionen, Pressing als Einheit.<br>
+    <span style="font-size:11px;opacity:.8">Kommando "Adler!" = breit & offensiv · Kommando "Igel!" = eng & defensiv. Beide Begriffe direkt im Training als Zuruf nutzbar.</span>
+  </div>
   <button class="print-btn" onclick="printView('kombi')"><i class="ti ti-printer"></i>Aufstellung drucken</button>
   <div id="kombi-content"><div class="empty"><i class="ti ti-users-group"></i>Noch keine Spieler bewertet</div></div>
 </div>
@@ -694,10 +700,10 @@ const DIMS_FELD=[
 },
 {id:"raute",label:"Rauten-IQ & Taktik",icon:"ti-chess",col:"#7c3aed",w:0.24,
  tier:[
-  {n:"t_raum",l:"Raumverständnis",h:"Klumpen vs. Feld-groß-machen – Kernproblem U8",opts:[
-    {v:1,t:"Balljäger",d:"Klumpen – orientiert sich nur am Ball, ignoriert Position"},
-    {v:2,t:"Linie halten",d:"Öffnet Raum auf Trainerkommando"},
-    {v:3,t:"Feld groß machen",d:"Selbstständig: hält Breite und Tiefe ohne Aufforderung"}
+  {n:"t_raum",l:"Raumverständnis (Adler/Igel)",h:"Klumpen vs. Feld-groß-machen – Kernproblem U8",opts:[
+    {v:1,t:"Balljäger",d:"Klumpen – orientiert sich nur am Ball, kennt weder Adler- noch Igel-Form"},
+    {v:2,t:"Auf Zuruf",d:"Reagiert auf 'Adler!' (breit) bzw. 'Igel!' (eng) wenn Trainer es ansagt"},
+    {v:3,t:"Eigenständig",d:"Wechselt selbstständig zwischen Adler (breit/offensiv) und Igel (eng/defensiv)"}
   ]},
   {n:"t_rolle",l:"Rollenverständnis",h:"Position in der 4+1 Raute kennen und halten",opts:[
     {v:1,t:"Freestyle",d:"Keine feste Rolle erkennbar – wechselt unkontrolliert"},
@@ -927,21 +933,36 @@ function calcPotenzial(v,total,att,isTw){
 function calcRolle(v,foot){
   const tn=(val,mx=3)=>val?((val-1)/(mx-1))*100:0;
   const mn=(val,mx=5)=>val?((val-1)/(mx-1))*100:0;
-  // Aufpasser: Defensiv + Zweikampf + Pressing + Einsatz
-  const auf=mn(safe("m_t7"))*.25+mn(safe("m_k6"))*.20+mn(safe("m_k2"))*.20+tn(safe("t_einsatz"))*.18+tn(safe("t_rolle"))*.17;
-  // Jäger: Torschuss + 1gg1 + Laufwege + Dribbling
-  const jaeg=mn(safe("m_t5"))*.32+mn(safe("m_t6"))*.28+mn(safe("m_k3"))*.22+tn(safe("t_dribble"))*.18;
-  // Flitzer: Tempo + Koordination + Wendigkeit + Einsatz
-  const fb=tn(safe("t_speed"))*.35+tn(safe("t_koord"))*.25+mn(safe("m_p2"))*.22+tn(safe("t_einsatz"))*.18;
+  // Aufpasser: Defensiv-Stabilität + Spielaufbau (Pass/Entscheidung) + Pressing + Rollenverständnis
+  // Wichtig: ein Aufpasser MUSS den ersten Pass spielen können - rein körperliche/zweikampfstarke
+  // Spieler ohne Spielaufbau-Qualität sind KEIN Aufpasser, auch wenn sie defensiv robust sind.
+  const aufRaw=mn(safe("m_t7"))*.18+mn(safe("m_k6"))*.14+mn(safe("m_k2"))*.14+tn(safe("t_rolle"))*.12
+              +tn(safe("t_pass"))*.22+mn(safe("m_k4"))*.10+tn(safe("t_raum"))*.10;
+  // Spielaufbau-Malus: wenn Passspiel UND Entscheidungsqualität (Solo vs. Abspiel) beide niedrig sind,
+  // ist die Aufpasser-Eignung stark eingeschränkt - Raute braucht hier Spielintelligenz, nicht nur Robustheit
+  const passQuality=(tn(safe("t_pass"))+mn(safe("m_k4")))/2;
+  const aufMalus=passQuality<35?0.55:passQuality<55?0.8:1.0;
+  const auf=aufRaw*aufMalus;
+  // Jäger: Torschuss + 1gg1 + Laufwege (Timing/Antizipation) + Dribbling
+  // m_k1 (Freiläufe vor Ballerhalt) als kleine Komponente: ein Jäger der nie in die Tiefe startet
+  // ist auch als Knipser nur halb so wertvoll - Timing der Laufwege gehört zur Rolle dazu.
+  const jaeg=mn(safe("m_t5"))*.30+mn(safe("m_t6"))*.26+mn(safe("m_k3"))*.20+tn(safe("t_dribble"))*.14+mn(safe("m_k1"))*.10;
+  // Flitzer: Tempo + Koordination + Wendigkeit + Einsatz + Raumverständnis (Breite halten)
+  // Ein schneller Spieler der ständig in die Mitte zieht und klumpt ist KEIN guter Flitzer -
+  // die Außenbahn lebt davon, Breite zu halten (t_raum).
+  const fb=tn(safe("t_speed"))*.30+tn(safe("t_koord"))*.20+mn(safe("m_p2"))*.18+tn(safe("t_einsatz"))*.14+tn(safe("t_raum"))*.18;
   const fl_l=foot==="L"?fb*1.10:foot==="B"?fb:fb*.82;
   const fl_r=foot==="R"?fb*1.10:foot==="B"?fb:fb*.82;
   const sc={aufpasser:auf,jaeger:jaeg,flitzer_l:fl_l,flitzer_r:fl_r};
   const sorted=Object.entries(sc).sort((a,b)=>b[1]-a[1]);
+  // Klarheit der Rollenfindung: wie deutlich ist der Vorsprung der Top-Rolle?
+  const spread=sorted[0][1]-sorted[1][1];
+  const clarity=spread<5?"unklar":spread<15?"leicht":"klar";
   const labels={aufpasser:"Aufpasser",jaeger:"Jäger",flitzer_l:"Flitzer L",flitzer_r:"Flitzer R"};
   const hlCls={aufpasser:"hl-auf",jaeger:"hl-jaeg",flitzer_l:"hl-links",flitzer_r:"hl-rechts"};
   const posId={aufpasser:"rp-auf",jaeger:"rp-jaeg",flitzer_l:"rp-links",flitzer_r:"rp-rechts"};
   const badgeCls={aufpasser:"rb-auf",jaeger:"rb-jaeg",flitzer_l:"rb-links",flitzer_r:"rb-rechts"};
-  return{prim:sorted[0][0],sek:sorted[1][0],primLabel:labels[sorted[0][0]],sekLabel:labels[sorted[1][0]],labels,hlCls,posId,badgeCls};
+  return{prim:sorted[0][0],sek:sorted[1][0],primLabel:labels[sorted[0][0]],sekLabel:labels[sorted[1][0]],labels,hlCls,posId,badgeCls,clarity,topScore:sorted[0][1],scores:sc};
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -950,6 +971,8 @@ function calcRolle(v,foot){
    stärkstes/schwächstes Profil, soziale Dimension,
    Zusammenfassung am Anfang getrennt von Maßnahmen
 ═══════════════════════════════════════════════════════ */
+function tn3(val,mx=3){return val?((val-1)/(mx-1))*100:0;}
+function mn5(val,mx=5){return val?((val-1)/(mx-1))*100:0;}
 function generateFazitFeld(v,meta){
   const dims=DIMS_FELD;
   const{dims:ds,total}=calcScores(v,dims);
@@ -1037,21 +1060,34 @@ function generateFazitFeld(v,meta){
   ef.forEach(e=>r+=`  → ${e}\n`);
 
   r+="\n━━ RAUTEN-ANALYSE (4+1) ━━━━━━━━━━━━━━━━━━━━━━━\n";
+  const passQ=((tn3(v["t_pass"])+mn5(v["m_k4"]))/2);
+  const aufDescStark=`${name} hat die Qualitäten für die Basis der Raute. Verteidigen, absichern, ersten Ball verteilen – das liegt ihm. Schlüsselfigur für defensive Stabilität.`;
+  const aufDescSchwach=`${name} bringt die körperliche und kämpferische Basis für die Aufpasser-Position mit (Zweikampf, Robustheit, Einsatz). Das Passspiel und die Spieleröffnung sind aktuell aber noch der limitierende Faktor – ohne sauberen ersten Pass bleibt die Raute hier instabil. Genau das ist der nächste Entwicklungsschritt.`;
   const rDesc={
-    aufpasser:`${name} hat die Qualitäten für die Basis der Raute. Verteidigen, absichern, ersten Ball verteilen – das liegt ihm. Schlüsselfigur für defensive Stabilität.`,
+    aufpasser:passQ<55?aufDescSchwach:aufDescStark,
     jaeger:`${name}s Torhunger und Entschlossenheit machen ihn zur natürlichen Spitze. Den direkten Weg zum Tor suchen und nach Ballverlust sofort pressen.`,
     flitzer_l:`${name}s Tempo und Wendigkeit prädestinieren ihn für die linke Außenbahn. Breite halten, Flanken ziehen, Räume für den Jäger öffnen.`,
     flitzer_r:`${name}s Tempo und Wendigkeit machen ihn auf der rechten Außenbahn gefährlich. Breite halten, Korridor bespielen, Tiefenläufe für den Jäger einleiten.`
   };
   r+=rDesc[rolle.prim]+"\n";
-  r+=`Sekundär einsetzbar als: ${rolle.sekLabel}.\n`;
+  if(rolle.clarity==="unklar"){
+    r+=`Die Rollenfindung ist noch nicht eindeutig – ${name} liegt zwischen ${rolle.primLabel} und ${rolle.sekLabel} fast gleichauf. Aktuell macht es Sinn, beide Positionen im Training auszuprobieren statt früh festzulegen.\n`;
+  } else {
+    r+=`Sekundär einsetzbar als: ${rolle.sekLabel}.\n`;
+  }
+  if(rolle.topScore<35) r+="⚠ Insgesamt noch sehr früh in der Entwicklung – Rollenangaben sind erste Tendenzen, keine Festlegung.\n";
   if(v["t_raum"]===1||ds.raute<40) r+="⚠ Raumverständnis noch schwach – klare Korridore vor fester Rollenvergabe einführen.\n";
+  if(rolle.prim==="aufpasser"&&passQ<55) r+="⚠ Passspiel/Spielaufbau ist Entwicklungspriorität Nr. 1 für diese Rolle – siehe Trainingsschwerpunkt.\n";
+  if((tn3(v["t_pass"])<35)&&(mn5(v["m_k4"])<35)) r+=`⚠ ${name} sucht aktuell fast ausschließlich die 1gg1-Lösung statt den Pass – häufiges U8-Muster, aber gezielt zu adressieren.\n`;
 
   r+="\n━━ TRAININGS-SCHWERPUNKT (2–3 WOCHEN) ━━━━━━━━━\n";
   const sortedDims=Object.entries(ds).filter(([k])=>!k.startsWith("tw_")).sort((a,b)=>a[1]-b[1]);
   const wn={tech:"Technik",raute:"Rauten-IQ",phys:"Physis",mental:"Mentalität & Charakter",entw:"Entwicklungspotenzial"};
   r+=`Primäre Baustelle: ${wn[sortedDims[0][0]]} (${sortedDims[0][1]}%)\n\n`;
-  if(v["t_raum"]===1){
+  if((tn3(v["t_pass"])<35)&&(mn5(v["m_k4"])<35)){
+    r+="ÜBUNG 1 – 'Pflichtpass-Funino':\nTor gilt nur wenn alle Spieler des Teams mindestens 1x den Ball hatten. Erzwingt Passspiel statt Solo-Lösungen – ohne dass der Trainer eingreifen muss.\n\n";
+    r+="ÜBUNG 2 – 'Komm-Geh-Passspiel':\nSpieler täuscht Richtung an, fordert dann Ball in den freien Raum. Grundprinzip des Freilaufens und der Anspielbarkeit – die Basis für jeden ersten Pass.";
+  } else if(v["t_raum"]===1){
     r+="ÜBUNG 1 – 'Korridor-Funino':\n3 Längskorridore. Jeder Spieler hält seinen. Tor gilt nur wenn alle 3 Korridore besetzt. Kommando: 'Feld groß machen!'\n\n";
     r+="ÜBUNG 2 – 'Schattenspieler':\nOhne Ball dem Mitspieler folgen – aber immer auf maximalem Abstand. Raum-Bewusstsein durch Körpergefühl.";
   } else if(fokusSchwach){
@@ -2617,6 +2653,29 @@ const TRAININGSFORMEN = [
   svg:'<svg viewBox="0 0 280 180" width="100%" style="max-width:280px;display:block;margin:8px auto;border-radius:6px" xmlns="http://www.w3.org/2000/svg">\n  <rect width="280" height="180" rx="4" fill="#2d6a2d" stroke="#1a4a1a" stroke-width="1.5"/>\n  <rect x="4" y="4" width="272" height="172" rx="3" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1"/>\n  <defs>\n  <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">\n    <path d="M0,0 L6,3 L0,6 Z" fill="rgba(255,255,255,.8)"/>\n  </marker>\n</defs><circle cx="60" cy="60" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><circle cx="120" cy="40" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><circle cx="200" cy="50" r="9" fill="#f87171" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><circle cx="80" cy="120" r="9" fill="#f87171" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><circle cx="160" cy="130" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><circle cx="220" cy="110" r="9" fill="#f87171" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><circle cx="140" cy="80" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="140" y="155" text-anchor="middle" fill="#fbbf24" font-size="10" font-family="sans-serif" font-weight="bold">FREIES SPIEL!</text><text x="140" y="168" text-anchor="middle" fill="rgba(255,255,255,.4)" font-size="8" font-family="sans-serif">Trainer beobachtet</text>\n  <text x="140" y="174" text-anchor="middle" fill="rgba(255,255,255,.5)" font-size="9" font-family="sans-serif">Freies Spielen</text>\n</svg>',
   tags:["spass"]
 },
+{
+  id:'tf051',kat:'raute',focus:true,
+  name:'Adler vs. Igel - Formwechsel',
+  kurz:'Auf Zuruf wechselt das Team zwischen breiter Offensiv- und enger Defensiv-Raute.',
+  spieler:'8-10',feld:'25x20m',dauer:'10-12',spass:5,diff:2,
+  ablauf:'4gg4 (oder 5gg5 mit TW). Trainer ruft waehrend des Spiels abwechselnd ADLER! oder IGEL!.\n\nADLER = Team das in Ballbesitz ist macht sich breit: Flitzer L/R ziehen auf die Aussenbahnen, Jaeger besetzt die Spitze, Aufpasser bleibt hinten als Anspielstation. Feld wird gross.\n\nIGEL = Team ohne Ball zieht eng zusammen: alle 4 Feldspieler ruecken in die Zone um den Ball, Abstaende verkuerzen sich, gemeinsames Pressing.\n\nBeide Begriffe sollen zu Automatismen werden - die Kinder reagieren auf den Zuruf mit der passenden Formation.',
+  varianten:'- Nur ein Team bekommt den Zuruf, das andere muss selbst erkennen was zu tun ist\n- Belohnung: korrekte Adler-Formation bei Torschuss = Tor zaehlt doppelt\n- Belohnung: korrekte Igel-Formation bei Balleroberung = Bonuspunkt',
+  coaching:'ADLER! - Feld gross machen, Breite und Tiefe nutzen!\nIGEL! - Zusammenziehen, eng werden, gemeinsam pressen!\nDie Begriffe sind unsere Teamsprache - immer konsequent verwenden.',
+  svg:'<svg viewBox="0 0 280 180" width="100%" style="max-width:280px;display:block;margin:8px auto;border-radius:6px" xmlns="http://www.w3.org/2000/svg"><rect width="280" height="180" rx="4" fill="#2d6a2d" stroke="#1a4a1a" stroke-width="1.5"/><rect x="4" y="4" width="272" height="172" rx="3" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1"/><text x="70" y="20" text-anchor="middle" fill="#fbbf24" font-size="11" font-family="sans-serif" font-weight="bold">ADLER (breit)</text><circle cx="30" cy="60" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="30" y="78" text-anchor="middle" fill="#4ade80" font-size="8" font-family="sans-serif" font-weight="600">Fl.L</text><circle cx="70" cy="40" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="70" y="58" text-anchor="middle" fill="#4ade80" font-size="8" font-family="sans-serif" font-weight="600">Jaeger</text><circle cx="110" cy="60" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="110" y="78" text-anchor="middle" fill="#4ade80" font-size="8" font-family="sans-serif" font-weight="600">Fl.R</text><circle cx="70" cy="90" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="70" y="108" text-anchor="middle" fill="#4ade80" font-size="8" font-family="sans-serif" font-weight="600">Auf.</text><line x1="20" y1="30" x2="20" y2="100" stroke="rgba(255,255,255,.2)" stroke-width="1" stroke-dasharray="4,3"/><line x1="120" y1="30" x2="120" y2="100" stroke="rgba(255,255,255,.2)" stroke-width="1" stroke-dasharray="4,3"/><line x1="140" y1="20" x2="140" y2="160" stroke="rgba(255,255,255,.4)" stroke-width="2"/><text x="210" y="20" text-anchor="middle" fill="#f87171" font-size="11" font-family="sans-serif" font-weight="bold">IGEL (eng)</text><circle cx="195" cy="75" r="8" fill="#f87171" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><circle cx="215" cy="65" r="8" fill="#f87171" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><circle cx="225" cy="85" r="8" fill="#f87171" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><circle cx="205" cy="95" r="8" fill="#f87171" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><circle cx="210" cy="80" r="22" fill="none" stroke="rgba(248,113,113,.4)" stroke-width="1.5" stroke-dasharray="4,3"/><text x="210" y="135" text-anchor="middle" fill="rgba(255,255,255,.5)" font-size="8" font-family="sans-serif">eng zusammen!</text><text x="70" y="170" text-anchor="middle" fill="rgba(255,255,255,.5)" font-size="9" font-family="sans-serif">Adler vs. Igel</text></svg>',
+  tags:['Adler','Igel','Grundordnung','Formwechsel','Raute']
+},
+{
+  id:'tf052',kat:'raute',focus:true,
+  name:'Igel-Pressing-Kreis',
+  kurz:'Nach Ballverlust sofort Igel-Formation: eng zusammenziehen und gemeinsam pressen.',
+  spieler:'8-10',feld:'20x18m',dauer:'8-10',spass:4,diff:2,
+  ablauf:'3gg3 oder 4gg4 Funino. Sobald ein Team den Ball verliert, ruft der Trainer IGEL!. Alle Feldspieler des Teams muessen sich sofort in einem engen Kreis um den Ball sammeln (max. 8m Durchmesser) und gemeinsam pressen.\n\nGelingt die Balleroberung innerhalb der Igel-Formation: 2 Bonuspunkte.\n\nNach Balleroberung: Trainer ruft ADLER! - Team macht sich sofort wieder breit fuer den Spielaufbau.',
+  varianten:'- Ohne Zuruf: Spieler rufen sich gegenseitig IGEL! oder ADLER! zu\n- Mit Huetchen-Markierung der Igel-Zone\n- Zeitdruck: Igel-Formation muss in 3 Sekunden stehen',
+  coaching:'IGEL! - alle zusammen, eng, gemeinsam pressen!\nNach Ballgewinn sofort ADLER! - Feld wieder gross machen!\nDas ist unser Umschalt-Vokabular - beide Richtungen gleich wichtig.',
+  svg:'<svg viewBox="0 0 280 180" width="100%" style="max-width:280px;display:block;margin:8px auto;border-radius:6px" xmlns="http://www.w3.org/2000/svg"><rect width="280" height="180" rx="4" fill="#2d6a2d" stroke="#1a4a1a" stroke-width="1.5"/><rect x="4" y="4" width="272" height="172" rx="3" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1"/><circle cx="140" cy="90" r="40" fill="rgba(248,113,113,.1)" stroke="rgba(248,113,113,.5)" stroke-width="2" stroke-dasharray="6,4"/><circle cx="140" cy="90" r="6" fill="rgba(255,255,255,.6)" stroke="#fff" stroke-width="1.5"/><circle cx="120" cy="70" r="9" fill="#f87171" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><circle cx="160" cy="70" r="9" fill="#f87171" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><circle cx="120" cy="115" r="9" fill="#f87171" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><circle cx="160" cy="115" r="9" fill="#f87171" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="140" y="40" text-anchor="middle" fill="#f87171" font-size="13" font-family="sans-serif" font-weight="bold">IGEL!</text><text x="140" y="160" text-anchor="middle" fill="rgba(255,255,255,.5)" font-size="9" font-family="sans-serif">Eng zusammen, Ball umzingeln</text></svg>',
+  tags:['Igel','Pressing','Umschalten','Gegenpressing']
+},
+
 ];
 
 
