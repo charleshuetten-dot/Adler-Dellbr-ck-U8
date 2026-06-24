@@ -45,9 +45,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .cdot{width:7px;height:7px;border-radius:50%;background:#94a3b8;transition:background .4s;flex-shrink:0}
 .cdot.ok{background:#16a34a}.cdot.err{background:#dc2626}
 
-.nav-unused{}
-.nb-unused{}
-.nb i{font-size:15px}
+.nb{padding:8px 2px;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#64748b;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:inherit;font-size:inherit}
+.nb i{font-size:17px}
+.nb span{font-size:8px;white-space:nowrap}
 .nb.active{background:var(--blue);color:#fff;box-shadow:0 2px 6px rgba(26,86,219,.3)}
 .view{display:none}.view.active{display:block}
 
@@ -303,6 +303,53 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   .ftag{padding:4px 8px;font-size:10.5px}
 }
 
+/* SUB-TABS (Training) */
+.sub-tab{flex:1;padding:7px 4px;border:none;background:transparent;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;color:var(--text2);display:flex;align-items:center;justify-content:center;gap:4px;font-family:inherit;white-space:nowrap}
+.sub-tab.active{background:var(--blue);color:#fff;box-shadow:0 1px 4px rgba(26,86,219,.25)}
+.sub-tab i{font-size:14px}
+.train-sub{display:none}.train-sub.active{display:block}
+
+/* ANWESENHEIT */
+.aw-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:var(--border);font-size:13px}
+.aw-row:last-child{border-bottom:none}
+.aw-name{flex:1;font-weight:600;color:var(--text)}
+.aw-toggle{width:40px;height:22px;border-radius:11px;background:#cbd5e1;border:none;cursor:pointer;position:relative;transition:background .2s}
+.aw-toggle.on{background:#16a34a}
+.aw-toggle::after{content:'';position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.aw-toggle.on::after{left:20px}
+.aw-qual{display:flex;gap:2px}
+.aw-star{width:24px;height:24px;border:none;background:none;cursor:pointer;font-size:16px;color:#cbd5e1;transition:color .15s}
+.aw-star.on{color:#f59e0b}
+
+/* TRAININGSPLANUNG */
+.tp-check{display:flex;align-items:center;gap:5px;padding:6px 10px;background:var(--surface);border:var(--border-s);border-radius:var(--r);font-size:12px;cursor:pointer}
+.tp-check input{accent-color:var(--blue)}
+.tp-slot{background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:10px 12px;margin-bottom:8px}
+.tp-slot-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px}
+.tp-slot-label{font-weight:700;color:var(--text)}
+.tp-slot-time{color:var(--text2);font-size:11px}
+.tp-slot select{padding:4px 8px;border:var(--border-s);border-radius:var(--r);font-size:12px;background:var(--surface);font-family:inherit;flex:1}
+.tp-slot .tp-remove{border:none;background:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px}
+
+/* TAKTIK BOARD */
+.tb-wrap{position:relative;width:100%;max-width:400px;margin:0 auto}
+.tb-field{width:100%;aspect-ratio:3/4;border-radius:var(--rl);overflow:hidden;position:relative;touch-action:none;user-select:none;background:#2d6a2d}
+.tb-field svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.tb-token{position:absolute;width:44px;height:44px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:grab;z-index:10;transform:translate(-50%,-50%);box-shadow:0 2px 8px rgba(0,0,0,.35);border:2.5px solid rgba(255,255,255,.9);transition:box-shadow .15s}
+.tb-token:active{cursor:grabbing;box-shadow:0 4px 16px rgba(0,0,0,.5);z-index:20}
+.tb-token .tb-name{font-size:9px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);line-height:1;pointer-events:none}
+.tb-token .tb-pos{font-size:7px;color:rgba(255,255,255,.8);pointer-events:none}
+.tb-token.tb-tw{background:#854d0e}
+.tb-token.tb-auf{background:#1a56db}
+.tb-token.tb-fl{background:#059669}
+.tb-token.tb-jaeg{background:#c2410c}
+.tb-token.tb-frei{background:#475569}
+.tb-token.tb-bench{background:#64748b}
+.tb-bench-area{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:12px;margin-top:10px;background:var(--surface);border:var(--border-s);border-radius:var(--rl);min-height:60px}
+.tb-bench-area .tb-token{position:relative;transform:none;cursor:grab}
+.tb-role-labels{position:absolute;inset:0;pointer-events:none;z-index:5}
+.tb-role-lbl{position:absolute;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:rgba(255,255,255,.45);transform:translate(-50%,-50%);pointer-events:none}
+
 /* KOMBI */
 .kombi-aufstellung{background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:14px;margin-bottom:12px;box-shadow:var(--shadow-md)}
 .kombi-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:8px}
@@ -400,32 +447,69 @@ h1.print-header{display:none}
 .tf-diff-badge{font-size:10px;padding:2px 7px;border-radius:8px;font-weight:500}
 .tf-diff-1{background:#dcfce7;color:#15803d}.tf-diff-2{background:#fef3c7;color:#92400e}.tf-diff-3{background:#fee2e2;color:#991b1b}
 .print-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#f1f5f9;border:var(--border-s);border-radius:var(--r);font-size:12px;font-weight:500;cursor:pointer;color:var(--text);font-family:inherit;margin-bottom:1rem}
+/* PIN GATE */
+.pin-gate{position:fixed;inset:0;background:linear-gradient(135deg,#1a56db 0%,#1447b8 100%);z-index:10000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;color:#fff;font-family:'Inter',sans-serif}
+.pin-gate.hidden{display:none}
+.pin-box{background:rgba(255,255,255,.12);border-radius:16px;padding:28px 24px;text-align:center;width:280px;backdrop-filter:blur(8px)}
+.pin-box h2{font-size:18px;font-weight:700;margin-bottom:4px}
+.pin-box p{font-size:12px;opacity:.8;margin-bottom:16px}
+.pin-input{display:flex;gap:8px;justify-content:center;margin-bottom:16px}
+.pin-input input{width:44px;height:52px;text-align:center;font-size:22px;font-weight:700;border:2px solid rgba(255,255,255,.3);border-radius:10px;background:rgba(255,255,255,.1);color:#fff;outline:none;font-family:inherit;-webkit-text-security:disc}
+.pin-input input:focus{border-color:#fff;background:rgba(255,255,255,.2)}
+.pin-err{font-size:11px;color:#fca5a5;min-height:16px;margin-bottom:8px}
+.pin-btn{width:100%;padding:12px;border:none;border-radius:10px;background:#fff;color:#1a56db;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+
+/* TRAINING BEWERTUNG */
+.tb-eval{background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:12px;margin-bottom:8px}
+.tb-eval-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;font-weight:600}
+.tb-eval-row{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px}
+.tb-eval-label{flex:1;color:var(--text2)}
+.tb-eval-stars{display:flex;gap:2px}
+.tb-eval-star{width:22px;height:22px;border:none;background:none;cursor:pointer;font-size:15px;color:#cbd5e1}
+.tb-eval-star.on{color:#f59e0b}
+
 @media print{body{background:#fff!important}.nav,.topbar .cloud-row,.brow,.btn,.print-btn{display:none!important}.view{display:none!important}.view.print-active{display:block!important}@page{margin:15mm 12mm;size:A4}}
 
 </style>
 
 </head>
 <body>
-<div class="app">
+<div class="pin-gate" id="pin-gate">
+  <div style="font-size:40px;margin-bottom:4px">⚽</div>
+  <div class="pin-box">
+    <h2>U8 I Adler</h2>
+    <p>Zugang zum Trainerstab-Tool</p>
+    <div class="pin-input">
+      <input type="tel" maxlength="1" id="pin1" oninput="pinNext(this,2)" autofocus>
+      <input type="tel" maxlength="1" id="pin2" oninput="pinNext(this,3)">
+      <input type="tel" maxlength="1" id="pin3" oninput="pinNext(this,4)">
+      <input type="tel" maxlength="1" id="pin4" oninput="pinCheck()">
+    </div>
+    <div class="pin-err" id="pin-err"></div>
+    <button class="pin-btn" onclick="pinCheck()">Entsperren</button>
+  </div>
+</div>
+<div class="app" id="main-app" style="display:none">
 
 <div class="topbar">
   <div class="logo">
     <div class="logo-badge">U8 I</div>
     <div>
       <div class="logo-t1">Spielerprofil U8 I</div>
-      <div class="logo-t2">SV Adler Dellbrück · 4+1 Raute · Sandy, Charles, Finn</div>
+      <div class="logo-t2">SV Adler Dellbrück · 4+1 Raute · Sandy, Charles, Kenneth, Peter, Finn</div>
     </div>
   </div>
   <div class="cloud-row"><span class="cdot" id="cdot"></span><span id="clbl">Verbinde...</span></div>
 </div>
 
-<div id="main-nav" style="display:flex;gap:2px;background:#fff;padding:4px;border-radius:12px;margin-bottom:20px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none">
-  <button id="nb-bew" onclick="sv('bew')" style="flex:0 0 auto;min-width:52px;padding:8px 4px;border:none;background:#1a56db;border-radius:8px;cursor:pointer;color:#fff;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:inherit;box-shadow:0 2px 6px rgba(26,86,219,.3)"><i class="ti ti-clipboard-list" style="font-size:17px"></i><span style="font-size:8px;white-space:nowrap">Bew.</span></button>
-  <button id="nb-profil" onclick="sv('profil')" style="flex:0 0 auto;min-width:52px;padding:8px 4px;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#64748b;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:inherit"><i class="ti ti-user" style="font-size:17px"></i><span style="font-size:8px;white-space:nowrap">Profil</span></button>
-  <button id="nb-kader" onclick="sv('kader')" style="flex:0 0 auto;min-width:52px;padding:8px 4px;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#64748b;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:inherit"><i class="ti ti-users" style="font-size:17px"></i><span style="font-size:8px;white-space:nowrap">Kader</span></button>
-  <button id="nb-verlauf" onclick="sv('verlauf')" style="flex:0 0 auto;min-width:52px;padding:8px 4px;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#64748b;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:inherit"><i class="ti ti-chart-line" style="font-size:17px"></i><span style="font-size:8px;white-space:nowrap">Verlauf</span></button>
-  <button id="nb-kombi" onclick="sv('kombi')" style="flex:0 0 auto;min-width:52px;padding:8px 4px;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#64748b;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:inherit"><i class="ti ti-users-group" style="font-size:17px"></i><span style="font-size:8px;white-space:nowrap">Kombi</span></button>
-  <button id="nb-training" onclick="sv('training')" style="flex:0 0 auto;min-width:58px;padding:8px 6px;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#64748b;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:inherit"><i class="ti ti-whistle" style="font-size:17px;display:block"></i><span style="font-size:8px;white-space:nowrap;display:block">Training</span></button>
+<div id="main-nav" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;background:#fff;padding:4px;border-radius:12px;margin-bottom:20px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.07)">
+  <button class="nb active" id="nb-bew" onclick="sv('bew')"><i class="ti ti-clipboard-list"></i><span>Bew.</span></button>
+  <button class="nb" id="nb-profil" onclick="sv('profil')"><i class="ti ti-user"></i><span>Profil</span></button>
+  <button class="nb" id="nb-kader" onclick="sv('kader')"><i class="ti ti-users"></i><span>Kader</span></button>
+  <button class="nb" id="nb-verlauf" onclick="sv('verlauf')"><i class="ti ti-chart-line"></i><span>Verlauf</span></button>
+  <button class="nb" id="nb-kombi" onclick="sv('kombi')"><i class="ti ti-users-group"></i><span>Kombi</span></button>
+  <button class="nb" id="nb-taktik" onclick="sv('taktik')"><i class="ti ti-arrows-move"></i><span>Taktik</span></button>
+  <button class="nb" id="nb-training" onclick="sv('training')"><i class="ti ti-run"></i><span>Training</span></button>
 </div>
 
 <!-- BEWERTUNG -->
@@ -443,6 +527,8 @@ h1.print-header{display:none}
       <select id="p-trainer">
         <option value="Sandy">Sandy</option>
         <option value="Charles">Charles</option>
+        <option value="Kenneth">Kenneth</option>
+        <option value="Peter">Peter</option>
         <option value="Finn">Finn</option>
       </select>
     </div>
@@ -571,9 +657,46 @@ h1.print-header{display:none}
   <div id="kombi-content"><div class="empty"><i class="ti ti-users-group"></i>Noch keine Spieler bewertet</div></div>
 </div>
 
+<!-- TAKTIK VIEW -->
+<div id="view-taktik" class="view">
+  <div class="sl nt"><i class="ti ti-arrows-move"></i>Taktik-Board – Live</div>
+  <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+    <button class="btn btn-p btn-sm" onclick="taktikReset('adler')"><i class="ti ti-arrow-badge-up"></i>Adler (breit)</button>
+    <button class="btn btn-sm" onclick="taktikReset('igel')"><i class="ti ti-shield"></i>Igel (eng)</button>
+    <button class="btn btn-sm" onclick="taktikReset('leer')"><i class="ti ti-refresh"></i>Leer</button>
+  </div>
+  <div class="tb-wrap">
+    <div class="tb-field" id="taktik-field">
+      <svg viewBox="0 0 300 400" xmlns="http://www.w3.org/2000/svg">
+        <rect width="300" height="400" fill="#2d6a2d"/>
+        <rect x="8" y="8" width="284" height="384" rx="2" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>
+        <line x1="8" y1="200" x2="292" y2="200" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>
+        <circle cx="150" cy="200" r="40" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>
+        <circle cx="150" cy="200" r="3" fill="rgba(255,255,255,.3)"/>
+        <rect x="75" y="8" width="150" height="60" rx="1" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
+        <rect x="75" y="332" width="150" height="60" rx="1" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
+        <rect x="110" y="8" width="80" height="25" rx="1" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
+        <rect x="110" y="367" width="80" height="25" rx="1" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
+      </svg>
+      <div id="taktik-tokens"></div>
+    </div>
+    <div style="font-size:10px;color:var(--text2);text-align:center;margin-top:4px">Ziehen = verschieben · Antippen = Position wechseln (TW → Aufp. → Fl.L → Fl.R → Jäger)</div>
+    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:12px 0 6px">Auswechselbank</div>
+    <div class="tb-bench-area" id="taktik-bench"></div>
+  </div>
+</div>
+
 <!-- TRAINING VIEW -->
 <div id="view-training" class="view">
-  <div class="sl nt"><i class="ti ti-whistle"></i>Trainingsformen-Datenbank</div>
+  <div style="display:flex;gap:4px;margin-bottom:14px;background:var(--surface2);padding:3px;border-radius:var(--r);border:var(--border)">
+    <button class="sub-tab active" id="st-formen" onclick="switchTrainSub('formen')"><i class="ti ti-ball-football"></i>Formen</button>
+    <button class="sub-tab" id="st-planung" onclick="switchTrainSub('planung')"><i class="ti ti-calendar-event"></i>Planung</button>
+    <button class="sub-tab" id="st-anwesenheit" onclick="switchTrainSub('anwesenheit')"><i class="ti ti-checkbox"></i>Anwesenheit</button>
+  </div>
+
+  <!-- SUB: Formen -->
+  <div id="train-sub-formen" class="train-sub active">
+  <div class="sl nt"><i class="ti ti-run"></i>Trainingsformen-Datenbank</div>
   <div style="background:var(--blue-bg);border:1px solid #93c5fd;border-radius:var(--rl);padding:12px;margin-bottom:1rem;font-size:12px;color:#1e40af;line-height:1.6">
     <strong>Schwerpunkt jetzt: Grundordnung &amp; Raute aufbauen.</strong> 50 Spielformen auf Basis des 4-Phasen-Modells.
   </div>
@@ -586,12 +709,15 @@ h1.print-header{display:none}
   </div>
   <div class="frow" id="training-filter-row">
     <button class="ftag active" onclick="setTF('alle',this)">Alle</button>
+    <button class="ftag" onclick="setTF('aufwaermen',this)">Aufwärmen</button>
     <button class="ftag" onclick="setTF('raute',this)">* Raute</button>
     <button class="ftag" onclick="setTF('passspiel',this)">Passspiel</button>
     <button class="ftag" onclick="setTF('wahrnehmung',this)">Wahrnehmung</button>
     <button class="ftag" onclick="setTF('technik',this)">Technik</button>
     <button class="ftag" onclick="setTF('pressing',this)">Pressing</button>
     <button class="ftag" onclick="setTF('spass',this)">Spass</button>
+    <button class="ftag" onclick="setTF('torwart',this)">Torwart</button>
+    <button class="ftag" onclick="setTF('individual',this)">Individual</button>
     <button class="ftag" onclick="setTF('custom',this)">Eigene</button>
   </div>
   <div id="training-content"><p style="padding:1rem;color:#64748b;font-size:13px">Lade...</p></div>
@@ -635,7 +761,52 @@ h1.print-header{display:none}
       </div>
     </div>
   </div>
-</div>
+  </div><!-- /train-sub-formen -->
+
+  <!-- SUB: Planung -->
+  <div id="train-sub-planung" class="train-sub">
+    <div class="sl nt"><i class="ti ti-calendar-event"></i>Trainingseinheit planen</div>
+    <div class="mgrid" style="grid-template-columns:1fr 1fr">
+      <div class="mg"><label>Datum</label><input type="date" id="tp-date"></div>
+      <div class="mg"><label>Uhrzeit</label><input type="time" id="tp-time" value="17:00"></div>
+    </div>
+    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:10px 0 6px">Verfügbare Trainer</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="tp-trainer-checks">
+      <label class="tp-check"><input type="checkbox" value="Sandy" checked><span>Sandy</span></label>
+      <label class="tp-check"><input type="checkbox" value="Charles" checked><span>Charles</span></label>
+      <label class="tp-check"><input type="checkbox" value="Kenneth"><span>Kenneth</span></label>
+      <label class="tp-check"><input type="checkbox" value="Peter"><span>Peter</span></label>
+      <label class="tp-check"><input type="checkbox" value="Finn" checked><span>Finn</span></label>
+    </div>
+    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:10px 0 6px">Zeitplan (75 Min.)</div>
+    <div id="tp-timeline"></div>
+    <button class="btn btn-p btn-sm" style="margin-top:10px" onclick="tpAddSlot()"><i class="ti ti-plus"></i>Phase hinzufügen</button>
+    <button class="btn btn-sm" style="margin-top:10px" onclick="tpGenerate()"><i class="ti ti-wand"></i>Auto-Plan</button>
+  </div><!-- /train-sub-planung -->
+
+  <!-- SUB: Anwesenheit -->
+  <div id="train-sub-anwesenheit" class="train-sub">
+    <div class="sl nt"><i class="ti ti-checkbox"></i>Trainings-Anwesenheit</div>
+    <div class="mgrid" style="grid-template-columns:1fr 1fr">
+      <div class="mg"><label>Trainingsdatum</label><input type="date" id="aw-date"></div>
+      <div class="mg"><label>Trainer</label>
+        <select id="aw-trainer">
+          <option value="Sandy">Sandy</option><option value="Charles">Charles</option>
+          <option value="Kenneth">Kenneth</option><option value="Peter">Peter</option>
+          <option value="Finn">Finn</option>
+        </select>
+      </div>
+    </div>
+    <div id="aw-list"></div>
+    <div class="brow" style="margin-top:10px">
+      <button class="btn btn-p btn-sm" onclick="awSave()"><i class="ti ti-device-floppy"></i>Speichern</button>
+      <button class="btn btn-sm" onclick="awLoad()"><i class="ti ti-refresh"></i>Laden</button>
+    </div>
+    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:16px 0 6px">Übersicht</div>
+    <div id="aw-stats"></div>
+  </div><!-- /train-sub-anwesenheit -->
+
+</div><!-- /view-training -->
 
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -1736,12 +1907,12 @@ function sv(name){
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.querySelectorAll(".nb").forEach(b=>b.classList.remove("active"));
   document.getElementById("view-"+name).classList.add("active");
-  const idx=["bew","profil","kader","verlauf","kombi"].indexOf(name);
-  document.querySelectorAll(".nb")[idx]?.classList.add("active");
+  document.getElementById("nb-"+name)?.classList.add("active");
   if(name==="profil")renderProfil();
   if(name==="kader")renderKader();
   if(name==="verlauf")renderVerlauf();
   if(name==="kombi")renderKombi();
+  if(name==="taktik")taktikInit();
   if(name==="training"){setTimeout(function(){renderTraining();},50);}
 }
 
@@ -1994,7 +2165,7 @@ function printView(viewName){
     h.textContent="Spielerprofil U8 I – SV Adler Dellbrück"+subtitle;
     const meta=document.createElement("div");
     meta.className="print-meta";
-    meta.textContent="Stand: "+now+" · Sandy, Charles, Finn · 4+1 Raute";
+    meta.textContent="Stand: "+now+" · Sandy, Charles, Kenneth, Peter, Finn · 4+1 Raute";
     target.insertBefore(meta,target.firstChild);
     target.insertBefore(h,target.firstChild);
   }
@@ -2019,6 +2190,242 @@ function printView(viewName){
     if(tmpH)tmpH.remove();
     if(tmpM)tmpM.remove();
   }, 1000);
+}
+
+/* ═══════════════════════════════════
+   TAKTIK-BOARD (Freies Drag & Drop)
+═══════════════════════════════════ */
+const TAKTIK_PRESETS={
+  adler:[
+    {role:"TW",x:50,y:92,cls:"tb-tw"},
+    {role:"Aufp.",x:50,y:72,cls:"tb-auf"},
+    {role:"Fl.L",x:18,y:48,cls:"tb-fl"},
+    {role:"Fl.R",x:82,y:48,cls:"tb-fl"},
+    {role:"Jäger",x:50,y:25,cls:"tb-jaeg"}
+  ],
+  igel:[
+    {role:"TW",x:50,y:92,cls:"tb-tw"},
+    {role:"Aufp.",x:50,y:68,cls:"tb-auf"},
+    {role:"Fl.L",x:32,y:52,cls:"tb-fl"},
+    {role:"Fl.R",x:68,y:52,cls:"tb-fl"},
+    {role:"Jäger",x:50,y:38,cls:"tb-jaeg"}
+  ]
+};
+
+let tbField=[];
+let tbBench=[];
+let tbBall={x:50,y:50};
+
+function taktikInit(){
+  const names=KADER.map(k=>k.name);
+  const combo=calcBestCombos();
+  tbField=[];tbBench=[];
+  const preset=TAKTIK_PRESETS.adler;
+  if(combo&&combo[0]){
+    const b=combo[0];
+    const twName=b.tw?.name||(KADER.find(k=>k.twPrio===1)?.name)||null;
+    const assign=[twName,b.aufpasser.name,b.flitzer_l.name,b.flitzer_r.name,b.jaeger.name];
+    preset.forEach((p,i)=>{
+      if(assign[i]) tbField.push({name:assign[i],x:p.x,y:p.y,cls:p.cls,role:p.role});
+    });
+  } else {
+    const twName=KADER.find(k=>k.twPrio===1)?.name;
+    const others=names.filter(n=>n!==twName);
+    if(twName) tbField.push({name:twName,x:preset[0].x,y:preset[0].y,cls:preset[0].cls,role:preset[0].role});
+    for(let i=1;i<preset.length&&i-1<others.length;i++){
+      tbField.push({name:others[i-1],x:preset[i].x,y:preset[i].y,cls:preset[i].cls,role:preset[i].role});
+    }
+  }
+  const used=new Set(tbField.map(f=>f.name));
+  tbBench=names.filter(n=>!used.has(n));
+  tbBall={x:50,y:50};
+  taktikRender();
+}
+
+function taktikReset(mode){
+  const names=KADER.map(k=>k.name);
+  if(mode==="leer"){
+    tbField=[];tbBench=[...names];tbBall={x:50,y:50};
+    taktikRender();
+    return;
+  }
+  const preset=TAKTIK_PRESETS[mode]||TAKTIK_PRESETS.adler;
+  const combo=calcBestCombos();
+  tbField=[];tbBench=[];
+  if(combo&&combo[0]){
+    const b=combo[0];
+    const twName=b.tw?.name||(KADER.find(k=>k.twPrio===1)?.name)||null;
+    const assign=[twName,b.aufpasser.name,b.flitzer_l.name,b.flitzer_r.name,b.jaeger.name];
+    preset.forEach((p,i)=>{
+      if(assign[i]) tbField.push({name:assign[i],x:p.x,y:p.y,cls:p.cls,role:p.role});
+    });
+  } else {
+    const twName=KADER.find(k=>k.twPrio===1)?.name;
+    const others=names.filter(n=>n!==twName);
+    if(twName) tbField.push({name:twName,x:preset[0].x,y:preset[0].y,cls:preset[0].cls,role:preset[0].role});
+    for(let i=1;i<preset.length&&i-1<others.length;i++){
+      tbField.push({name:others[i-1],x:preset[i].x,y:preset[i].y,cls:preset[i].cls,role:preset[i].role});
+    }
+  }
+  const used=new Set(tbField.map(f=>f.name));
+  tbBench=names.filter(n=>!used.has(n));
+  tbBall={x:50,y:50};
+  taktikRender();
+}
+
+function taktikRender(){
+  const fieldEl=document.getElementById("taktik-field");
+  const benchEl=document.getElementById("taktik-bench");
+  if(!fieldEl||!benchEl)return;
+  const tokensEl=document.getElementById("taktik-tokens");
+  tokensEl.innerHTML="";
+  benchEl.innerHTML="";
+
+  tbField.forEach((p,i)=>{
+    const tok=tbCreateToken(p.name,p.cls||"tb-auf",p.role||"");
+    tok.style.left=p.x+"%";tok.style.top=p.y+"%";
+    tok.dataset.idx=i;tok.dataset.loc="field";
+    tbAddDrag(tok,fieldEl);
+    tokensEl.appendChild(tok);
+  });
+
+  const ballEl=document.createElement("div");
+  ballEl.className="tb-ball";
+  ballEl.style.cssText=`position:absolute;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,#e2e8f0);border:2px solid rgba(0,0,0,.3);transform:translate(-50%,-50%);cursor:grab;z-index:15;box-shadow:0 2px 6px rgba(0,0,0,.3);left:${tbBall.x}%;top:${tbBall.y}%`;
+  ballEl.dataset.loc="ball";
+  tbAddDrag(ballEl,fieldEl);
+  tokensEl.appendChild(ballEl);
+
+  tbBench.forEach(name=>{
+    const tok=tbCreateToken(name,"tb-bench","");
+    tok.dataset.loc="bench";
+    tbAddDrag(tok,fieldEl);
+    benchEl.appendChild(tok);
+  });
+}
+
+function tbCreateToken(name,cls,roleLabel){
+  const el=document.createElement("div");
+  el.className="tb-token "+cls;
+  el.dataset.player=name;
+  const isTW=KADER.find(k=>k.name===name)?.tw;
+  el.innerHTML=`<span class="tb-name">${name.slice(0,5)}</span>${roleLabel?`<span class="tb-pos">${roleLabel}</span>`:""}`;
+  return el;
+}
+
+const TB_ROLE_CYCLE=[
+  {role:"",cls:"tb-frei"},
+  {role:"TW",cls:"tb-tw"},
+  {role:"Aufp.",cls:"tb-auf"},
+  {role:"Fl.L",cls:"tb-fl"},
+  {role:"Fl.R",cls:"tb-fl"},
+  {role:"Jäger",cls:"tb-jaeg"}
+];
+
+function tbCycleRole(idx){
+  const p=tbField[idx];if(!p)return;
+  const curIdx=TB_ROLE_CYCLE.findIndex(r=>r.role===p.role);
+  const next=(curIdx+1)%TB_ROLE_CYCLE.length;
+  p.role=TB_ROLE_CYCLE[next].role;
+  p.cls=TB_ROLE_CYCLE[next].cls;
+  taktikRender();
+}
+
+function tbAddDrag(tok,fieldEl){
+  let startX,startY,origLeft,origTop,fromBench,fieldRect,isBall,didMove;
+
+  function onStart(e){
+    e.preventDefault();
+    didMove=false;
+    tok.style.zIndex="25";
+    tok.style.transition="none";
+    fieldRect=fieldEl.getBoundingClientRect();
+    const pt=e.touches?e.touches[0]:e;
+    startX=pt.clientX;startY=pt.clientY;
+    fromBench=tok.dataset.loc==="bench";
+    isBall=tok.dataset.loc==="ball";
+    if(!fromBench){
+      origLeft=parseFloat(tok.style.left);
+      origTop=parseFloat(tok.style.top);
+    } else {
+      const r=tok.getBoundingClientRect();
+      origLeft=((r.left+r.width/2-fieldRect.left)/fieldRect.width)*100;
+      origTop=((r.top+r.height/2-fieldRect.top)/fieldRect.height)*100;
+    }
+    document.addEventListener("mousemove",onMove,{passive:false});
+    document.addEventListener("mouseup",onEnd);
+    document.addEventListener("touchmove",onMove,{passive:false});
+    document.addEventListener("touchend",onEnd);
+  }
+
+  function onMove(e){
+    e.preventDefault();
+    const pt=e.touches?e.touches[0]:e;
+    const dx=((pt.clientX-startX)/fieldRect.width)*100;
+    const dy=((pt.clientY-startY)/fieldRect.height)*100;
+    const nx=Math.max(3,Math.min(97,origLeft+dx));
+    const ny=Math.max(3,Math.min(97,origTop+dy));
+    didMove=true;
+    if(fromBench){
+      const tokensEl=document.getElementById("taktik-tokens");
+      if(tok.parentElement!==tokensEl){
+        tok.style.position="absolute";
+        tok.style.transform="translate(-50%,-50%)";
+        tokensEl.appendChild(tok);
+      }
+    }
+    tok.style.left=nx+"%";tok.style.top=ny+"%";
+  }
+
+  function onEnd(e){
+    document.removeEventListener("mousemove",onMove);
+    document.removeEventListener("mouseup",onEnd);
+    document.removeEventListener("touchmove",onMove);
+    document.removeEventListener("touchend",onEnd);
+    tok.style.zIndex=isBall?"15":"10";
+    tok.style.transition="";
+
+    if(!didMove&&!isBall&&!fromBench){
+      const idx=parseInt(tok.dataset.idx);
+      if(!isNaN(idx)){tbCycleRole(idx);return;}
+    }
+
+    const finalX=parseFloat(tok.style.left);
+    const finalY=parseFloat(tok.style.top);
+
+    if(isBall){
+      tbBall.x=finalX;tbBall.y=finalY;
+      return;
+    }
+
+    const pt=e.changedTouches?e.changedTouches[0]:e;
+    const benchRect=document.getElementById("taktik-bench").getBoundingClientRect();
+    const onBench=pt.clientY>=benchRect.top-20&&pt.clientX>=benchRect.left&&pt.clientX<=benchRect.right;
+    const playerName=tok.dataset.player;
+
+    if(onBench){
+      const idx=parseInt(tok.dataset.idx);
+      if(!isNaN(idx)) tbField.splice(idx,1);
+      if(!tbBench.includes(playerName)) tbBench.push(playerName);
+      taktikRender();
+      return;
+    }
+
+    if(fromBench){
+      tbBench=tbBench.filter(n=>n!==playerName);
+      tbField.push({name:playerName,x:finalX,y:finalY,cls:"tb-frei",role:""});
+      taktikRender();
+    } else {
+      const idx=parseInt(tok.dataset.idx);
+      if(!isNaN(idx)&&tbField[idx]){
+        tbField[idx].x=finalX;
+        tbField[idx].y=finalY;
+      }
+    }
+  }
+
+  tok.addEventListener("mousedown",onStart);
+  tok.addEventListener("touchstart",onStart,{passive:false});
 }
 
 /* ═══════════════════════════════════
@@ -2648,6 +3055,159 @@ const TRAININGSFORMEN = [
   tags:['Igel','Pressing','Umschalten','Gegenpressing']
 },
 
+// ═══════════ AUFWÄRMEN ═══════════
+{id:'aw01',kat:'aufwaermen',focus:true,name:'Hai & Fische',kurz:'Fangspiel – 1-2 Haie fangen Fische. Wer gefangen wird, wird auch Hai.',spieler:'8-13',feld:'15×15m',dauer:'5-8',spass:5,diff:1,
+ablauf:'Feld 15×15m abstecken. 1-2 Spieler sind Haie (Leibchen). Alle anderen sind Fische und dribbeln mit Ball durch das Feld. Haie versuchen, den Ball aus dem Feld zu schießen. Wer seinen Ball verliert, wird auch Hai.\n\nLetzte 2-3 Fische gewinnen!',
+varianten:'- Haie auch mit Ball (Dribbling-Duell)\n- Fische müssen ständig dribbeln (kein Stehen)\n- Rettungsinseln: 2 kleine Zonen wo Fische 3 Sek. sicher sind',
+coaching:'Kopf hoch beim Dribbeln!\nSchau wo die Haie sind – Ausweichen!\nEng am Ball bleiben wenn ein Hai kommt',svg:'',tags:['Aufwärmen','Dribbling']},
+
+{id:'aw02',kat:'aufwaermen',focus:false,name:'Feuer-Wasser-Sturm mit Ball',kurz:'Bewegungsspiel mit Kommandos – Reaktion und Ballkontrolle.',spieler:'6-13',feld:'20×15m',dauer:'5-8',spass:5,diff:1,
+ablauf:'Alle dribbeln frei im Feld. Trainer ruft Kommandos:\n- FEUER = Ball stoppen, flach auf den Boden legen\n- WASSER = Ball hochnehmen, auf eine Bank/Hütchenlinie klettern\n- STURM = Ball festhalten, hinsetzen\n- ADLER = breit machen, an den Rand dribbeln\n- IGEL = alle zusammen in die Mitte dribbeln\n\nLetzter Spieler macht 3 Hampelmänner.',
+varianten:'- Neue Kommandos: BLITZ = Seitenwechsel, DONNER = Partner suchen und Doppelpass\n- Ohne Ball: nur Laufen, dann mit Ball steigern',
+coaching:'Schnelle Reaktion auf Kommando!\nBall immer unter Kontrolle halten\nAdler/Igel-Begriffe lernen – die brauchen wir im Spiel!',svg:'',tags:['Aufwärmen','Reaktion','Adler','Igel']},
+
+{id:'aw03',kat:'aufwaermen',focus:false,name:'Tierbewegungen-Parcours',kurz:'Koordinations-Parcours mit Tierbewegungen – Motorik und Spaß.',spieler:'6-13',feld:'20×10m',dauer:'5-8',spass:5,diff:1,
+ablauf:'Parcours mit 5 Stationen aufbauen:\n1. Bärengang (Hände und Füße, Po hoch)\n2. Froschsprünge über Hütchen\n3. Krebsgang rückwärts\n4. Spinne (Rücken zum Boden, Hände und Füße)\n5. Känguru-Sprünge mit Ball in der Hand\n\nJeder durchläuft den Parcours 2-3x.',
+varianten:'- Auf Zeit: Wer schafft den Parcours am schnellsten?\n- Mit Ball am Fuß bei jeder Station\n- Staffelwettbewerb in 2 Gruppen',
+coaching:'Saubere Ausführung vor Tempo!\nKörperspannung halten\nSpaß haben – wer macht den besten Frosch?',svg:'',tags:['Aufwärmen','Koordination','Motorik']},
+
+{id:'aw04',kat:'aufwaermen',focus:false,name:'Nummernlauf',kurz:'Lauf- und Reaktionsspiel mit Nummern – kognitive Aktivierung.',spieler:'6-13',feld:'20×20m',dauer:'5',spass:4,diff:1,
+ablauf:'Alle joggen locker im Feld mit Ball. Jeder bekommt eine Nummer (1-13). Trainer ruft:\n- Eine Nummer: Spieler sprintet zum Trainer und macht Doppelpass\n- Zwei Nummern: Beide finden sich und passen 5x\n- ALLE: Alle dribbeln zum Mittelpunkt\n\nWer am schnellsten reagiert, darf nächstes Kommando geben.',
+varianten:'- Farben statt Nummern (Leibchen)\n- Rechenaufgaben: "3+4" → Nummer 7 reagiert\n- Rückwärts dribbeln zum Trainer',
+coaching:'Nummer merken und aufmerksam bleiben!\nReagiere sofort – keine Verzögerung\nPass sauber spielen, auch unter Zeitdruck',svg:'',tags:['Aufwärmen','Reaktion','Kognition']},
+
+{id:'aw05',kat:'aufwaermen',focus:false,name:'Ball-Dieb',kurz:'Dribbeln und gleichzeitig gegnerische Bälle wegschießen.',spieler:'8-13',feld:'15×15m',dauer:'5-8',spass:5,diff:2,
+ablauf:'Jeder Spieler dribbelt mit eigenem Ball im Feld. Gleichzeitig versucht jeder, den Ball von anderen Spielern aus dem Feld zu schießen – den eigenen aber zu schützen.\n\nWer seinen Ball verliert, holt ihn und macht 5 Ballhochhalter bevor er zurück darf. Wer am Ende noch im Feld ist, gewinnt.',
+varianten:'- Teams: 2 Mannschaften, nur gegnerische Bälle angreifen\n- Zeitlimit: 2 Minuten – wer hat am Ende noch seinen Ball?\n- Nur mit dem schwachen Fuß dribbeln',
+coaching:'Kopf hoch – gleichzeitig schützen UND angreifen!\nKörper zwischen Ball und Gegner\nEng am Ball dribbeln unter Druck',svg:'',tags:['Aufwärmen','Dribbling','1gg1']},
+
+{id:'aw06',kat:'aufwaermen',focus:false,name:'Schattenläufer',kurz:'Paarweise – einer führt, einer kopiert. Koordination und Wahrnehmung.',spieler:'6-12',feld:'15×15m',dauer:'5',spass:4,diff:1,
+ablauf:'Paare bilden. Spieler A dribbelt frei durchs Feld – Spieler B folgt als Schatten und kopiert alle Bewegungen (Tempo, Richtungswechsel, Stopps).\n\nNach 1 Min. wechseln. Dann: Schatten muss das GEGENTEIL machen (A geht links, Schatten geht rechts).',
+varianten:'- Ohne Ball: nur Laufbewegungen kopieren\n- 3er-Gruppen: einer führt, zwei Schatten\n- Wettbewerb: Schatten versucht den Führenden zu überholen',
+coaching:'Eng dranbleiben am Partner!\nPeripheres Sehen nutzen – nicht nur auf den Ball gucken\nKreativ führen – Tempowechsel einbauen!',svg:'',tags:['Aufwärmen','Wahrnehmung','Koordination']},
+
+{id:'aw07',kat:'aufwaermen',focus:false,name:'Atomspiel',kurz:'Laufspiel mit Gruppenbildung – Reaktion und Teamfinding.',spieler:'8-13',feld:'20×15m',dauer:'5',spass:5,diff:1,
+ablauf:'Alle dribbeln im Feld. Trainer ruft eine Zahl (z.B. "3!"). Spieler müssen sofort Gruppen dieser Größe bilden und sich mit den Bällen zusammensetzen.\n\nWer keine Gruppe findet, macht eine Sonderaufgabe (5 Liegestütze, Ballhochhalter etc.). Dann weiter dribbeln.',
+varianten:'- Mathe: "6 geteilt durch 2!" → 3er Gruppen\n- Zusatzregel: Gruppe muss alle Bälle übereinander stapeln\n- "Adler!" = Gruppen an den Rand, "Igel!" = alle in die Mitte',
+coaching:'Schnell orientieren – wer braucht noch jemanden?\nKommunizieren: "Hier! Zu mir!"\nBall beim Laufen immer am Fuß',svg:'',tags:['Aufwärmen','Kognition','Sozial']},
+
+{id:'aw08',kat:'aufwaermen',focus:false,name:'Zombieball',kurz:'Abwurfspiel – Werfen, Fangen, Ausweichen mit hohem Spaßfaktor.',spieler:'8-13',feld:'15×15m',dauer:'5-8',spass:5,diff:1,
+ablauf:'3 Softbälle im Spiel. Wer getroffen wird (unterhalb Hüfte), wird zum Zombie: stehen bleiben, Arme ausstrecken. Zombies können befreit werden, wenn ein freier Spieler ihnen einen Ball zurollt.\n\nSpiel endet wenn alle Zombies sind oder nach 3 Minuten.',
+varianten:'- Zombies dürfen sich langsam bewegen (Schlurfen)\n- Nur mit der schwachen Hand werfen\n- Kombination: danach gleiches Prinzip mit Fußball – Bälle schießen statt werfen',
+coaching:'Ausweichen und Reaktion trainieren\nNach Treffer sofort stehen bleiben – fair spielen\nBefreie deine Mitspieler – Teamgeist!',svg:'',tags:['Aufwärmen','Reaktion','Spass']},
+
+{id:'aw09',kat:'aufwaermen',focus:false,name:'Lauf-ABC mit Ball',kurz:'Koordinative Laufschule mit Ball am Fuß – Basis für jede Einheit.',spieler:'6-13',feld:'20×10m',dauer:'8',spass:3,diff:1,
+ablauf:'Auf einer 20m-Strecke hin und zurück:\n1. Locker dribbeln, auf Pfiff Ball stoppen\n2. Kniehebelauf + Ball mit Sohle rollen\n3. Anfersen + Ball pendeln links-rechts\n4. Seitgalopp + Ball mit Außenrist führen\n5. Rückwärtslaufen + Ball mit Sohle ziehen\n6. Skippings + Ball hochhalten\n\nJede Übung 1 Durchgang.',
+varianten:'- Ohne Ball zuerst, dann mit Ball steigern\n- Partnerweise: einer macht vor, anderer nach\n- Wettbewerb: sauberste Ausführung gewinnt',
+coaching:'Qualität vor Tempo!\nAufrecht laufen, Körperspannung\nBall immer im Blick und unter Kontrolle',svg:'',tags:['Aufwärmen','Koordination','Technik']},
+
+{id:'aw10',kat:'aufwaermen',focus:false,name:'Farben-Dribbeln',kurz:'Kognitive Aufwärmung – auf Farb-Hütchen reagieren.',spieler:'6-13',feld:'20×15m',dauer:'5-8',spass:4,diff:2,
+ablauf:'4 verschiedenfarbige Hütchen in den Ecken. Alle dribbeln im Feld. Trainer ruft eine Farbe → alle dribbeln schnell zum entsprechenden Hütchen.\n\nSteigerung: Trainer zeigt Farbe (Leibchen hochhalten) statt zu rufen → visuelle Wahrnehmung.',
+varianten:'- Farbe = Aktion: Rot = Torschuss, Blau = Doppelpass mit Partner, Grün = 3x Ballhochhalten\n- Trainer ruft NICHT die Farbe sondern zeigt in eine Richtung\n- Letzte 2 Spieler am Hütchen → Sonderaufgabe',
+coaching:'Kopf hoch beim Dribbeln!\nReagiere auf das Signal, nicht auf andere Spieler\nSchneller Antritt zum Hütchen',svg:'',tags:['Aufwärmen','Kognition','Dribbling']},
+
+// ═══════════ TORWART-TRAINING ═══════════
+{id:'tw01',kat:'torwart',focus:true,name:'Fang-Stern',kurz:'Grundtechnik: Bälle aus 5 Richtungen fangen – Beinarbeit und Grifftechnik.',spieler:'1-3',feld:'Tor + 5m',dauer:'8-10',spass:4,diff:1,
+ablauf:'TW steht im Tor. 5 Hütchen im Halbkreis (5m Abstand). Trainer schießt von jedem Hütchen nacheinander:\n1. Flach links\n2. Flach rechts\n3. Halbhoch links\n4. Halbhoch rechts\n5. Zentral auf Brusthöhe\n\nTW fängt, wirft zurück, macht Sidesteps zur Mitte. 3 Runden.',
+varianten:'- Reihenfolge zufällig (Trainer ruft Nummer)\n- Rückwärtslaufen zwischen den Fängen\n- Ball wird gerollt statt geschossen (Anfänger)',
+coaching:'Immer auf den Fußballen stehen – bereit sein!\nHände vor dem Körper – Ball kommt zu dir\nNach jedem Fang zurück in die Mitte',svg:'',tags:['Torwart','Fangtechnik','Beinarbeit']},
+
+{id:'tw02',kat:'torwart',focus:true,name:'Fallschule Rechts-Links',kurz:'Seitliches Fallen lernen – weiche Landung, Ball sichern.',spieler:'1-3',feld:'Weichboden/Rasen',dauer:'8',spass:3,diff:2,
+ablauf:'TW kniet seitlich. Trainer rollt Ball flach nach rechts → TW lässt sich kontrolliert zur Seite fallen, sichert Ball am Boden mit beiden Händen. Obere Hand drückt Ball nach unten, untere Hand dahinter.\n\n10x rechts, 10x links. Dann aus dem Stand.\n\nSteigerung: Trainer wirft halbhoch → TW springt seitlich ab und fängt im Flug.',
+varianten:'- Auf Weichbodenmatte starten (Angst nehmen)\n- Nur rollen lassen (Anfänger) → dann werfen → dann schießen\n- Wettbewerb: Wer hält die meisten von 10?',
+coaching:'Nicht auf die Knie fallen – seitlich abrollen!\nBall IMMER mit beiden Händen sichern\nKein Hohlkreuz – Körperspannung',svg:'',tags:['Torwart','Fallen','Grundtechnik']},
+
+{id:'tw03',kat:'torwart',focus:false,name:'Reaktions-Kasten',kurz:'Trainer schießt aus 3m durch Hütchentor – TW reagiert blitzschnell.',spieler:'1-2',feld:'Tor + 3m',dauer:'8',spass:5,diff:2,
+ablauf:'Hütchentor (2m breit) 3m vor dem großen Tor. TW im großen Tor. Trainer schießt flach durch das Hütchentor → Ball kommt schnell, TW muss blitzschnell reagieren.\n\nVariation: Trainer steht seitlich versetzt → Ball kommt aus verschiedenen Winkeln.\n\n15-20 Schüsse, dann Pause.',
+varianten:'- Trainer schießt abwechselnd links/rechts am Hütchentor vorbei\n- TW startet mit Rücken zum Tor, dreht sich auf Pfiff um\n- 2 Bälle schnell hintereinander',
+coaching:'Auf Fußballen wippen – NICHT flach stehen!\nReaktion kommt aus den Beinen, nicht den Armen\nAuch wenn du den Ball nicht hältst – versuch es immer!',svg:'',tags:['Torwart','Reaktion']},
+
+{id:'tw04',kat:'torwart',focus:false,name:'1gg1 Torwart vs Stürmer',kurz:'Spielnahe Situation – TW macht sich groß, Timing beim Rauslaufen.',spieler:'2-4',feld:'Tor + 10m',dauer:'10',spass:5,diff:2,
+ablauf:'Stürmer startet 10m vor dem Tor mit Ball. TW im Tor. Stürmer dribbelt an → TW muss entscheiden: Rauslaufen und den Winkel verkürzen oder abwarten.\n\nRegelrunde: 10 Angriffe pro TW, wie viele kann er halten?\n\nWichtiger Coaching-Punkt: TW soll sich GROSS machen (Arme seitlich, Beine breit) und den Moment abpassen.',
+varianten:'- Stürmer darf nur schießen (kein Dribbling am TW vorbei)\n- 2 Stürmer nacheinander (Ermüdung simulieren)\n- TW darf bis zur 5m-Linie raus',
+coaching:'Mach dich GROSS – Arme raus, Beine breit!\nTiming: nicht zu früh, nicht zu spät rauslaufen\nMutig sein! Du bist der Boss im Strafraum',svg:'',tags:['Torwart','1gg1','Spielnah']},
+
+{id:'tw05',kat:'torwart',focus:false,name:'Abschlag & Abwurf',kurz:'Spieleröffnung vom TW – rollen, werfen, schießen.',spieler:'1-3',feld:'30×20m',dauer:'8',spass:3,diff:2,
+ablauf:'3 Zielzonen mit Hütchen markieren (10m, 15m, 20m Entfernung).\n\nTW übt nacheinander:\n1. Abrollen (flach, 10m Zielzone)\n2. Seitlicher Abwurf (15m Zielzone)\n3. Abschlag aus der Hand (20m Zielzone)\n4. Abstoß vom Boden\n\nJe 5 Versuche pro Technik. Punkte für Treffer in die Zielzone.',
+varianten:'- Mitspieler als Anspielstationen → muss den richtigen anspielen\n- Unter Zeitdruck: Ball kommt, TW hat 4 Sekunden\n- Wettbewerb: Welcher TW trifft öfter die Zone?',
+coaching:'Abrollen = sicherste Option → immer zuerst prüfen!\nBeim Abwurf: Gegenarm zeigt zum Ziel\nSchnelle Spieleröffnung = Konter-Chance für uns!',svg:'',tags:['Torwart','Spieleröffnung']},
+
+{id:'tw06',kat:'torwart',focus:false,name:'Torwart-Koordinations-Leiter',kurz:'Fußarbeit in der Koordinationsleiter + anschließend Ball halten.',spieler:'1-3',feld:'Leiter + Tor',dauer:'8',spass:4,diff:2,
+ablauf:'Koordinationsleiter vor dem Tor aufbauen. TW durchläuft die Leiter mit verschiedenen Schrittmustern und hält danach sofort einen Schuss:\n\n1. Vorwärts durchlaufen → Schuss halten\n2. Seitwärts durchlaufen → Schuss halten\n3. Zwei rein, eins raus → Schuss halten\n4. Hopser-Lauf → Schuss halten\n\n3 Durchgänge pro Muster.',
+varianten:'- Ohne Leiter: zwischen Hütchen Sidesteps\n- Rückwärts durch die Leiter\n- 2 Schüsse nacheinander nach der Leiter',
+coaching:'Saubere Fußarbeit – nicht schludern!\nNach der Leiter sofort bereit sein (Grundstellung)\nSchnelle Füße = schnelle Reaktion im Tor',svg:'',tags:['Torwart','Koordination','Beinarbeit']},
+
+{id:'tw07',kat:'torwart',focus:false,name:'Torwart-Tennis',kurz:'Spielform – 2 TWs werfen sich Bälle über ein Netz zu.',spieler:'2-4',feld:'6×3m mit Netz/Schnur',dauer:'10',spass:5,diff:2,
+ablauf:'Schnur oder Hütchenlinie auf 1m Höhe spannen. 2 TWs auf jeder Seite (3×3m Feld pro Seite).\n\nRegeln:\n- Ball muss über die Schnur geworfen werden\n- Gegner muss fangen bevor der Ball den Boden berührt\n- 1 Bodenkontakt erlaubt (Steigerung: kein Bodenkontakt)\n\nPunkte wie beim Tennis. Spiel bis 11.',
+varianten:'- Nur mit einer Hand werfen\n- Ball muss geköpft werden statt gefangen\n- Größeres Feld (4×4m) für mehr Laufarbeit',
+coaching:'Beinarbeit! Immer in Bewegung bleiben\nFangen = Ball zum Körper ziehen, sichern\nFaire Würfe – nicht nur in die Ecke ballern',svg:'',tags:['Torwart','Fangen','Spass']},
+
+{id:'tw08',kat:'torwart',focus:false,name:'Flugball-Fangen',kurz:'Hohe Bälle sicher pflücken – Absprung-Timing und Griffsicherheit.',spieler:'1-3',feld:'Tor + 8m',dauer:'8',spass:4,diff:2,
+ablauf:'Trainer wirft hohe Bälle aus 6-8m Entfernung ins Tor:\n1. Zentral über Kopfhöhe (10x)\n2. Leicht versetzt links/rechts (je 5x)\n3. Bogenlampen (5x)\n\nTW springt hoch, fängt den Ball am höchsten Punkt mit beiden Händen. Ball sofort zum Körper ziehen.',
+varianten:'- Mit Störspieler: Angreifer stört beim Fangen (leichter Körperkontakt)\n- TW muss vor dem Fang eine Drehung machen\n- Flanken statt Würfe (realistischer)',
+coaching:'Ball am HÖCHSTEN Punkt fangen – nicht warten!\nKnie hochziehen beim Sprung (Schutz + Höhe)\nLaut "MEINER!" rufen',svg:'',tags:['Torwart','Hohe Bälle','Fangtechnik']},
+
+{id:'tw09',kat:'torwart',focus:false,name:'Schuss-Abwehr Stationen',kurz:'3 Stationen, 3 Schussarten – Rotationstraining mit hoher Wiederholungszahl.',spieler:'3-6',feld:'3 Mini-Tore',dauer:'12',spass:4,diff:2,
+ablauf:'3 Stationen aufbauen (je ein Mini-Tor 2m breit):\n\nStation 1: Flachschüsse aus 5m (Grundtechnik)\nStation 2: Halbhohe Schüsse aus 7m (Reaktion)\nStation 3: Volleys aus 4m (Mut & Reflexe)\n\nJe 2 Min. pro Station, dann rotieren. TW hält, Schütze schießt, Ballholer sammelt.',
+varianten:'- 4. Station: Elfmeter (Positionierung lernen)\n- Punkte sammeln: gehaltener Ball = 1 Punkt, gefangener Ball = 2 Punkte\n- Zeitdruck: 10 Schüsse in 60 Sekunden',
+coaching:'Grundstellung vor JEDEM Schuss einnehmen\nNicht wegdrehen – dem Ball entgegen gehen!\nAuch parierte Bälle nachfassen',svg:'',tags:['Torwart','Schussabwehr','Stationen']},
+
+{id:'tw10',kat:'torwart',focus:false,name:'Rückpass-Mitspielen',kurz:'TW als Feldspieler – Rückpässe verarbeiten und weiterleiten.',spieler:'3-5',feld:'20×15m',dauer:'8',spass:3,diff:2,
+ablauf:'TW steht am Strafraum-Rand. 3 Feldspieler passen untereinander und spielen regelmäßig Rückpässe zum TW. TW muss:\n\n1. Ball annehmen (1. Kontakt!)\n2. Druckpass flach zum nächsten Spieler\n3. Unter Zeitdruck: Angreifer läuft auf TW zu → muss vorher passen\n\n5 Min. Passfolgen, dann Steigerung mit Gegenspieler.',
+varianten:'- TW darf nur mit dem schwachen Fuß spielen\n- Rückpass von der Seite → TW muss sich drehen und öffnen\n- Wettbewerb: Passquote zählen (Ziel: 80%)',
+coaching:'Erster Kontakt VOR die Füße – nicht unter den Körper!\nImmer anspielbar sein – Körper aufdrehen\nBei unsauberem Rückpass: lieber wegschießen als Risiko',svg:'',tags:['Torwart','Mitspielen','Passspiel']},
+
+{id:'tw11',kat:'torwart',focus:false,name:'Torwart-Entscheidungsspiel',kurz:'Rauslaufen oder bleiben? TW übt Entscheidungen in Spielsituationen.',spieler:'3-5',feld:'Tor + 16m',dauer:'10',spass:4,diff:3,
+ablauf:'2 Angreifer starten 16m vor dem Tor. Trainer gibt Signal:\n\nSituation A: Ein Angreifer dribbelt allein → TW RAUS (1gg1)\nSituation B: Zwei Angreifer kommen → TW im Tor bleiben, Winkel verkürzen\nSituation C: Pass in die Tiefe → TW raus und vor dem Stürmer klären\n\nTrainer zeigt vorher mit Handzeichen welche Situation. TW muss richtig reagieren.',
+varianten:'- Ohne Vorankündigung → TW entscheidet selbst\n- Dritten Angreifer hinzufügen\n- TW dirigiert Mitspieler: "Rechts halten!" "Links zumachen!"',
+coaching:'Kommunikation! Rede mit deiner Abwehr!\nBei 1gg1: IMMER rauslaufen und groß machen\nBei Überzahl: Tor schützen, Winkel verkürzen',svg:'',tags:['Torwart','Entscheidung','Spielnah']},
+
+{id:'tw12',kat:'torwart',focus:false,name:'Elfmeter-Positionierung',kurz:'Wo stehe ich? Winkel verkürzen – Grundstellung beim Elfmeter.',spieler:'2-5',feld:'Tor + 9m',dauer:'8',spass:5,diff:2,
+ablauf:'TW lernt seine Grundposition beim Elfmeter:\n\n1. Mittig im Tor stehen, auf der Linie\n2. Leicht nach vorne kommen (1 Schritt – erlaubt!)\n3. Auf den Fußballen wippen\n4. Schütze beobachten (Anlauf, Fuß, Blickrichtung)\n\n10 Elfmeter: TW soll nicht raten sondern REAGIEREN. Punkte für gehaltene.',
+varianten:'- Schütze muss vorher ansagen (links/rechts) → TW übt Technik\n- Freischütze: TW darf 1 Schritt raus (regelkonform)\n- Wettbewerb: Welcher TW hält die meisten von 10?',
+coaching:'Nicht zu früh in eine Ecke fliegen!\nAuf den Ball schauen, nicht auf den Schützen\nBereit sein auf den Fußballen – nicht flach stehen',svg:'',tags:['Torwart','Elfmeter']},
+
+{id:'tw13',kat:'torwart',focus:false,name:'Torwart-Staffel',kurz:'Wettbewerb-Format – Schnelligkeit, Fangen und Werfen im Staffellauf.',spieler:'4-8',feld:'20m Strecke + Tor',dauer:'10',spass:5,diff:1,
+ablauf:'2 Teams. Parcours: Start → 10m Sprint → Hütchen umrunden → Trainer wirft Ball → fangen → Ball ins Mini-Tor werfen (5m) → zurück zum Start → Nächster.\n\nTeam das zuerst alle Spieler durch hat, gewinnt. Jeder muss den Ball fangen UND treffen.',
+varianten:'- Rückwärts laufen statt Sprint\n- Fangen + Abrollen + Abwurf in Zielzone\n- Hindernisparcours vorher (über Hürden, durch Reifen)',
+coaching:'Sauber fangen – kein Hektik-Drop!\nGenau werfen – lieber 1 Sekunde mehr nehmen\nTeamgeist: Anfeuern = Pflicht!',svg:'',tags:['Torwart','Wettbewerb','Spass']},
+
+{id:'tw14',kat:'torwart',focus:false,name:'Wegkicken & Abrollen',kurz:'Verteilungstechnik: Situationsgerecht Ball verteilen nach Fang.',spieler:'1-4',feld:'Tor + 25m',dauer:'8',spass:3,diff:2,
+ablauf:'TW hält Schuss und muss sofort verteilen:\n\n1. Abrollen zum nahen Spieler (10m, flach)\n2. Seitlicher Abwurf zum Flitzer (15m)\n3. Abschlag zum Jäger (20-25m)\n\nTrainer ruft VORHER die Zielzone. TW entscheidet nach Fang die Technik.\n\n5 Runden à 3 Verteilungen.',
+varianten:'- Mitspieler bewegen sich → TW muss richtigen anspielen\n- Gegenspieler jagt → schnelle Verteilung nötig\n- Punkte: Abrollen = 1P, Abwurf = 2P, Abschlag genau = 3P',
+coaching:'Schnell verteilen → Konter starten!\nAbrollen = sicherste Option, immer zuerst prüfen\nAbschlag nur wenn wirklich jemand frei ist',svg:'',tags:['Torwart','Spieleröffnung','Verteilung']},
+
+{id:'tw15',kat:'torwart',focus:false,name:'Chaos im Strafraum',kurz:'Spielnahes TW-Training – mehrere Schüsse, Flanken und 1gg1 im Wechsel.',spieler:'4-8',feld:'Tor + Strafraum',dauer:'10',spass:5,diff:3,
+ablauf:'3 Stationen gleichzeitig aktiv:\n\nStation A: Schütze schießt aus 10m\nStation B: Flanke von der Seite → TW muss hochspringen\nStation C: 1gg1 Angreifer dribbelt rein\n\nTrainer gibt Zeichen welche Station schießt/flankt/angreift. TW weiß NICHT vorher welche. Nach 5 Aktionen wechselt der TW.\n\nHöchste Belastung – maximal 5 Min. am Stück!',
+varianten:'- Alle 3 Stationen gleichzeitig (Chaos!)\n- TW muss nach jeder Aktion sofort Position finden\n- 2 TWs wechseln sich nach jeder Aktion ab',
+coaching:'KOMMUNIZIEREN – ruf was du siehst!\nNach jeder Aktion: zurück auf Position\nMut und Entschlossenheit – du bist der Chef!',svg:'',tags:['Torwart','Spielnah','Belastung']},
+
+// ═══════════ INDIVIDUAL-TRAINING ═══════════
+{id:'ind01',kat:'individual',focus:true,name:'Dribbling-Meister (1gg0)',kurz:'Individuelles Dribbling-Training – enge Ballführung, Finte, Tempowechsel.',spieler:'1',feld:'10×10m',dauer:'10',spass:4,diff:2,
+ablauf:'Spieler allein mit Ball im 10×10m Feld mit 6 Hütchen:\n\n1. Enge Ballführung um alle 6 Hütchen (2 Min.)\n2. Schere + Übersteiger an jedem Hütchen (2 Min.)\n3. Tempodribbling: langsam → Hütchen → Sprint → nächstes (2 Min.)\n4. Matthews-Trick an jedem Hütchen (2 Min.)\n5. Freestyle: Eigene Finten ausprobieren (2 Min.)',
+varianten:'- Auf Zeit: Parcours so schnell wie möglich\n- Nur schwacher Fuß\n- Trainer als passiver Gegner (steht im Weg, greift nicht ein)',
+coaching:'Enger Kontakt zum Ball – nicht wegschieben!\nKopf hoch zwischen den Hütchen\nFinten müssen Richtungswechsel einleiten – nicht nur Show',svg:'',tags:['Individual','Dribbling','Technik']},
+
+{id:'ind02',kat:'individual',focus:false,name:'Passwand-Solo',kurz:'Alleine gegen die Wand – Passtechnik, Annahme, Rhythmus.',spieler:'1',feld:'Wand + 5m',dauer:'10',spass:3,diff:2,
+ablauf:'Spieler steht 3-5m vor einer Wand:\n\n1. Innenseite-Pass → Annahme mit Sohle (20x rechts, 20x links)\n2. Direktes Spiel: Ball kommt zurück → sofort wieder spielen (30 Sek. Serien)\n3. Flugball: Spannstoß gegen Wand → Annahme aus der Luft (10x)\n4. Rechts passen → links annehmen, links passen → rechts annehmen (20x)\n5. Entfernung steigern: 3m → 4m → 5m',
+varianten:'- Markierung an der Wand als Ziel (Trefferquote)\n- Auf Zeit: Wie viele saubere Pässe in 30 Sekunden?\n- Drehung nach Annahme einbauen',
+coaching:'Standbein neben den Ball!\nBall flach und scharf spielen\nErste Berührung nach vorne – nicht stoppen',svg:'',tags:['Individual','Passspiel','Technik']},
+
+{id:'ind03',kat:'individual',focus:false,name:'Torschuss-Intensiv',kurz:'Individuelles Schusstraining – verschiedene Techniken und Distanzen.',spieler:'1-2',feld:'Tor + 16m',dauer:'10',spass:5,diff:2,
+ablauf:'10 Bälle bereit legen. Spieler schießt Serien:\n\n1. Innenseite flach ins Eck (5x links, 5x rechts)\n2. Spannstoß aus 10m (10x, Ziel: oberes Eck)\n3. Direktschuss: Trainer passt vor → sofort schießen (10x)\n4. Dribbling + Abschluss: 5m Anlauf, Hütchen umdribbeln, Schuss (10x)\n5. Schwacher Fuß: alles nochmal nur mit dem anderen Fuß (5x)',
+varianten:'- Torwart im Tor (spielnah)\n- Schuss nach Drehung (Ball kommt von hinten)\n- Punkte: Tor = 1P, Ecke getroffen = 2P',
+coaching:'Standbein fest, Oberkörper über dem Ball!\nMut zum Abschluss – nicht zögern!\nAuch schwacher Fuß muss trainiert werden',svg:'',tags:['Individual','Torschuss']},
+
+{id:'ind04',kat:'individual',focus:false,name:'Ballgefühl-Zirkel',kurz:'Solo-Training für Ballkontrolle – Jonglieren, Rollen, Heben.',spieler:'1',feld:'3×3m',dauer:'10',spass:4,diff:2,
+ablauf:'Kleiner Bereich, Spieler allein mit Ball:\n\n1. Ballhochhalten: Rechts → Links → Knie → Kopf (2 Min.)\n2. Sohlenrollen: Vorwärts/Rückwärts, Ball auf Sohle balancieren (2 Min.)\n3. V-Ziehen: Ball mit Sohle zurückziehen, Innenseite mitnehmen (2 Min.)\n4. Cruyff-Turn üben: 20x rechts, 20x links (2 Min.)\n5. Ball hochheben: Rainbow Flick oder Sohle-Roll-Lift üben (2 Min.)',
+varianten:'- Rekorde aufstellen: Wie oft hochhalten ohne Bodenkontakt?\n- Musik an – zum Beat jonglieren\n- Challenge-Format: Jede Übung muss 10x sauber klappen',
+coaching:'Geduld – Jonglieren braucht Übung!\nWeiche Berührungen – Ball nicht wegschlagen\nJeden Tag 5 Minuten üben = riesiger Fortschritt',svg:'',tags:['Individual','Ballgefühl','Technik']},
+
+{id:'ind05',kat:'individual',focus:false,name:'Sprint & Wendigkeit',kurz:'Athletik-Fokus: Antritt, Richtungswechsel, Schnelligkeit.',spieler:'1',feld:'20×10m',dauer:'10',spass:4,diff:2,
+ablauf:'5 Übungen mit Ball:\n\n1. 5m-Sprint mit Ball, Stopp, Richtungswechsel (6x)\n2. T-Lauf: vorwärts, seitwärts links, seitwärts rechts, rückwärts (4x)\n3. Slalom um 6 Hütchen (enge Abstände 1.5m) auf Zeit (4x)\n4. Reaktions-Sprint: Trainer klatscht → Spieler spurtet mit Ball zum nächsten Hütchen (8x)\n5. 20m Shuttle: Hin und zurück mit Ball, schnellste Zeit zählt (3x)',
+varianten:'- Ohne Ball zuerst, dann mit Ball\n- Rückwärts oder seitwärts statt vorwärts\n- Wettbewerb gegen eigene Bestzeit',
+coaching:'Explosiver Antritt – erste 3 Schritte entscheiden!\nTiefer Schwerpunkt beim Richtungswechsel\nBall eng am Fuß halten auch beim Sprint',svg:'',tags:['Individual','Athletik','Wendigkeit']}
+
 ];
 
 
@@ -2713,8 +3273,8 @@ function renderTraining(){
   var wrap=document.getElementById('training-content');
   if(!wrap)return;
   var search=(document.getElementById('training-search')||{value:''}).value.toLowerCase();
-  var catLabels={raute:'Raute & Grundordnung',passspiel:'Passspiel & Freilaufen',wahrnehmung:'Wahrnehmung & IQ',technik:'Technik & Ball',pressing:'Pressing & Umschalten',spass:'Spass & Wettbewerb',custom:'Eigene Formen'};
-  var catCls={raute:'tf-cat-raute',passspiel:'tf-cat-passspiel',wahrnehmung:'tf-cat-wahrnehmung',technik:'tf-cat-technik',pressing:'tf-cat-pressing',spass:'tf-cat-spass',custom:'tf-cat-custom'};
+  var catLabels={aufwaermen:'Aufwärmen & Aktivierung',raute:'Raute & Grundordnung',passspiel:'Passspiel & Freilaufen',wahrnehmung:'Wahrnehmung & IQ',technik:'Technik & Ball',pressing:'Pressing & Umschalten',spass:'Spass & Wettbewerb',torwart:'Torwart-Training',individual:'Individual-Training',custom:'Eigene Formen'};
+  var catCls={aufwaermen:'tf-cat-aufwaermen',raute:'tf-cat-raute',passspiel:'tf-cat-passspiel',wahrnehmung:'tf-cat-wahrnehmung',technik:'tf-cat-technik',pressing:'tf-cat-pressing',spass:'tf-cat-spass',torwart:'tf-cat-torwart',individual:'tf-cat-individual',custom:'tf-cat-custom'};
   var diffLbl={1:'Einfach',2:'Mittel',3:'Anspruchsvoll'};
   var all=TRAININGSFORMEN.concat((CUSTOM_FORMS||[]).map(function(f){return Object.assign({},f,{kat:f.kat||'custom'});}));
   var filtered=all.filter(function(tf){
@@ -2726,7 +3286,7 @@ function renderTraining(){
   if(!filtered.length){wrap.innerHTML='<div style="text-align:center;padding:2rem;color:#64748b">Keine Trainingsform gefunden</div>';return;}
   var groups={};
   filtered.forEach(function(tf){var k=tf.custom?'custom':tf.kat;if(!groups[k])groups[k]=[];groups[k].push(tf);});
-  var order=['raute','passspiel','wahrnehmung','technik','pressing','spass','custom'];
+  var order=['aufwaermen','raute','passspiel','wahrnehmung','technik','pressing','spass','torwart','individual','custom'];
   var html='';
   order.forEach(function(kat){
     var items=groups[kat];if(!items||!items.length)return;
@@ -2786,8 +3346,386 @@ function printView(viewName){
 
 
 document.getElementById("p-date").value=new Date().toISOString().slice(0,10);
+document.getElementById("tp-date").value=new Date().toISOString().slice(0,10);
+document.getElementById("aw-date").value=new Date().toISOString().slice(0,10);
 loadDB();
 loadCustomForms();
+
+/* ═══════════════════════════════════
+   TRAINING SUB-TAB SWITCHING
+═══════════════════════════════════ */
+function switchTrainSub(sub){
+  document.querySelectorAll(".train-sub").forEach(s=>s.classList.remove("active"));
+  document.querySelectorAll(".sub-tab").forEach(b=>b.classList.remove("active"));
+  document.getElementById("train-sub-"+sub)?.classList.add("active");
+  document.getElementById("st-"+sub)?.classList.add("active");
+  if(sub==="anwesenheit")awRenderList();
+  if(sub==="planung"){tpRenderTimeline();addEvalSection();}
+}
+
+/* ═══════════════════════════════════
+   ANWESENHEITS-TRACKER
+═══════════════════════════════════ */
+let AW_DATA={};
+const AW_KEY="adler_anwesenheit";
+try{AW_DATA=JSON.parse(localStorage.getItem(AW_KEY)||"{}");}catch(e){AW_DATA={};}
+
+function awRenderList(){
+  const wrap=document.getElementById("aw-list");
+  if(!wrap)return;
+  const datum=document.getElementById("aw-date").value;
+  const existing=AW_DATA[datum]||{};
+  let html='<div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);overflow:hidden;margin-top:8px">';
+  KADER.forEach(k=>{
+    const p=existing[k.name]||{da:false,qual:0};
+    html+=`<div class="aw-row">
+      <span class="aw-name">${k.name}</span>
+      <button class="aw-toggle${p.da?" on":""}" onclick="awToggle(this,'${k.name}')" data-player="${k.name}"></button>
+      <div class="aw-qual" data-player="${k.name}">
+        ${[1,2,3].map(s=>`<button class="aw-star${p.qual>=s?" on":""}" onclick="awStar(this,'${k.name}',${s})">${p.qual>=s?"★":"☆"}</button>`).join("")}
+      </div>
+    </div>`;
+  });
+  html+='</div>';
+  wrap.innerHTML=html;
+  awRenderStats();
+}
+
+function awToggle(btn,name){
+  btn.classList.toggle("on");
+}
+
+function awStar(btn,name,val){
+  const row=btn.closest(".aw-qual");
+  const stars=row.querySelectorAll(".aw-star");
+  const current=Array.from(stars).filter(s=>s.classList.contains("on")).length;
+  const newVal=current===val?0:val;
+  stars.forEach((s,i)=>{
+    s.classList.toggle("on",i<newVal);
+    s.textContent=i<newVal?"★":"☆";
+  });
+}
+
+function awSave(){
+  const datum=document.getElementById("aw-date").value;
+  if(!datum){alert("Bitte Datum wählen");return;}
+  const trainer=document.getElementById("aw-trainer").value;
+  const data={};
+  KADER.forEach(k=>{
+    const toggle=document.querySelector(`.aw-toggle[data-player="${k.name}"]`);
+    const stars=document.querySelectorAll(`.aw-qual[data-player="${k.name}"] .aw-star.on`);
+    data[k.name]={da:toggle?.classList.contains("on")||false,qual:stars.length,trainer};
+  });
+  AW_DATA[datum]=data;
+  localStorage.setItem(AW_KEY,JSON.stringify(AW_DATA));
+  awRenderStats();
+  alert("Anwesenheit gespeichert ✓");
+}
+
+function awLoad(){
+  awRenderList();
+}
+
+function awRenderStats(){
+  const wrap=document.getElementById("aw-stats");
+  if(!wrap)return;
+  const dates=Object.keys(AW_DATA).sort();
+  if(!dates.length){wrap.innerHTML='<div style="color:var(--text2);font-size:12px;padding:8px">Noch keine Daten erfasst</div>';return;}
+  const stats={};
+  KADER.forEach(k=>{stats[k.name]={total:0,da:0,qualSum:0,qualCount:0};});
+  dates.forEach(d=>{
+    const day=AW_DATA[d];
+    KADER.forEach(k=>{
+      stats[k.name].total++;
+      if(day[k.name]?.da){
+        stats[k.name].da++;
+        if(day[k.name].qual>0){stats[k.name].qualSum+=day[k.name].qual;stats[k.name].qualCount++;}
+      }
+    });
+  });
+  let html='<div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);overflow:hidden;font-size:12px">';
+  html+='<div style="display:grid;grid-template-columns:1fr 60px 60px 70px;padding:6px 10px;background:var(--surface2);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">';
+  html+='<div>Spieler</div><div>Quote</div><div>Qualität</div><div>Einheiten</div></div>';
+  KADER.forEach(k=>{
+    const s=stats[k.name];
+    const pct=s.total?Math.round(s.da/s.total*100):0;
+    const avgQ=s.qualCount?Math.round(s.qualSum/s.qualCount*10)/10:"-";
+    const col=pct>=80?"#16a34a":pct>=50?"#b45309":"#dc2626";
+    html+=`<div style="display:grid;grid-template-columns:1fr 60px 60px 70px;padding:6px 10px;border-top:var(--border);align-items:center">
+      <div style="font-weight:600">${k.name}</div>
+      <div style="color:${col};font-weight:700">${pct}%</div>
+      <div>${avgQ!=="-"?"★".repeat(Math.round(avgQ)):"-"}</div>
+      <div style="color:var(--text2)">${s.da}/${s.total}</div>
+    </div>`;
+  });
+  html+='</div>';
+  wrap.innerHTML=html;
+}
+
+/* ═══════════════════════════════════
+   TRAININGSPLANUNG
+═══════════════════════════════════ */
+const TP_PHASEN=[
+  {label:"Ankommen & Aufwärmen",dauer:10,farbe:"#059669"},
+  {label:"Hauptteil 1",dauer:20,farbe:"#1a56db"},
+  {label:"Hauptteil 2",dauer:20,farbe:"#7c3aed"},
+  {label:"Abschlussspiel",dauer:15,farbe:"#c2410c"},
+  {label:"Cool-Down",dauer:10,farbe:"#64748b"}
+];
+let tpSlots=[...TP_PHASEN];
+
+function tpGetTrainerCount(){
+  return document.querySelectorAll("#tp-trainer-checks input:checked").length;
+}
+
+function tpRenderTimeline(){
+  const wrap=document.getElementById("tp-timeline");
+  if(!wrap)return;
+  const trainerCount=tpGetTrainerCount();
+  const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+  const formOpts=allForms.map((f,i)=>`<option value="${i}">${f.name} (${f.dauer} Min.)</option>`).join("");
+  let time=0;
+  let html='';
+  tpSlots.forEach((slot,si)=>{
+    const startMin=time;
+    const endMin=time+slot.dauer;
+    const parallelSlots=Math.min(trainerCount,5);
+    html+=`<div class="tp-slot" style="border-left:3px solid ${slot.farbe}">
+      <div class="tp-slot-head">
+        <span class="tp-slot-label">${slot.label}</span>
+        <span class="tp-slot-time">${startMin}' – ${endMin}' (${slot.dauer} Min.)</span>
+        <button class="tp-remove" onclick="tpRemoveSlot(${si})"><i class="ti ti-trash"></i></button>
+      </div>`;
+    for(let p=0;p<parallelSlots;p++){
+      const selId=`tp-form-${si}-${p}`;
+      html+=`<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+        <span style="font-size:10px;color:var(--text2);min-width:50px">Gruppe ${p+1}</span>
+        <select class="tp-form-sel" id="${selId}" style="flex:1;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:11px;background:var(--surface);font-family:inherit">
+          <option value="">— Übung wählen —</option>${formOpts}
+        </select>
+      </div>`;
+    }
+    html+='</div>';
+    time+=slot.dauer;
+  });
+  html+=`<div style="text-align:right;font-size:11px;color:var(--text2);margin-top:4px">Gesamt: ${time} Min.</div>`;
+  wrap.innerHTML=html;
+}
+
+function tpAddSlot(){
+  tpSlots.push({label:"Neue Phase",dauer:10,farbe:"#64748b"});
+  tpRenderTimeline();
+}
+
+function tpRemoveSlot(idx){
+  tpSlots.splice(idx,1);
+  tpRenderTimeline();
+}
+
+/* ═══════════════════════════════════
+   PIN GATE
+═══════════════════════════════════ */
+const PIN_HASH="03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
+const PIN_SESSION_KEY="adler_pin_ok";
+
+async function hashPin(pin){
+  const enc=new TextEncoder().encode(pin);
+  const buf=await crypto.subtle.digest("SHA-256",enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+function pinNext(el,next){
+  if(el.value.length===1){
+    const n=document.getElementById("pin"+next);
+    if(n)n.focus();
+    else pinCheck();
+  }
+}
+
+async function pinCheck(){
+  const pin=[1,2,3,4].map(i=>document.getElementById("pin"+i).value).join("");
+  if(pin.length<4)return;
+  const h=await hashPin(pin);
+  if(h===PIN_HASH){
+    sessionStorage.setItem(PIN_SESSION_KEY,"1");
+    document.getElementById("pin-gate").classList.add("hidden");
+    document.getElementById("main-app").style.display="";
+  } else {
+    document.getElementById("pin-err").textContent="Falscher PIN – bitte erneut versuchen";
+    [1,2,3,4].forEach(i=>{document.getElementById("pin"+i).value="";});
+    document.getElementById("pin1").focus();
+  }
+}
+
+(function(){
+  if(sessionStorage.getItem(PIN_SESSION_KEY)==="1"){
+    document.getElementById("pin-gate").classList.add("hidden");
+    document.getElementById("main-app").style.display="";
+  }
+})();
+
+/* ═══════════════════════════════════
+   TRAININGS-BEWERTUNG
+═══════════════════════════════════ */
+const EVAL_KEY="adler_training_eval";
+let EVAL_DATA={};
+try{EVAL_DATA=JSON.parse(localStorage.getItem(EVAL_KEY)||"{}");}catch(e){EVAL_DATA={};}
+
+function addEvalSection(){
+  const sub=document.getElementById("train-sub-planung");
+  if(!sub)return;
+  let existing=document.getElementById("tp-eval-section");
+  if(existing)return;
+  const sec=document.createElement("div");
+  sec.id="tp-eval-section";
+  sec.style.marginTop="20px";
+  sec.innerHTML=`
+    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:10px 0 6px">Nachbewertung der Einheit</div>
+    <div id="tp-eval-list"></div>
+    <button class="btn btn-p btn-sm" style="margin-top:8px" onclick="evalSave()"><i class="ti ti-device-floppy"></i>Bewertung speichern</button>
+    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:16px 0 6px">Bisherige Bewertungen</div>
+    <div id="tp-eval-history"></div>
+  `;
+  sub.appendChild(sec);
+  evalRenderList();
+  evalRenderHistory();
+}
+
+function evalRenderList(){
+  const wrap=document.getElementById("tp-eval-list");
+  if(!wrap)return;
+  const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+  const sels=document.querySelectorAll(".tp-form-sel");
+  const usedForms=[];
+  sels.forEach(s=>{if(s.value)usedForms.push({idx:parseInt(s.value),name:allForms[parseInt(s.value)]?.name||"?"});});
+  if(!usedForms.length){
+    wrap.innerHTML='<div style="color:var(--text2);font-size:12px;padding:8px">Erst Übungen im Zeitplan zuweisen</div>';
+    return;
+  }
+  const dims=[{key:"durchfuehrung",label:"Durchführung"},{key:"spass",label:"Spaßfaktor Kinder"},{key:"umsetzung",label:"Anforderung umgesetzt"}];
+  let html='';
+  usedForms.forEach((f,fi)=>{
+    html+=`<div class="tb-eval"><div class="tb-eval-head">${f.name}</div>`;
+    dims.forEach(d=>{
+      html+=`<div class="tb-eval-row"><span class="tb-eval-label">${d.label}</span><div class="tb-eval-stars">`;
+      for(let s=1;s<=5;s++){
+        html+=`<button class="tb-eval-star" data-form="${fi}" data-dim="${d.key}" data-val="${s}" onclick="evalStar(this)">${s<=0?"☆":"☆"}</button>`;
+      }
+      html+=`</div></div>`;
+    });
+    html+=`<div class="mg" style="margin-top:6px"><textarea rows="1" placeholder="Notiz..." style="resize:none;font-size:11px" id="eval-note-${fi}"></textarea></div>`;
+    html+='</div>';
+  });
+  wrap.innerHTML=html;
+}
+
+function evalStar(btn){
+  const stars=btn.parentElement.querySelectorAll(".tb-eval-star");
+  const val=parseInt(btn.dataset.val);
+  const current=Array.from(stars).filter(s=>s.classList.contains("on")).length;
+  const newVal=current===val?0:val;
+  stars.forEach((s,i)=>{
+    s.classList.toggle("on",i<newVal);
+    s.textContent=i<newVal?"★":"☆";
+  });
+}
+
+function evalSave(){
+  const datum=document.getElementById("tp-date").value;
+  if(!datum){alert("Bitte Datum wählen");return;}
+  const evals=[];
+  document.querySelectorAll(".tb-eval").forEach((block,fi)=>{
+    const entry={name:block.querySelector(".tb-eval-head").textContent};
+    block.querySelectorAll(".tb-eval-row").forEach(row=>{
+      const stars=row.querySelectorAll(".tb-eval-star.on");
+      const label=row.querySelector(".tb-eval-label").textContent;
+      entry[label]=stars.length;
+    });
+    const note=document.getElementById("eval-note-"+fi);
+    entry.notiz=note?note.value:"";
+    evals.push(entry);
+  });
+  if(!evals.length){alert("Keine Übungen zu bewerten");return;}
+  EVAL_DATA[datum]=evals;
+  localStorage.setItem(EVAL_KEY,JSON.stringify(EVAL_DATA));
+  evalRenderHistory();
+  alert("Bewertung gespeichert ✓");
+}
+
+function evalRenderHistory(){
+  const wrap=document.getElementById("tp-eval-history");
+  if(!wrap)return;
+  const dates=Object.keys(EVAL_DATA).sort().reverse();
+  if(!dates.length){wrap.innerHTML='<div style="color:var(--text2);font-size:12px;padding:8px">Noch keine Bewertungen</div>';return;}
+  let html='';
+  dates.slice(0,10).forEach(d=>{
+    const items=EVAL_DATA[d];
+    html+=`<div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:10px;margin-bottom:6px">`;
+    html+=`<div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:4px">${new Date(d).toLocaleDateString("de-DE")}</div>`;
+    items.forEach(it=>{
+      const stars=k=>it[k]?"★".repeat(it[k])+"☆".repeat(5-it[k]):"–";
+      html+=`<div style="font-size:11px;padding:2px 0;color:var(--text2)">
+        <strong style="color:var(--text)">${it.name}</strong>:
+        Durchf. ${stars("Durchführung")} · Spaß ${stars("Spaßfaktor Kinder")} · Umgesetzt ${stars("Anforderung umgesetzt")}
+        ${it.notiz?`<br><em>${it.notiz}</em>`:""}
+      </div>`;
+    });
+    html+='</div>';
+  });
+  wrap.innerHTML=html;
+}
+
+/* ═══════════════════════════════════
+   AUTO-TRAININGSVORSCHLAG
+═══════════════════════════════════ */
+function tpGenerate(){
+  const trainerCount=tpGetTrainerCount();
+  if(trainerCount<1){alert("Mindestens 1 Trainer auswählen");return;}
+  tpSlots=[...TP_PHASEN];
+  tpRenderTimeline();
+
+  setTimeout(()=>{
+    const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+    const warmups=allForms.map((f,i)=>({i,f})).filter(x=>x.f.kat==="aufwaermen");
+    const main=allForms.map((f,i)=>({i,f})).filter(x=>!["aufwaermen","torwart","individual"].includes(x.f.kat)&&!x.f.custom);
+    const spass=allForms.map((f,i)=>({i,f})).filter(x=>x.f.kat==="spass");
+    const tw=allForms.map((f,i)=>({i,f})).filter(x=>x.f.kat==="torwart");
+    const ind=allForms.map((f,i)=>({i,f})).filter(x=>x.f.kat==="individual");
+
+    const pick=(arr)=>arr.length?arr[Math.floor(Math.random()*arr.length)]:null;
+    const used=new Set();
+    const pickUnique=(arr)=>{
+      const avail=arr.filter(x=>!used.has(x.i));
+      if(!avail.length)return pick(arr);
+      const p=pick(avail);
+      if(p)used.add(p.i);
+      return p;
+    };
+
+    const sels=document.querySelectorAll(".tp-form-sel");
+    const parallelSlots=Math.min(trainerCount,5);
+    let slotIdx=0;
+    tpSlots.forEach((slot,si)=>{
+      for(let p=0;p<parallelSlots;p++){
+        const sel=document.getElementById(`tp-form-${si}-${p}`);
+        if(!sel)continue;
+        let choice=null;
+        if(si===0){
+          choice=pickUnique(warmups);
+        } else if(si===tpSlots.length-1||si===tpSlots.length-2){
+          if(p===0&&spass.length)choice=pickUnique(spass);
+          else choice=pickUnique(main);
+        } else {
+          if(p===0&&trainerCount>=2&&tw.length)choice=pickUnique(tw);
+          else if(p===parallelSlots-1&&trainerCount>=3&&ind.length)choice=pickUnique(ind);
+          else choice=pickUnique(main);
+        }
+        if(choice)sel.value=choice.i;
+      }
+    });
+    addEvalSection();
+  },100);
+}
 
 /* ═══════════════════════════════════
    PWA SETUP
