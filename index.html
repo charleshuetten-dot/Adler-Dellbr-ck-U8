@@ -347,6 +347,20 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .tb-token.tb-bench{background:#64748b}
 .tb-bench-area{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:12px;margin-top:10px;background:var(--surface);border:var(--border-s);border-radius:var(--rl);min-height:60px}
 .tb-bench-area .tb-token{position:relative;transform:none;cursor:grab}
+
+/* TAKTIK QUIZ */
+.tq-bar{display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.tq-panel{background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:12px;margin-bottom:10px}
+.tq-situation{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;line-height:1.5}
+.tq-hint{font-size:11px;color:var(--text2);line-height:1.5}
+.tq-task{font-size:12px;color:var(--blue);font-weight:600;margin-top:6px;padding:6px 10px;background:var(--blue-bg);border-radius:var(--r)}
+.tq-score{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text);padding:6px 12px;background:var(--surface);border:var(--border-s);border-radius:20px}
+.tq-feedback{margin-top:8px;padding:10px 12px;border-radius:var(--rl);font-size:12px;line-height:1.6}
+.tq-feedback.correct{background:#dcfce7;border:1px solid #86efac;color:#15803d}
+.tq-feedback.wrong{background:#fef2f2;border:1px solid #fca5a5;color:#b91c1c}
+.tq-feedback.partial{background:#fffbeb;border:1px solid #fcd34d;color:#92400e}
+.tq-target-ghost{position:absolute;width:44px;height:44px;border-radius:50%;border:2.5px dashed rgba(255,255,255,.5);transform:translate(-50%,-50%);z-index:4;pointer-events:none;opacity:0;transition:opacity .3s}
+.tq-target-ghost.show{opacity:1}
 .tb-role-labels{position:absolute;inset:0;pointer-events:none;z-index:5}
 .tb-role-lbl{position:absolute;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:rgba(255,255,255,.45);transform:translate(-50%,-50%);pointer-events:none}
 
@@ -661,10 +675,12 @@ h1.print-header{display:none}
 <div id="view-taktik" class="view">
   <div class="sl nt"><i class="ti ti-arrows-move"></i>Taktik-Board – Live</div>
   <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-    <button class="btn btn-p btn-sm" onclick="taktikReset('adler')"><i class="ti ti-arrow-badge-up"></i>Adler (breit)</button>
-    <button class="btn btn-sm" onclick="taktikReset('igel')"><i class="ti ti-shield"></i>Igel (eng)</button>
+    <button class="btn btn-p btn-sm" onclick="taktikReset('adler')"><i class="ti ti-arrow-badge-up"></i>Adler</button>
+    <button class="btn btn-sm" onclick="taktikReset('igel')"><i class="ti ti-shield"></i>Igel</button>
     <button class="btn btn-sm" onclick="taktikReset('leer')"><i class="ti ti-refresh"></i>Leer</button>
+    <button class="btn btn-sm" style="background:#7c3aed;color:#fff;border-color:#7c3aed" onclick="tqStart()"><i class="ti ti-brain"></i>Quiz</button>
   </div>
+  <div id="tq-panel" style="display:none"></div>
   <div class="tb-wrap">
     <div class="tb-field" id="taktik-field">
       <svg viewBox="0 0 300 400" xmlns="http://www.w3.org/2000/svg">
@@ -2285,6 +2301,7 @@ function taktikRender(){
     const tok=tbCreateToken(p.name,p.cls||"tb-auf",p.role||"");
     tok.style.left=p.x+"%";tok.style.top=p.y+"%";
     tok.dataset.idx=i;tok.dataset.loc="field";
+    if(tqActive&&p.locked)tok.style.opacity=".5";
     tbAddDrag(tok,fieldEl);
     tokensEl.appendChild(tok);
   });
@@ -2352,6 +2369,8 @@ function tbAddDrag(tok,fieldEl){
 
   function onStart(e){
     e.preventDefault();
+    const _idx=parseInt(tok.dataset.idx);
+    if(tqActive&&!isNaN(_idx)&&tbField[_idx]&&tbField[_idx].locked)return;
     didMove=false;
     tok.style.zIndex="25";
     tok.style.transition="none";
@@ -2437,9 +2456,11 @@ function tbAddDrag(tok,fieldEl){
       if(!isNaN(idx)&&tbField[idx]){
         tbField[idx].x=finalX;
         tbField[idx].y=finalY;
-        const detected=tbDetectRole(finalX,finalY);
-        tbField[idx].role=detected.role;
-        tbField[idx].cls=detected.cls;
+        if(!tqActive){
+          const detected=tbDetectRole(finalX,finalY);
+          tbField[idx].role=detected.role;
+          tbField[idx].cls=detected.cls;
+        }
         taktikRender();
       }
     }
@@ -2447,6 +2468,255 @@ function tbAddDrag(tok,fieldEl){
 
   tok.addEventListener("mousedown",onStart);
   tok.addEventListener("touchstart",onStart,{passive:false});
+}
+
+/* ═══════════════════════════════════
+   TAKTIK-QUIZ
+═══════════════════════════════════ */
+const TQ_SCENARIOS=[
+{
+  title:"Ball zum rechten Flitzer",
+  desc:"Euer Team hat den Ball. Der Aufpasser spielt einen Pass zum rechten Flitzer.",
+  task:"Wohin bewegen sich die anderen Spieler? Verschiebe Fl.L, Aufpasser und Jäger!",
+  hint:"Denk an ADLER – Feld groß machen! Der Jäger orientiert sich Richtung Tor.",
+  ball:{from:{x:50,y:72},to:{x:80,y:48}},
+  start:[
+    {name:"TW",x:50,y:92,cls:"tb-tw",role:"TW",locked:true},
+    {name:"Aufp.",x:50,y:72,cls:"tb-auf",role:"Aufp.",locked:false},
+    {name:"Fl.L",x:20,y:48,cls:"tb-fl",role:"Fl.L",locked:false},
+    {name:"Fl.R",x:80,y:48,cls:"tb-fl",role:"Fl.R",locked:true},
+    {name:"Jäger",x:50,y:35,cls:"tb-jaeg",role:"Jäger",locked:false}
+  ],
+  targets:{
+    "Aufp.":{x:55,y:62,r:15},
+    "Fl.L":{x:25,y:38,r:15},
+    "Jäger":{x:60,y:22,r:15}
+  },
+  explain:{
+    correct:"Perfekt! Fl.L rückt hoch und hält die Breite. Aufpasser schiebt nach und sichert ab. Jäger orientiert sich Richtung Tor – bereit für die Flanke!",
+    wrong:"Tipp: Bei ADLER (offensiv) – Fl.L bleibt breit auf seiner Seite und rückt hoch. Aufpasser schiebt in Richtung Ball nach. Jäger geht Richtung Tor für den Abschluss."
+  }
+},
+{
+  title:"Gegner spielt nach rechts",
+  desc:"Der Gegner hat den Ball und spielt ihn auf seine rechte Seite (eure linke!).",
+  task:"Schaltet auf IGEL um! Wohin muss die Raute verschieben? Bewege alle Feldspieler!",
+  hint:"IGEL = eng zusammenziehen, Richtung Ball verschieben. Nicht klumpen – Abstände halten!",
+  ball:{from:{x:50,y:50},to:{x:20,y:35}},
+  start:[
+    {name:"TW",x:50,y:92,cls:"tb-tw",role:"TW",locked:true},
+    {name:"Aufp.",x:50,y:72,cls:"tb-auf",role:"Aufp.",locked:false},
+    {name:"Fl.L",x:20,y:48,cls:"tb-fl",role:"Fl.L",locked:false},
+    {name:"Fl.R",x:80,y:48,cls:"tb-fl",role:"Fl.R",locked:false},
+    {name:"Jäger",x:50,y:25,cls:"tb-jaeg",role:"Jäger",locked:false}
+  ],
+  targets:{
+    "Aufp.":{x:38,y:68,r:14},
+    "Fl.L":{x:25,y:45,r:14},
+    "Fl.R":{x:55,y:50,r:16},
+    "Jäger":{x:35,y:35,r:14}
+  },
+  explain:{
+    correct:"Stark! Die ganze Raute verschiebt sich zur Ballseite. Enge Abstände, gemeinsam pressen – genau so funktioniert der IGEL!",
+    wrong:"Tipp: Bei IGEL verschiebt sich die GANZE Raute Richtung Ball. Fl.L geht auf den Ballführenden. Fl.R rückt zur Mitte. Aufpasser und Jäger verschieben ebenfalls nach links."
+  }
+},
+{
+  title:"Ballgewinn! Umschalten",
+  desc:"Euer Aufpasser gewinnt den Ball im Mittelfeld! Schnelles Umschalten von IGEL auf ADLER!",
+  task:"Schalte sofort auf ADLER um – wohin sprinten die Spieler?",
+  hint:"Umschalten = sofort breit machen! Flitzer auf die Außenbahnen, Jäger ab in die Spitze!",
+  ball:{from:{x:45,y:65},to:{x:50,y:60}},
+  start:[
+    {name:"TW",x:50,y:92,cls:"tb-tw",role:"TW",locked:true},
+    {name:"Aufp.",x:45,y:65,cls:"tb-auf",role:"Aufp.",locked:true},
+    {name:"Fl.L",x:35,y:55,cls:"tb-fl",role:"Fl.L",locked:false},
+    {name:"Fl.R",x:55,y:55,cls:"tb-fl",role:"Fl.R",locked:false},
+    {name:"Jäger",x:45,y:42,cls:"tb-jaeg",role:"Jäger",locked:false}
+  ],
+  targets:{
+    "Fl.L":{x:15,y:38,r:16},
+    "Fl.R":{x:85,y:38,r:16},
+    "Jäger":{x:50,y:20,r:15}
+  },
+  explain:{
+    correct:"Blitzschnell umgeschaltet! Flitzer sprinten sofort breit auf die Außen, Jäger geht in die Spitze. Das ist der ADLER-Moment – Feld groß machen!",
+    wrong:"Tipp: Nach Ballgewinn sofort ADLER! Fl.L sprint ganz nach links außen, Fl.R ganz nach rechts außen. Jäger sprintet in die Spitze Richtung gegnerisches Tor."
+  }
+},
+{
+  title:"1gg1 auf links",
+  desc:"Der Gegner dribbelt auf eurer linken Seite! Fl.L ist im 1gg1.",
+  task:"Wie sichert die Raute ab? Verschiebe Aufpasser, Fl.R und Jäger!",
+  hint:"Einer presst, die anderen sichern ab. Nicht alle zum Ball laufen – Staffelung behalten!",
+  ball:{from:{x:20,y:45},to:{x:20,y:45}},
+  start:[
+    {name:"TW",x:50,y:92,cls:"tb-tw",role:"TW",locked:true},
+    {name:"Aufp.",x:50,y:72,cls:"tb-auf",role:"Aufp.",locked:false},
+    {name:"Fl.L",x:20,y:45,cls:"tb-fl",role:"Fl.L",locked:true},
+    {name:"Fl.R",x:80,y:48,cls:"tb-fl",role:"Fl.R",locked:false},
+    {name:"Jäger",x:50,y:25,cls:"tb-jaeg",role:"Jäger",locked:false}
+  ],
+  targets:{
+    "Aufp.":{x:35,y:62,r:14},
+    "Fl.R":{x:55,y:52,r:16},
+    "Jäger":{x:35,y:38,r:14}
+  },
+  explain:{
+    correct:"Klasse! Aufpasser sichert schräg dahinter ab. Fl.R rückt zur Mitte und schließt den Raum. Jäger hilft von vorne. So entsteht eine Überzahl!",
+    wrong:"Tipp: Fl.L presst den Gegner. Aufpasser sichert SCHRÄG DAHINTER ab (nicht daneben!). Fl.R verschiebt zur Mitte. Jäger lässt sich zurückfallen und hilft."
+  }
+},
+{
+  title:"Abstoß vom Torwart",
+  desc:"Euer Torwart hat den Ball nach einer Parade. Er will schnell das Spiel eröffnen!",
+  task:"Biete Anspielstationen! Wohin bewegen sich alle Feldspieler?",
+  hint:"ADLER-Form! Aufpasser bietet sich kurz an, Flitzer gehen breit, Jäger macht Tiefe.",
+  ball:{from:{x:50,y:90},to:{x:50,y:90}},
+  start:[
+    {name:"TW",x:50,y:92,cls:"tb-tw",role:"TW",locked:true},
+    {name:"Aufp.",x:50,y:72,cls:"tb-auf",role:"Aufp.",locked:false},
+    {name:"Fl.L",x:35,y:55,cls:"tb-fl",role:"Fl.L",locked:false},
+    {name:"Fl.R",x:65,y:55,cls:"tb-fl",role:"Fl.R",locked:false},
+    {name:"Jäger",x:50,y:40,cls:"tb-jaeg",role:"Jäger",locked:false}
+  ],
+  targets:{
+    "Aufp.":{x:50,y:78,r:12},
+    "Fl.L":{x:15,y:50,r:16},
+    "Fl.R":{x:85,y:50,r:16},
+    "Jäger":{x:50,y:25,r:15}
+  },
+  explain:{
+    correct:"Super! Aufpasser bietet sich kurz an (sichere Option). Flitzer gehen breit auf die Außen. Jäger macht Tiefe. So hat der TW 4 Optionen!",
+    wrong:"Tipp: Aufpasser kommt KURZ zum TW (sichere Anspielstation). Flitzer gehen BREIT auf die Außenbahnen. Jäger geht in die TIEFE. Adler-Form!"
+  }
+},
+{
+  title:"Pressing-Falle",
+  desc:"Der Gegner baut hinten auf. Euer Jäger startet das Pressing!",
+  task:"Wie läuft das Team-Pressing? Verschiebe alle nach vorne!",
+  hint:"Jäger presst den Ballführenden. Flitzer schneiden Passoptionen ab. Aufpasser rückt nach.",
+  ball:{from:{x:50,y:20},to:{x:50,y:20}},
+  start:[
+    {name:"TW",x:50,y:92,cls:"tb-tw",role:"TW",locked:true},
+    {name:"Aufp.",x:50,y:68,cls:"tb-auf",role:"Aufp.",locked:false},
+    {name:"Fl.L",x:25,y:48,cls:"tb-fl",role:"Fl.L",locked:false},
+    {name:"Fl.R",x:75,y:48,cls:"tb-fl",role:"Fl.R",locked:false},
+    {name:"Jäger",x:50,y:30,cls:"tb-jaeg",role:"Jäger",locked:false}
+  ],
+  targets:{
+    "Aufp.":{x:50,y:48,r:14},
+    "Fl.L":{x:30,y:30,r:14},
+    "Fl.R":{x:70,y:30,r:14},
+    "Jäger":{x:50,y:18,r:12}
+  },
+  explain:{
+    correct:"Starkes Pressing! Jäger läuft den Ballführer an. Flitzer rücken hoch und decken die Passoptionen. Aufpasser schiebt nach – die Raute wird kompakt nach vorne geschoben!",
+    wrong:"Tipp: IGEL nach vorne schieben! Jäger presst den Ball. Fl.L und Fl.R rücken hoch und decken gegnerische Spieler. Aufpasser schiebt bis Mittellinie nach."
+  }
+}
+];
+
+let tqActive=false,tqIdx=0,tqScore=0,tqTotal=0;
+
+function tqStart(){
+  tqActive=true;tqIdx=0;tqScore=0;tqTotal=0;
+  tqLoadScenario(0);
+}
+
+function tqStop(){
+  tqActive=false;
+  document.getElementById("tq-panel").style.display="none";
+  taktikReset("adler");
+}
+
+function tqLoadScenario(idx){
+  const sc=TQ_SCENARIOS[idx];
+  if(!sc){tqShowResult();return;}
+  const panel=document.getElementById("tq-panel");
+  panel.style.display="block";
+  panel.innerHTML=`
+    <div class="tq-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:10px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px">Situation ${idx+1}/${TQ_SCENARIOS.length}</div>
+        <div class="tq-score">⭐ ${tqScore}/${tqTotal}</div>
+      </div>
+      <div class="tq-situation">${sc.title}</div>
+      <div class="tq-hint">${sc.desc}</div>
+      <div class="tq-task">📋 ${sc.task}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">💡 ${sc.hint}</div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button class="btn btn-p btn-sm" onclick="tqCheck()"><i class="ti ti-check"></i>Prüfen</button>
+        <button class="btn btn-sm" onclick="tqSkip()">Überspringen</button>
+        <button class="btn btn-sm" onclick="tqStop()" style="margin-left:auto"><i class="ti ti-x"></i></button>
+      </div>
+      <div id="tq-feedback"></div>
+    </div>`;
+
+  tbField=sc.start.map(s=>({name:s.name,x:s.x,y:s.y,cls:s.cls,role:s.role,locked:s.locked||false}));
+  tbBall={x:sc.ball.to.x,y:sc.ball.to.y};
+  tbBench=[];
+  taktikRender();
+}
+
+function tqCheck(){
+  const sc=TQ_SCENARIOS[tqIdx];
+  if(!sc)return;
+  const targets=sc.targets;
+  let hits=0,total=Object.keys(targets).length;
+  const details=[];
+
+  Object.entries(targets).forEach(([role,tgt])=>{
+    const player=tbField.find(p=>p.role===role);
+    if(!player){details.push({role,ok:false});return;}
+    const dist=Math.sqrt((player.x-tgt.x)**2+(player.y-tgt.y)**2);
+    const ok=dist<=tgt.r;
+    if(ok)hits++;
+    details.push({role,ok,dist:Math.round(dist)});
+  });
+
+  tqTotal++;
+  const fb=document.getElementById("tq-feedback");
+  if(hits===total){
+    tqScore++;
+    fb.innerHTML=`<div class="tq-feedback correct">✅ <strong>Richtig!</strong> ${hits}/${total} Positionen korrekt!<br>${sc.explain.correct}</div>`;
+  } else if(hits>0){
+    fb.innerHTML=`<div class="tq-feedback partial">⚠️ <strong>${hits}/${total} richtig.</strong> Fast!<br>${sc.explain.wrong}<br><small>${details.filter(d=>!d.ok).map(d=>d.role+" noch nicht richtig").join(", ")}</small></div>`;
+    return;
+  } else {
+    fb.innerHTML=`<div class="tq-feedback wrong">❌ <strong>Noch nicht.</strong><br>${sc.explain.wrong}</div>`;
+    return;
+  }
+
+  fb.innerHTML+=`<button class="btn btn-p btn-sm" style="margin-top:8px" onclick="tqNext()"><i class="ti ti-arrow-right"></i>Weiter</button>`;
+}
+
+function tqSkip(){
+  tqTotal++;
+  tqNext();
+}
+
+function tqNext(){
+  tqIdx++;
+  if(tqIdx>=TQ_SCENARIOS.length){tqShowResult();return;}
+  tqLoadScenario(tqIdx);
+}
+
+function tqShowResult(){
+  const panel=document.getElementById("tq-panel");
+  const pct=tqTotal?Math.round(tqScore/tqTotal*100):0;
+  const emoji=pct>=80?"🏆":pct>=50?"⭐":"💪";
+  panel.innerHTML=`
+    <div class="tq-panel" style="text-align:center">
+      <div style="font-size:36px;margin-bottom:8px">${emoji}</div>
+      <div style="font-size:18px;font-weight:700;color:var(--text)">${tqScore} von ${tqTotal} richtig!</div>
+      <div style="font-size:13px;color:var(--text2);margin:4px 0 12px">${pct>=80?"Taktik-Profi! Du verstehst die Raute!":pct>=50?"Guter Anfang! Weiter üben!":"Kein Problem – Übung macht den Meister!"}</div>
+      <div style="display:flex;gap:8px;justify-content:center">
+        <button class="btn btn-p btn-sm" onclick="tqStart()"><i class="ti ti-refresh"></i>Nochmal</button>
+        <button class="btn btn-sm" onclick="tqStop()">Beenden</button>
+      </div>
+    </div>`;
+  taktikReset("adler");
 }
 
 /* ═══════════════════════════════════
