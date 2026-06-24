@@ -2313,6 +2313,22 @@ function tbCreateToken(name,cls,roleLabel){
   return el;
 }
 
+function tbDetectRole(x,y){
+  const zones=[
+    {role:"TW",cls:"tb-tw",x:50,y:92},
+    {role:"Aufp.",cls:"tb-auf",x:50,y:72},
+    {role:"Fl.L",cls:"tb-fl",x:20,y:48},
+    {role:"Fl.R",cls:"tb-fl",x:80,y:48},
+    {role:"Jäger",cls:"tb-jaeg",x:50,y:25}
+  ];
+  let best=zones[0],bestDist=Infinity;
+  zones.forEach(z=>{
+    const d=Math.sqrt((x-z.x)**2+(y-z.y)**2);
+    if(d<bestDist){bestDist=d;best=z;}
+  });
+  return{role:best.role,cls:best.cls};
+}
+
 const TB_ROLE_CYCLE=[
   {role:"",cls:"tb-frei"},
   {role:"TW",cls:"tb-tw"},
@@ -2413,13 +2429,18 @@ function tbAddDrag(tok,fieldEl){
 
     if(fromBench){
       tbBench=tbBench.filter(n=>n!==playerName);
-      tbField.push({name:playerName,x:finalX,y:finalY,cls:"tb-frei",role:""});
+      const detected=tbDetectRole(finalX,finalY);
+      tbField.push({name:playerName,x:finalX,y:finalY,cls:detected.cls,role:detected.role});
       taktikRender();
     } else {
       const idx=parseInt(tok.dataset.idx);
       if(!isNaN(idx)&&tbField[idx]){
         tbField[idx].x=finalX;
         tbField[idx].y=finalY;
+        const detected=tbDetectRole(finalX,finalY);
+        tbField[idx].role=detected.role;
+        tbField[idx].cls=detected.cls;
+        taktikRender();
       }
     }
   }
