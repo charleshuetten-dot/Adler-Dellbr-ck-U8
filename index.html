@@ -6686,12 +6686,15 @@ async function pinCheck(){
     document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content","U9 Quiz");
     document.querySelector('meta[name="application-name"]')?.setAttribute("content","U9 Quiz");
     const quizIcon=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-      <defs><linearGradient id="qbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#059669"/><stop offset="100%" stop-color="#047857"/></linearGradient></defs>
-      <rect width="512" height="512" rx="108" fill="url(#qbg)"/>
-      <g transform="translate(256,170)"><path d="M0-75 C-8-75-16-68-22-58 L-60-2 C-66 8-62 18-52 22 L-32 34-16 22 0 28 16 22 32 34 52 22 C62 18 66 8 60-2 L22-58 C16-68 8-75 0-75Z" fill="white" opacity=".9"/><circle cx="-14" cy="-34" r="5" fill="#047857"/><circle cx="14" cy="-34" r="5" fill="#047857"/><path d="M-7-18 Q0-12 7-18" stroke="#047857" stroke-width="3" fill="none" stroke-linecap="round"/></g>
-      <text x="256" y="330" font-family="Arial,sans-serif" font-size="80" font-weight="800" fill="white" text-anchor="middle">QUIZ</text>
-      <g transform="translate(256,395)"><circle r="8" fill="#fbbf24"/><circle cx="-28" r="8" fill="#fbbf24"/><circle cx="28" r="8" fill="#fbbf24"/><circle cx="-56" r="6" fill="#fbbf24" opacity=".6"/><circle cx="56" r="6" fill="#fbbf24" opacity=".6"/></g>
-      <text x="256" y="470" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="rgba(255,255,255,.85)" text-anchor="middle">U9 ADLER</text>
+      <rect width="512" height="512" rx="108" fill="#047857"/>
+      <rect x="8" y="8" width="496" height="496" rx="100" fill="none" stroke="#059669" stroke-width="4"/>
+      <circle cx="256" cy="200" r="110" fill="white"/>
+      <text x="256" y="248" font-family="Arial,Helvetica,sans-serif" font-size="160" font-weight="900" fill="#047857" text-anchor="middle">?</text>
+      <circle cx="340" cy="120" r="20" fill="#fbbf24" stroke="#f59e0b" stroke-width="2"/>
+      <text x="340" y="128" font-family="Arial,sans-serif" font-size="22" font-weight="900" fill="#92400e" text-anchor="middle">⚽</text>
+      <g transform="translate(256,370)"><polygon points="0,-18 5,-7 17,-6 8,2 10,14 0,8 -10,14 -8,2 -17,-6 -5,-7" fill="#fbbf24"/><polygon points="-50,-14 -45,-5 -35,-4 -42,3 -40,13 -50,8 -60,13 -58,3 -65,-4 -55,-5" fill="#fbbf24" opacity=".7"/><polygon points="50,-14 55,-5 65,-4 58,3 60,13 50,8 40,13 42,3 35,-4 45,-5" fill="#fbbf24" opacity=".7"/></g>
+      <text x="256" y="440" font-family="Arial,Helvetica,sans-serif" font-size="56" font-weight="900" fill="white" text-anchor="middle">QUIZ</text>
+      <text x="256" y="488" font-family="Arial,Helvetica,sans-serif" font-size="36" font-weight="800" fill="#fbbf24" text-anchor="middle" letter-spacing="4">U9 ADLER</text>
     </svg>`;
     const quizIconUrl="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(quizIcon);
     const appleI=document.getElementById("apple-icon");
@@ -6916,20 +6919,21 @@ function tpGenerate(){
 (function(){
   // Generate SVG icon as data URL
   const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-    <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1d4ed8"/><stop offset="100%" stop-color="#1e3a8a"/></linearGradient></defs>
-    <rect width="512" height="512" rx="108" fill="url(#bg)"/>
-    <circle cx="256" cy="220" r="130" fill="white"/>
-    <g transform="translate(256,220)">
-      <path d="M0-120 Q40-110 60-80 Q50-60 0-55 Q-50-60-60-80 Q-40-110 0-120Z" fill="#1e3a8a" opacity=".12"/>
-      <path d="M-120 0 Q-110-40-80-60 Q-60-50-55 0 Q-60 50-80 60 Q-110 40-120 0Z" fill="#1e3a8a" opacity=".12"/>
-      <path d="M120 0 Q110 40 80 60 Q60 50 55 0 Q60-50 80-60 Q110-40 120 0Z" fill="#1e3a8a" opacity=".12"/>
-      <path d="M0 120 Q-40 110-60 80 Q-50 60 0 55 Q50 60 60 80 Q40 110 0 120Z" fill="#1e3a8a" opacity=".12"/>
-      <circle r="40" fill="none" stroke="#1e3a8a" stroke-width="2.5" opacity=".15"/>
-      <line x1="0" y1="-130" x2="0" y2="130" stroke="#1e3a8a" stroke-width="2" opacity=".1"/>
-      <line x1="-130" y1="0" x2="130" y2="0" stroke="#1e3a8a" stroke-width="2" opacity=".1"/>
+    <rect width="512" height="512" rx="108" fill="#1e3a8a"/>
+    <rect x="8" y="8" width="496" height="496" rx="100" fill="none" stroke="#2563eb" stroke-width="4"/>
+    <g transform="translate(256,195)">
+      <circle r="22" fill="#fbbf24" stroke="#f59e0b" stroke-width="3"/>
+      <circle cx="-70" cy="70" r="18" fill="white" opacity=".9"/><circle cx="70" cy="70" r="18" fill="white" opacity=".9"/>
+      <circle cy="-80" r="18" fill="white" opacity=".9"/>
+      <circle cy="140" r="16" fill="white" opacity=".7"/>
+      <line x1="0" y1="-60" x2="-55" y2="55" stroke="rgba(255,255,255,.35)" stroke-width="2.5"/>
+      <line x1="0" y1="-60" x2="55" y2="55" stroke="rgba(255,255,255,.35)" stroke-width="2.5"/>
+      <line x1="-55" y1="55" x2="0" y2="125" stroke="rgba(255,255,255,.35)" stroke-width="2.5"/>
+      <line x1="55" y1="55" x2="0" y2="125" stroke="rgba(255,255,255,.35)" stroke-width="2.5"/>
+      <line x1="0" y1="-60" x2="0" y2="0" stroke="rgba(255,255,255,.35)" stroke-width="2.5"/>
     </g>
-    <text x="256" y="405" font-family="Arial,Helvetica,sans-serif" font-size="72" font-weight="900" fill="white" text-anchor="middle" letter-spacing="2">ADLER</text>
-    <text x="256" y="465" font-family="Arial,Helvetica,sans-serif" font-size="56" font-weight="800" fill="#fbbf24" text-anchor="middle" letter-spacing="8">U9</text>
+    <text x="256" y="440" font-family="Arial,Helvetica,sans-serif" font-size="64" font-weight="900" fill="white" text-anchor="middle">ADLER</text>
+    <text x="256" y="490" font-family="Arial,Helvetica,sans-serif" font-size="44" font-weight="800" fill="#fbbf24" text-anchor="middle" letter-spacing="6">U9</text>
   </svg>`;
   const iconUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgIcon);
 
