@@ -460,7 +460,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   body{background:#fff!important;font-size:11pt;color:#000}
   .app{max-width:100%;padding:0}
   .nav,.topbar .cloud-row,.brow,.btn,.print-btn,
-  #install-banner,.nb,.frow,.dim-head .dchev,
+  #install-banner,.nb,#main-nav,#bew-sticky,.frow,.dim-head .dchev,
   .dim-body.coll{display:none!important}
   .view{display:block!important}
   .view:not(.print-active){display:none!important}
@@ -586,7 +586,7 @@ h1.print-header{display:none}
   <div class="cloud-row"><span class="cdot" id="cdot"></span><span id="clbl">Verbinde...</span></div>
 </div>
 
-<div id="main-nav" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;background:#fff;padding:4px;border-radius:12px;margin-bottom:20px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.07)">
+<div id="main-nav" style="position:fixed;left:0;right:0;bottom:0;z-index:50;display:grid;grid-template-columns:repeat(7,1fr);gap:2px;background:#fff;padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-top:1px solid #e2e8f0;box-shadow:0 -2px 12px rgba(0,0,0,.08)">
   <button class="nb active" id="nb-bew" onclick="sv('bew')"><i class="ti ti-clipboard-list"></i><span>Bewerten</span></button>
   <button class="nb" id="nb-kader" onclick="sv('kader')"><i class="ti ti-users"></i><span>Kader</span></button>
   <button class="nb" id="nb-training" onclick="sv('training')"><i class="ti ti-run"></i><span>Training</span></button>
@@ -675,6 +675,11 @@ h1.print-header{display:none}
     </div>
   </div>
 
+  <div id="bew-sticky" style="display:none;position:sticky;top:0;z-index:30;background:var(--club-accent);color:#fff;border-radius:10px;padding:8px 12px;margin-bottom:10px;box-shadow:0 2px 8px rgba(26,86,219,.28);align-items:center;gap:10px">
+    <i class="ti ti-user" style="font-size:16px"></i>
+    <span id="bs-name" style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+    <span id="bs-prog" style="margin-left:auto;font-size:12px;font-weight:600;opacity:.95;white-space:nowrap"></span>
+  </div>
   <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
     <button class="btn btn-sm" id="wiz-toggle" onclick="wizToggle()"><i class="ti ti-cards"></i>Fokus-Modus</button>
   </div>
@@ -1651,6 +1656,7 @@ function generateFazitTW(v,meta){
    LIVE RADAR
 ═══════════════════════════════════ */
 let liveChart=null;
+let builtDimsTw=null; // welche Layout-Variante (Feld=false / TW=true) aktuell im DOM steht; null = leer
 function updateLiveRadar(){
   const v=getV(),dims=currentDims();
   const{dims:ds}=calcScores(v,dims);
@@ -1723,6 +1729,8 @@ function onChange(){
   document.getElementById("plbl").textContent=`${filled} / ${total}`;
   document.getElementById("live-prog").textContent=`${filled} / ${total}`;
   document.getElementById("live-pct").textContent=pct?`${pct}%`:"";
+  const bsProg=document.getElementById("bs-prog");
+  if(bsProg)bsProg.textContent=`${filled} / ${total}${pct?" · "+pct+"%":""}`;
   updateTierHL();updateMxHL();updateDimPills();updateLiveRadar();
   const tw=isTWPlayer();
   if(!tw&&filled>=12)updateRautePreview(calcRolle(getV(),getMeta().foot,true),false); // F2: neutralMissing für stabile Vorschau
@@ -1740,11 +1748,24 @@ function onPlayerSelect(){
   const name=document.getElementById("p-name").value;
   if(!name)return;
   const k=getKader(name);
-  document.querySelectorAll('input[type="radio"]').forEach(r=>r.checked=false);
-  buildDims(k?.tw||false);
-  updateRautePreview(null,k?.tw||false);
-  document.getElementById("raute-hint").textContent=k?.tw?"Torwart + Feldspieler":"Bewertung ausfüllen";
+  const tw=k?.tw||false;
+  // Nur neu bauen, wenn sich die Layout-Variante (Feld/TW) ändert – sonst nur Werte zurücksetzen.
+  if(builtDimsTw!==tw){
+    buildDims(tw);
+  }else{
+    document.querySelectorAll('#dims-wrap input[type="radio"]').forEach(r=>r.checked=false);
+    if(wizOn){wizIdx=0;wizRender();}
+  }
+  showBewSticky(name);
+  updateRautePreview(null,tw);
+  document.getElementById("raute-hint").textContent=tw?"Torwart + Feldspieler":"Bewertung ausfüllen";
   onChange();
+}
+function showBewSticky(name){
+  const bar=document.getElementById("bew-sticky");
+  const nm=document.getElementById("bs-name");
+  if(nm)nm.textContent=name||"";
+  if(bar)bar.style.display=name?"flex":"none";
 }
 
 /* ═══════════════════════════════════
@@ -1754,6 +1775,7 @@ function buildDims(isTw){
   const dims=isTw?[...DIMS_FELD,...DIMS_TW]:DIMS_FELD;
   const wrap=document.getElementById("dims-wrap");
   wrap.innerHTML="";
+  builtDimsTw=isTw;
   dims.forEach(d=>{
     const block=document.createElement("div");
     block.className="dim-block";
@@ -2016,6 +2038,8 @@ function clearForm(){
   ["rp-auf","rp-jaeg","rp-links","rp-rechts","rp-tw"].forEach(id=>{const el=document.getElementById(id);if(el){el.className="rpos";el.style.opacity="";}});
   if(liveChart){liveChart.destroy();liveChart=null;}
   document.getElementById("dims-wrap").innerHTML="";
+  builtDimsTw=null;
+  showBewSticky("");
 }
 
 function loadPlayerToForm(p){
@@ -2033,10 +2057,13 @@ function loadPlayerToForm(p){
   document.getElementById("p-trainer").value=p.trainer||"Sandy";
   document.getElementById("p-notes").value=p.notes||"";
   const tw=getKader(p.name)?.tw||false;
-  buildDims(tw);
-  document.querySelectorAll('input[type="radio"]').forEach(r=>r.checked=false);
+  if(builtDimsTw!==tw){
+    buildDims(tw);
+  }else if(wizOn){wizIdx=0;wizRender();}
+  document.querySelectorAll('#dims-wrap input[type="radio"]').forEach(r=>r.checked=false);
   const radios=typeof p.radios==="string"?safeParse(p.radios,{}):(p.radios||{});
   Object.keys(radios).forEach(n=>{const el=document.querySelector(`input[name="${n}"][value="${radios[n]}"]`);if(el)el.checked=true;});
+  showBewSticky(p.name);
   updateTierHL();updateMxHL();updateDimPills();onChange();
   sv("bew");window.scrollTo({top:0,behavior:"smooth"});
 }
