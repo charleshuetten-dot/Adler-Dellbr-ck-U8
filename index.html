@@ -615,15 +615,16 @@ h1.print-header{display:none}
   <div class="cloud-row"><span class="cdot" id="cdot"></span><span id="clbl">Verbinde...</span></div>
 </div>
 
-<div id="main-nav" style="position:fixed;left:0;right:0;bottom:0;z-index:50;display:grid;grid-template-columns:repeat(7,1fr);gap:2px;background:#fff;padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-top:1px solid #e2e8f0;box-shadow:0 -2px 12px rgba(0,0,0,.08)">
-  <button class="nb active" id="nb-bew" onclick="sv('bew')"><i class="ti ti-clipboard-list"></i><span>Bewerten</span></button>
-  <button class="nb" id="nb-kader" onclick="sv('kader')"><i class="ti ti-users"></i><span>Kader</span></button>
-  <button class="nb" id="nb-training" onclick="sv('training')"><i class="ti ti-run"></i><span>Training</span></button>
-  <button class="nb" id="nb-taktik" onclick="sv('taktik')"><i class="ti ti-arrows-move"></i><span>Taktik</span></button>
-  <button class="nb" id="nb-profil" onclick="sv('profil')"><i class="ti ti-user"></i><span>Profil</span></button>
-  <button class="nb" id="nb-verlauf" onclick="sv('verlauf')"><i class="ti ti-chart-line"></i><span>Verlauf</span></button>
-  <button class="nb" id="nb-kombi" onclick="sv('kombi')"><i class="ti ti-users-group"></i><span>Kombi</span></button>
+<div id="main-nav" style="position:fixed;left:0;right:0;bottom:0;z-index:50;display:grid;grid-template-columns:repeat(5,1fr);gap:2px;background:#fff;padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-top:1px solid #e2e8f0;box-shadow:0 -2px 12px rgba(0,0,0,.08)">
+  <button class="nb active" id="nb-team" onclick="openTab('team')"><i class="ti ti-users"></i><span>Team</span></button>
+  <button class="nb" id="nb-training" onclick="openTab('training')"><i class="ti ti-run"></i><span>Training</span></button>
+  <button class="nb" id="nb-spieltag" onclick="openTab('spieltag')"><i class="ti ti-whistle"></i><span>Spieltag</span></button>
+  <button class="nb" id="nb-taktik" onclick="openTab('taktik')"><i class="ti ti-arrows-move"></i><span>Taktik</span></button>
+  <button class="nb" id="nb-orga" onclick="openTab('orga')"><i class="ti ti-calendar"></i><span>Orga</span></button>
 </div>
+
+<!-- Dynamische Sub-Tab-Leiste (vom Router pro Tab befüllt) -->
+<div id="tab-subbar" style="display:none;gap:4px;margin-bottom:14px;background:var(--surface2);padding:3px;border-radius:var(--r);border:var(--border)"></div>
 
 <!-- BEWERTUNG -->
 <div id="view-bew" class="view active">
@@ -823,21 +824,11 @@ h1.print-header{display:none}
   </div>
 </div>
 
-<!-- TRAINING VIEW -->
+<!-- TRAINING/SPIELTAG/ORGA HOST (passiver Container – Sektionen werden vom Router gesteuert) -->
 <div id="view-training" class="view">
-  <div id="train-subtab-row" style="display:flex;gap:4px;margin-bottom:14px;background:var(--surface2);padding:3px;border-radius:var(--r);border:var(--border)">
-    <button class="sub-tab active" id="st-formen" onclick="switchTrainSub('formen')"><i class="ti ti-ball-football"></i>Formen</button>
-    <button class="sub-tab" id="st-termine" onclick="switchTrainSub('termine')"><i class="ti ti-calendar"></i>Termine</button>
-    <button class="sub-tab" id="st-planung" onclick="switchTrainSub('planung')"><i class="ti ti-calendar-event"></i>Planung</button>
-    <button class="sub-tab" id="st-anwesenheit" onclick="switchTrainSub('anwesenheit')"><i class="ti ti-checkbox"></i>Anwesenheit</button>
-    <button class="sub-tab" id="st-quizresults" onclick="switchTrainSub('quizresults')"><i class="ti ti-brain"></i>Quiz</button>
-    <button class="sub-tab" id="st-team" onclick="switchTrainSub('team')"><i class="ti ti-users"></i>Team</button>
-    <button class="sub-tab" id="st-spieltag" onclick="switchTrainSub('spieltag')"><i class="ti ti-whistle"></i>Spieltag</button>
-    <button class="sub-tab" id="st-analyse" onclick="switchTrainSub('analyse')"><i class="ti ti-chart-dots"></i>Analyse</button>
-  </div>
 
   <!-- SUB: Formen -->
-  <div id="train-sub-formen" class="train-sub active">
+  <div id="train-sub-formen" class="train-sub">
   <div class="sl nt"><i class="ti ti-run"></i>Trainingsformen-Datenbank</div>
   <div style="background:var(--blue-bg);border:1px solid #93c5fd;border-radius:var(--rl);padding:12px;margin-bottom:1rem;font-size:12px;color:#1e40af;line-height:1.6">
     <strong>Schwerpunkt jetzt: Grundordnung &amp; Raute aufbauen.</strong> 50 Spielformen auf Basis des 4-Phasen-Modells.
@@ -2470,30 +2461,90 @@ function renderVerlauf(){
 /* ═══════════════════════════════════
    NAV
 ═══════════════════════════════════ */
-function sv(name){
-  // View Transitions API: weiche Überblendung beim Tab-Wechsel, falls verfügbar
-  // (Fallback: harter Wechsel; prefers-reduced-motion überspringt die Animation)
-  const reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if(document.startViewTransition&&!reduce){
-    document.startViewTransition(()=>_svApply(name));
-  }else{
-    _svApply(name);
-  }
+/* ═══════════════════════════════════
+   NAVIGATION – 5 Tabs, datengetriebener 2-Ebenen-Router
+   TABS: Bottom-Nav-Tab -> Sektionen (dynamische Sub-Tab-Leiste).
+   SECS: Sektion -> Container-ID + Init-Funktion (+ sub:true = liegt im Host #view-training).
+   sv()/switchTrainSub() bleiben als Kompatibilitäts-Shims für Altaufrufe erhalten.
+═══════════════════════════════════ */
+const TABS={
+  team:    {sections:[
+    {key:"bew",     label:"Bewerten", icon:"ti-clipboard-list"},
+    {key:"kader",   label:"Kader",    icon:"ti-users"},
+    {key:"profil",  label:"Profil",   icon:"ti-user"},
+    {key:"verlauf", label:"Verlauf",  icon:"ti-chart-line"},
+  ]},
+  training:{sections:[
+    {key:"anwesenheit", label:"Anwesenheit", icon:"ti-checkbox"},
+    {key:"planung",     label:"Planung",     icon:"ti-calendar-event"},
+    {key:"formen",      label:"Formen",      icon:"ti-ball-football"},
+    {key:"quizresults", label:"Quiz",        icon:"ti-brain"},
+  ]},
+  spieltag:{sections:[
+    {key:"spieltag", label:"Match",       icon:"ti-whistle"},
+    {key:"kombi",    label:"Aufstellung", icon:"ti-users-group"},
+    {key:"analyse",  label:"Analyse",     icon:"ti-chart-dots"},
+  ]},
+  taktik:  {sections:[
+    {key:"taktik",   label:"Taktikboard", icon:"ti-arrows-move"},
+  ]},
+  orga:    {sections:[
+    {key:"termine",  label:"Termine",  icon:"ti-calendar"},
+    {key:"team",     label:"Pinnwand", icon:"ti-clipboard"},
+  ]},
+};
+const SECS={
+  bew:        {cid:"view-bew"},
+  kader:      {cid:"view-kader",           init:()=>renderKader()},
+  profil:     {cid:"view-profil",          init:()=>renderProfil()},
+  verlauf:    {cid:"view-verlauf",         init:()=>renderVerlauf()},
+  kombi:      {cid:"view-kombi",           init:()=>renderKombi()},
+  taktik:     {cid:"view-taktik",          init:()=>taktikInit()},
+  formen:     {cid:"train-sub-formen",     sub:true, init:()=>renderTraining()},
+  termine:    {cid:"train-sub-termine",    sub:true, init:()=>tmInit()},
+  planung:    {cid:"train-sub-planung",    sub:true, init:()=>{tpRenderTimeline();addEvalSection();}},
+  anwesenheit:{cid:"train-sub-anwesenheit",sub:true, init:()=>awRenderList()},
+  quizresults:{cid:"train-sub-quizresults",sub:true, init:()=>tqRenderTrainerView()},
+  team:       {cid:"train-sub-team",       sub:true, init:()=>{tnLoad();teamStatsRender();tvInit();}},
+  analyse:    {cid:"train-sub-analyse",    sub:true, init:()=>anInit()},
+  spieltag:   {cid:"train-sub-spieltag",   sub:true, init:()=>{rotRenderControls();nomInit();}},
+};
+const tabState={}; // zuletzt geöffnete Sektion je Tab (UX: Rückkehr an dieselbe Stelle)
+function sectionTab(key){ for(const t in TABS){ if(TABS[t].sections.some(s=>s.key===key))return t; } return null; }
+
+function renderSubbar(tabId,activeKey){
+  const bar=document.getElementById("tab-subbar");
+  if(!bar)return;
+  const secs=TABS[tabId].sections;
+  if(secs.length<=1){ bar.style.display="none"; bar.innerHTML=""; return; }
+  bar.style.display="flex";
+  bar.innerHTML=secs.map(s=>`<button class="sub-tab${s.key===activeKey?' active':''}" onclick="go('${s.key}')"><i class="ti ${s.icon}"></i>${s.label}</button>`).join("");
 }
-function _svApply(name){
+function _open(key){
+  const sec=SECS[key]; if(!sec)return;
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
-  document.querySelectorAll(".nb").forEach(b=>b.classList.remove("active"));
-  document.getElementById("view-"+name).classList.add("active");
-  document.getElementById("nb-"+name)?.classList.add("active");
-  if(name==="profil")renderProfil();
-  if(name==="kader")renderKader();
-  if(name==="verlauf")renderVerlauf();
-  if(name==="kombi")renderKombi();
-  if(name==="taktik")taktikInit();
-  if(name==="training"){setTimeout(function(){renderTraining();},50);}
-  // Wake Lock: Display bleibt an, solange das Taktik-Board offen ist (Ansprache am Spielfeldrand)
-  if(name==="taktik")requestWakeLock();else releaseWakeLock();
+  document.querySelectorAll(".train-sub").forEach(v=>v.classList.remove("active"));
+  if(sec.sub)document.getElementById("view-training")?.classList.add("active"); // passiver Host sichtbar machen
+  document.getElementById(sec.cid)?.classList.add("active");
 }
+function go(key){
+  const tabId=sectionTab(key); if(!tabId||!SECS[key])return;
+  document.querySelectorAll("#main-nav .nb").forEach(b=>b.classList.remove("active"));
+  document.getElementById("nb-"+tabId)?.classList.add("active");
+  renderSubbar(tabId,key);
+  const reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(document.startViewTransition&&!reduce)document.startViewTransition(()=>_open(key));else _open(key);
+  // Nebenwirkungen (aus altem _svApply/switchTrainSub übernommen)
+  if(key==="taktik")requestWakeLock();else releaseWakeLock();
+  // Rotations-Timer stoppen beim Verlassen des Spieltags (try/catch: rotTimerId ggf. noch in TDZ beim Start)
+  try{ if(key!=="spieltag"&&rotTimerId){clearInterval(rotTimerId);rotTimerId=null;} }catch(e){}
+  if(SECS[key].init)setTimeout(SECS[key].init,50);
+  tabState[tabId]=key;
+}
+function openTab(tabId){ if(!TABS[tabId])return; go(tabState[tabId]||TABS[tabId].sections[0].key); }
+// Kompatibilitäts-Shims: bestehende sv()/switchTrainSub()-Aufrufe im Code bleiben gültig
+function sv(name){ if(name==="training"){openTab("training");return;} go(name); }
+function switchTrainSub(sub){ go(sub); }
 
 // Wake Lock API (nativ) – verhindert, dass das Display während der Nutzung ausgeht
 let wakeLock=null;
@@ -7538,24 +7589,10 @@ document.getElementById("tp-date").value=new Date().toISOString().slice(0,10);
 document.getElementById("aw-date").value=new Date().toISOString().slice(0,10);
 loadDB().then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500)); // G1 + KI-Light-Meilenstein-Hinweis
 loadCustomForms();
+openTab("team"); // Start-Tab normalisieren + Sub-Tab-Leiste initial rendern
 
-/* ═══════════════════════════════════
-   TRAINING SUB-TAB SWITCHING
-═══════════════════════════════════ */
-function switchTrainSub(sub){
-  document.querySelectorAll(".train-sub").forEach(s=>s.classList.remove("active"));
-  document.querySelectorAll(".sub-tab").forEach(b=>b.classList.remove("active"));
-  document.getElementById("train-sub-"+sub)?.classList.add("active");
-  document.getElementById("st-"+sub)?.classList.add("active");
-  if(sub==="anwesenheit")awRenderList();
-  if(sub==="planung"){tpRenderTimeline();addEvalSection();}
-  if(sub==="quizresults")tqRenderTrainerView();
-  if(sub==="termine"){tmInit();} // Kalender-Rückgrat
-  if(sub==="analyse"){anInit();} // Performance-Dashboard
-  if(sub!=="spieltag"&&rotTimerId){clearInterval(rotTimerId);rotTimerId=null;} // Timer beim Verlassen stoppen
-  if(sub==="team"){tnLoad();teamStatsRender();tvInit();} // G2/G4 + Micro-Voting
-  if(sub==="spieltag"){rotRenderControls();nomInit();} // nomInit -> nomLoad speist Timer + Blitz + Action-Tracker
-}
+/* switchTrainSub() lebt jetzt als Shim im 5-Tab-Router (siehe oben, delegiert an go()).
+   Die frühere vollständige Definition wurde entfernt – ihre Init-Logik steckt in SECS. */
 
 /* ═══════════════════════════════════
    TEAM-MODUL (Block G)
