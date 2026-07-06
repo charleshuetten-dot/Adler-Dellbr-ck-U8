@@ -2464,6 +2464,25 @@ function complementScore(aufpasser, jaeger, fl_l, fl_r){
   else if(speedDiff>=2) score-=10;
   // Soziale Eignung wird bereits in socialScore() abgebildet – hier nicht ein zweites Mal
   // bestrafen (Review 3, Punkt 5b: verhinderte sonst faktisch die Rotation dieser Kinder)
+
+  // Buddy-System (Psycho-Synergie): ein selbstbewusstes "Anker"-Kind direkt neben
+  // einem stillen/unsicheren Kind stützt es – Bonus für solche Nachbarschaften in
+  // der Raute (aufpasser↔flügel, flügel↔jäger).
+  const shy   =p=>((p.v.t_sozial||2)===1)||((p.v.t_selbstvertrauen||2)===1);
+  const anchor=p=>((p.v.t_sozial||2)===3)||((p.v.t_selbstvertrauen||2)===3);
+  const nachbarn=[[aufpasser,fl_l],[aufpasser,fl_r],[fl_l,jaeger],[fl_r,jaeger]];
+  let buddy=0;
+  nachbarn.forEach(([a,b])=>{ if((shy(a)&&anchor(b))||(shy(b)&&anchor(a))) buddy+=6; });
+  score+=Math.min(12,buddy); // gedeckelt, damit Buddy-Effekt den Rollenfit nicht überstimmt
+
+  // Einsatz-Fairness (leichte Rotations-Steuerung über die Trainingsbeteiligung):
+  // regelmäßige Trainingsgänger bekommen eher einen Startplatz; ein selten anwesendes
+  // Kind allein in der exponierten Spitze wird leicht abgewertet.
+  const att=p=>+(p.lat?.attendance||2);
+  const attAvg=(att(aufpasser)+att(fl_l)+att(fl_r)+att(jaeger))/4;
+  score+=Math.round((attAvg-2)*6); // -6 .. +6
+  if(att(jaeger)===1) score-=4;
+
   return Math.max(0,Math.min(100,score));
 }
 
@@ -2494,6 +2513,17 @@ function generateInsights(tw, aufpasser, fl_l, fl_r, jaeger, score){
     insights.push({type:"pos",text:`${aufpasser.name} gewinnt den Ball, ${jaeger.name} schließt ab – idealer Konter-Rhythmus`});
   if((v_jaeg.t_selbstvertrauen||2)===3)
     insights.push({type:"pos",text:`${jaeger.name} sucht Druck aktiv – perfekte Mentalität für die Spitze`});
+  // Buddy-System: ein Anker-Kind neben einem stillen/unsicheren Kind
+  {
+    const shyF=p=>((p.v.t_sozial||2)===1)||((p.v.t_selbstvertrauen||2)===1);
+    const ancF=p=>((p.v.t_sozial||2)===3)||((p.v.t_selbstvertrauen||2)===3);
+    const pairs=[[aufpasser,fl_l],[aufpasser,fl_r],[fl_l,jaeger],[fl_r,jaeger]];
+    for(const [a,b] of pairs){
+      let anc,sh;
+      if(ancF(a)&&shyF(b)){anc=a;sh=b;} else if(ancF(b)&&shyF(a)){anc=b;sh=a;}
+      if(anc){insights.push({type:"pos",text:`${anc.name} gibt ${sh.name} auf der Nachbarposition Rückhalt – ideales Buddy-Paar für ein unsicheres Kind`});break;}
+    }
+  }
   // F3(a): t_auftreten gestrichen – Aspekt lebt in t_sozial weiter
   if((v_auf.t_sozial||2)===3||(v_jaeg.t_sozial||2)===3){
     const leader=[aufpasser,jaeger].find(p=>(p.v.t_sozial||2)===3);
@@ -2513,6 +2543,10 @@ function generateInsights(tw, aufpasser, fl_l, fl_r, jaeger, score){
 
   if((v_auf.t_raum||1)===1)
     insights.push({type:"warn",text:`${aufpasser.name} neigt zur Klumpenbildung – klare Korridor-Ansagen nötig`});
+
+  // Einsatz-Fairness: seltener Trainingsgänger allein in der Spitze
+  if(+(jaeger.lat?.attendance||2)===1)
+    insights.push({type:"info",text:`${jaeger.name} ist selten im Training – in der Spitze fehlen dann oft die Abläufe. Ggf. rotieren.`});
 
   // Info (F3(a): "Anlaufzeit"-Block entfernt – redundant zur t_sozial-Warnung oben)
   const lowConf=[aufpasser,fl_l,fl_r,jaeger].filter(p=>(p.v.t_selbstvertrauen||2)===1);
