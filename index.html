@@ -5359,6 +5359,7 @@ function tqPersonalize(text){
 function tqStart(){
   const panel=document.getElementById("tq-panel");
   panel.style.display="block";
+  const extern=document.body.classList.contains("quiz-extern"); // im Kinder-Quiz gibt es kein "Schließen"
   const progress=tqGetProgress();
   const pp=tqPlayer?progress[tqPlayer]||{}:{};
   let html=`<div class="tq-panel">
@@ -5374,7 +5375,7 @@ function tqStart(){
         ${k.nr?`<div style="font-size:9px;color:var(--text3)">#${k.nr}</div>`:""}
       </div>`;
     });
-    html+=`</div><button class="btn btn-sm" onclick="tqStop()" style="margin-top:8px"><i class="ti ti-x"></i>Abbrechen</button>`;
+    html+=`</div>${extern?"":'<button class="btn btn-sm" onclick="tqStop()" style="margin-top:8px"><i class="ti ti-x"></i>Abbrechen</button>'}`;
   } else {
     html+=`🧑 ${tqPlayer}${tqPlayerRole?" – "+tqPlayerRole:""}</div>
       <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">Wähle einen Block!</div>
@@ -5394,7 +5395,7 @@ function tqStart(){
     html+=`</div>
       <div style="display:flex;gap:6px;margin-top:6px">
         <button class="btn btn-sm" onclick="tqPlayer=null;tqStart()"><i class="ti ti-arrow-left"></i>Spieler wechseln</button>
-        <button class="btn btn-sm" onclick="tqStop()" style="margin-left:auto"><i class="ti ti-x"></i>Schließen</button>
+        ${extern?"":'<button class="btn btn-sm" onclick="tqStop()" style="margin-left:auto"><i class="ti ti-x"></i>Schließen</button>'}
       </div>`;
   }
   html+=`</div>`;
