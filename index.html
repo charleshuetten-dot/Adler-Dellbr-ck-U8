@@ -358,6 +358,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .tb-token:not(.tb-opp):not(.tb-ball):not(.tb-bench){width:auto;min-width:44px;padding:0 6px;border-radius:22px}
 .tb-token:not(.tb-opp):not(.tb-ball):not(.tb-bench) .tb-name{font-size:8px;white-space:nowrap}
 /* TAKTIK QUIZ */
+#tq-panel .btn,#tq-panel .btn-sm{min-height:44px;padding:10px 16px;font-size:13px} /* C4: Kinderfinger */
 .tq-bar{display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
 .tq-panel{background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:12px;margin-bottom:10px}
 .tq-situation{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;line-height:1.5}
@@ -597,6 +598,14 @@ h1.print-header{display:none}
         <button type="button" class="seg-btn" data-val="3" onclick="segSet('p-eltern',3,this)">⭐ Top-Partner</button>
       </div>
       <input type="hidden" id="p-eltern" value="2">
+    </div>
+    <div class="mg"><label>Trainingsbeteiligung</label>
+      <div class="seg-ctrl" id="p-att-seg">
+        <button type="button" class="seg-btn" data-val="1" onclick="segSet('p-att',1,this)">Selten</button>
+        <button type="button" class="seg-btn active" data-val="2" onclick="segSet('p-att',2,this)">Regelmäßig</button>
+        <button type="button" class="seg-btn" data-val="3" onclick="segSet('p-att',3,this)">Fast immer</button>
+      </div>
+      <input type="hidden" id="p-att" value="2">
     </div>
     <div class="mg"><label>Starker Fuß</label>
       <select id="p-foot">
@@ -1101,6 +1110,7 @@ const DIMS_TW=[
    HELPER
 ═══════════════════════════════════ */
 const esc=s=>(s+'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeParse=(s,fb)=>{try{return s?JSON.parse(s):fb}catch(e){return fb}}; // C1: kaputte scores/radios-Zeilen dürfen keine View crashen
 function segSet(id,val,btn){document.getElementById(id).value=val;btn.parentElement.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active"));btn.classList.add("active");}
 const gv=n=>{const e=document.querySelector(`input[name="${n}"]:checked`);return e?parseInt(e.value):null;};
 const safe=n=>gv(n)||0;
@@ -1120,6 +1130,7 @@ const getMeta=()=>({
   age:document.getElementById("p-age").value,
   grp:document.getElementById("p-grp").value,
   eltern:document.getElementById("p-eltern").value,
+  att:document.getElementById("p-att")?.value||"2",
   notes:document.getElementById("p-notes").value,
   tw:isTWPlayer()
 });
@@ -1620,6 +1631,8 @@ async function savePlayer(){
     total_score:result.total,pot_score:result.pot,
     radios:JSON.stringify(v)
   };
+  const saveBtn=document.querySelector('button[onclick="savePlayer()"]'); // C9: Doppelklick-Schutz
+  if(saveBtn)saveBtn.disabled=true;
   try{
     const res=await fetch(`${SB_URL}/rest/v1/spielerprofile`,{method:"POST",headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation','X-Client-Info':'supabase-js/2.0.0'},body:JSON.stringify(row)});
     if(res.ok||res.status===201||res.status===204){
@@ -1631,6 +1644,7 @@ async function savePlayer(){
       showSt("save-status",errMsg,"err");
     }
   }catch(e){showSt("save-status","Netzwerkfehler: "+e.message,"err");}
+  finally{if(saveBtn)saveBtn.disabled=false;}
 }
 
 function showSt(id,msg,type){
@@ -1652,6 +1666,9 @@ function clearForm(){
   document.getElementById("p-eltern").value="2";
   const elSeg=document.getElementById("p-eltern-seg");
   if(elSeg){elSeg.querySelectorAll(".seg-btn").forEach(b=>{b.classList.toggle("active",b.dataset.val==="2");});}
+  document.getElementById("p-att").value="2";
+  const attSeg=document.getElementById("p-att-seg");
+  if(attSeg){attSeg.querySelectorAll(".seg-btn").forEach(b=>{b.classList.toggle("active",b.dataset.val==="2");});}
   document.getElementById("p-age").value="8";
   document.getElementById("p-grp").value="flex";
   document.querySelectorAll('input[type="radio"]').forEach(r=>r.checked=false);
@@ -1669,7 +1686,9 @@ function loadPlayerToForm(p){
   document.getElementById("p-name").value=p.name||"";
   document.getElementById("p-date").value=p.datum||"";
   document.getElementById("p-foot").value=p.strong_foot||"R";
-  if(document.getElementById("p-att"))document.getElementById("p-att").value=p.attendance||"3";
+  if(document.getElementById("p-att"))document.getElementById("p-att").value=p.attendance||"2";
+  const attSeg=document.getElementById("p-att-seg");
+  if(attSeg){attSeg.querySelectorAll(".seg-btn").forEach(b=>{b.classList.toggle("active",b.dataset.val===(p.attendance||"2"));});}
   document.getElementById("p-eltern").value=p.eltern||"2";
   const elSeg=document.getElementById("p-eltern-seg");
   if(elSeg){elSeg.querySelectorAll(".seg-btn").forEach(b=>{b.classList.toggle("active",b.dataset.val===(p.eltern||"2"));});}
@@ -1680,7 +1699,7 @@ function loadPlayerToForm(p){
   const tw=getKader(p.name)?.tw||false;
   buildDims(tw);
   document.querySelectorAll('input[type="radio"]').forEach(r=>r.checked=false);
-  const radios=typeof p.radios==="string"?JSON.parse(p.radios):(p.radios||{});
+  const radios=typeof p.radios==="string"?safeParse(p.radios,{}):(p.radios||{});
   Object.keys(radios).forEach(n=>{const el=document.querySelector(`input[name="${n}"][value="${radios[n]}"]`);if(el)el.checked=true;});
   updateTierHL();updateMxHL();updateDimPills();onChange();
   sv("bew");window.scrollTo({top:0,behavior:"smooth"});
@@ -1743,7 +1762,7 @@ function renderKader(){
   let html=`<table class="kader-t"><thead><tr><th>Spieler</th><th>Rolle</th><th>Grp</th><th>Tech.</th><th>Wahr.</th><th>Phys.</th><th>Ges.</th><th>Pot.</th><th>Von</th><th></th></tr></thead><tbody>`;
   filtered.forEach(name=>{
     const lat=DB[name][DB[name].length-1];
-    const sc=lat.scores?(()=>{try{return JSON.parse(lat.scores)}catch(e){return[0,0,0,0,0]}})():[0,0,0,0,0];
+    const sc=safeParse(lat.scores,[0,0,0,0,0]);
     const isTw=lat.tw===true||getKader(name)?.tw;
     const prim=lat.position||"flex";
     const bMap={aufpasser:"rb-auf",jaeger:"rb-jaeg",flitzer_l:"rb-links",flitzer_r:"rb-rechts",flex:"rb-flex"};
@@ -1843,7 +1862,7 @@ function renderProfil(){
   if(!name){document.getElementById("profil-content").innerHTML='<div class="empty"><i class="ti ti-user-circle"></i>Spieler auswählen</div>';return;}
   const snaps=DB[name]||[];if(!snaps.length)return;
   const lat=snaps[snaps.length-1];
-  const sc=lat.scores?(()=>{try{return JSON.parse(lat.scores)}catch(e){return[0,0,0,0,0]}})():[0,0,0,0,0];
+  const sc=safeParse(lat.scores,[0,0,0,0,0]);
   const tot=lat.total_score||0,pot=lat.pot_score||0;
   const isTw=lat.tw===true||getKader(name)?.tw;
   const dims=isTw?[...DIMS_FELD,...DIMS_TW]:DIMS_FELD;
@@ -1930,11 +1949,11 @@ function renderVerlauf(){
   const dl=dims.map(d=>d.label.split(" ")[0]);
   const cols=dims.map(d=>d.col);
   const dates=snaps.map(s=>s.datum||'–');
-  const datasets=dl.map((l,i)=>({label:l,data:snaps.map(s=>{const sc=s.scores?JSON.parse(s.scores):[];return sc[i]||0;}),borderColor:cols[i],backgroundColor:"transparent",borderWidth:2,pointRadius:4,tension:.3}));
+  const datasets=dl.map((l,i)=>({label:l,data:snaps.map(s=>{const sc=safeParse(s.scores,[]);return sc[i]||0;}),borderColor:cols[i],backgroundColor:"transparent",borderWidth:2,pointRadius:4,tension:.3}));
   let deltaHtml="";
   if(snaps.length>=2){
     const prev=snaps[snaps.length-2],curr=snaps[snaps.length-1];
-    const scP=prev.scores?JSON.parse(prev.scores):[];const scC=curr.scores?JSON.parse(curr.scores):[];
+    const scP=safeParse(prev.scores,[]);const scC=safeParse(curr.scores,[]);
     const totD=(curr.total_score||0)-(prev.total_score||0);
     deltaHtml=`<div class="delta-box"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:8px"><i class="ti ti-trending-up" style="font-size:13px"></i> Delta ${esc(prev.datum||'–')} → ${esc(curr.datum||'–')}</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">${dl.map((l,i)=>{const d=(scC[i]||0)-(scP[i]||0);return`<span class="hp">${l}: <span class="${d>0?'dp':d<0?'dn':''}">${d>0?'+':''}${d}%</span></span>`;}).join("")}</div>
@@ -1950,8 +1969,8 @@ function renderVerlauf(){
   <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:1rem">${dl.map((l,i)=>`<span style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:500;color:var(--text2)"><span style="width:14px;height:3px;background:${cols[i]};display:inline-block;border-radius:2px"></span>${l}</span>`).join("")}</div>
   <div class="sl"><i class="ti ti-history"></i>Alle Snapshots</div>`;
   snaps.forEach((s,idx)=>{
-    const sc=s.scores?JSON.parse(s.scores):[];
-    const prev=idx>0&&snaps[idx-1].scores?JSON.parse(snaps[idx-1].scores):null;
+    const sc=safeParse(s.scores,[]);
+    const prev=idx>0?safeParse(snaps[idx-1].scores,null):null;
     const bMap={aufpasser:"rb-auf",jaeger:"rb-jaeg",flitzer_l:"rb-links",flitzer_r:"rb-rechts"};
     html+=`<div class="hi">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
@@ -2000,7 +2019,7 @@ function getPlayerData(name){
   const snaps=DB[name];
   if(!snaps||!snaps.length)return null;
   const lat=snaps[snaps.length-1];
-  const v=typeof lat.radios==="string"?JSON.parse(lat.radios):(lat.radios||{});
+  const v=typeof lat.radios==="string"?safeParse(lat.radios,{}):(lat.radios||{});
   const tw=getKader(name)?.tw||false;
   const dims=tw?[...DIMS_FELD,...DIMS_TW]:DIMS_FELD;
   const{dims:ds,total}=calcScores(v,dims);
@@ -2374,7 +2393,7 @@ function taktikRender(){
     tqCurrentOpps.forEach(o=>{
       const el=document.createElement("div");
       el.className="tb-token tb-opp";
-      el.innerHTML=`<span class="tb-name">${o.label||"G"}</span>`;
+      el.innerHTML=`<span class="tb-name">${o.label||"Gegner"}</span>`;
       const ox=o.to?o.to.x:o.x, oy=o.to?o.to.y:o.y;
       el.style.cssText=`position:absolute;z-index:8;left:${ox}%;top:${oy}%;transform:translate(-50%,-50%)`;
       tokensEl.appendChild(el);
@@ -4974,7 +4993,7 @@ function tqSaveProgress(player,block,score,total){
 }
 async function tqSyncToSupabase(player,block,data){
   try{
-    await fetch(`${SB_URL}/rest/v1/quiz_progress`,{
+    await fetch(`${SB_URL}/rest/v1/quiz_progress?on_conflict=player,block`,{
       method:"POST",
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
       body:JSON.stringify({player,block,score:data.score,total:data.total,date:data.date})
@@ -5291,6 +5310,10 @@ function tqCheck(){
     tqScore++;
     const cheer=cheers[Math.floor(Math.random()*cheers.length)];
     fb.innerHTML=`<div class="tq-feedback correct" style="text-align:center"><div style="font-size:28px;margin-bottom:4px">${cheer}</div><strong>Richtig!</strong> ${hits}/${total} Positionen korrekt!<br>${sc.explain.correct}</div>`;
+  } else if(hits>0){
+    // C6: Teil-Treffer bekommen wärmeres Partial-Feedback statt komplett rot
+    fb.innerHTML=`<div class="tq-feedback partial"><div style="font-size:20px;margin-bottom:4px">💪 Fast!</div><strong>${hits}/${total} richtig.</strong><br>${sc.explain.wrong}</div>`;
+    tqShowSolution(sc);
   } else {
     const enc=encourages[Math.floor(Math.random()*encourages.length)];
     fb.innerHTML=`<div class="tq-feedback wrong"><div style="font-size:20px;margin-bottom:4px">${enc}</div><strong>${hits}/${total} richtig.</strong><br>${sc.explain.wrong}</div>`;
@@ -5307,11 +5330,13 @@ function tqShowSolution(sc){
   const tokensEl=document.getElementById("taktik-tokens");
   if(!tokensEl)return;
   Object.entries(sc.targets).forEach(([role,tgt])=>{
-    const t=Array.isArray(tgt)?tgt[0]:tgt;
-    const marker=document.createElement("div");
-    marker.style.cssText=`position:absolute;z-index:7;left:${t.x}%;top:${t.y}%;transform:translate(-50%,-50%);width:${t.r*2.2}%;aspect-ratio:1;border-radius:50%;border:3px dashed #22c55e;background:rgba(34,197,94,.15);pointer-events:none;display:flex;align-items:center;justify-content:center`;
-    marker.innerHTML=`<span style="font-size:7px;font-weight:700;color:#15803d;text-align:center;line-height:1.2">${role}</span>`;
-    tokensEl.appendChild(marker);
+    const alts=Array.isArray(tgt)?tgt:[tgt]; // C7: alle Alternativen zeigen – erste voll, weitere halbtransparent
+    alts.forEach((t,ai)=>{
+      const marker=document.createElement("div");
+      marker.style.cssText=`position:absolute;z-index:7;left:${t.x}%;top:${t.y}%;transform:translate(-50%,-50%);width:${t.r*2.2}%;aspect-ratio:1;border-radius:50%;border:3px dashed #22c55e;background:rgba(34,197,94,.15);pointer-events:none;display:flex;align-items:center;justify-content:center;opacity:${ai===0?1:.5}`;
+      marker.innerHTML=`<span style="font-size:7px;font-weight:700;color:#15803d;text-align:center;line-height:1.2">${role}${ai>0?" (auch ok)":""}</span>`;
+      tokensEl.appendChild(marker);
+    });
   });
 }
 
@@ -5373,7 +5398,7 @@ const TRAININGSFORMEN = [
   ablauf:'Zwei Teams à 5 (TW + 4 Feld). Jeder Feldspieler hat eine Farbe = Rautenposition (Aufpasser, Flitzer L, Flitzer R, Jäger). Gespielt wird normal. Tor zählt nur wenn beim Abschluss alle 4 Feldspieler in ihrer Hälfte stehen.\n\nTrainer zählt laut "Position?" – Team antwortet "Ja!" wenn alle stehen.',
   varianten:'- Erst ohne Positionspflicht spielen – beobachten, dann Regel einführen\n- Bonuspunkt wenn Tor nach Steilpass von Aufpasser zu Jäger fällt\n- TW darf einwerfen und löst damit Angriff aus',
   coaching:'Aufpasser – bleib hinten! Jäger – geh nach vorne!\nNach Ballverlust: sofort zurück in Position!\nGemeinsam feiern wenn Raute steht und Tor fällt – Erfolgserlebnis!',
-  svg:'<svg viewBox="0 0 280 180" width="100%" style="max-width:280px;display:block;margin:8px auto;border-radius:6px" xmlns="http://www.w3.org/2000/svg">\n  <rect width="280" height="180" rx="4" fill="#2d6a2d" stroke="#1a4a1a" stroke-width="1.5"/>\n  <rect x="4" y="4" width="272" height="172" rx="3" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1"/>\n  <defs>\n  <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">\n    <path d="M0,0 L6,3 L0,6 Z" fill="rgba(255,255,255,.8)"/>\n  </marker>\n</defs><line x1="140" y1="30" x2="60" y2="90" stroke="rgba(255,255,255,.2)" stroke-width="1" stroke-dasharray="4,3"/><line x1="140" y1="30" x2="220" y2="90" stroke="rgba(255,255,255,.2)" stroke-width="1" stroke-dasharray="4,3"/><line x1="60" y1="90" x2="140" y2="150" stroke="rgba(255,255,255,.2)" stroke-width="1" stroke-dasharray="4,3"/><line x1="220" y1="90" x2="140" y2="150" stroke="rgba(255,255,255,.2)" stroke-width="1" stroke-dasharray="4,3"/><circle cx="20" cy="90" r="8" fill="#fbbf24" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="20" y="107" text-anchor="middle" fill="#fbbf24" font-size="8" font-family="sans-serif" font-weight="600">TW</text><circle cx="140" cy="30" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="140" y="48" text-anchor="middle" fill="#4ade80" font-size="8" font-family="sans-serif" font-weight="600">Jäger</text><circle cx="60" cy="90" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="60" y="108" text-anchor="middle" fill="#4ade80" font-size="8" font-family="sans-serif" font-weight="600">Flitzer L</text><circle cx="220" cy="90" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="220" y="108" text-anchor="middle" fill="#4ade80" font-size="8" font-family="sans-serif" font-weight="600">Flitzer R</text><circle cx="140" cy="150" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="140" y="168" text-anchor="middle" fill="#4ade80" font-size="8" font-family="sans-serif" font-weight="600">Auf.</text><circle cx="260" cy="90" r="8" fill="#f87171" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="260" y="107" text-anchor="middle" fill="#f87171" font-size="8" font-family="sans-serif" font-weight="600">TW2</text><circle cx="140" cy="90" r="8" fill="#f87171" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="140" y="107" text-anchor="middle" fill="#f87171" font-size="8" font-family="sans-serif" font-weight="600">2</text><line x1="140" y1="150" x2="140" y2="30" stroke="rgba(255,200,0,.6)" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>\n  <text x="140" y="174" text-anchor="middle" fill="rgba(255,255,255,.5)" font-size="9" font-family="sans-serif">4+1 Lebende Raute</text>\n</svg>',
+  svg:'<svg viewBox="0 0 280 180" width="100%" style="max-width:280px;display:block;margin:8px auto;border-radius:6px" xmlns="http://www.w3.org/2000/svg">\n  <rect width="280" height="180" rx="4" fill="#2d6a2d" stroke="#1a4a1a" stroke-width="1.5"/>\n  <rect x="4" y="4" width="272" height="172" rx="3" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1"/>\n  <defs>\n  <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">\n    <path d="M0,0 L6,3 L0,6 Z" fill="rgba(255,255,255,.8)"/>\n  </marker>\n</defs><line x1="140" y1="30" x2="60" y2="90" stroke="rgba(255,255,255,.2)" stroke-width="1" stroke-dasharray="4,3"/><line x1="140" y1="30" x2="220" y2="90" stroke="rgba(255,255,255,.2)" stroke-width="1" stroke-dasharray="4,3"/><line x1="60" y1="90" x2="140" y2="150" stroke="rgba(255,255,255,.2)" stroke-width="1" stroke-dasharray="4,3"/><line x1="220" y1="90" x2="140" y2="150" stroke="rgba(255,255,255,.2)" stroke-width="1" stroke-dasharray="4,3"/><circle cx="20" cy="90" r="8" fill="#fbbf24" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="20" y="107" text-anchor="middle" fill="#fbbf24" font-size="8" font-family="sans-serif" font-weight="600">TW</text><circle cx="140" cy="30" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="140" y="48" text-anchor="middle" fill="#4ade80" font-size="8" font-family="sans-serif" font-weight="600">Jäger</text><circle cx="60" cy="90" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="60" y="108" text-anchor="middle" fill="#4ade80" font-size="8" font-family="sans-serif" font-weight="600">Flitzer L</text><circle cx="220" cy="90" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="220" y="108" text-anchor="middle" fill="#4ade80" font-size="8" font-family="sans-serif" font-weight="600">Flitzer R</text><circle cx="140" cy="150" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="140" y="168" text-anchor="middle" fill="#4ade80" font-size="7" font-family="sans-serif" font-weight="600">Aufpasser</text><circle cx="260" cy="90" r="8" fill="#f87171" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="260" y="107" text-anchor="middle" fill="#f87171" font-size="8" font-family="sans-serif" font-weight="600">TW2</text><circle cx="140" cy="90" r="8" fill="#f87171" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="140" y="107" text-anchor="middle" fill="#f87171" font-size="8" font-family="sans-serif" font-weight="600">2</text><line x1="140" y1="150" x2="140" y2="30" stroke="rgba(255,200,0,.6)" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>\n  <text x="140" y="174" text-anchor="middle" fill="rgba(255,255,255,.5)" font-size="9" font-family="sans-serif">4+1 Lebende Raute</text>\n</svg>',
   tags:["raute"]
 },
 {
@@ -5385,7 +5410,7 @@ const TRAININGSFORMEN = [
   ablauf:'5 Spieler (TW + 4 Feld) stellen sich in Rauten-Formation auf. Trainer ruft "Los!" – alle laufen zu ihrer Position. Wer zuerst korrekt steht bekommt Punkt. Dann 2 Minuten freies Spiel mit denselben Positionen.\n\nZiel: Die 4 Rauten-Positionen durch Wiederholung im Körpergedächtnis verankern.',
   varianten:'- Trainer zeigt Farbkarte (Farbe = Position) – Spieler rennt zu seinem Korridor\n- Ohne Ball: nur Positionieren – dann Ball einwerfen\n- Mit verbundenen Augen starten – auf Zuruf positionieren',
   coaching:'Wo ist deine Position in der Raute?\nPositionsnamen konsequent nutzen: Aufpasser, Flitzer L/R, Jäger\nPositive Verstärkung wenn Spieler automatisch richtig steht',
-  svg:'<svg viewBox="0 0 280 180" width="100%" style="max-width:280px;display:block;margin:8px auto;border-radius:6px" xmlns="http://www.w3.org/2000/svg">\n  <rect width="280" height="180" rx="4" fill="#2d6a2d" stroke="#1a4a1a" stroke-width="1.5"/>\n  <rect x="4" y="4" width="272" height="172" rx="3" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1"/>\n  <defs>\n  <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">\n    <path d="M0,0 L6,3 L0,6 Z" fill="rgba(255,255,255,.8)"/>\n  </marker>\n</defs><polygon points="90,13 85,24 95,24" fill="#f59e0b" stroke="rgba(0,0,0,.3)" stroke-width="1"/><polygon points="190,13 185,24 195,24" fill="#f59e0b" stroke="rgba(0,0,0,.3)" stroke-width="1"/><polygon points="90,153 85,164 95,164" fill="#f59e0b" stroke="rgba(0,0,0,.3)" stroke-width="1"/><polygon points="190,153 185,164 195,164" fill="#f59e0b" stroke="rgba(0,0,0,.3)" stroke-width="1"/><circle cx="140" cy="35" r="9" fill="1" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="140" y="53" text-anchor="middle" fill="1" font-size="8" font-family="sans-serif" font-weight="600">Jäger</text><circle cx="60" cy="90" r="9" fill="1" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="60" y="108" text-anchor="middle" fill="1" font-size="8" font-family="sans-serif" font-weight="600">Flitzer L</text><circle cx="220" cy="90" r="9" fill="1" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="220" y="108" text-anchor="middle" fill="1" font-size="8" font-family="sans-serif" font-weight="600">Flitzer R</text><circle cx="140" cy="145" r="9" fill="1" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="140" y="163" text-anchor="middle" fill="1" font-size="8" font-family="sans-serif" font-weight="600">Auf.</text><circle cx="140" cy="90" r="8" fill="#fbbf24" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="140" y="107" text-anchor="middle" fill="#fbbf24" font-size="8" font-family="sans-serif" font-weight="600">TW</text><line x1="100" y1="90" x2="60" y2="90" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/><line x1="180" y1="90" x2="220" y2="90" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/><line x1="140" y1="110" x2="140" y2="45" stroke="rgba(255,200,0,.5)" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/><line x1="140" y1="70" x2="140" y2="155" stroke="rgba(255,200,0,.5)" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>\n  <text x="140" y="174" text-anchor="middle" fill="rgba(255,255,255,.5)" font-size="9" font-family="sans-serif">Rauten-Staffel</text>\n</svg>',
+  svg:'<svg viewBox="0 0 280 180" width="100%" style="max-width:280px;display:block;margin:8px auto;border-radius:6px" xmlns="http://www.w3.org/2000/svg">\n  <rect width="280" height="180" rx="4" fill="#2d6a2d" stroke="#1a4a1a" stroke-width="1.5"/>\n  <rect x="4" y="4" width="272" height="172" rx="3" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1"/>\n  <defs>\n  <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">\n    <path d="M0,0 L6,3 L0,6 Z" fill="rgba(255,255,255,.8)"/>\n  </marker>\n</defs><polygon points="90,13 85,24 95,24" fill="#f59e0b" stroke="rgba(0,0,0,.3)" stroke-width="1"/><polygon points="190,13 185,24 195,24" fill="#f59e0b" stroke="rgba(0,0,0,.3)" stroke-width="1"/><polygon points="90,153 85,164 95,164" fill="#f59e0b" stroke="rgba(0,0,0,.3)" stroke-width="1"/><polygon points="190,153 185,164 195,164" fill="#f59e0b" stroke="rgba(0,0,0,.3)" stroke-width="1"/><circle cx="140" cy="35" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="140" y="53" text-anchor="middle" fill="#4ade80" font-size="8" font-family="sans-serif" font-weight="600">Jäger</text><circle cx="60" cy="90" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="60" y="108" text-anchor="middle" fill="#4ade80" font-size="8" font-family="sans-serif" font-weight="600">Flitzer L</text><circle cx="220" cy="90" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="220" y="108" text-anchor="middle" fill="#4ade80" font-size="8" font-family="sans-serif" font-weight="600">Flitzer R</text><circle cx="140" cy="145" r="9" fill="#4ade80" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="140" y="163" text-anchor="middle" fill="#4ade80" font-size="7" font-family="sans-serif" font-weight="600">Aufpasser</text><circle cx="140" cy="90" r="8" fill="#fbbf24" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/><text x="140" y="107" text-anchor="middle" fill="#fbbf24" font-size="8" font-family="sans-serif" font-weight="600">TW</text><line x1="100" y1="90" x2="60" y2="90" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/><line x1="180" y1="90" x2="220" y2="90" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/><line x1="140" y1="110" x2="140" y2="45" stroke="rgba(255,200,0,.5)" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/><line x1="140" y1="70" x2="140" y2="155" stroke="rgba(255,200,0,.5)" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>\n  <text x="140" y="174" text-anchor="middle" fill="rgba(255,255,255,.5)" font-size="9" font-family="sans-serif">Rauten-Staffel</text>\n</svg>',
   tags:["raute"]
 },
 {
