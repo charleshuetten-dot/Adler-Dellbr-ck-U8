@@ -1089,9 +1089,42 @@ async function sbLogin(email,password){
   if(!r.ok)throw new Error(data.error_description||data.msg||"Login fehlgeschlagen");
   // Defensive: manche GoTrue-Antworten liefern nur expires_in (Sekunden relativ), nicht expires_at (Unix-Timestamp)
   const expiresAt=data.expires_at||(Math.floor(Date.now()/1000)+(data.expires_in||3600));
-  localStorage.setItem(SB_TOKEN_KEY,JSON.stringify({access_token:data.access_token,expires_at:expiresAt}));
+  localStorage.setItem(SB_TOKEN_KEY,JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token||null,expires_at:expiresAt}));
   return true;
 }
+/* Silent Token Refresh (Schritt 6): Session vor Ablauf still erneuern, damit man
+   z. B. mitten im Turnier nicht plötzlich ausgeloggt wird. Nutzt den refresh_token. */
+function sbSession(){ try{return JSON.parse(localStorage.getItem(SB_TOKEN_KEY)||"null");}catch(e){return null;} }
+let sbRefreshing=null;
+function sbRefreshToken(){
+  if(sbRefreshing)return sbRefreshing; // parallele Aufrufe teilen sich denselben Refresh
+  const s=sbSession();
+  if(!s||!s.refresh_token)return Promise.resolve(false);
+  sbRefreshing=(async()=>{
+    try{
+      const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`,{
+        method:"POST",headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
+        body:JSON.stringify({refresh_token:s.refresh_token})
+      });
+      const data=await r.json().catch(()=>({}));
+      if(!r.ok||!data.access_token)return false;
+      const expiresAt=data.expires_at||(Math.floor(Date.now()/1000)+(data.expires_in||3600));
+      localStorage.setItem(SB_TOKEN_KEY,JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token||s.refresh_token,expires_at:expiresAt}));
+      return true;
+    }catch(e){return false;}
+    finally{sbRefreshing=null;}
+  })();
+  return sbRefreshing;
+}
+// Proaktiv: läuft der Token in < 10 Min ab, still erneuern (Netz vorhanden vorausgesetzt).
+async function sbMaybeRefresh(){
+  const s=sbSession();
+  if(!s||!s.refresh_token)return;
+  if(s.expires_at*1000-Date.now() < 10*60*1000) await sbRefreshToken();
+}
+setInterval(sbMaybeRefresh, 3*60*1000); // alle 3 Min prüfen
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible")sbMaybeRefresh(); });
+sbMaybeRefresh(); // beim Start einmal prüfen, damit ein alter Token nicht direkt zum Logout führt
 function showLoginGate(){
   if(document.getElementById("login-gate"))return;
   const gate=document.createElement("div");
