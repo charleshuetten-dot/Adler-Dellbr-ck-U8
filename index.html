@@ -2586,7 +2586,72 @@ function renderLineupEditor(){
       <button class="btn" onclick="kombiLoadLineup()"><i class="ti ti-cloud-download"></i>Laden</button>
       <button class="btn" onclick="kombiFromSuggestion()"><i class="ti ti-wand"></i>Vorschlag</button>
       <button class="btn" onclick="kombiShareLineup()"><i class="ti ti-share"></i>Teilen</button>
+      <button class="btn" onclick="kombiShareLineupBild()"><i class="ti ti-photo"></i>Als Bild</button>
     </div>`;
+}
+// Die festgelegte Aufstellung als 4+1-Raute + Bank aufs Canvas zeichnen und teilen
+function kombiShareLineupBild(){
+  const names=Object.keys(DB).sort();
+  const selected=Object.values(kombiLineup).filter(Boolean);
+  const bench=names.filter(n=>!selected.includes(n));
+  const W=600, PITCH=690, BENCH=160, H=PITCH+BENCH;
+  const canvas=document.createElement("canvas");canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext("2d");
+  // Rasen
+  ctx.fillStyle="#2d6a2d";ctx.fillRect(0,0,W,PITCH);
+  ctx.strokeStyle="rgba(255,255,255,.4)";ctx.lineWidth=3;
+  ctx.strokeRect(16,16,W-32,PITCH-32);
+  ctx.beginPath();ctx.arc(W/2,PITCH/2,70,0,Math.PI*2);ctx.stroke();
+  // Bank-Streifen
+  ctx.fillStyle="#1e293b";ctx.fillRect(0,PITCH,W,BENCH);
+  const spots={jaeg:[300,135],fll:[150,285],flr:[450,285],auf:[300,435],tw:[300,585]};
+  const col={tw:"#854d0e",auf:"#1a56db",fll:"#b45309",flr:"#15803d",jaeg:"#c2410c"};
+  const lbl={tw:"Torwart",auf:"Aufpasser",fll:"Flitzer L",flr:"Flitzer R",jaeg:"Jäger"};
+  ctx.textAlign="center";
+  KOMBI_POS.forEach(p=>{
+    const[x,y]=spots[p.key];
+    const name=kombiLineup[p.key];
+    // Rollen-Label
+    ctx.fillStyle="rgba(255,255,255,.85)";ctx.font="12px Arial";ctx.textBaseline="alphabetic";
+    ctx.fillText(lbl[p.key],x,y-26);
+    // Pille
+    ctx.textBaseline="middle";ctx.font="bold 16px Arial";
+    const disp=name||"– offen –";
+    const tw=ctx.measureText(disp).width, pillW=Math.max(54,tw+28), pillH=38;
+    ctx.fillStyle=name?col[p.key]:"#64748b";
+    tbRoundRect(ctx,x-pillW/2,y-pillH/2,pillW,pillH,pillH/2);ctx.fill();
+    ctx.strokeStyle="rgba(255,255,255,.9)";ctx.lineWidth=2.5;ctx.stroke();
+    ctx.fillStyle="#fff";ctx.fillText(disp,x,y);
+  });
+  // Bank-Text
+  ctx.textAlign="left";ctx.textBaseline="top";
+  ctx.fillStyle="rgba(255,255,255,.6)";ctx.font="bold 12px Arial";
+  ctx.fillText("AUSWECHSELBANK",24,PITCH+16);
+  ctx.fillStyle="#fff";ctx.font="15px Arial";
+  const benchStr=bench.length?bench.map(n=>getKader(n)?.nr?getKader(n).nr+" "+n:n).join("   ·   "):"–";
+  // Umbruch falls zu lang
+  const words=benchStr.split("   ·   ");let line="",yy=PITCH+42;
+  words.forEach((w,i)=>{
+    const test=line?line+"   ·   "+w:w;
+    if(ctx.measureText(test).width>W-48&&line){ctx.fillText(line,24,yy);yy+=24;line=w;}
+    else line=test;
+  });
+  if(line)ctx.fillText(line,24,yy);
+  // Titel
+  ctx.textAlign="center";ctx.fillStyle="rgba(255,255,255,.92)";ctx.font="bold 20px Arial";ctx.textBaseline="alphabetic";
+  ctx.fillText("SV Adler Dellbrück · U9 · 4+1 Raute",W/2,PITCH-14);
+
+  canvas.toBlob(async(blob)=>{
+    if(!blob){toast("Bild konnte nicht erzeugt werden","err");return;}
+    const file=new File([blob],"aufstellung-u9.png",{type:"image/png"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],title:"Aufstellung U9"});}catch(e){}
+    }else{
+      const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="aufstellung-u9.png";
+      document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+      toast("Bild heruntergeladen ✓");
+    }
+  },"image/png");
 }
 async function kombiSaveLineup(){
   const datum=document.getElementById("lineup-date")?.value;
