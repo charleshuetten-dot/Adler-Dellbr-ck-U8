@@ -748,6 +748,7 @@ h1.print-header{display:none}
     <button class="sub-tab" id="st-planung" onclick="switchTrainSub('planung')"><i class="ti ti-calendar-event"></i>Planung</button>
     <button class="sub-tab" id="st-anwesenheit" onclick="switchTrainSub('anwesenheit')"><i class="ti ti-checkbox"></i>Anwesenheit</button>
     <button class="sub-tab" id="st-quizresults" onclick="switchTrainSub('quizresults')"><i class="ti ti-brain"></i>Quiz</button>
+    <button class="sub-tab" id="st-team" onclick="switchTrainSub('team')"><i class="ti ti-users"></i>Team</button>
   </div>
 
   <!-- SUB: Formen -->
@@ -836,6 +837,11 @@ h1.print-header{display:none}
     <div id="tp-timeline"></div>
     <button class="btn btn-p btn-sm" style="margin-top:10px" onclick="tpAddSlot()"><i class="ti ti-plus"></i>Phase hinzufügen</button>
     <button class="btn btn-sm" style="margin-top:10px" onclick="tpGenerate()"><i class="ti ti-wand"></i>Auto-Plan</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="btn" onclick="tpPlanSave()"><i class="ti ti-device-floppy"></i>Plan speichern</button>
+      <button class="btn" onclick="tpPlanLoad()"><i class="ti ti-cloud-download"></i>Plan laden</button>
+      <button class="btn" onclick="tpShareEinheit()"><i class="ti ti-share"></i>Einheit teilen</button>
+    </div>
   </div><!-- /train-sub-planung -->
 
   <!-- SUB: Anwesenheit -->
@@ -866,6 +872,21 @@ h1.print-header{display:none}
     </div>
     <div id="tq-trainer-view"></div>
   </div><!-- /train-sub-quizresults -->
+
+  <!-- SUB: Team (G2/G4) -->
+  <div id="train-sub-team" class="train-sub">
+    <div class="sl nt"><i class="ti ti-users"></i>Team-Übersicht</div>
+    <div id="team-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:14px"></div>
+    <div class="sl nt"><i class="ti ti-message"></i>Team-Pinnwand</div>
+    <div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:12px;margin-bottom:10px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <select id="tn-autor" style="flex:0 0 130px"></select>
+        <input type="text" id="tn-text" placeholder="Kurze Team-Notiz..." maxlength="500" style="flex:1;min-width:180px;padding:10px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none">
+      </div>
+      <button class="btn btn-p" onclick="tnSend()"><i class="ti ti-send"></i>Senden</button>
+    </div>
+    <div id="tn-list"></div>
+  </div><!-- /train-sub-team -->
 
 </div><!-- /view-training -->
 
@@ -906,6 +927,8 @@ function renderTrainerUI(){
   if(tp)tp.innerHTML=TRAINER.map(t=>`<label class="tp-check"><input type="checkbox" value="${t}"${(t==="Sandy"||t==="Charles")?" checked":""} onchange="tpRenderTimeline()"><span>${t}</span></label>`).join("");
   const aw=document.getElementById("aw-trainer-checks");
   if(aw)aw.innerHTML=TRAINER.map(t=>`<label class="tp-check"><input type="checkbox" value="${t}"><span>${t}</span></label>`).join("");
+  const tn=document.getElementById("tn-autor");
+  if(tn)tn.innerHTML=TRAINER.map(t=>`<option value="${t}">${t}</option>`).join("");
 }
 renderTrainerUI();
 
@@ -6492,7 +6515,7 @@ function printView(viewName){
 document.getElementById("p-date").value=new Date().toISOString().slice(0,10);
 document.getElementById("tp-date").value=new Date().toISOString().slice(0,10);
 document.getElementById("aw-date").value=new Date().toISOString().slice(0,10);
-loadDB();
+loadDB().then(()=>teamSyncLoad()); // G1: nach loadDB Anwesenheit+Nachbewertung teamweit mergen
 loadCustomForms();
 
 /* ═══════════════════════════════════
@@ -6506,6 +6529,236 @@ function switchTrainSub(sub){
   if(sub==="anwesenheit")awRenderList();
   if(sub==="planung"){tpRenderTimeline();addEvalSection();}
   if(sub==="quizresults")tqRenderTrainerView();
+  if(sub==="team"){tnLoad();teamStatsRender();} // G2/G4
+}
+
+/* ═══════════════════════════════════
+   TEAM-MODUL (Block G)
+═══════════════════════════════════ */
+// Header-Helfer für Team-Tabellen – Block I stellt hier auf das User-Token um
+function sbTeamHeaders(){
+  return {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+}
+
+// G1: local-first Upsert (Fehler still schlucken – offline-fähig bleiben)
+async function teamSyncUpsert(table,datum,data){
+  try{
+    await fetch(`${SB_URL}/rest/v1/${table}?on_conflict=datum`,{
+      method:"POST",
+      headers:{...sbTeamHeaders(),'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({datum,data})
+    });
+  }catch(e){/* offline */}
+}
+
+// G1: lokale Schreib-Zeitstempel je Datum (für Konfliktregel "jüngerer updated_at gewinnt")
+const AW_TS_KEY="adler_anwesenheit_ts",EVAL_TS_KEY="adler_training_eval_ts";
+function teamTsSet(key,datum){
+  const ts=safeParse(localStorage.getItem(key),{})||{};
+  ts[datum]=new Date().toISOString();
+  localStorage.setItem(key,JSON.stringify(ts));
+}
+
+// G1: beim Start beide Tabellen laden und mit localStorage mergen
+async function teamSyncLoad(){
+  const merge=async(table,localObj,storeKey,tsKey)=>{
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/${table}?select=*`,{headers:sbTeamHeaders()});
+      if(!r.ok)return;
+      const rows=await r.json();
+      const localTs=safeParse(localStorage.getItem(tsKey),{})||{};
+      rows.forEach(row=>{
+        if(!row||!row.datum)return;
+        const lts=localTs[row.datum];
+        // Remote übernehmen, wenn lokal nichts da ist oder Remote jünger ist
+        if(!localObj[row.datum]||!lts||new Date(row.updated_at||0)>=new Date(lts)){
+          localObj[row.datum]=row.data;
+        }
+      });
+      localStorage.setItem(storeKey,JSON.stringify(localObj));
+    }catch(e){/* offline */}
+  };
+  await merge("anwesenheit",AW_DATA,AW_KEY,AW_TS_KEY);
+  await merge("trainings_eval",EVAL_DATA,EVAL_KEY,EVAL_TS_KEY);
+}
+
+// G2: Team-Pinnwand
+async function tnLoad(){
+  const wrap=document.getElementById("tn-list");
+  if(!wrap)return;
+  wrap.innerHTML='<div class="empty" style="padding:1rem;font-size:12px">Lade Notizen...</div>';
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/team_notizen?select=*&order=pinned.desc,created_at.desc&limit=50`,{headers:sbTeamHeaders()});
+    if(!r.ok){wrap.innerHTML='<div class="empty" style="padding:1rem;font-size:12px">Keine Verbindung zur Pinnwand</div>';return;}
+    const rows=await r.json();
+    if(!rows.length){wrap.innerHTML='<div class="empty" style="padding:1rem;font-size:12px">Noch keine Notizen – schreib die erste!</div>';return;}
+    wrap.innerHTML=rows.map(n=>`
+      <div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:10px 12px;margin-bottom:8px${n.pinned?";border-left:3px solid var(--blue)":""}">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">
+          <span style="font-size:11px;font-weight:700">${n.pinned?"📌 ":""}${esc(n.autor||"?")}</span>
+          <span style="font-size:10px;color:var(--text3)">${n.created_at?new Date(n.created_at).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"}):""}</span>
+        </div>
+        <div style="font-size:12.5px;color:var(--text);line-height:1.5;margin-bottom:6px">${esc(n.text||"")}</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="tnPin(${Number(n.id)},${n.pinned?"false":"true"})"><i class="ti ti-pin"></i>${n.pinned?"Lösen":"Anpinnen"}</button>
+          <button class="btn btn-sm btn-d" onclick="tnDel(${Number(n.id)})"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>`).join("");
+  }catch(e){wrap.innerHTML='<div class="empty" style="padding:1rem;font-size:12px">Offline – Pinnwand nicht verfügbar</div>';}
+}
+async function tnSend(){
+  const autor=document.getElementById("tn-autor")?.value||"";
+  const text=(document.getElementById("tn-text")?.value||"").trim();
+  if(!text){toast("Bitte Text eingeben","err");return;}
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/team_notizen`,{
+      method:"POST",headers:sbTeamHeaders(),body:JSON.stringify({autor,text})
+    });
+    if(r.ok||r.status===201){document.getElementById("tn-text").value="";toast("Notiz gesendet ✓");tnLoad();}
+    else toast("Fehler beim Senden","err");
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+async function tnPin(id,pinned){
+  try{
+    await fetch(`${SB_URL}/rest/v1/team_notizen?id=eq.${id}`,{
+      method:"PATCH",headers:sbTeamHeaders(),body:JSON.stringify({pinned})
+    });
+    tnLoad();
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+async function tnDel(id){
+  if(!confirm("Notiz wirklich löschen?"))return;
+  try{
+    await fetch(`${SB_URL}/rest/v1/team_notizen?id=eq.${id}`,{method:"DELETE",headers:sbTeamHeaders()});
+    tnLoad();
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+
+// G4: kompakte Auswertungs-Kacheln (nur Aggregation vorhandener Daten)
+function teamStatsRender(){
+  const wrap=document.getElementById("team-stats");
+  if(!wrap)return;
+  // Letzte Einheit + Ø-Nachbewertung
+  const evalDates=Object.keys(EVAL_DATA).sort().reverse();
+  let evalTile='<div style="font-size:11px;color:var(--text3)">Noch keine Einheit bewertet</div>';
+  if(evalDates.length){
+    const d=evalDates[0];const entries=EVAL_DATA[d]||[];
+    let sum=0,cnt=0;
+    entries.forEach(e=>Object.entries(e).forEach(([k,v])=>{if(typeof v==="number"&&k!=="formIdx"){sum+=v;cnt++;}}));
+    const avg=cnt?(sum/cnt).toFixed(1):"–";
+    evalTile=`<div style="font-size:16px;font-weight:700;color:var(--blue)">${avg} ★</div><div style="font-size:10px;color:var(--text2)">${new Date(d).toLocaleDateString("de-DE")}</div>`;
+  }
+  // Anwesenheitsquote letzte 4 Termine
+  const awDates=Object.keys(AW_DATA).sort().reverse().slice(0,4);
+  let quote="–";
+  if(awDates.length){
+    let da=0,ges=0;
+    awDates.forEach(d=>{
+      Object.entries(AW_DATA[d]||{}).forEach(([k,v])=>{
+        if(k==="_trainers")return;
+        ges++;if(v&&v.da)da++;
+      });
+    });
+    if(ges)quote=Math.round(da/ges*100)+"%";
+  }
+  // Spieler ohne Bewertung seit > 8 Wochen
+  const limit=Date.now()-56*24*60*60*1000;
+  const stale=KADER.filter(k=>{
+    const snaps=DB[k.name];
+    if(!snaps||!snaps.length)return true;
+    const lat=snaps[snaps.length-1];
+    return !lat.datum||new Date(lat.datum).getTime()<limit;
+  });
+  const tile=(title,body)=>`<div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:10px 12px"><div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">${title}</div>${body}</div>`;
+  wrap.innerHTML=
+    tile("Letzte Einheit",evalTile)+
+    tile("Anwesenheit (letzte 4)",`<div style="font-size:16px;font-weight:700;color:var(--teal)">${quote}</div><div style="font-size:10px;color:var(--text2)">${awDates.length} Termin${awDates.length!==1?"e":""}</div>`)+
+    tile("Bewertung überfällig",`<div style="font-size:16px;font-weight:700;color:${stale.length?"#dc2626":"#15803d"};cursor:pointer" onclick="sv('bew')">${stale.length} Spieler</div><div style="font-size:10px;color:var(--text2)">${stale.length?"> 8 Wochen ohne Bewertung":"alle aktuell"}</div>`);
+}
+
+// G3: geplante Einheiten speichern, laden & teilen
+async function tpPlanSave(){
+  const datum=document.getElementById("tp-date").value;
+  if(!datum){toast("Bitte Datum wählen","err");return;}
+  const plan={slots:tpSlots,forms:{},cats:{},time:document.getElementById("tp-time")?.value||""};
+  document.querySelectorAll(".tp-form-sel").forEach(s=>{if(s.id)plan.forms[s.id]=s.value;});
+  document.querySelectorAll('[id^="tp-cat-"]').forEach(s=>{if(s.id)plan.cats[s.id]=s.value;});
+  const trainer=tpGetCheckedTrainers();
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/einheiten?on_conflict=datum`,{
+      method:"POST",
+      headers:{...sbTeamHeaders(),'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({datum,plan,trainer})
+    });
+    if(r.ok||r.status===201)toast("Plan gespeichert ✓");
+    else toast("Fehler beim Speichern","err");
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+async function tpPlanLoad(){
+  const datum=document.getElementById("tp-date").value;
+  if(!datum){toast("Bitte Datum wählen","err");return;}
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/einheiten?datum=eq.${encodeURIComponent(datum)}&select=*`,{headers:sbTeamHeaders()});
+    if(!r.ok){toast("Fehler beim Laden","err");return;}
+    const rows=await r.json();
+    if(!rows.length){toast("Kein Plan für dieses Datum gespeichert","err");return;}
+    const{plan,trainer}=rows[0];
+    if(Array.isArray(trainer))document.querySelectorAll("#tp-trainer-checks input").forEach(cb=>{cb.checked=trainer.includes(cb.value);});
+    if(plan&&Array.isArray(plan.slots))tpSlots=plan.slots;
+    if(plan&&plan.time&&document.getElementById("tp-time"))document.getElementById("tp-time").value=plan.time;
+    tpRenderTimeline();
+    setTimeout(()=>{
+      Object.entries(plan?.cats||{}).forEach(([id,val])=>{
+        const sel=document.getElementById(id);
+        if(sel&&val){sel.value=val;if(typeof tpOnCatChange==="function"){const m=id.match(/^tp-cat-(\d+)-(\d+)$/);if(m)tpOnCatChange(`tp-form-${m[1]}-${m[2]}`,m[1],m[2]);}}
+      });
+      Object.entries(plan?.forms||{}).forEach(([id,val])=>{
+        const sel=document.getElementById(id);
+        if(sel&&val!==""){sel.value=val;tpOnSelectChange(sel);}
+      });
+      addEvalSection();
+      toast("Plan geladen ✓");
+    },150);
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+function tpShareEinheit(){
+  const datum=document.getElementById("tp-date").value||"";
+  const zeit=document.getElementById("tp-time")?.value||"";
+  const trainer=tpGetCheckedTrainers().join(", ");
+  const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+  let time=0;
+  const zeilen=[`⚽ Trainingsplan U9 – ${datum}${zeit?" · "+zeit+" Uhr":""}`,`Trainer: ${trainer||"–"}`,""];
+  tpSlots.forEach((slot,si)=>{
+    const start=time,ende=time+slot.dauer;time=ende;
+    zeilen.push(`${start}'–${ende}' ${slot.label}`);
+    if((slot.typ||"main")==="abschluss"){zeilen.push("  Freies Spiel – alle Kinder zusammen");return;}
+    document.querySelectorAll(`[id^="tp-form-${si}-"]`).forEach(sel=>{
+      if(!sel.value)return;
+      const f=allForms[parseInt(sel.value)];
+      if(!f)return;
+      zeilen.push(`  • ${f.name}${f.kurz?" – "+f.kurz:""}`);
+      const coach=(f.coaching||"").split("\n")[0];
+      if(coach)zeilen.push(`    🎯 ${coach}`);
+    });
+  });
+  const text=zeilen.join("\n");
+  if(navigator.share){
+    navigator.share({title:"Trainingsplan U9 Adler",text}).catch(()=>{});
+  }else{
+    const modal=document.createElement("div");
+    modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";
+    modal.onclick=e=>{if(e.target===modal)modal.remove();};
+    modal.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto">
+      <div style="font-weight:700;margin-bottom:8px">Einheit teilen</div>
+      <textarea readonly style="width:100%;height:200px;font-size:11px;font-family:monospace;border:var(--border-s);border-radius:var(--r);padding:8px;resize:none">${esc(text)}</textarea>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-p" onclick="navigator.clipboard.writeText(this.closest('div[style*=fixed]').querySelector('textarea').value).then(()=>toast('Kopiert ✓'))"><i class="ti ti-copy"></i>Kopieren</button>
+        <a class="btn" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener"><i class="ti ti-brand-whatsapp"></i>WhatsApp</a>
+        <button class="btn" onclick="this.closest('div[style*=fixed]').remove()">Schließen</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
 }
 
 /* ═══════════════════════════════════
@@ -6563,6 +6816,8 @@ function awSave(){
   });
   AW_DATA[datum]=data;
   localStorage.setItem(AW_KEY,JSON.stringify(AW_DATA));
+  teamTsSet(AW_TS_KEY,datum); // G1
+  teamSyncUpsert("anwesenheit",datum,data); // G1: local-first, Fehler still
   awRenderStats();
   awRenderTrainerStats();
   toast("Anwesenheit gespeichert ✓");
@@ -7109,7 +7364,7 @@ function evalSave(){
   if(!datum){toast("Bitte Datum wählen","err");return;}
   const evals=[];
   document.querySelectorAll(".tb-eval").forEach((block,fi)=>{
-    const entry={name:block.querySelector(".tb-eval-head").textContent.replace(/Sandy|Charles|Kenneth|Peter/g,"").trim()};
+    const entry={name:block.querySelector(".tb-eval-head").textContent.replace(new RegExp(TRAINER.join("|"),"g"),"").trim()};
     entry.trainer=block.dataset.trainer||"";
     entry.formIdx=parseInt(block.dataset.formIdx)||0;
     block.querySelectorAll(".tb-eval-row").forEach(row=>{
@@ -7124,6 +7379,8 @@ function evalSave(){
   if(!evals.length){toast("Erst Übungen im Zeitplan zuweisen, dann bewerten.","err");return;}
   EVAL_DATA[datum]=evals;
   localStorage.setItem(EVAL_KEY,JSON.stringify(EVAL_DATA));
+  teamTsSet(EVAL_TS_KEY,datum); // G1
+  teamSyncUpsert("trainings_eval",datum,evals); // G1: local-first, Fehler still
   const sels=document.querySelectorAll(".tp-form-sel");
   const loggedForms=[];
   sels.forEach(s=>{if(s.value)loggedForms.push(parseInt(s.value));});
