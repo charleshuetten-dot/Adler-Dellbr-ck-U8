@@ -757,6 +757,13 @@ h1.print-header{display:none}
     <button class="btn btn-sm" onclick="taktikReset('leer')"><i class="ti ti-refresh"></i>Leer</button>
     <button class="btn btn-sm" style="background:#7c3aed;color:#fff;border-color:#7c3aed" onclick="tqStart()"><i class="ti ti-brain"></i>Quiz</button>
     <button class="btn btn-sm" onclick="taktikShareBild()"><i class="ti ti-share"></i>Aufstellung teilen</button>
+    <button class="btn btn-sm" id="dw-toggle" onclick="dwToggle()"><i class="ti ti-pencil"></i>Zeichnen</button>
+  </div>
+  <div id="dw-toolbar" style="display:none;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+    <button class="btn btn-sm" id="dw-pass" onclick="dwSetMode('pass',this)">╌ Pass</button>
+    <button class="btn btn-sm" id="dw-lauf" onclick="dwSetMode('lauf',this)">→ Laufweg</button>
+    <button class="btn btn-sm" onclick="dwUndo()"><i class="ti ti-arrow-back-up"></i></button>
+    <button class="btn btn-sm" onclick="dwClear()"><i class="ti ti-eraser"></i>Alles weg</button>
   </div>
   <div id="tq-panel" style="display:none"></div>
   <div class="tb-wrap">
@@ -773,6 +780,7 @@ h1.print-header{display:none}
         <rect x="110" y="367" width="80" height="25" rx="1" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
       </svg>
       <div id="taktik-tokens"></div>
+      <canvas id="tb-draw" style="position:absolute;inset:0;width:100%;height:100%;z-index:22;pointer-events:none;touch-action:none"></canvas>
     </div>
     <div style="font-size:10px;color:var(--text2);text-align:center;margin-top:4px">Ziehen = verschieben · Antippen = Position wechseln (TW → Aufpasser → Flitzer L → Flitzer R → Jäger)</div>
     <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:12px 0 6px">Auswechselbank</div>
@@ -3016,6 +3024,76 @@ function taktikRender(){
     });
   }
 }
+
+/* ═══════════════════════════════════
+   TAKTIKBOARD CANVAS-DRAW – Laufwege/Pässe zeichnen (keine DB, reines Frontend)
+═══════════════════════════════════ */
+let dwOn=false, dwMode="pass", dwStrokes=[], dwCur=null, dwBound=false;
+function dwToggle(){
+  const cv=document.getElementById("tb-draw"),tb=document.getElementById("dw-toolbar"),btn=document.getElementById("dw-toggle");
+  if(!cv)return;
+  dwOn=!dwOn;
+  if(dwOn){
+    dwResize();
+    cv.style.pointerEvents="auto";
+    tb.style.display="flex";
+    btn.classList.add("btn-p");
+    if(!dwBound)dwBind();
+    document.querySelectorAll("#dw-toolbar button").forEach(b=>b.classList.remove("btn-p"));
+    document.getElementById("dw-"+dwMode)?.classList.add("btn-p");
+  }else{
+    cv.style.pointerEvents="none";
+    tb.style.display="none";
+    btn.classList.remove("btn-p");
+  }
+}
+function dwResize(){
+  const cv=document.getElementById("tb-draw"),field=document.getElementById("taktik-field");
+  if(!cv||!field)return;
+  cv.width=field.clientWidth||300;cv.height=field.clientHeight||400; // Fallback falls Layout noch 0
+  dwRedraw();
+}
+function dwSetMode(m,btn){
+  dwMode=m;
+  document.querySelectorAll("#dw-toolbar button").forEach(b=>b.classList.remove("btn-p"));
+  btn.classList.add("btn-p");
+}
+function dwPos(e){
+  const cv=document.getElementById("tb-draw"),r=cv.getBoundingClientRect();
+  const pt=e.touches?e.touches[0]:e;
+  return {x:(pt.clientX-r.left)*(cv.width/r.width),y:(pt.clientY-r.top)*(cv.height/r.height)};
+}
+function dwBind(){
+  const cv=document.getElementById("tb-draw");
+  cv.addEventListener("pointerdown",e=>{if(!dwOn)return;e.preventDefault();dwCur={mode:dwMode,points:[dwPos(e)]};dwStrokes.push(dwCur);});
+  cv.addEventListener("pointermove",e=>{if(!dwOn||!dwCur)return;e.preventDefault();dwCur.points.push(dwPos(e));dwRedraw();});
+  window.addEventListener("pointerup",()=>{dwCur=null;});
+  window.addEventListener("resize",()=>{if(dwOn)dwResize();});
+  dwBound=true;
+}
+function dwRedraw(){
+  const cv=document.getElementById("tb-draw");if(!cv)return;
+  const ctx=cv.getContext("2d");ctx.clearRect(0,0,cv.width,cv.height);
+  dwStrokes.forEach(s=>{
+    const pts=s.points;if(!pts.length)return;
+    ctx.lineWidth=3.5;ctx.lineJoin="round";ctx.lineCap="round";
+    if(s.mode==="pass"){ctx.strokeStyle="#dc2626";ctx.setLineDash([9,7]);}
+    else{ctx.strokeStyle="#1a56db";ctx.setLineDash([]);}
+    ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
+    for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);
+    ctx.stroke();
+    if(s.mode==="lauf"&&pts.length>=2){ // Pfeilspitze
+      const a=pts[pts.length-2],b=pts[pts.length-1],ang=Math.atan2(b.y-a.y,b.x-a.x),L=13;
+      ctx.setLineDash([]);ctx.beginPath();
+      ctx.moveTo(b.x,b.y);ctx.lineTo(b.x-L*Math.cos(ang-.42),b.y-L*Math.sin(ang-.42));
+      ctx.moveTo(b.x,b.y);ctx.lineTo(b.x-L*Math.cos(ang+.42),b.y-L*Math.sin(ang+.42));
+      ctx.stroke();
+    }
+  });
+  ctx.setLineDash([]);
+}
+function dwUndo(){dwStrokes.pop();dwRedraw();}
+function dwClear(){dwStrokes=[];dwRedraw();}
 
 function tbCreateToken(name,cls,roleLabel){
   const el=document.createElement("div");
