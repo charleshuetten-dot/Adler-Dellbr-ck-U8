@@ -787,12 +787,14 @@ h1.print-header{display:none}
 <!-- TAKTIK VIEW -->
 <div id="view-taktik" class="view">
   <div class="sl nt"><i class="ti ti-arrows-move"></i>Taktik-Board – Live</div>
-  <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-    <button class="btn btn-p btn-sm" onclick="taktikReset('adler')"><i class="ti ti-arrow-badge-up"></i>Adler</button>
-    <button class="btn btn-sm" onclick="taktikReset('igel')"><i class="ti ti-shield"></i>Igel</button>
+  <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+    <span style="font-size:11px;font-weight:700;color:var(--text2)">Spielform:</span>
+    <button class="btn btn-sm tb-form-btn" data-form="funino" onclick="taktikSetFormation('funino',this)"><i class="ti ti-triangle"></i>Funino</button>
+    <button class="btn btn-p btn-sm tb-form-btn" data-form="4+1" onclick="taktikSetFormation('4+1',this)"><i class="ti ti-diamond"></i>4+1</button>
+    <button class="btn btn-sm tb-form-btn" data-form="5+1" onclick="taktikSetFormation('5+1',this)"><i class="ti ti-pentagon"></i>5+1</button>
     <button class="btn btn-sm" onclick="taktikReset('leer')"><i class="ti ti-refresh"></i>Leer</button>
     <button class="btn btn-sm" style="background:#7c3aed;color:#fff;border-color:#7c3aed" onclick="tqStart()"><i class="ti ti-brain"></i>Quiz</button>
-    <button class="btn btn-sm" onclick="taktikShareBild()"><i class="ti ti-share"></i>Aufstellung teilen</button>
+    <button class="btn btn-sm" onclick="taktikShareBild()"><i class="ti ti-share"></i>Teilen</button>
     <button class="btn btn-sm" id="dw-toggle" onclick="dwToggle()"><i class="ti ti-pencil"></i>Zeichnen</button>
   </div>
   <div id="dw-toolbar" style="display:none;gap:6px;margin-bottom:8px;flex-wrap:wrap">
@@ -3060,22 +3062,33 @@ function printView(viewName){
 /* ═══════════════════════════════════
    TAKTIK-BOARD (Freies Drag & Drop)
 ═══════════════════════════════════ */
-const TAKTIK_PRESETS={
-  adler:[
-    {role:"TW",x:50,y:92,cls:"tb-tw"},
-    {role:"Aufpasser",x:50,y:72,cls:"tb-auf"},
-    {role:"Flitzer L",x:18,y:48,cls:"tb-fl"},
-    {role:"Flitzer R",x:82,y:48,cls:"tb-fl"},
-    {role:"Jäger",x:50,y:25,cls:"tb-jaeg"}
-  ],
-  igel:[
-    {role:"TW",x:50,y:92,cls:"tb-tw"},
-    {role:"Aufpasser",x:50,y:68,cls:"tb-auf"},
-    {role:"Flitzer L",x:32,y:52,cls:"tb-fl"},
-    {role:"Flitzer R",x:68,y:52,cls:"tb-fl"},
-    {role:"Jäger",x:50,y:38,cls:"tb-jaeg"}
-  ]
+/* FORMATIONS: single source of truth für Spielformen der U9.
+   x/y sind RELATIV (Prozent 0–100) -> skaliert automatisch mit der Feldgröße.
+   tw:false = ohne Torwart (Funino). rk = Rollen-Schlüssel für Algorithmen/Rating.
+   Steuert sowohl das Taktikboard als auch (später) die Matchday-Drop-Zonen. */
+const FORMATIONS={
+  'funino':{label:'Funino',tw:false,fieldCount:3,slots:[
+    {role:'Spieler',x:50,y:76,cls:'tb-auf',rk:'feld'},
+    {role:'Spieler',x:26,y:42,cls:'tb-fl', rk:'feld'},
+    {role:'Spieler',x:74,y:42,cls:'tb-fl', rk:'feld'},
+  ]},
+  '4+1':{label:'4+1 Raute',tw:true,fieldCount:4,slots:[
+    {role:'TW',       x:50,y:92,cls:'tb-tw', rk:'tw'},
+    {role:'Aufpasser',x:50,y:72,cls:'tb-auf',rk:'aufpasser'},
+    {role:'Flitzer L',x:18,y:48,cls:'tb-fl', rk:'flitzer_l'},
+    {role:'Flitzer R',x:82,y:48,cls:'tb-fl', rk:'flitzer_r'},
+    {role:'Jäger',    x:50,y:25,cls:'tb-jaeg',rk:'jaeger'},
+  ]},
+  '5+1':{label:'5+1',tw:true,fieldCount:5,slots:[
+    {role:'TW',       x:50,y:92,cls:'tb-tw', rk:'tw'},
+    {role:'Abwehr L', x:30,y:74,cls:'tb-auf',rk:'aufpasser'},
+    {role:'Abwehr R', x:70,y:74,cls:'tb-auf',rk:'aufpasser'},
+    {role:'Flitzer L',x:16,y:46,cls:'tb-fl', rk:'flitzer_l'},
+    {role:'Flitzer R',x:84,y:46,cls:'tb-fl', rk:'flitzer_r'},
+    {role:'Jäger',    x:50,y:26,cls:'tb-jaeg',rk:'jaeger'},
+  ]},
 };
+let tbFormation='4+1'; // aktuell gewählte Spielform des Boards (später aus termin.spielform)
 
 let tbField=[];
 let tbBench=[];
@@ -3088,30 +3101,45 @@ function taktikSetup(mode){
     taktikRender();
     return;
   }
-  const preset=TAKTIK_PRESETS[mode]||TAKTIK_PRESETS.adler;
-  const combo=calcBestCombos();
+  const form=FORMATIONS[tbFormation]||FORMATIONS['4+1'];
+  const slots=form.slots;
+  const twName=form.tw?(KADER.find(k=>k.twPrio===1)?.name||null):null;
   tbField=[];tbBench=[];
-  if(combo&&combo[0]){
-    const b=combo[0];
-    const twName=b.tw?.name||(KADER.find(k=>k.twPrio===1)?.name)||null;
-    const assign=[twName,b.aufpasser.name,b.flitzer_l.name,b.flitzer_r.name,b.jaeger.name];
-    preset.forEach((p,i)=>{
-      if(assign[i]) tbField.push({name:assign[i],x:p.x,y:p.y,cls:p.cls,role:p.role});
-    });
-  } else {
-    const twName=KADER.find(k=>k.twPrio===1)?.name;
-    const others=names.filter(n=>n!==twName);
-    if(twName) tbField.push({name:twName,x:preset[0].x,y:preset[0].y,cls:preset[0].cls,role:preset[0].role});
-    for(let i=1;i<preset.length&&i-1<others.length;i++){
-      tbField.push({name:others[i-1],x:preset[i].x,y:preset[i].y,cls:preset[i].cls,role:preset[i].role});
+  let assign=[];
+  // Nur 4+1 hat den passenden Rollen-Kombinator (aufpasser/flitzer/jäger) – siehe FORMATIONS.
+  if(tbFormation==='4+1'){
+    const combo=calcBestCombos();
+    if(combo&&combo[0]){
+      const b=combo[0];
+      assign=[b.tw?.name||twName, b.aufpasser.name, b.flitzer_l.name, b.flitzer_r.name, b.jaeger.name];
     }
   }
+  if(!assign.length){
+    // Generische Befüllung (Funino/5+1 oder 4+1-Fallback): TW zuerst, dann Feldspieler der Reihe nach.
+    const rest=names.filter(n=>n!==twName);
+    let fi=0;
+    assign=slots.map((s,i)=>{
+      if(i===0&&form.tw)return twName;
+      return rest[fi++]||null;
+    });
+  }
+  slots.forEach((s,i)=>{
+    if(assign[i]) tbField.push({name:assign[i],x:s.x,y:s.y,cls:s.cls,role:s.role});
+  });
   const used=new Set(tbField.map(f=>f.name));
   tbBench=names.filter(n=>!used.has(n));
   tbBall={x:50,y:50};
   taktikRender();
 }
-function taktikInit(){taktikSetup("adler");}
+function taktikSetFormation(f,btn){
+  if(!FORMATIONS[f])return;
+  tbFormation=f;
+  document.querySelectorAll('.tb-form-btn').forEach(b=>b.classList.remove('btn-p'));
+  if(btn)btn.classList.add('btn-p');
+  else document.querySelector('.tb-form-btn[data-form="'+f+'"]')?.classList.add('btn-p');
+  taktikSetup('auto');
+}
+function taktikInit(){taktikSetup("auto");}
 function taktikReset(mode){taktikSetup(mode);}
 
 // Aufstellung als sauberes PNG rendern und per Web Share API teilen (Fallback: Download).
@@ -3158,7 +3186,7 @@ function taktikShareBild(){
   }
   // Titelzeile
   ctx.fillStyle="rgba(255,255,255,.92)";ctx.font="bold 22px Arial";ctx.textBaseline="alphabetic";
-  ctx.fillText("SV Adler Dellbrück · U9 · 4+1 Raute",W/2,H-22);
+  ctx.fillText("SV Adler Dellbrück · U9 · "+((FORMATIONS[tbFormation]||FORMATIONS['4+1']).label),W/2,H-22);
 
   canvas.toBlob(async(blob)=>{
     if(!blob){toast("Bild konnte nicht erzeugt werden","err");return;}
@@ -3457,7 +3485,8 @@ function tbAddDrag(tok,fieldEl){
       if(!isNaN(idx)&&tbField[idx]){
         tbField[idx].x=finalX;
         tbField[idx].y=finalY;
-        if(!tqActive){
+        // Rollen-Neuzuordnung nur bei strukturierten Formationen – Funino hat keine festen Rollen
+        if(!tqActive&&tbFormation!=='funino'){
           const detected=tbDetectRole(finalX,finalY);
           tbField[idx].role=detected.role;
           tbField[idx].cls=detected.cls;
