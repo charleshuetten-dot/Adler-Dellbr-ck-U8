@@ -1315,8 +1315,11 @@ function calcRolle(v,foot,neutralMissing=false){
   // ── AUFPASSER ──
   const aufRaw=tn(s("t_pass"))*.24+mn(s("m_k4"))*.14+mn(s("m_t7"))*.16
               +mn(s("m_k6"))*.12+mn(s("m_k2"))*.12+tn(s("t_rolle"))*.12+tn(s("t_raum"))*.10;
+  // In der Live-Vorschau (neutralMissing) keine Maluse: sie sollen bestätigte Schwäche
+  // bestrafen, nicht neutral aufgefüllte Lücken – sonst wird Aufpasser systematisch
+  // benachteiligt und die Vorschau kippt zu Flitzer (Review 3, Punkt 4a).
   const passQuality=(tn(s("t_pass"))+mn(s("m_k4")))/2;
-  const aufMalus=passQuality<35?0.65:passQuality<55?0.85:1.0;
+  const aufMalus=neutralMissing?1.0:(passQuality<35?0.65:passQuality<55?0.85:1.0);
   const aufBonus=(mn(s("m_t7"))>60&&passQuality>60)?1.08:1.0;
   const auf=aufRaw*aufMalus*aufBonus;
 
@@ -1324,14 +1327,14 @@ function calcRolle(v,foot,neutralMissing=false){
   const jaegRaw=mn(s("m_t5"))*.28+mn(s("m_t6"))*.24+mn(s("m_k3"))*.18
                +tn(s("t_dribble"))*.12+mn(s("m_k1"))*.10+tn(s("t_selbstvertrauen"))*.08;
   const torInstinkt=(mn(s("m_t5"))+mn(s("m_t6")))/2;
-  const jaegMalus=torInstinkt<25?0.70:torInstinkt<45?0.85:1.0;
+  const jaegMalus=neutralMissing?1.0:(torInstinkt<25?0.70:torInstinkt<45?0.85:1.0);
   const jaeg=jaegRaw*jaegMalus;
 
   // ── FLITZER ──
   const fbRaw=tn(s("t_speed"))*.30+mn(s("m_p2"))*.18+tn(s("t_raum"))*.14
              +tn(s("t_koord"))*.16+tn(s("t_einsatz"))*.10+tn(s("t_dribble"))*.12;
-  const tempoMalus=tn(s("t_speed"))<25?0.75:tn(s("t_speed"))<50?0.90:1.0;
-  const raumMalus=tn(s("t_raum"))<25?0.85:1.0;
+  const tempoMalus=neutralMissing?1.0:(tn(s("t_speed"))<25?0.75:tn(s("t_speed"))<50?0.90:1.0);
+  const raumMalus=neutralMissing?1.0:(tn(s("t_raum"))<25?0.85:1.0);
   const fb=fbRaw*tempoMalus*raumMalus;
 
   const fl_l=foot==="L"?fb*1.03:foot==="B"?fb:fb*.94;
@@ -1445,9 +1448,11 @@ function generateFazitFeld(v,meta){
   r+="\n━━ RAUTEN-ANALYSE (4+1) ━━━━━━━━━━━━━━━━━━━━━━━\n";
   const passQ=((tn3(v["t_pass"])+mn5(v["m_k4"]))/2);
   const aufDescStark=`${name} hat die Qualitäten für die Basis der Raute. Verteidigen, absichern, ersten Ball verteilen – das liegt ihm. Schlüsselfigur für defensive Stabilität.`;
+  const aufDescMittel=`${name} bringt die Basis für die Aufpasser-Position mit – Zweikampf, Absicherung und ein altersgerecht solides Passspiel. Der saubere erste Pass darf für mehr Stabilität in der Raute weiter wachsen, das Fundament stimmt aber.`;
   const aufDescSchwach=`${name} bringt die körperliche und kämpferische Basis für die Aufpasser-Position mit (Zweikampf, Robustheit, Einsatz). Das Passspiel und die Spieleröffnung sind aktuell aber noch der limitierende Faktor – ohne sauberen ersten Pass bleibt die Raute hier instabil. Genau das ist der nächste Entwicklungsschritt.`;
   const rDesc={
-    aufpasser:passQ<55?aufDescSchwach:aufDescStark,
+    // Mittleres Band (40–60 %): solide, altersgerecht – kein harter Sprung von "instabil" auf "Schlüsselfigur" (Review 3, Punkt 2)
+    aufpasser:passQ<40?aufDescSchwach:passQ<60?aufDescMittel:aufDescStark,
     jaeger:`${name}s Torhunger und Entschlossenheit machen ihn zur natürlichen Spitze. Den direkten Weg zum Tor suchen und nach Ballverlust sofort pressen.`,
     flitzer_l:`${name}s Tempo und Wendigkeit prädestinieren ihn für die linke Außenbahn. Breite halten, Flanken ziehen, Räume für den Jäger öffnen.`,
     flitzer_r:`${name}s Tempo und Wendigkeit machen ihn auf der rechten Außenbahn gefährlich. Breite halten, Korridor bespielen, Tiefenläufe für den Jäger einleiten.`
@@ -1460,38 +1465,43 @@ function generateFazitFeld(v,meta){
   }
   if(rolle.topScore<35) r+="⚠ Insgesamt noch sehr früh in der Entwicklung – Rollenangaben sind erste Tendenzen, keine Festlegung.\n";
   if(v["t_raum"]===1||ds.raute<40) r+="⚠ Raumverständnis noch schwach – klare Korridore vor fester Rollenvergabe einführen.\n";
-  if(rolle.prim==="aufpasser"&&passQ<55) r+="⚠ Passspiel/Spielaufbau ist Entwicklungspriorität Nr. 1 für diese Rolle – siehe Trainingsschwerpunkt.\n";
+  if(rolle.prim==="aufpasser"&&passQ<40) r+="⚠ Passspiel/Spielaufbau ist Entwicklungspriorität Nr. 1 für diese Rolle – siehe Trainingsschwerpunkt.\n";
   if((tn3(v["t_pass"])<35)&&(mn5(v["m_k4"])<35)) r+=`⚠ ${name} sucht aktuell fast ausschließlich die 1gg1-Lösung statt den Pass – häufiges Muster in diesem Alter, aber gezielt zu adressieren.\n`;
 
   r+="\n━━ TRAININGS-SCHWERPUNKT (2–3 WOCHEN) ━━━━━━━━━\n";
   const sortedDims=Object.entries(ds).filter(([k])=>!k.startsWith("tw_")).sort((a,b)=>a[1]-b[1]);
   const wn={tech:"Technik",raute:"Rauten-IQ",phys:"Physis",mental:"Mentalität & Charakter",entw:"Entwicklungspotenzial"};
-  r+=`Primäre Baustelle: ${wn[sortedDims[0][0]]} (${sortedDims[0][1]}%)\n\n`;
+  // Überschrift und Übungen aus DERSELBEN Auswahl ableiten, damit sie zusammenpassen
+  // (Review 3, Punkt 3: vorher entkoppelt – "Baustelle: Physis" + Raum-Übung).
+  // Reihenfolge = pädagogische Trainingspriorität (konkreteste Baustelle zuerst).
+  let fokusLabel,ueb;
   if((tn3(v["t_pass"])<35)&&(mn5(v["m_k4"])<35)){
-    r+="ÜBUNG 1 – 'Pflichtpass-Funino':\nTor gilt nur wenn alle Spieler des Teams mindestens 1x den Ball hatten. Erzwingt Passspiel statt Solo-Lösungen – ohne dass der Trainer eingreifen muss.\n\n";
-    r+="ÜBUNG 2 – 'Komm-Geh-Passspiel':\nSpieler täuscht Richtung an, fordert dann Ball in den freien Raum. Grundprinzip des Freilaufens und der Anspielbarkeit – die Basis für jeden ersten Pass.";
+    fokusLabel="Passspiel & Spielaufbau";
+    ueb="ÜBUNG 1 – 'Pflichtpass-Funino':\nTor gilt nur wenn alle Spieler des Teams mindestens 1x den Ball hatten. Erzwingt Passspiel statt Solo-Lösungen – ohne dass der Trainer eingreifen muss.\n\nÜBUNG 2 – 'Komm-Geh-Passspiel':\nSpieler täuscht Richtung an, fordert dann Ball in den freien Raum. Grundprinzip des Freilaufens und der Anspielbarkeit – die Basis für jeden ersten Pass.";
   } else if(v["t_raum"]===1){
-    r+="ÜBUNG 1 – 'Korridor-Funino':\n3 Längskorridore. Jeder Spieler hält seinen. Tor gilt nur wenn alle 3 Korridore besetzt. Kommando: 'Feld groß machen!'\n\n";
-    r+="ÜBUNG 2 – 'Schattenspieler':\nOhne Ball dem Mitspieler folgen – aber immer auf maximalem Abstand. Raum-Bewusstsein durch Körpergefühl.";
+    fokusLabel="Raumverständnis (Rauten-IQ)";
+    ueb="ÜBUNG 1 – 'Korridor-Funino':\n3 Längskorridore. Jeder Spieler hält seinen. Tor gilt nur wenn alle 3 Korridore besetzt. Kommando: 'Feld groß machen!'\n\nÜBUNG 2 – 'Schattenspieler':\nOhne Ball dem Mitspieler folgen – aber immer auf maximalem Abstand. Raum-Bewusstsein durch Körpergefühl.";
   } else if(fokusSchwach){
-    r+="ÜBUNG 1 – 'Fokus-Pause':\nVor jeder Erklärung: 3 Sekunden Stille, Augenkontakt, dann Erklärung. Konzentration als Pflichtvoraussetzung etablieren.\n\n";
-    r+="ÜBUNG 2 – 'Mini-Aufgaben mit Nachfrage':\nNach jeder Erklärung kurze Frage an den Spieler was erklärt wurde. Aktives Zuhören einfordern.";
+    fokusLabel="Konzentration (Mentalität)";
+    ueb="ÜBUNG 1 – 'Fokus-Pause':\nVor jeder Erklärung: 3 Sekunden Stille, Augenkontakt, dann Erklärung. Konzentration als Pflichtvoraussetzung etablieren.\n\nÜBUNG 2 – 'Mini-Aufgaben mit Nachfrage':\nNach jeder Erklärung kurze Frage an den Spieler was erklärt wurde. Aktives Zuhören einfordern.";
   } else if(sozKrit){
-    r+="ÜBUNG 1 – 'Pflichtpass-Spielform':\nTor gilt nur wenn jeder Spieler mindestens 1 Pass gespielt hat. Teamwork als Pflichtbestandteil verankern.\n\n";
-    r+="ÜBUNG 2 – 'Lobpflicht':\nNach jedem Tor muss der Torschütze einen Mitspieler loben der geholfen hat. Wertschätzung trainieren.";
+    fokusLabel="Teamverhalten (Mentalität)";
+    ueb="ÜBUNG 1 – 'Pflichtpass-Spielform':\nTor gilt nur wenn jeder Spieler mindestens 1 Pass gespielt hat. Teamwork als Pflichtbestandteil verankern.\n\nÜBUNG 2 – 'Lobpflicht':\nNach jedem Tor muss der Torschütze einen Mitspieler loben der geholfen hat. Wertschätzung trainieren.";
   } else if((v["m_t5"]||0)<=2&&(v["m_t6"]||0)<=2){
-    r+="ÜBUNG 1 – '1gg1 kein Abspiel':\nKein Pass erlaubt. Tore des Spielers zählen doppelt. Torhunger direkt provozieren.\n\n";
-    r+="ÜBUNG 2 – 'Tore-Duell':\nZwei Spieler auf ein Tor. Wettbewerb aktiviert Abschluss-Instinkt ohne Mannschaftsdruck.";
+    fokusLabel="Torabschluss & Offensiv-1gg1";
+    ueb="ÜBUNG 1 – '1gg1 kein Abspiel':\nKein Pass erlaubt. Tore des Spielers zählen doppelt. Torhunger direkt provozieren.\n\nÜBUNG 2 – 'Tore-Duell':\nZwei Spieler auf ein Tor. Wettbewerb aktiviert Abschluss-Instinkt ohne Mannschaftsdruck.";
   } else if((v["m_t2"]||0)<=2){
-    r+="ÜBUNG 1 – 'Einbein-Autodrom':\nParcours mit erzwungenem schwachen Fuß. Max. 2 Kontakte mit starkem Fuß.\n\n";
-    r+="ÜBUNG 2 – 'Spiegeldribbling':\nBeide face-to-face, nur schwacher Fuß. Spielerisches Automatisieren.";
+    fokusLabel="Schwacher Fuß (Technik)";
+    ueb="ÜBUNG 1 – 'Einbein-Autodrom':\nParcours mit erzwungenem schwachen Fuß. Max. 2 Kontakte mit starkem Fuß.\n\nÜBUNG 2 – 'Spiegeldribbling':\nBeide face-to-face, nur schwacher Fuß. Spielerisches Automatisieren.";
   } else if(v["t_umschalt"]===1){
-    r+="ÜBUNG 1 – 'Gegenpressing-Pfeife':\nNach Ballverlust Pfeife – sofort 3 Schritte Richtung Ball. Automatisierung durch akustisches Signal.\n\n";
-    r+="ÜBUNG 2 – 'Pressing-Welle (2gg2)':\nNach Ballverlust 5s intensives Pressing. Zurückerobern = 2 Bonuspunkte.";
+    fokusLabel="Umschalten (Rauten-IQ)";
+    ueb="ÜBUNG 1 – 'Gegenpressing-Pfeife':\nNach Ballverlust Pfeife – sofort 3 Schritte Richtung Ball. Automatisierung durch akustisches Signal.\n\nÜBUNG 2 – 'Pressing-Welle (2gg2)':\nNach Ballverlust 5s intensives Pressing. Zurückerobern = 2 Bonuspunkte.";
   } else {
-    r+="ÜBUNG 1 – 'Farb-Pässe':\nHütchenfarbe = Passziel-Signal. Handlungsschnelligkeit unter kognitiver Last trainieren.\n\n";
-    r+="ÜBUNG 2 – '3gg2 Pflichtquerpass':\nTor gilt nur nach Querpass vor Abschluss. Entscheidungsqualität schulen.";
+    fokusLabel="Handlungsschnelligkeit & Entscheidung";
+    ueb="ÜBUNG 1 – 'Farb-Pässe':\nHütchenfarbe = Passziel-Signal. Handlungsschnelligkeit unter kognitiver Last trainieren.\n\nÜBUNG 2 – '3gg2 Pflichtquerpass':\nTor gilt nur nach Querpass vor Abschluss. Entscheidungsqualität schulen.";
   }
+  r+=`Schwächster Messwert: ${wn[sortedDims[0][0]]} (${sortedDims[0][1]}%)\nKonkreter Schwerpunkt: ${fokusLabel}\n\n`;
+  r+=ueb;
 
   if(parseInt(meta.eltern)===1){
     r+="\n\n━━ ELTERN-HINWEIS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
@@ -2259,16 +2269,15 @@ function complementScore(aufpasser, jaeger, fl_l, fl_r){
   let score=70;
   const passAuf=(aufpasser.v.t_pass||1);
   const jaegRun=(jaeger.v.m_k3||1);
+  // else if: Top-Duo bekommt NUR den höheren Bonus, nicht beide gestapelt (Review 3, Punkt 5a)
   if(passAuf===3&&jaegRun>=4) score+=15; // steilpass aufpasser + deep runner jaeger = perfect
-  if(passAuf>=2&&jaegRun>=3) score+=8;
+  else if(passAuf>=2&&jaegRun>=3) score+=8;
   // Balanced flitzers
   const speedDiff=Math.abs((fl_l.v.t_speed||2)-(fl_r.v.t_speed||2));
   if(speedDiff===0) score+=10; // same speed = balanced wings
   else if(speedDiff>=2) score-=10;
-  // Avoid two high-ego players in central roles
-  const aufSoz=(aufpasser.v.t_sozial||2);
-  const jaegSoz=(jaeger.v.t_sozial||2);
-  if(aufSoz===1&&jaegSoz===1) score-=20;
+  // Soziale Eignung wird bereits in socialScore() abgebildet – hier nicht ein zweites Mal
+  // bestrafen (Review 3, Punkt 5b: verhinderte sonst faktisch die Rotation dieser Kinder)
   return Math.max(0,Math.min(100,score));
 }
 
