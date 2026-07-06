@@ -476,6 +476,7 @@ h1.print-header{display:none}
 .tf-cat-wahrnehmung{background:#f5f3ff;color:#6d28d9}.tf-cat-technik{background:#fff7ed;color:#c2410c}
 .tf-cat-pressing{background:#fef2f2;color:#991b1b}.tf-cat-spass{background:#fef9c3;color:#854d0e}
 .tf-cat-custom{background:var(--surface2);color:var(--text2)}
+.tf-cat-mindset{background:#ecfdf5;color:#047857}
 .tf-title{font-size:13px;font-weight:600;color:var(--text);flex:1}
 .tf-meta{display:flex;gap:8px;margin-top:3px;flex-wrap:wrap}
 .tf-meta-item{font-size:10.5px;color:var(--text2)}
@@ -773,6 +774,7 @@ h1.print-header{display:none}
     <button class="ftag" onclick="setTF('spass',this)">Spass</button>
     <button class="ftag" onclick="setTF('torwart',this)">Torwart</button>
     <button class="ftag" onclick="setTF('individual',this)">Individual</button>
+    <button class="ftag" onclick="setTF('mindset',this)">Mindset</button>
     <button class="ftag" onclick="setTF('custom',this)">Eigene</button>
   </div>
   <div id="training-content"><p style="padding:1rem;color:#64748b;font-size:13px">Lade...</p></div>
@@ -786,9 +788,12 @@ h1.print-header{display:none}
         <div class="mg s2"><label>Name</label><input type="text" id="tf-name" placeholder="Name der Form"></div>
         <div class="mg"><label>Kategorie</label>
           <select id="tf-kat">
+            <option value="aufwaermen">Aufwärmen</option>
             <option value="raute">Raute</option><option value="passspiel">Passspiel</option>
             <option value="wahrnehmung">Wahrnehmung</option><option value="technik">Technik</option>
             <option value="pressing">Pressing</option><option value="spass">Spass</option>
+            <option value="torwart">Torwart</option><option value="individual">Individual</option>
+            <option value="mindset">Mindset & Selbstvertrauen</option>
           </select>
         </div>
         <div class="mg"><label>Spieleranzahl</label><input type="text" id="tf-spieler" placeholder="z.B. 6-10"></div>
@@ -6410,8 +6415,8 @@ function renderTraining(){
   var wrap=document.getElementById('training-content');
   if(!wrap)return;
   var search=(document.getElementById('training-search')||{value:''}).value.toLowerCase();
-  var catLabels={aufwaermen:'Aufwärmen & Aktivierung',raute:'Raute & Grundordnung',passspiel:'Passspiel & Freilaufen',wahrnehmung:'Wahrnehmung & IQ',technik:'Technik & Ball',pressing:'Pressing & Umschalten',spass:'Spass & Wettbewerb',torwart:'Torwart-Training',individual:'Individual-Training',custom:'Eigene Formen'};
-  var catCls={aufwaermen:'tf-cat-aufwaermen',raute:'tf-cat-raute',passspiel:'tf-cat-passspiel',wahrnehmung:'tf-cat-wahrnehmung',technik:'tf-cat-technik',pressing:'tf-cat-pressing',spass:'tf-cat-spass',torwart:'tf-cat-torwart',individual:'tf-cat-individual',custom:'tf-cat-custom'};
+  var catLabels={aufwaermen:'Aufwärmen & Aktivierung',raute:'Raute & Grundordnung',passspiel:'Passspiel & Freilaufen',wahrnehmung:'Wahrnehmung & IQ',technik:'Technik & Ball',pressing:'Pressing & Umschalten',spass:'Spass & Wettbewerb',torwart:'Torwart-Training',individual:'Individual-Training',mindset:'Mindset & Selbstvertrauen',custom:'Eigene Formen'};
+  var catCls={aufwaermen:'tf-cat-aufwaermen',raute:'tf-cat-raute',passspiel:'tf-cat-passspiel',wahrnehmung:'tf-cat-wahrnehmung',technik:'tf-cat-technik',pressing:'tf-cat-pressing',spass:'tf-cat-spass',torwart:'tf-cat-torwart',individual:'tf-cat-individual',mindset:'tf-cat-mindset',custom:'tf-cat-custom'};
   var diffLbl={1:'Einfach',2:'Mittel',3:'Anspruchsvoll'};
   var all=TRAININGSFORMEN.concat((CUSTOM_FORMS||[]).map(function(f){return Object.assign({},f,{kat:f.kat||'custom'});}));
   var filtered=all.filter(function(tf){
@@ -6687,6 +6692,7 @@ function tpGetCheckedTrainers(){
 }
 const TP_MAIN_CATS=[
   {key:"raute",label:"Raute & Grundordnung"},
+  {key:"mindset",label:"Mindset & Selbstvertrauen"},
   {key:"passspiel",label:"Passspiel & Freilaufen"},
   {key:"wahrnehmung",label:"Wahrnehmung & IQ"},
   {key:"technik",label:"Technik & Ball"},
@@ -7204,8 +7210,32 @@ function tpGenerate(){
         if(choice){sel.value=choice.i;tpOnSelectChange(sel);}
       }
     });
+    tpRenderMindsetTip(); // E3: Mindset-Baustein des Tages
     setTimeout(()=>addEvalSection(),50);
   },100);
+}
+
+// E3: schlägt zufällig eine der drei Ritual-Formen als festen Baustein der Einheit vor
+function tpRenderMindsetTip(){
+  const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+  const rituale=["Die Kraft des NOCH","Reset-Knopf","Drei-gute-Dinge-Kreis"];
+  const kandidaten=allForms.map((f,i)=>({i,f})).filter(x=>rituale.includes(x.f.name));
+  if(!kandidaten.length)return;
+  const wahl=kandidaten[Math.floor(Math.random()*kandidaten.length)];
+  let box=document.getElementById("tp-mindset-tip");
+  if(!box){
+    box=document.createElement("div");
+    box.id="tp-mindset-tip";
+    const timeline=document.getElementById("tp-timeline");
+    if(!timeline)return;
+    timeline.insertAdjacentElement("afterend",box);
+  }
+  box.innerHTML=`<div style="margin-top:10px;padding:10px 12px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:var(--rl)">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#047857;margin-bottom:4px">🧠 Mindset-Baustein des Tages</div>
+    <div style="font-size:12.5px;font-weight:600;color:var(--text)">${esc(wahl.f.name)}</div>
+    <div style="font-size:11px;color:var(--text2);margin:2px 0 6px">${esc(wahl.f.kurz||"")}</div>
+    <button class="btn btn-sm" onclick="tpShowExercise(${wahl.i})"><i class="ti ti-eye"></i>Form ansehen</button>
+  </div>`;
 }
 
 /* ═══════════════════════════════════
