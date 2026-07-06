@@ -784,6 +784,7 @@ h1.print-header{display:none}
 <div id="view-training" class="view">
   <div id="train-subtab-row" style="display:flex;gap:4px;margin-bottom:14px;background:var(--surface2);padding:3px;border-radius:var(--r);border:var(--border)">
     <button class="sub-tab active" id="st-formen" onclick="switchTrainSub('formen')"><i class="ti ti-ball-football"></i>Formen</button>
+    <button class="sub-tab" id="st-termine" onclick="switchTrainSub('termine')"><i class="ti ti-calendar"></i>Termine</button>
     <button class="sub-tab" id="st-planung" onclick="switchTrainSub('planung')"><i class="ti ti-calendar-event"></i>Planung</button>
     <button class="sub-tab" id="st-anwesenheit" onclick="switchTrainSub('anwesenheit')"><i class="ti ti-checkbox"></i>Anwesenheit</button>
     <button class="sub-tab" id="st-quizresults" onclick="switchTrainSub('quizresults')"><i class="ti ti-brain"></i>Quiz</button>
@@ -863,6 +864,29 @@ h1.print-header{display:none}
     </div>
   </div>
   </div><!-- /train-sub-formen -->
+
+  <!-- SUB: Termine (Kalender-Rückgrat) -->
+  <div id="train-sub-termine" class="train-sub">
+    <div class="sl nt"><i class="ti ti-calendar-plus"></i>Neuer Termin</div>
+    <div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:12px;margin-bottom:14px">
+      <div style="display:flex;gap:6px;margin-bottom:8px" id="tm-typ-seg">
+        <button type="button" class="seg-btn active" data-val="training" onclick="tmSetTyp('training',this)">🏃 Training</button>
+        <button type="button" class="seg-btn" data-val="spiel" onclick="tmSetTyp('spiel',this)">⚽ Spiel</button>
+        <button type="button" class="seg-btn" data-val="turnier" onclick="tmSetTyp('turnier',this)">🏆 Turnier</button>
+      </div>
+      <div class="mgrid" style="grid-template-columns:1fr 1fr;gap:8px">
+        <div class="mg"><label>Datum</label><input type="date" id="tm-datum"></div>
+        <div class="mg"><label>Uhrzeit (optional)</label><input type="time" id="tm-zeit"></div>
+      </div>
+      <div class="mg" style="margin-top:8px"><label id="tm-titel-lbl">Titel / Gegner</label><input type="text" id="tm-titel" placeholder="z. B. Heimspiel gegen FC..."></div>
+      <div class="mg" style="margin-top:8px"><label>Ort (optional)</label><input type="text" id="tm-ort" placeholder="Sportplatz..."></div>
+      <button class="btn btn-p" style="margin-top:10px" onclick="tmAdd()"><i class="ti ti-plus"></i>Termin anlegen</button>
+    </div>
+    <div class="sl nt"><i class="ti ti-calendar"></i>Kommende Termine</div>
+    <div id="tm-upcoming"></div>
+    <div class="sl nt" style="margin-top:16px"><i class="ti ti-history"></i>Vergangene Termine</div>
+    <div id="tm-past"></div>
+  </div><!-- /train-sub-termine -->
 
   <!-- SUB: Planung -->
   <div id="train-sub-planung" class="train-sub">
@@ -7248,6 +7272,7 @@ function switchTrainSub(sub){
   if(sub==="anwesenheit")awRenderList();
   if(sub==="planung"){tpRenderTimeline();addEvalSection();}
   if(sub==="quizresults")tqRenderTrainerView();
+  if(sub==="termine"){tmInit();} // Kalender-Rückgrat
   if(sub!=="spieltag"&&rotTimerId){clearInterval(rotTimerId);rotTimerId=null;} // Timer beim Verlassen stoppen
   if(sub==="team"){tnLoad();teamStatsRender();tvInit();} // G2/G4 + Micro-Voting
   if(sub==="spieltag"){rotInit();blitzInit();} // Spieltag: Rotations-Timer + Blitz-Rating
@@ -7359,6 +7384,102 @@ async function tvLoad(){
       </div>`;
     }).join("");
   }catch(e){wrap.innerHTML="";}
+}
+
+/* ═══════════════════════════════════
+   KALENDER / TERMINE – das Rückgrat, das Training, Spiele und Turniere verbindet
+═══════════════════════════════════ */
+let tmTyp="training";
+const TM_META={training:{icon:"🏃",label:"Training",col:"#1a56db"},spiel:{icon:"⚽",label:"Spiel",col:"#059669"},turnier:{icon:"🏆",label:"Turnier",col:"#c2410c"}};
+function tmSetTyp(t,btn){
+  tmTyp=t;
+  btn.parentElement.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  const lbl=document.getElementById("tm-titel-lbl");
+  if(lbl)lbl.textContent=t==="training"?"Titel (optional)":"Gegner / Titel";
+}
+function tmInit(){
+  const d=document.getElementById("tm-datum");
+  if(d&&!d.value)d.value=new Date().toISOString().slice(0,10);
+  tmLoad();
+}
+async function tmAdd(){
+  const datum=document.getElementById("tm-datum")?.value;
+  if(!datum){toast("Bitte Datum wählen","err");return;}
+  const zeit=document.getElementById("tm-zeit")?.value||"";
+  const titel=(document.getElementById("tm-titel")?.value||"").trim();
+  const ort=(document.getElementById("tm-ort")?.value||"").trim();
+  const notiz=zeit?("Uhrzeit: "+zeit):"";
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({typ:tmTyp,datum,titel,ort,notiz})});
+    if(sbCheck401(r))return;
+    if(r.ok||r.status===201){toast("Termin angelegt ✓");document.getElementById("tm-titel").value="";document.getElementById("tm-ort").value="";tmLoad();}
+    else toast("Fehler beim Anlegen","err");
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+async function tmLoad(){
+  const up=document.getElementById("tm-upcoming"),pa=document.getElementById("tm-past");
+  if(!up||!pa)return;
+  up.innerHTML='<div style="font-size:11px;color:var(--text3)">Lade...</div>';pa.innerHTML="";
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&order=datum.asc`,{headers:sbAuthHeaders()});
+    if(sbCheck401(r))return;
+    if(!r.ok){up.innerHTML='<div style="font-size:11px;color:var(--text3)">Keine Verbindung</div>';return;}
+    const rows=await r.json();
+    const heute=new Date().toISOString().slice(0,10);
+    const kommend=rows.filter(t=>t.datum>=heute);
+    const vergangen=rows.filter(t=>t.datum<heute).reverse();
+    up.innerHTML=kommend.length?kommend.map(tmCard).join(""):'<div style="font-size:11px;color:var(--text3);padding:6px">Keine kommenden Termine.</div>';
+    pa.innerHTML=vergangen.length?vergangen.slice(0,20).map(tmCard).join(""):'<div style="font-size:11px;color:var(--text3);padding:6px">Noch keine vergangenen Termine.</div>';
+  }catch(e){up.innerHTML='<div style="font-size:11px;color:var(--text3)">Offline</div>';}
+}
+function tmCard(t){
+  const m=TM_META[t.typ]||TM_META.training;
+  const d=new Date(t.datum+"T00:00:00");
+  const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+  const datumStr=wtag+" "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+  const istSpiel=t.typ==="spiel"||t.typ==="turnier";
+  // Schnell-Aktionen je Typ
+  let actions="";
+  if(t.typ==="training"){
+    actions=`<button class="btn btn-sm" onclick="tmJump('planung','${t.datum}')"><i class="ti ti-clipboard-list"></i>Plan</button>`;
+  }else{
+    actions=`<button class="btn btn-sm" onclick="tmJump('aufstellung','${t.datum}')"><i class="ti ti-users-group"></i>Aufstellung</button>
+      <button class="btn btn-sm" onclick="tmJump('blitz','${t.datum}')"><i class="ti ti-bolt"></i>Auswertung</button>`;
+  }
+  return `<div style="background:var(--surface);border:var(--border-s);border-left:3px solid ${m.col};border-radius:var(--rl);padding:10px 12px;margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
+      <div style="font-size:13px;font-weight:700">${m.icon} ${esc(t.titel||m.label)}</div>
+      <div style="font-size:11px;color:var(--text2);white-space:nowrap">${datumStr}</div>
+    </div>
+    ${t.ort?`<div style="font-size:11px;color:var(--text2)"><i class="ti ti-map-pin" style="font-size:11px"></i> ${esc(t.ort)}</div>`:""}
+    ${t.notiz?`<div style="font-size:11px;color:var(--text3)">${esc(t.notiz)}</div>`:""}
+    ${istSpiel?`<div style="display:flex;align-items:center;gap:6px;margin:6px 0"><span style="font-size:11px;color:var(--text2)">Ergebnis:</span><input type="text" value="${esc(t.ergebnis||"")}" placeholder="z. B. 3:2" onchange="tmSetResult(${Number(t.id)},this.value)" style="width:90px;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:12px;font-family:inherit"></div>`:""}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+      ${actions}
+      <button class="btn btn-sm btn-d" style="margin-left:auto" onclick="tmDelete(${Number(t.id)})"><i class="ti ti-trash"></i></button>
+    </div>
+  </div>`;
+}
+async function tmSetResult(id,val){
+  try{await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({ergebnis:val})});}catch(e){}
+}
+async function tmDelete(id){
+  if(!confirm("Termin löschen?"))return;
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;tmLoad();}catch(e){toast("Netzwerkfehler","err");}
+}
+// Schnell-Sprung von einem Termin zum passenden Werkzeug, Datum vorbelegt
+function tmJump(ziel,datum){
+  if(ziel==="planung"){
+    switchTrainSub("planung");
+    setTimeout(()=>{const d=document.getElementById("tp-date");if(d){d.value=datum;}toast("Plan für "+datum);},60);
+  }else if(ziel==="aufstellung"){
+    sv("kombi");
+    setTimeout(()=>{const d=document.getElementById("lineup-date");if(d)d.value=datum;kombiLoadLineup();},400);
+  }else if(ziel==="blitz"){
+    switchTrainSub("spieltag");
+    setTimeout(()=>{const d=document.getElementById("blitz-date");if(d)d.value=datum;toast("Blitz-Auswertung für "+datum);},120);
+  }
 }
 
 // Rotations-Timer: faire Einsatzzeiten am Spieltag. Feld/Bank, Timer mit Piepton,
