@@ -1,0 +1,18 @@
+{
+  "id": "adler-u9-trainer",
+  "name": "Spielerprofil U9 I – SV Adler Dellbrück",
+  "short_name": "U9 I Adler",
+  "description": "Spielerprofil-Tool U9 I SV Adler Dellbrück – 4+1 Raute",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#1a56db",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "./icon-trainer.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-trainer.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "categories": ["sports", "productivity"],
+  "lang": "de"
+}

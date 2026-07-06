@@ -8,8 +8,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="U9 I Adler">
 <meta name="application-name" content="U9 I Adler">
-<link rel="manifest" id="pwa-manifest">
-<link rel="apple-touch-icon" id="apple-icon">
+<link rel="manifest" id="pwa-manifest" href="manifest-trainer.json">
+<link rel="apple-touch-icon" id="apple-icon" href="icon-trainer.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Spielerprofil U9 I – SV Adler Dellbrück</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1009,23 +1009,24 @@ function ensureLogin(){
 }
 
 // Kader: tw = hat TW-Option, twPrio = TW-Priorität (1=primär, 2=zweite Option)
-// nr = Trikotnummer // TODO Charles: echte Nummern eintragen (aktuell Platzhalter 2-16)
+// nr = Trikotnummer (ohne nr = wird nicht angezeigt)
+// TODO Charles: Nummern für Kolja, Azem, Lukas, Matteo, Piet, Samu, Tom nachtragen
 const KADER=[
-  {name:"Hugo",   tw:true,  twPrio:2, nr:2},
-  {name:"Mika",   tw:false, twPrio:0, nr:3},
-  {name:"Kolja",  tw:true,  twPrio:2, nr:4},
-  {name:"Leon",   tw:false, twPrio:0, nr:5},
-  {name:"Azem",   tw:false, twPrio:0, nr:6},
-  {name:"Sevan",  tw:false, twPrio:0, nr:7},
-  {name:"Lukas",  tw:true,  twPrio:1, nr:8},
-  {name:"Matteo", tw:false, twPrio:0, nr:9},
-  {name:"Piet",   tw:false, twPrio:0, nr:10},
-  {name:"Jonas",  tw:false, twPrio:0, nr:11},
-  {name:"Leif",   tw:false, twPrio:0, nr:12},
-  {name:"Samu",   tw:false, twPrio:0, nr:13},
-  {name:"Jari",   tw:false, twPrio:0, nr:14},
-  {name:"Tom",    tw:false, twPrio:0, nr:15},
-  {name:"Fabio",  tw:false, twPrio:0, nr:16}
+  {name:"Hugo",   tw:true,  twPrio:2, nr:5},
+  {name:"Mika",   tw:false, twPrio:0, nr:6},
+  {name:"Kolja",  tw:true,  twPrio:2},
+  {name:"Leon",   tw:false, twPrio:0, nr:8},
+  {name:"Azem",   tw:false, twPrio:0},
+  {name:"Sevan",  tw:false, twPrio:0, nr:10},
+  {name:"Lukas",  tw:true,  twPrio:1},
+  {name:"Matteo", tw:false, twPrio:0},
+  {name:"Piet",   tw:false, twPrio:0},
+  {name:"Jonas",  tw:false, twPrio:0, nr:16},
+  {name:"Leif",   tw:false, twPrio:0, nr:15},
+  {name:"Samu",   tw:false, twPrio:0},
+  {name:"Jari",   tw:false, twPrio:0, nr:9},
+  {name:"Tom",    tw:false, twPrio:0},
+  {name:"Fabio",  tw:false, twPrio:0, nr:2}
 ];
 
 // D2: Trainerliste zentral – speist Select + beide Checkbox-Leisten (Finn neu)
@@ -7500,14 +7501,10 @@ async function pinCheck(){
     document.title="Taktik-Quiz U9 I – SV Adler Dellbrück";
     document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content","U9 Quiz");
     document.querySelector('meta[name="application-name"]')?.setAttribute("content","U9 Quiz");
-    // Quiz-Icon: echtes Vereinswappen + grünes ?-Badge (icon-quiz.png, generiert aus logo.png)
-    const quizIconUrl=new URL("icon-quiz.png",location.href).href; // absolut – Manifest ist Blob-URL
-    const appleI=document.getElementById("apple-icon");
-    if(appleI)appleI.href=quizIconUrl;
-    const quizManifest={name:"Taktik-Quiz U9 I – SV Adler Dellbrück",short_name:"U9 Quiz",description:"Taktik-Quiz für die U9 I des SV Adler Dellbrück",start_url:"./?quiz",display:"standalone",background_color:"#ecfdf5",theme_color:"#059669",orientation:"portrait-primary",icons:[{src:quizIconUrl,sizes:"512x512",type:"image/png",purpose:"any"},{src:quizIconUrl,sizes:"512x512",type:"image/png",purpose:"maskable"}],lang:"de"};
-    const qmBlob=new Blob([JSON.stringify(quizManifest)],{type:"application/json"});
-    const qmLink=document.getElementById("pwa-manifest");
-    if(qmLink)qmLink.href=URL.createObjectURL(qmBlob);
+    // Eigene Manifest-Datei mit eindeutiger id "adler-u9-quiz" – sonst hält Android
+    // Trainer-App und Quiz für dieselbe App und überschreibt die Installation
+    document.getElementById("pwa-manifest")?.setAttribute("href","manifest-quiz.json");
+    document.getElementById("apple-icon")?.setAttribute("href","icon-quiz.png");
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#059669");
     document.getElementById("pin-gate").classList.add("hidden");
     document.getElementById("main-app").style.display="";
@@ -7754,35 +7751,8 @@ function tpRenderMindsetTip(){
     if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});
     return;
   }
-  // App-Icon: echtes Vereinswappen + U9-Badge (icon-trainer.png, generiert aus logo.png)
-  const iconUrl = new URL("icon-trainer.png", location.href).href; // absolut – Manifest ist Blob-URL
-
-  // Set apple touch icon
-  const appleIcon = document.getElementById("apple-icon");
-  if(appleIcon) appleIcon.href = iconUrl;
-
-  // Create and inject manifest
-  const manifest = {
-    name: "Spielerprofil U9 I – SV Adler Dellbrück",
-    short_name: "U9 I Adler",
-    description: "Spielerprofil-Tool U9 I SV Adler Dellbrück – 4+1 Raute",
-    start_url: "./",
-    display: "standalone",
-    background_color: "#f1f5f9",
-    theme_color: "#1a56db",
-    orientation: "portrait-primary",
-    icons: [
-      { src: iconUrl, sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: iconUrl, sizes: "512x512", type: "image/png", purpose: "maskable" }
-    ],
-    categories: ["sports", "productivity"],
-    lang: "de"
-  };
-
-  const manifestBlob = new Blob([JSON.stringify(manifest)], {type:"application/json"});
-  const manifestUrl = URL.createObjectURL(manifestBlob);
-  const manifestLink = document.getElementById("pwa-manifest");
-  if(manifestLink) manifestLink.href = manifestUrl;
+  // Manifest + Apple-Icon kommen statisch aus dem <head> (manifest-trainer.json mit
+  // eindeutiger id "adler-u9-trainer" – getrennt installierbar von der Quiz-App)
 
   // Register Service Worker for offline support
   if("serviceWorker" in navigator){
