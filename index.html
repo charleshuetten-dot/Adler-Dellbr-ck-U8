@@ -482,6 +482,35 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 }
 h1.print-header{display:none}
 .print-meta{display:none}
+
+/* ── SAISON-ZERTIFIKAT ── */
+#zert-print{display:none}
+.zert-card{max-width:640px;margin:0 auto;border:3px solid #1a56db;border-radius:14px;padding:32px 34px;text-align:center;color:#0f172a;font-family:'Inter',system-ui,sans-serif;background:#fff;position:relative}
+.zert-card::after{content:"";position:absolute;inset:8px;border:1px solid #cbd5e1;border-radius:9px;pointer-events:none}
+.zert-crest img{height:74px;width:auto}
+.zert-club{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#1a56db;font-weight:700;margin-top:6px}
+.zert-title{font-size:30px;font-weight:800;margin-top:14px;letter-spacing:.5px}
+.zert-season{font-size:13px;color:#64748b;margin-top:2px}
+.zert-for{margin-top:20px;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:2px}
+.zert-name{font-size:34px;font-weight:800;color:#1a56db;margin:4px 0 2px}
+.zert-role{font-size:13px;color:#334155;font-weight:600}
+.zert-text{font-size:13.5px;line-height:1.6;color:#334155;margin:16px auto 4px;max-width:480px}
+.zert-staerken{margin:18px auto 6px;max-width:440px;text-align:left}
+.zert-staerken .zt-h{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#1a56db;font-weight:700;margin-bottom:6px;text-align:center}
+.zert-staerken .zt-i{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#0f172a;margin:5px 0;line-height:1.4}
+.zert-staerken .zt-i b{color:#15803d;font-size:15px;line-height:1}
+.zert-badges{margin-top:14px;display:flex;justify-content:center;gap:22px}
+.zert-badges .zb{font-size:12px;color:#64748b}
+.zert-badges .zb b{display:block;font-size:20px;color:#1a56db;font-weight:800}
+.zert-sign{display:flex;justify-content:space-between;margin-top:28px;padding-top:6px;gap:20px}
+.zert-sign>div{flex:1;border-top:1px solid #334155;padding-top:5px;font-size:11px;color:#64748b}
+@media print{
+  body.printing-zert>*{display:none!important}
+  body.printing-zert #zert-print{display:block!important}
+  #zert-print{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .zert-card{border-color:#1a56db!important}
+  @page{margin:14mm;size:A4}
+}
 .print-section-title{display:none}
 
 
@@ -707,6 +736,7 @@ h1.print-header{display:none}
   <div class="sl nt"><i class="ti ti-user-circle"></i>Spieler auswählen</div>
   <select class="psel" id="psel-profil" onchange="renderProfil()"><option value="">— Spieler wählen —</option></select>
   <button class="print-btn" onclick="printView('profil')" style="display:none" id="print-profil-btn"><i class="ti ti-printer"></i>Profil drucken / als PDF</button>
+  <button class="print-btn" onclick="printZertifikat()" style="display:none" id="zert-profil-btn"><i class="ti ti-award"></i>Saison-Zertifikat</button>
   <div id="profil-content"><div class="empty"><i class="ti ti-user-circle"></i>Spieler auswählen</div></div>
 </div>
 
@@ -1015,6 +1045,7 @@ h1.print-header{display:none}
 </div><!-- /view-training -->
 
 </div>
+<div id="zert-print"></div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 /* ═══════════════════════════════════
@@ -2264,6 +2295,8 @@ function renderProfil(){
 
   const printBtn=document.getElementById("print-profil-btn");
   if(printBtn)printBtn.style.display=name?"inline-flex":"none";
+  const zertBtn=document.getElementById("zert-profil-btn");
+  if(zertBtn)zertBtn.style.display=name?"inline-flex":"none";
   document.getElementById("profil-content").innerHTML=`
     <div class="player-card">
       <div class="av ${isTw?"tw":""}">${name.slice(0,2).toUpperCase()}</div>
@@ -2315,6 +2348,65 @@ function renderProfil(){
     const ctx=document.getElementById("rc");if(!ctx)return;
     rchart=new Chart(ctx,{type:"radar",data:{labels:dl,datasets:[{label:name,data:scPad,backgroundColor:`${cols[0]}18`,borderColor:cols[0],borderWidth:2,pointBackgroundColor:cols,pointRadius:4,pointHoverRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{min:0,max:100,ticks:{stepSize:25,font:{size:9},backdropColor:"transparent"},pointLabels:{font:{size:11},color:cols},grid:{color:"rgba(100,116,139,.15)"},angleLines:{color:"rgba(100,116,139,.15)"}}}}});
   },80);
+}
+
+/* ═══════════════════════════════════
+   SAISON-ZERTIFIKAT (Print, self-contained)
+═══════════════════════════════════ */
+function saisonLabel(){
+  // Saison läuft Jul–Jun: ab Juli gehört das laufende Jahr zur Saison JJJJ/JJ+1
+  const d=new Date(),y=d.getFullYear();
+  const start=d.getMonth()>=6?y:y-1;
+  return `${start} / ${start+1}`;
+}
+function printZertifikat(){
+  const name=document.getElementById("psel-profil")?.value;
+  if(!name){toast("Erst einen Spieler wählen","err");return;}
+  const snaps=DB[name]||[];if(!snaps.length){toast("Keine Bewertung vorhanden","err");return;}
+  const lat=snaps[snaps.length-1];
+  const isTw=lat.tw===true||getKader(name)?.tw;
+  const prim=lat.prim_rolle||"Allrounder";
+  // Stärken aus dem Fazit ("  + …")
+  const st=[];
+  (lat.fazit||"").split("\n").forEach(line=>{ if(line.startsWith("  + "))st.push(line.slice(4).split("–")[0].trim()); });
+  const top=st.slice(0,3);
+  const staerkenHtml=top.length
+    ? top.map(s=>`<div class="zt-i"><b>✔</b><span>${esc(s)}</span></div>`).join("")
+    : `<div class="zt-i"><b>✔</b><span>Mit vollem Einsatz dabei – Woche für Woche</span></div>`;
+  const tot=lat.total_score||0,pot=lat.pot_score||0;
+  const text=`Für eine großartige Saison bei der U9 I des SV Adler Dellbrück. `+
+    `Du hast dich als ${esc(prim)}${isTw?" und im Tor":""} weiterentwickelt, im Training angepackt `+
+    `und Teil unserer Raute-Familie geworden. Weiter so – wir sind stolz auf dich!`;
+
+  document.getElementById("zert-print").innerHTML=`
+    <div class="zert-card">
+      <div class="zert-crest"><img src="logo.png" alt="SV Adler Dellbrück"></div>
+      <div class="zert-club">SV Adler Dellbrück e.V. · U9 I</div>
+      <div class="zert-title">Saison-Zertifikat</div>
+      <div class="zert-season">Saison ${saisonLabel()}</div>
+      <div class="zert-for">verliehen an</div>
+      <div class="zert-name">${esc(name)}${isTw?" 🥅":""}</div>
+      <div class="zert-role">Rolle in der Raute: ${esc(prim)}</div>
+      <div class="zert-text">${text}</div>
+      <div class="zert-staerken">
+        <div class="zt-h">Deine Stärken in dieser Saison</div>
+        ${staerkenHtml}
+      </div>
+      <div class="zert-badges">
+        <div class="zb">Entwicklungsstand<b>${tot}%</b></div>
+        <div class="zb">Potenzial<b>~${pot}%</b></div>
+      </div>
+      <div class="zert-sign">
+        <div>Trainerteam<br>Sandy · Charles · Kenneth · Peter</div>
+        <div>Dellbrück, ${new Date().toLocaleDateString("de-DE",{day:"2-digit",month:"long",year:"numeric"})}</div>
+      </div>
+    </div>`;
+
+  document.body.classList.add("printing-zert");
+  const cleanup=()=>{document.body.classList.remove("printing-zert");window.removeEventListener("afterprint",cleanup);};
+  window.addEventListener("afterprint",cleanup);
+  setTimeout(cleanup,3000); // Fallback, falls afterprint nicht feuert
+  window.print();
 }
 
 /* ═══════════════════════════════════
