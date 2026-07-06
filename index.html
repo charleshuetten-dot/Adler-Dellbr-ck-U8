@@ -477,6 +477,10 @@ h1.print-header{display:none}
 .tf-cat-pressing{background:#fef2f2;color:#991b1b}.tf-cat-spass{background:#fef9c3;color:#854d0e}
 .tf-cat-custom{background:var(--surface2);color:var(--text2)}
 .tf-cat-mindset{background:#ecfdf5;color:#047857}
+/* H6: neue Team-/Plan-Bedienelemente mindestens 44px hoch */
+#train-sub-team .btn,#train-sub-team select,#train-sub-team input[type="text"]{min-height:44px}
+#train-sub-team select{padding:10px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;font-family:inherit;background:var(--surface);outline:none}
+#train-sub-planung button[onclick="tpPlanSave()"],#train-sub-planung button[onclick="tpPlanLoad()"],#train-sub-planung button[onclick="tpShareEinheit()"]{min-height:44px}
 .tf-title{font-size:13px;font-weight:600;color:var(--text);flex:1}
 .tf-meta{display:flex;gap:8px;margin-top:3px;flex-wrap:wrap}
 .tf-meta-item{font-size:10.5px;color:var(--text2)}
@@ -553,13 +557,13 @@ h1.print-header{display:none}
 </div>
 
 <div id="main-nav" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;background:#fff;padding:4px;border-radius:12px;margin-bottom:20px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.07)">
-  <button class="nb active" id="nb-bew" onclick="sv('bew')"><i class="ti ti-clipboard-list"></i><span>Bew.</span></button>
-  <button class="nb" id="nb-profil" onclick="sv('profil')"><i class="ti ti-user"></i><span>Profil</span></button>
+  <button class="nb active" id="nb-bew" onclick="sv('bew')"><i class="ti ti-clipboard-list"></i><span>Bewerten</span></button>
   <button class="nb" id="nb-kader" onclick="sv('kader')"><i class="ti ti-users"></i><span>Kader</span></button>
+  <button class="nb" id="nb-training" onclick="sv('training')"><i class="ti ti-run"></i><span>Training</span></button>
+  <button class="nb" id="nb-taktik" onclick="sv('taktik')"><i class="ti ti-arrows-move"></i><span>Taktik</span></button>
+  <button class="nb" id="nb-profil" onclick="sv('profil')"><i class="ti ti-user"></i><span>Profil</span></button>
   <button class="nb" id="nb-verlauf" onclick="sv('verlauf')"><i class="ti ti-chart-line"></i><span>Verlauf</span></button>
   <button class="nb" id="nb-kombi" onclick="sv('kombi')"><i class="ti ti-users-group"></i><span>Kombi</span></button>
-  <button class="nb" id="nb-taktik" onclick="sv('taktik')"><i class="ti ti-arrows-move"></i><span>Taktik</span></button>
-  <button class="nb" id="nb-training" onclick="sv('training')"><i class="ti ti-run"></i><span>Training</span></button>
 </div>
 
 <!-- BEWERTUNG -->
@@ -833,7 +837,14 @@ h1.print-header{display:none}
     </div>
     <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:10px 0 6px">Verfügbare Trainer</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="tp-trainer-checks"><!-- wird aus TRAINER befüllt (D2) --></div>
-    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:10px 0 6px">Zeitplan (75 Min.)</div>
+    <div style="display:flex;align-items:center;gap:8px;margin:10px 0 6px">
+      <span style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">Zeitplan</span>
+      <select id="tp-dauer" onchange="tpRenderTimeline()" style="font-size:11px;padding:4px 8px;border:var(--border-s);border-radius:var(--r);font-family:inherit">
+        <option value="60">60 Min.</option>
+        <option value="75" selected>75 Min.</option>
+        <option value="90">90 Min.</option>
+      </select>
+    </div>
     <div id="tp-timeline"></div>
     <button class="btn btn-p btn-sm" style="margin-top:10px" onclick="tpAddSlot()"><i class="ti ti-plus"></i>Phase hinzufügen</button>
     <button class="btn btn-sm" style="margin-top:10px" onclick="tpGenerate()"><i class="ti ti-wand"></i>Auto-Plan</button>
@@ -2121,8 +2132,9 @@ function generateInsights(tw, aufpasser, fl_l, fl_r, jaeger, score){
     insights.push({type:"pos",text:`${aufpasser.name} gewinnt den Ball, ${jaeger.name} schließt ab – idealer Konter-Rhythmus`});
   if((v_jaeg.t_selbstvertrauen||2)===3)
     insights.push({type:"pos",text:`${jaeger.name} sucht Druck aktiv – perfekte Mentalität für die Spitze`});
-  if((v_auf.t_auftreten||2)===3||(v_jaeg.t_auftreten||2)===3){
-    const leader=[aufpasser,jaeger].find(p=>(p.v.t_auftreten||2)===3);
+  // F3(a): t_auftreten gestrichen – Aspekt lebt in t_sozial weiter
+  if((v_auf.t_sozial||2)===3||(v_jaeg.t_sozial||2)===3){
+    const leader=[aufpasser,jaeger].find(p=>(p.v.t_sozial||2)===3);
     if(leader) insights.push({type:"pos",text:`${leader.name} geht aktiv auf Mitspieler zu – natürlicher Kommunikator auf dem Feld`});
   }
 
@@ -2140,11 +2152,7 @@ function generateInsights(tw, aufpasser, fl_l, fl_r, jaeger, score){
   if((v_auf.t_raum||1)===1)
     insights.push({type:"warn",text:`${aufpasser.name} neigt zur Klumpenbildung – klare Korridor-Ansagen nötig`});
 
-  // Info
-  const shyPlayers=[aufpasser,fl_l,fl_r,jaeger].filter(p=>(p.v.t_auftreten||2)===1);
-  if(shyPlayers.length>=2)
-    insights.push({type:"info",text:`${shyPlayers.map(p=>p.name).join(", ")} brauchen Anlaufzeit – bewusst einbauen und ansprechen`});
-
+  // Info (F3(a): "Anlaufzeit"-Block entfernt – redundant zur t_sozial-Warnung oben)
   const lowConf=[aufpasser,fl_l,fl_r,jaeger].filter(p=>(p.v.t_selbstvertrauen||2)===1);
   if(lowConf.length>=2)
     insights.push({type:"info",text:`${lowConf.map(p=>p.name).join(", ")} zögern unter Druck – Erfolgserlebnisse gezielt einbauen`});
@@ -7084,7 +7092,9 @@ function tpRenderTimeline(){
     html+='</div>';
     time+=slot.dauer;
   });
-  html+=`<div style="text-align:right;font-size:11px;color:var(--text2);margin-top:4px">Gesamt: ${time} Min.</div>`;
+  const zielDauer=parseInt(document.getElementById("tp-dauer")?.value)||75; // H3
+  const passt=time<=zielDauer;
+  html+=`<div style="text-align:right;font-size:11px;font-weight:${passt?"400":"700"};color:${passt?"var(--text2)":"#dc2626"};margin-top:4px">Gesamt: ${time} von ${zielDauer} Min.${passt?"":" – zu lang!"}</div>`;
   wrap.innerHTML=html;
 }
 
