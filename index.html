@@ -1833,6 +1833,7 @@ async function savePlayer(){
     if(sbCheck401(res)){showSt("save-status","Anmeldung abgelaufen – bitte neu anmelden und erneut speichern.","err");return;}
     if(res.ok||res.status===201||res.status===204){
       showSt("save-status",`${meta.name} gespeichert – ${result.tw?"TW+":""}${result.rolle?.primLabel} (${result.total}%) – ${meta.trainer}`,"ok");
+      try{navigator.vibrate&&navigator.vibrate(50);}catch(e){} // 1C: haptische Bestätigung auf dem Platz
       await loadDB();
     } else {
       let errMsg="Cloud-Fehler "+res.status;
@@ -5424,6 +5425,20 @@ function tqRenderTrainerView(){
   wrap.innerHTML=html;
 }
 
+// Vorlese-Funktion (Web Speech API, nativ – keine Bibliothek). Hilft U9-Kindern, die
+// die Szenario-Texte noch nicht flüssig lesen. Zweiter Tipp stoppt (Toggle).
+function tqSpeak(btn){
+  if(!("speechSynthesis" in window)){toast("Vorlesen wird auf diesem Gerät nicht unterstützt");return;}
+  if(speechSynthesis.speaking){speechSynthesis.cancel();if(btn)btn.textContent="🔊";return;}
+  const sc=tqScenarios[tqIdx];
+  if(!sc)return;
+  const u=new SpeechSynthesisUtterance(tqPersonalize(sc.desc)+". "+sc.task);
+  u.lang="de-DE";u.rate=.9;
+  u.onend=()=>{if(btn)btn.textContent="🔊";};
+  if(btn)btn.textContent="⏹️";
+  speechSynthesis.speak(u);
+}
+
 function tqPersonalize(text){
   if(!tqPlayer)return text;
   // J2: dir/Dir/dich NICHT ersetzen ("Merke es dir" darf nicht zu "Merke es Hugo" werden)
@@ -5499,6 +5514,7 @@ function tqStartBlock(block){
 }
 
 function tqStop(){
+  if("speechSynthesis" in window)speechSynthesis.cancel();
   tbCancelActiveDrags(); // Cleanup-Fix
   tqActive=false;tqBlock=-1;tqCurrentOpps=[];
   tqChipRemove(); // K6
@@ -5522,7 +5538,10 @@ function tqLoadScenario(idx){
         <div style="font-size:10px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px">${TQ_BLOCKS[tqBlock]?.name||"Quiz"} · ${idx+1}/${tqScenarios.length}</div>
         <div class="tq-score">⭐ ${tqScore}/${tqTotal}</div>
       </div>
-      <div class="tq-situation">${sc.title}</div>
+      <div style="display:flex;align-items:flex-start;gap:8px">
+        <div class="tq-situation" style="flex:1">${sc.title}</div>
+        <button onclick="tqSpeak(this)" title="Vorlesen" aria-label="Aufgabe vorlesen" style="flex:none;min-width:44px;min-height:44px;border:var(--border-s);border-radius:var(--r);background:var(--surface);font-size:20px;cursor:pointer">🔊</button>
+      </div>
       <div class="tq-hint">${tqPersonalize(sc.desc)}</div>
       <div class="tq-task">📋 ${esc(pName)}, ${sc.task.charAt(0).toLowerCase()+sc.task.slice(1)}</div>
       <div style="font-size:10px;color:var(--text3);margin-top:4px">💡 ${sc.hint}</div>
@@ -5685,6 +5704,7 @@ function tqSkip(){
 }
 
 function tqNext(){
+  if("speechSynthesis" in window)speechSynthesis.cancel(); // Vorlesen des alten Szenarios stoppen
   tbCancelActiveDrags(); // falls noch ein Finger mitten im Drag ist (Cleanup-Fix)
   tqIdx++;tqChecked=false;
   if(tqIdx>=tqScenarios.length){tqShowResult();return;}
@@ -7165,6 +7185,7 @@ function awSave(){
   teamSyncUpsert("anwesenheit",datum,data); // G1: local-first, Fehler still
   awRenderStats();
   awRenderTrainerStats();
+  try{navigator.vibrate&&navigator.vibrate(50);}catch(e){} // 1C: haptische Bestätigung
   toast("Anwesenheit gespeichert ✓");
 }
 
