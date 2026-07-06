@@ -910,6 +910,76 @@ h1.print-header{display:none}
 const SB_URL="https://wgbcibqcqidudoksfkcv.supabase.co";
 const SB_KEY="sb_publishable_Gz7hGb1ecNWkLJZA-neK_w_El3huo41";
 
+/* ═══════════════════════════════════
+   SUPABASE AUTH (Block I)
+   Kinderdaten sind per RLS nur für authentifizierte Trainer les-/schreibbar.
+   Quiz-Sync (quiz_progress) läuft weiter über den Anon-Key.
+═══════════════════════════════════ */
+const SB_TOKEN_KEY="adler_sb_auth";
+function sbToken(){
+  try{
+    const t=JSON.parse(localStorage.getItem(SB_TOKEN_KEY)||"null");
+    if(t&&t.access_token&&(t.expires_at*1000)>Date.now()+60000)return t.access_token;
+  }catch(e){}
+  return null;
+}
+function sbAuthHeaders(extra){
+  const tok=sbToken();
+  return Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+(tok||SB_KEY),'Content-Type':'application/json'},extra||{});
+}
+// Bei 401: Token verwerfen und Login zeigen (gibt true zurück, wenn 401 behandelt wurde)
+function sbCheck401(res){
+  if(res&&res.status===401&&!document.body.classList.contains("quiz-extern")){
+    localStorage.removeItem(SB_TOKEN_KEY);
+    showLoginGate();
+    return true;
+  }
+  return false;
+}
+async function sbLogin(email,password){
+  const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{
+    method:"POST",headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({email,password})
+  });
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(data.error_description||data.msg||"Login fehlgeschlagen");
+  localStorage.setItem(SB_TOKEN_KEY,JSON.stringify({access_token:data.access_token,expires_at:data.expires_at}));
+  return true;
+}
+function showLoginGate(){
+  if(document.getElementById("login-gate"))return;
+  const gate=document.createElement("div");
+  gate.id="login-gate";
+  gate.style.cssText="position:fixed;inset:0;z-index:9000;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px";
+  gate.innerHTML=`<div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:24px;max-width:340px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.15)">
+    <div style="font-size:16px;font-weight:700;margin-bottom:4px">🔐 Trainer-Anmeldung</div>
+    <div style="font-size:11.5px;color:var(--text2);margin-bottom:14px">Spielerdaten sind geschützt – bitte mit deinem Trainer-Account anmelden.</div>
+    <div class="mg" style="margin-bottom:8px"><label>E-Mail</label><input type="email" id="login-email" autocomplete="username" style="width:100%"></div>
+    <div class="mg" style="margin-bottom:12px"><label>Passwort</label><input type="password" id="login-pw" autocomplete="current-password" style="width:100%"></div>
+    <div id="login-err" style="font-size:11px;color:#dc2626;margin-bottom:8px;min-height:14px"></div>
+    <button class="btn btn-p" style="width:100%;min-height:44px" onclick="doLogin()"><i class="ti ti-login"></i>Anmelden</button>
+  </div>`;
+  document.body.appendChild(gate);
+  document.getElementById("login-pw").addEventListener("keydown",e=>{if(e.key==="Enter")doLogin();});
+}
+async function doLogin(){
+  const email=document.getElementById("login-email")?.value.trim();
+  const pw=document.getElementById("login-pw")?.value;
+  const err=document.getElementById("login-err");
+  if(!email||!pw){if(err)err.textContent="E-Mail und Passwort eingeben";return;}
+  try{
+    await sbLogin(email,pw);
+    document.getElementById("login-gate")?.remove();
+    toast("Angemeldet ✓");
+    loadDB().then(()=>teamSyncLoad());
+  }catch(e){if(err)err.textContent=e.message;}
+}
+// Nach dem PIN-Gate aufrufen (nicht im Quiz-Modus)
+function ensureLogin(){
+  if(new URLSearchParams(location.search).has("quiz"))return;
+  if(!sbToken())showLoginGate();
+}
+
 // Kader: tw = hat TW-Option, twPrio = TW-Priorität (1=primär, 2=zweite Option)
 const KADER=[
   {name:"Hugo",   tw:true,  twPrio:2},
@@ -1640,7 +1710,8 @@ function toggleDim(head){
 let DB={};
 async function loadDB(){
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/spielerprofile?select=*`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    const r=await fetch(`${SB_URL}/rest/v1/spielerprofile?select=*`,{headers:sbAuthHeaders()});
+    if(sbCheck401(r))return;
     if(r.ok){
       const data=await r.json();DB={};
       data.forEach(p=>{if(!DB[p.name])DB[p.name]=[];DB[p.name].push(p);});
@@ -1674,7 +1745,8 @@ async function savePlayer(){
   const saveBtn=document.querySelector('button[onclick="savePlayer()"]'); // C9: Doppelklick-Schutz
   if(saveBtn)saveBtn.disabled=true;
   try{
-    const res=await fetch(`${SB_URL}/rest/v1/spielerprofile`,{method:"POST",headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation','X-Client-Info':'supabase-js/2.0.0'},body:JSON.stringify(row)});
+    const res=await fetch(`${SB_URL}/rest/v1/spielerprofile`,{method:"POST",headers:sbAuthHeaders({'Prefer':'return=representation','X-Client-Info':'supabase-js/2.0.0'}),body:JSON.stringify(row)});
+    if(sbCheck401(res)){showSt("save-status","Anmeldung abgelaufen – bitte neu anmelden und erneut speichern.","err");return;}
     if(res.ok||res.status===201||res.status===204){
       showSt("save-status",`${meta.name} gespeichert – ${result.tw?"TW+":""}${result.rolle?.primLabel} (${result.total}%) – ${meta.trainer}`,"ok");
       await loadDB();
@@ -1870,7 +1942,7 @@ function renderRauteMap(names){
 
 async function delPlayer(name){
   if(!confirm(`Alle Bewertungen von '${name}' löschen?`))return;
-  try{const r=await fetch(`${SB_URL}/rest/v1/spielerprofile?name=eq.${encodeURIComponent(name)}`,{method:"DELETE",headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});if(r.ok||r.status===204){await loadDB();renderKader();toast(name+" gelöscht");}else{toast("Fehler beim Löschen","err");}}catch{toast("Netzwerkfehler","err");}
+  try{const r=await fetch(`${SB_URL}/rest/v1/spielerprofile?name=eq.${encodeURIComponent(name)}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok||r.status===204){await loadDB();renderKader();toast(name+" gelöscht");}else{toast("Fehler beim Löschen","err");}}catch{toast("Netzwerkfehler","err");}
 }
 
 async function delSnapshot(name,datum,id){
@@ -1882,7 +1954,8 @@ async function delSnapshot(name,datum,id){
     } else {
       url=`${SB_URL}/rest/v1/spielerprofile?name=eq.${encodeURIComponent(name)}&datum=eq.${encodeURIComponent(datum)}`;
     }
-    const r=await fetch(url,{method:"DELETE",headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    const r=await fetch(url,{method:"DELETE",headers:sbAuthHeaders()});
+    if(sbCheck401(r))return;
     if(r.ok||r.status===204){
       await loadDB();
       renderVerlauf();
@@ -5110,12 +5183,12 @@ function tqDoReset(modal){
   const all=Array.from(checks).some(c=>c.value==="__ALL__");
   if(all){
     localStorage.removeItem(TQ_PROGRESS_KEY);
-    fetch(`${SB_URL}/rest/v1/quiz_progress?player=neq.`,{method:"DELETE",headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).catch(()=>{});
+    fetch(`${SB_URL}/rest/v1/quiz_progress?player=neq.`,{method:"DELETE",headers:sbAuthHeaders()}).then(r=>sbCheck401(r)).catch(()=>{});
   }else{
     const names=Array.from(checks).map(c=>c.value);
     names.forEach(n=>{
       delete p[n];
-      fetch(`${SB_URL}/rest/v1/quiz_progress?player=eq.${encodeURIComponent(n)}`,{method:"DELETE",headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).catch(()=>{});
+      fetch(`${SB_URL}/rest/v1/quiz_progress?player=eq.${encodeURIComponent(n)}`,{method:"DELETE",headers:sbAuthHeaders()}).then(r=>sbCheck401(r)).catch(()=>{});
     });
     localStorage.setItem(TQ_PROGRESS_KEY,JSON.stringify(p));
   }
@@ -6543,9 +6616,9 @@ function switchTrainSub(sub){
 /* ═══════════════════════════════════
    TEAM-MODUL (Block G)
 ═══════════════════════════════════ */
-// Header-Helfer für Team-Tabellen – Block I stellt hier auf das User-Token um
+// Header-Helfer für Team-Tabellen – seit Block I mit User-Token (RLS: nur authenticated)
 function sbTeamHeaders(){
-  return {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+  return sbAuthHeaders();
 }
 
 // G1: local-first Upsert (Fehler still schlucken – offline-fähig bleiben)
@@ -7240,6 +7313,7 @@ async function pinCheck(){
     pinSessionSet();
     document.getElementById("pin-gate").classList.add("hidden");
     document.getElementById("main-app").style.display="";
+    ensureLogin(); // Block I
   } else {
     document.getElementById("pin-err").textContent="Falscher PIN – bitte erneut versuchen";
     [1,2,3,4].forEach(i=>{document.getElementById("pin"+i).value="";});
@@ -7284,6 +7358,7 @@ async function pinCheck(){
   if(pinSessionValid()){
     document.getElementById("pin-gate").classList.add("hidden");
     document.getElementById("main-app").style.display="";
+    ensureLogin(); // Block I
   }
 })();
 
