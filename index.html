@@ -7746,6 +7746,17 @@ function tpRenderMindsetTip(){
    PWA SETUP
 ═══════════════════════════════════ */
 (function(){
+  // Auto-Update: Der SW liefert cache-first (Seite hängt sonst eine Version hinterher).
+  // Sobald ein neuer SW übernimmt, einmal automatisch neu laden – danach ist alles aktuell.
+  if("serviceWorker" in navigator){
+    let swReloaded=false;
+    navigator.serviceWorker.addEventListener("controllerchange",()=>{
+      if(swReloaded)return;
+      swReloaded=true;
+      if(performance.now()<60000){location.reload();}
+      else if(typeof toast==="function"){toast("Neue Version verfügbar – App einmal neu laden");}
+    });
+  }
   // Quiz-Modus: Manifest/Icon kommen aus der Quiz-IIFE – hier nicht überschreiben (B1)
   if(new URLSearchParams(location.search).has("quiz")){
     if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});
