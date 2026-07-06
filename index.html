@@ -559,9 +559,9 @@ h1.print-header{display:none}
     <p>Zugang zum Trainerstab-Tool</p>
     <div class="pin-input">
       <input type="tel" maxlength="1" id="pin1" oninput="pinNext(this,2)" autofocus>
-      <input type="tel" maxlength="1" id="pin2" oninput="pinNext(this,3)">
-      <input type="tel" maxlength="1" id="pin3" oninput="pinNext(this,4)">
-      <input type="tel" maxlength="1" id="pin4" oninput="pinCheck()">
+      <input type="tel" maxlength="1" id="pin2" oninput="pinNext(this,3)" onkeydown="pinBack(event,1)">
+      <input type="tel" maxlength="1" id="pin3" oninput="pinNext(this,4)" onkeydown="pinBack(event,2)">
+      <input type="tel" maxlength="1" id="pin4" oninput="pinCheck()" onkeydown="pinBack(event,3)">
     </div>
     <div class="pin-err" id="pin-err"></div>
     <button class="pin-btn" onclick="pinCheck()">Entsperren</button>
@@ -971,7 +971,9 @@ async function sbLogin(email,password){
   });
   const data=await r.json().catch(()=>({}));
   if(!r.ok)throw new Error(data.error_description||data.msg||"Login fehlgeschlagen");
-  localStorage.setItem(SB_TOKEN_KEY,JSON.stringify({access_token:data.access_token,expires_at:data.expires_at}));
+  // Defensive: manche GoTrue-Antworten liefern nur expires_in (Sekunden relativ), nicht expires_at (Unix-Timestamp)
+  const expiresAt=data.expires_at||(Math.floor(Date.now()/1000)+(data.expires_in||3600));
+  localStorage.setItem(SB_TOKEN_KEY,JSON.stringify({access_token:data.access_token,expires_at:expiresAt}));
   return true;
 }
 function showLoginGate(){
@@ -1739,7 +1741,30 @@ function toggleDim(head){
 ═══════════════════════════════════ */
 let DB={};
 let lastSyncTs=null; // L4
+// Offline-Queue für savePlayer: Bewertung geht nicht verloren, wenn der Trainer auf dem
+// Platz ohne Netz speichert – wird beim nächsten Online-Kontakt automatisch nachgereicht.
+const PENDING_SAVES_KEY="adler_pending_saves";
+function queuePendingSave(row){
+  const q=safeParse(localStorage.getItem(PENDING_SAVES_KEY),[])||[];
+  q.push(row);
+  localStorage.setItem(PENDING_SAVES_KEY,JSON.stringify(q));
+}
+async function flushPendingSaves(){
+  const q=safeParse(localStorage.getItem(PENDING_SAVES_KEY),[])||[];
+  if(!q.length)return;
+  const remaining=[];
+  for(const row of q){
+    try{
+      const res=await fetch(`${SB_URL}/rest/v1/spielerprofile`,{method:"POST",headers:sbAuthHeaders({'Prefer':'return=representation'}),body:JSON.stringify(row)});
+      if(!res.ok)remaining.push(row);
+    }catch(e){remaining.push(row);}
+  }
+  localStorage.setItem(PENDING_SAVES_KEY,JSON.stringify(remaining));
+  if(remaining.length<q.length)toast(`${q.length-remaining.length} offline gespeicherte Bewertung(en) synchronisiert ✓`);
+}
+
 async function loadDB(){
+  await flushPendingSaves(); // vor dem Laden pushen, damit die frischen Daten gleich mit reinkommen
   try{
     const r=await fetch(`${SB_URL}/rest/v1/spielerprofile?select=*`,{headers:sbAuthHeaders()});
     if(sbCheck401(r)){window._dbLoaded=true;return;}
@@ -1804,7 +1829,11 @@ async function savePlayer(){
       try{const errBody=await res.json();errMsg+=" – "+(errBody.message||errBody.error||JSON.stringify(errBody).slice(0,80));}catch(e){}
       showSt("save-status",errMsg,"err");
     }
-  }catch(e){showSt("save-status","Netzwerkfehler: "+e.message,"err");}
+  }catch(e){
+    // Offline auf dem Platz: Bewertung nicht verwerfen, sondern lokal für später vormerken
+    queuePendingSave(row);
+    showSt("save-status",`${meta.name}: Offline gespeichert – wird automatisch hochgeladen, sobald wieder Netz da ist.`,"info");
+  }
   finally{if(saveBtn)saveBtn.disabled=false;}
 }
 
@@ -1992,7 +2021,17 @@ function renderRauteMap(names){
 
 async function delPlayer(name){
   if(!confirm(`Alle Bewertungen von '${name}' löschen?`))return;
-  try{const r=await fetch(`${SB_URL}/rest/v1/spielerprofile?name=eq.${encodeURIComponent(name)}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok||r.status===204){await loadDB();renderKader();toast(name+" gelöscht");}else{toast("Fehler beim Löschen","err");}}catch{toast("Netzwerkfehler","err");}
+  try{
+    // Prefer:return=representation, damit ein von RLS still gefiltertes Delete (0 betroffene
+    // Zeilen -> trotzdem HTTP 200/204) NICHT als Erfolg gemeldet wird
+    const r=await fetch(`${SB_URL}/rest/v1/spielerprofile?name=eq.${encodeURIComponent(name)}`,{method:"DELETE",headers:sbAuthHeaders({'Prefer':'return=representation'})});
+    if(sbCheck401(r))return;
+    if(r.ok){
+      const deleted=await r.json().catch(()=>[]);
+      if(deleted.length>0){await loadDB();renderKader();toast(name+" gelöscht");}
+      else{toast("Löschen fehlgeschlagen – keine Berechtigung oder Datensatz nicht gefunden","err");}
+    }else{toast("Fehler beim Löschen","err");}
+  }catch{toast("Netzwerkfehler","err");}
 }
 
 async function delSnapshot(name,datum,id){
@@ -2004,12 +2043,17 @@ async function delSnapshot(name,datum,id){
     } else {
       url=`${SB_URL}/rest/v1/spielerprofile?name=eq.${encodeURIComponent(name)}&datum=eq.${encodeURIComponent(datum)}`;
     }
-    const r=await fetch(url,{method:"DELETE",headers:sbAuthHeaders()});
+    const r=await fetch(url,{method:"DELETE",headers:sbAuthHeaders({'Prefer':'return=representation'})});
     if(sbCheck401(r))return;
-    if(r.ok||r.status===204){
-      await loadDB();
-      renderVerlauf();
-      showSt("save-status",`Bewertung von ${name} (${datum}) gelöscht`,"ok");
+    if(r.ok){
+      const deleted=await r.json().catch(()=>[]);
+      if(deleted.length>0){
+        await loadDB();
+        renderVerlauf();
+        showSt("save-status",`Bewertung von ${name} (${datum}) gelöscht`,"ok");
+      } else {
+        toast("Löschen fehlgeschlagen – keine Berechtigung oder Datensatz nicht gefunden","err");
+      }
     } else {
       toast("Fehler beim Löschen","err");
     }
@@ -2192,9 +2236,8 @@ function getPlayerData(name){
 }
 
 function roleScore(player,role){
-  const foot=lat_foot(player);
-  const r=calcRolle(player.v,foot);
-  return r.scores[role]||0;
+  // player.rolle wurde in getPlayerData() bereits mit demselben foot berechnet – nicht doppelt tun
+  return player.rolle.scores[role]||0;
 }
 function lat_foot(player){return player.lat.strong_foot||"R";}
 
@@ -2610,19 +2653,29 @@ function tbCycleRole(idx){
   taktikRender();
 }
 
+const tbActiveDrags=new Set(); // Registry aktiver Drags, damit ein Szenariowechsel sie sauber beenden kann
+function tbCancelActiveDrags(){tbActiveDrags.forEach(cancel=>cancel());tbActiveDrags.clear();}
+
 function tbAddDrag(tok,fieldEl){
-  let startX,startY,origLeft,origTop,fromBench,fieldRect,isBall,didMove,moveThreshold=8;
+  let startX,startY,origLeft,origTop,fromBench,fieldRect,isBall,didMove,moveThreshold=8,touchId=null;
+
+  function touchById(list,id){
+    if(id==null)return list[0];
+    for(let i=0;i<list.length;i++)if(list[i].identifier===id)return list[i];
+    return null;
+  }
 
   function onStart(e){
     if(e.type==="touchstart")e.preventDefault();
     const _idx=parseInt(tok.dataset.idx);
     if(tqActive&&!isNaN(_idx)&&tbField[_idx]&&tbField[_idx].locked)return;
     didMove=false;
+    touchId=e.changedTouches?e.changedTouches[0].identifier:null; // welcher Finger diesen Drag gestartet hat
     tok.style.zIndex="25";
     tok.style.transition="none";
     tok.style.willChange="left,top";
     fieldRect=fieldEl.getBoundingClientRect();
-    const pt=e.touches?e.touches[0]:e;
+    const pt=e.touches?touchById(e.touches,touchId):e;
     startX=pt.clientX;startY=pt.clientY;
     fromBench=tok.dataset.loc==="bench";
     isBall=tok.dataset.loc==="ball";
@@ -2638,11 +2691,13 @@ function tbAddDrag(tok,fieldEl){
     document.addEventListener("mouseup",onEnd);
     document.addEventListener("touchmove",onMove,{passive:false});
     document.addEventListener("touchend",onEnd);
+    tbActiveDrags.add(cancelDrag);
   }
 
   function onMove(e){
+    const pt=e.touches?touchById(e.touches,touchId):e;
+    if(!pt)return; // ein ANDERER Finger hat sich bewegt – dieser Drag ist nicht betroffen (Multitouch-Fix)
     e.preventDefault();
-    const pt=e.touches?e.touches[0]:e;
     const rawDx=pt.clientX-startX,rawDy=pt.clientY-startY;
     if(!didMove&&Math.abs(rawDx)<moveThreshold&&Math.abs(rawDy)<moveThreshold)return;
     const dx=(rawDx/fieldRect.width)*100;
@@ -2661,7 +2716,16 @@ function tbAddDrag(tok,fieldEl){
     tok.style.left=nx+"%";tok.style.top=ny+"%";
   }
 
+  function cancelDrag(){ // wird bei Szenariowechsel mitten im Drag aufgerufen (Cleanup-Fix)
+    document.removeEventListener("mousemove",onMove);
+    document.removeEventListener("mouseup",onEnd);
+    document.removeEventListener("touchmove",onMove);
+    document.removeEventListener("touchend",onEnd);
+  }
+
   function onEnd(e){
+    if(e.changedTouches&&touchById(e.changedTouches,touchId)===null)return; // falscher Finger losgelassen
+    tbActiveDrags.delete(cancelDrag);
     document.removeEventListener("mousemove",onMove);
     document.removeEventListener("mouseup",onEnd);
     document.removeEventListener("touchmove",onMove);
@@ -5354,7 +5418,9 @@ function tqRenderTrainerView(){
 function tqPersonalize(text){
   if(!tqPlayer)return text;
   // J2: dir/Dir/dich NICHT ersetzen ("Merke es dir" darf nicht zu "Merke es Hugo" werden)
-  return text.replace(/\bDein\b/g,tqPlayer+"s").replace(/\bdu\b/g,tqPlayer).replace(/\bDu\b/g,tqPlayer);
+  // du/Du NICHT ersetzen: Verb bliebe unkonjugiert ("Wie nimmst du" -> "Wie nimmst Hugo" ist falsch,
+  // korrekt wäre "nimmt"). "Dein" -> Name+"s" bleibt, das ist als Possessiv grammatisch unproblematisch.
+  return text.replace(/\bDein\b/g,tqPlayer+"s");
 }
 
 function tqStart(){
@@ -5424,6 +5490,7 @@ function tqStartBlock(block){
 }
 
 function tqStop(){
+  tbCancelActiveDrags(); // Cleanup-Fix
   tqActive=false;tqBlock=-1;tqCurrentOpps=[];
   tqChipRemove(); // K6
   document.getElementById("taktik-field")?.classList.remove("quiz-mode");
@@ -5609,6 +5676,7 @@ function tqSkip(){
 }
 
 function tqNext(){
+  tbCancelActiveDrags(); // falls noch ein Finger mitten im Drag ist (Cleanup-Fix)
   tqIdx++;tqChecked=false;
   if(tqIdx>=tqScenarios.length){tqShowResult();return;}
   tqLoadScenario(tqIdx);
@@ -6802,12 +6870,25 @@ async function teamSyncLoad(){
       if(!r.ok)return;
       const rows=await r.json();
       const localTs=safeParse(localStorage.getItem(tsKey),{})||{};
+      const remoteByDatum={};
+      rows.forEach(row=>{if(row&&row.datum)remoteByDatum[row.datum]=row;});
       rows.forEach(row=>{
         if(!row||!row.datum)return;
         const lts=localTs[row.datum];
         // Remote übernehmen, wenn lokal nichts da ist oder Remote jünger ist
         if(!localObj[row.datum]||!lts||new Date(row.updated_at||0)>=new Date(lts)){
           localObj[row.datum]=row.data;
+        }
+      });
+      // Push-Back: lokale Änderungen, die beim Offline-Speichern nie ankamen (oder neuer als
+      // der Remote-Stand sind), jetzt im Hintergrund nachreichen statt für immer lokal gefangen
+      // zu bleiben
+      Object.keys(localObj).forEach(datum=>{
+        const lts=localTs[datum];
+        if(!lts)return; // kein lokaler Zeitstempel = nie offline geändert, nichts zu pushen
+        const remote=remoteByDatum[datum];
+        if(!remote||new Date(lts)>new Date(remote.updated_at||0)){
+          teamSyncUpsert(table,datum,localObj[datum]);
         }
       });
       localStorage.setItem(storeKey,JSON.stringify(localObj));
@@ -7476,6 +7557,12 @@ function pinNext(el,next){
     const n=document.getElementById("pin"+next);
     if(n)n.focus();
     else pinCheck();
+  }
+}
+function pinBack(e,prev){ // Backspace bei leerem Feld springt zurück statt hängenzubleiben
+  if(e.key==="Backspace"&&e.target.value===""){
+    const p=document.getElementById("pin"+prev);
+    if(p){p.focus();p.value="";}
   }
 }
 
