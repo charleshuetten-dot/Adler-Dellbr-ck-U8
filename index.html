@@ -5958,14 +5958,52 @@ function tqStart(){
         <div class="tq-block-prog"><div class="tq-block-prog-fill" style="width:${bp?pct:0}%"></div></div>
       </div>`;
     });
-    html+=`</div>
-      <div style="display:flex;gap:6px;margin-top:6px">
+    html+=`</div>`;
+    html+=tqRenderBarometer();
+    html+=tqRenderStickers(pp);
+    html+=`<div style="display:flex;gap:6px;margin-top:10px">
         <button class="btn btn-sm" onclick="tqPlayer=null;tqStart()"><i class="ti ti-arrow-left"></i>Spieler wechseln</button>
         ${extern?"":'<button class="btn btn-sm" onclick="tqStop()" style="margin-left:auto"><i class="ti ti-x"></i>Schließen</button>'}
       </div>`;
   }
   html+=`</div>`;
   panel.innerHTML=html;
+}
+
+// Adler-Stickerheft: pro gemeistertem Block (>=7) ein farbiger Sticker, sonst ausgegraut
+const TQ_STICKERS=["💎","🦅","⚡","🎯","🏃","🥅","🛡️","👟","🧠","🔥"];
+function tqRenderStickers(pp){
+  pp=pp||{};
+  const items=TQ_BLOCKS.map((b,i)=>{
+    const bp=pp[i];
+    const gold=bp&&bp.score>=9, done=bp&&bp.score>=7;
+    const emo=TQ_STICKERS[i]||"⭐";
+    const style=done?"":"filter:grayscale(100%);opacity:.35";
+    return `<div style="text-align:center">
+      <div style="font-size:30px;line-height:1.1;${style}">${emo}</div>
+      <div style="font-size:8px;color:var(--text3);line-height:1.1;margin-top:2px">${done?(gold?"🥇 ":"")+esc(b.name.split(" ")[0]):"?"}</div>
+    </div>`;
+  }).join("");
+  const geschafft=TQ_BLOCKS.filter((b,i)=>pp[i]&&pp[i].score>=7).length;
+  return `<div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:10px 12px;margin-top:10px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--purple);margin-bottom:8px">🏅 Dein Sticker-Heft (${geschafft}/${TQ_BLOCKS.length})</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">${items}</div>
+  </div>`;
+}
+// Kooperatives Team-Barometer: Summe aller gelösten Aufgaben des Teams -> gemeinsames Ziel
+function tqRenderBarometer(){
+  const prog=tqGetProgress();
+  let solved=0;
+  Object.values(prog).forEach(p=>Object.values(p).forEach(bp=>{solved+=bp.score||0;}));
+  const step=50;
+  const ziel=Math.max(step,Math.ceil((solved+1)/step)*step);
+  const pct=Math.round(solved/ziel*100);
+  const rest=ziel-solved;
+  return `<div style="background:linear-gradient(135deg,#065f46,#059669);border-radius:var(--rl);padding:12px;margin-top:10px;color:#fff">
+    <div style="font-size:12px;font-weight:700;margin-bottom:6px">🎯 Team-Ziel: gemeinsam ${ziel} Aufgaben lösen!</div>
+    <div style="height:12px;background:rgba(255,255,255,.25);border-radius:6px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#fbbf24;border-radius:6px;transition:width .4s"></div></div>
+    <div style="font-size:11px;margin-top:6px;opacity:.95">${solved} geschafft · noch ${rest} bis zum nächsten Ziel 🎉</div>
+  </div>`;
 }
 
 function tqSelectPlayer(name){
