@@ -915,6 +915,13 @@ h1.print-header{display:none}
         <div class="mg"><label>Datum</label><input type="date" id="tm-datum"></div>
         <div class="mg"><label>Uhrzeit (optional)</label><input type="time" id="tm-zeit"></div>
       </div>
+      <div class="mg" id="tm-spielform-row" style="margin-top:8px;display:none"><label>Spielform</label>
+        <div class="seg-ctrl" id="tm-spielform-seg">
+          <button type="button" class="seg-btn" data-val="funino" onclick="tmSetSpielform('funino',this)">Funino</button>
+          <button type="button" class="seg-btn active" data-val="4+1" onclick="tmSetSpielform('4+1',this)">4+1</button>
+          <button type="button" class="seg-btn" data-val="5+1" onclick="tmSetSpielform('5+1',this)">5+1</button>
+        </div>
+      </div>
       <div class="mg" style="margin-top:8px"><label id="tm-titel-lbl">Titel / Gegner</label><input type="text" id="tm-titel" placeholder="z. B. Heimspiel gegen FC..."></div>
       <div class="mg" style="margin-top:8px"><label>Ort (optional)</label><input type="text" id="tm-ort" placeholder="Sportplatz..."></div>
       <button class="btn btn-p" style="margin-top:10px" onclick="tmAdd()"><i class="ti ti-plus"></i>Termin anlegen</button>
@@ -7734,14 +7741,27 @@ async function tvLoad(){
 /* ═══════════════════════════════════
    KALENDER / TERMINE – das Rückgrat, das Training, Spiele und Turniere verbindet
 ═══════════════════════════════════ */
-let tmTyp="training";
+let tmTyp="training", tmSpielform="4+1";
 const TM_META={training:{icon:"🏃",label:"Training",col:"#1a56db"},spiel:{icon:"⚽",label:"Spiel",col:"#059669"},turnier:{icon:"🏆",label:"Turnier",col:"#c2410c"}};
+// Saison-Zuordnung aus einem Datum (Saison läuft Jul–Jun)
+function saisonForDate(datum){
+  const d=new Date((datum||new Date().toISOString().slice(0,10))+"T00:00:00");
+  const y=d.getFullYear(), start=d.getMonth()>=6?y:y-1;
+  return start+"/"+String(start+1).slice(2);
+}
 function tmSetTyp(t,btn){
   tmTyp=t;
   btn.parentElement.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active"));
   btn.classList.add("active");
   const lbl=document.getElementById("tm-titel-lbl");
   if(lbl)lbl.textContent=t==="training"?"Titel (optional)":"Gegner / Titel";
+  const sfRow=document.getElementById("tm-spielform-row");
+  if(sfRow)sfRow.style.display=(t==="spiel"||t==="turnier")?"block":"none"; // Spielform nur bei Spiel/Turnier
+}
+function tmSetSpielform(f,btn){
+  tmSpielform=f;
+  btn.parentElement.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
 }
 function tmInit(){
   const d=document.getElementById("tm-datum");
@@ -7754,9 +7774,16 @@ async function tmAdd(){
   const zeit=document.getElementById("tm-zeit")?.value||"";
   const titel=(document.getElementById("tm-titel")?.value||"").trim();
   const ort=(document.getElementById("tm-ort")?.value||"").trim();
-  const notiz=zeit?("Uhrzeit: "+zeit):"";
+  const istSpiel=(tmTyp==="spiel"||tmTyp==="turnier");
+  const body={
+    typ:tmTyp, datum, titel, ort,
+    uhrzeit: zeit||null,
+    saison: saisonForDate(datum),
+    spielform: istSpiel?tmSpielform:null,
+    gegner: istSpiel?(titel||null):null
+  };
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/termine`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({typ:tmTyp,datum,titel,ort,notiz})});
+    const r=await fetch(`${SB_URL}/rest/v1/termine`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify(body)});
     if(sbCheck401(r))return;
     if(r.ok||r.status===201){toast("Termin angelegt ✓");document.getElementById("tm-titel").value="";document.getElementById("tm-ort").value="";tmLoad();}
     else toast("Fehler beim Anlegen","err");
@@ -7790,17 +7817,20 @@ function tmCard(t){
     actions=`<button class="btn btn-sm" onclick="tmJump('planung','${t.datum}')"><i class="ti ti-clipboard-list"></i>Plan</button>
       <button class="btn btn-sm" onclick="mdOpen('${t.datum}','training')"><i class="ti ti-users"></i>Eltern-Info</button>`;
   }else{
-    actions=`<button class="btn btn-sm" onclick="tmJump('aufstellung','${t.datum}')"><i class="ti ti-users-group"></i>Aufstellung</button>
-      <button class="btn btn-sm" onclick="tmJump('blitz','${t.datum}')"><i class="ti ti-bolt"></i>Auswertung</button>
+    actions=`<button class="btn btn-sm" onclick="tmJump('aufstellung','${t.datum}','${t.spielform||''}')"><i class="ti ti-users-group"></i>Aufstellung</button>
+      <button class="btn btn-sm" onclick="tmJump('blitz','${t.datum}','${t.spielform||''}')"><i class="ti ti-bolt"></i>Auswertung</button>
       <button class="btn btn-sm" onclick="mdOpen('${t.datum}','${t.typ}')"><i class="ti ti-users"></i>Eltern-Info</button>`;
   }
+  const zeitStr=t.uhrzeit?String(t.uhrzeit).slice(0,5):((/Uhrzeit:\s*(\d{1,2}:\d{2})/.exec(t.notiz||"")||[])[1]||"");
+  const sfBadge=(istSpiel&&t.spielform)?`<span style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;background:${m.col}22;color:${m.col}">${esc(t.spielform)}</span>`:"";
+  const notizClean=(t.notiz&&!/^Uhrzeit:/.test(t.notiz))?t.notiz:"";
   return `<div style="background:var(--surface);border:var(--border-s);border-left:3px solid ${m.col};border-radius:var(--rl);padding:10px 12px;margin-bottom:8px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
-      <div style="font-size:13px;font-weight:700">${m.icon} ${esc(t.titel||m.label)}</div>
-      <div style="font-size:11px;color:var(--text2);white-space:nowrap">${datumStr}</div>
+      <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px">${m.icon} ${esc(t.titel||m.label)}${sfBadge}</div>
+      <div style="font-size:11px;color:var(--text2);white-space:nowrap">${datumStr}${zeitStr?" · "+zeitStr:""}</div>
     </div>
     ${t.ort?`<div style="font-size:11px;color:var(--text2)"><i class="ti ti-map-pin" style="font-size:11px"></i> ${esc(t.ort)}</div>`:""}
-    ${t.notiz?`<div style="font-size:11px;color:var(--text3)">${esc(t.notiz)}</div>`:""}
+    ${notizClean?`<div style="font-size:11px;color:var(--text3)">${esc(notizClean)}</div>`:""}
     ${istSpiel?`<div style="display:flex;align-items:center;gap:6px;margin:6px 0"><span style="font-size:11px;color:var(--text2)">Ergebnis:</span><input type="text" value="${esc(t.ergebnis||"")}" placeholder="z. B. 3:2" onchange="tmSetResult(${Number(t.id)},this.value)" style="width:90px;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:12px;font-family:inherit"></div>`:""}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
       ${actions}
@@ -7815,8 +7845,13 @@ async function tmDelete(id){
   if(!confirm("Termin löschen?"))return;
   try{const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;tmLoad();}catch(e){toast("Netzwerkfehler","err");}
 }
-// Schnell-Sprung von einem Termin zum passenden Werkzeug, Datum vorbelegt
-function tmJump(ziel,datum){
+// Schnell-Sprung von einem Termin zum passenden Werkzeug, Datum vorbelegt.
+// Spielform des Termins wird an Taktikboard + Rotation durchgereicht (Kopplung Schritt 5).
+function tmJump(ziel,datum,spielform){
+  if(spielform&&typeof FORMATIONS!=="undefined"&&FORMATIONS[spielform]){
+    if(typeof taktikSetFormation==="function")taktikSetFormation(spielform);
+    else tbFormation=spielform;
+  }
   if(ziel==="planung"){
     switchTrainSub("planung");
     setTimeout(()=>{const d=document.getElementById("tp-date");if(d){d.value=datum;}toast("Plan für "+datum);},60);
