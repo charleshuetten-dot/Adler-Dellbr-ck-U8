@@ -7462,11 +7462,12 @@ function tmCard(t){
   // Schnell-Aktionen je Typ
   let actions="";
   if(t.typ==="training"){
-    actions=`<button class="btn btn-sm" onclick="tmJump('planung','${t.datum}')"><i class="ti ti-clipboard-list"></i>Plan</button>`;
+    actions=`<button class="btn btn-sm" onclick="tmJump('planung','${t.datum}')"><i class="ti ti-clipboard-list"></i>Plan</button>
+      <button class="btn btn-sm" onclick="mdOpen('${t.datum}','training')"><i class="ti ti-users"></i>Eltern-Info</button>`;
   }else{
     actions=`<button class="btn btn-sm" onclick="tmJump('aufstellung','${t.datum}')"><i class="ti ti-users-group"></i>Aufstellung</button>
       <button class="btn btn-sm" onclick="tmJump('blitz','${t.datum}')"><i class="ti ti-bolt"></i>Auswertung</button>
-      <button class="btn btn-sm" onclick="mdOpen('${t.datum}')"><i class="ti ti-users"></i>Eltern-Info</button>`;
+      <button class="btn btn-sm" onclick="mdOpen('${t.datum}','${t.typ}')"><i class="ti ti-users"></i>Eltern-Info</button>`;
   }
   return `<div style="background:var(--surface);border:var(--border-s);border-left:3px solid ${m.col};border-radius:var(--rl);padding:10px 12px;margin-bottom:8px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
@@ -7571,33 +7572,122 @@ async function renderElternView(datum){
     const rows=r.ok?await r.json():[];
     if(!rows.length){root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Aktuell ist kein Spieltag hinterlegt.<br>Schau später nochmal rein.</div>';return;}
     const m=rows[0];
+    elternCurrent=m; // für die Interaktions-Funktionen
+    const istTraining=m.typ==="training";
     const d=new Date(m.datum+"T00:00:00");
     const wtag=["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"][d.getDay()];
     const datumStr=wtag+", "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"long"});
     const row=(icon,label,val)=>val?`<div style="display:flex;gap:10px;padding:11px 0;border-bottom:1px solid #e2e8f0"><span style="font-size:18px">${icon}</span><div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">${label}</div><div style="font-size:14.5px;font-weight:600;color:#1e293b">${esc(val)}</div></div></div>`:"";
-    const mapsOk=m.maps_link&&/^https?:\/\//i.test(m.maps_link);
+    // Route: Google-Maps-Suche nach der Gegner-Adresse (oder dem Gegnernamen)
+    const routeQuery=m.gegner_adresse||m.gegner||m.ort||"";
+    const routeUrl=routeQuery?"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(routeQuery):"";
     root.innerHTML=`
       <div style="text-align:center;margin:8px 0 16px">
         <img src="logo.png" style="width:64px;height:64px" alt="SV Adler Dellbrück">
-        <div style="font-size:18px;font-weight:800;color:#1e3a8a;margin-top:6px">Spieltag U9</div>
+        <div style="font-size:18px;font-weight:800;color:#1e3a8a;margin-top:6px">${istTraining?"Training":"Spieltag"} U9</div>
         <div style="font-size:13px;color:#64748b">${datumStr}</div>
       </div>
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,.06)">
-        ${m.gegner?`<div style="text-align:center;font-size:19px;font-weight:800;color:#1e293b;margin-bottom:10px">⚽ gegen ${esc(m.gegner)}</div>`:""}
+        ${!istTraining&&m.gegner?`<div style="text-align:center;font-size:19px;font-weight:800;color:#1e293b;margin-bottom:10px">⚽ gegen ${esc(m.gegner)}</div>`:""}
+        ${!istTraining&&m.gegner_adresse?row("🏟️","Adresse Gegner",m.gegner_adresse):""}
         ${row("📍","Ort",m.ort)}
         ${row("⏰","Treffpunkt",m.treffpunkt)}
-        ${row("🔔","Anpfiff",m.anpfiff)}
-        ${row("👕","Trikots",m.trikot)}
-        ${row("🍎","Obst / Snacks",m.obst)}
+        ${row(istTraining?"🕐":"🔔",istTraining?"Trainingszeit":"Anpfiff",m.anpfiff)}
         ${row("ℹ️","Infos",m.infos)}
-        ${mapsOk?`<a href="${esc(m.maps_link)}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:14px;background:#1e3a8a;color:#fff;padding:13px;border-radius:12px;text-decoration:none;font-weight:600">🗺️ Route zum Sportplatz</a>`:""}
+        ${routeUrl?`<a href="${routeUrl}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:14px;background:#1e3a8a;color:#fff;padding:13px;border-radius:12px;text-decoration:none;font-weight:600">🗺️ Route ${istTraining?"zum Platz":"zum Gegner"}</a>`:""}
       </div>
+      ${istTraining?`<div id="ev-dabei" style="margin-top:14px"></div><div id="ev-fahrt" style="margin-top:14px"></div>`:""}
       <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:14px">SV Adler Dellbrück e.V. · Angaben ohne Gewähr</div>`;
+    if(istTraining){edLoad(m.datum);fgLoad(m.datum);}
   }catch(e){root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Konnte nicht laden. Bitte später erneut versuchen.</div>';}
 }
 
-// Trainer-Editor für die Eltern-Info (Modal, an ein Spiel-Datum gebunden)
-async function mdOpen(datum){
+// Eltern-Interaktion (anonym, nur Training): Anwesenheit + Fahrgemeinschaften
+let elternCurrent=null;
+function elternHeaders(){return {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};}
+function elternEsc(s){return (s+'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+async function edLoad(datum){
+  const box=document.getElementById("ev-dabei");if(!box)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_dabei?datum=eq.${encodeURIComponent(datum)}&select=*&order=created_at.asc`,{headers:elternHeaders()});if(r.ok)rows=await r.json();}catch(e){}
+  const liste=rows.length?rows.map(x=>`<div style="display:flex;align-items:center;gap:6px;font-size:13px;padding:5px 0;border-bottom:1px solid #f1f5f9"><span style="flex:1">${elternEsc(x.kind)}</span>${x.betreuung?'<span style="font-size:10px;background:#dcfce7;color:#15803d;padding:2px 6px;border-radius:8px">Betreuung bleibt</span>':''}</div>`).join(""):'<div style="font-size:12px;color:#94a3b8">Noch niemand eingetragen.</div>';
+  box.innerHTML=`<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px">
+    <div style="font-weight:700;margin-bottom:8px">🙋 Wer ist beim Training dabei? (${rows.length})</div>
+    ${liste}
+    <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
+      <input type="text" id="ed-kind" placeholder="Name des Kindes" style="padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;font-family:inherit">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155"><input type="checkbox" id="ed-betreuung"> Ein Elternteil bleibt während des Trainings vor Ort</label>
+      <button onclick="edSignup('${datum}')" style="background:#1e3a8a;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:600;cursor:pointer;font-family:inherit">Eintragen</button>
+    </div>
+  </div>`;
+}
+async function edSignup(datum){
+  const kind=(document.getElementById("ed-kind")?.value||"").trim();
+  if(!kind){alert("Bitte den Namen des Kindes eintragen.");return;}
+  const betreuung=!!document.getElementById("ed-betreuung")?.checked;
+  try{
+    await fetch(`${SB_URL}/rest/v1/eltern_dabei`,{method:"POST",headers:elternHeaders(),body:JSON.stringify({datum,kind,betreuung})});
+    edLoad(datum);
+  }catch(e){alert("Konnte nicht speichern. Bitte später erneut.");}
+}
+async function fgLoad(datum){
+  const box=document.getElementById("ev-fahrt");if(!box)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/fahrgemeinschaft?datum=eq.${encodeURIComponent(datum)}&select=*&order=created_at.asc`,{headers:elternHeaders()});if(r.ok)rows=await r.json();}catch(e){}
+  const liste=rows.length?rows.map(x=>{
+    const mit=Array.isArray(x.mitfahrer)?x.mitfahrer:[];
+    const frei=Math.max(0,(x.plaetze||0)-mit.length);
+    return `<div style="padding:8px 0;border-bottom:1px solid #f1f5f9">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+        <div style="font-size:13.5px;font-weight:600">🚗 ${elternEsc(x.fahrer)}${x.abfahrt?` <span style="font-weight:400;color:#64748b">· ab ${elternEsc(x.abfahrt)}</span>`:''}</div>
+        <span style="font-size:11px;color:${frei>0?'#15803d':'#dc2626'}">${frei} frei</span>
+      </div>
+      ${mit.length?`<div style="font-size:11.5px;color:#64748b;margin-top:2px">Mit: ${mit.map(elternEsc).join(", ")}</div>`:''}
+      ${frei>0?`<button onclick="fgJoin(${Number(x.id)},'${datum}')" style="margin-top:6px;background:#f1f5f9;border:1px solid #cbd5e1;padding:7px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit">Mitfahren</button>`:''}
+    </div>`;
+  }).join(""):'<div style="font-size:12px;color:#94a3b8">Noch keine Fahrgemeinschaft angeboten.</div>';
+  box.innerHTML=`<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px">
+    <div style="font-weight:700;margin-bottom:8px">🚗 Fahrgemeinschaften</div>
+    ${liste}
+    <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
+      <div style="font-size:12px;color:#64748b">Ich biete eine Mitfahrgelegenheit an:</div>
+      <input type="text" id="fg-fahrer" placeholder="Dein Name" style="padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;font-family:inherit">
+      <div style="display:flex;gap:6px">
+        <input type="number" id="fg-plaetze" min="1" max="6" placeholder="freie Plätze" style="width:110px;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;font-family:inherit">
+        <input type="text" id="fg-abfahrt" placeholder="Abfahrt (z. B. 9:00 Netto)" style="flex:1;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;font-family:inherit">
+      </div>
+      <button onclick="fgOffer('${datum}')" style="background:#15803d;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:600;cursor:pointer;font-family:inherit">Fahrt anbieten</button>
+    </div>
+  </div>`;
+}
+async function fgOffer(datum){
+  const fahrer=(document.getElementById("fg-fahrer")?.value||"").trim();
+  const plaetze=parseInt(document.getElementById("fg-plaetze")?.value)||0;
+  const abfahrt=(document.getElementById("fg-abfahrt")?.value||"").trim();
+  if(!fahrer||plaetze<1){alert("Bitte Name und freie Plätze angeben.");return;}
+  try{
+    await fetch(`${SB_URL}/rest/v1/fahrgemeinschaft`,{method:"POST",headers:elternHeaders(),body:JSON.stringify({datum,fahrer,plaetze,abfahrt,mitfahrer:[]})});
+    fgLoad(datum);
+  }catch(e){alert("Konnte nicht speichern.");}
+}
+async function fgJoin(id,datum){
+  const name=prompt("Name des Kindes, das mitfährt:");
+  if(!name||!name.trim())return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/fahrgemeinschaft?id=eq.${id}&select=mitfahrer,plaetze`,{headers:elternHeaders()});
+    const rows=r.ok?await r.json():[];
+    if(!rows.length)return;
+    const mit=Array.isArray(rows[0].mitfahrer)?rows[0].mitfahrer:[];
+    if(mit.length>=(rows[0].plaetze||0)){alert("Leider schon voll.");fgLoad(datum);return;}
+    mit.push(name.trim());
+    await fetch(`${SB_URL}/rest/v1/fahrgemeinschaft?id=eq.${id}`,{method:"PATCH",headers:elternHeaders(),body:JSON.stringify({mitfahrer:mit})});
+    fgLoad(datum);
+  }catch(e){alert("Konnte nicht speichern.");}
+}
+
+// Trainer-Editor für die Eltern-Info (Modal, an ein Termin-Datum + Typ gebunden)
+async function mdOpen(datum,typ){
+  typ=typ||"spiel";
   let cur={};
   try{
     const r=await fetch(`${SB_URL}/rest/v1/matchday?datum=eq.${encodeURIComponent(datum)}&select=*`,{headers:sbAuthHeaders()});
@@ -7607,28 +7697,39 @@ async function mdOpen(datum){
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto";
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const f=(id,lbl,val,ph)=>`<div class="mg" style="margin-bottom:8px"><label>${lbl}</label><input type="text" id="md-${id}" value="${esc(val||"")}" placeholder="${ph||""}"></div>`;
-  modal.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:400px;width:100%;max-height:90vh;overflow-y:auto">
-    <div style="font-weight:700;margin-bottom:4px">Eltern-Info · ${datum}</div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Nur Logistik – für die Eltern sichtbar. Keine Bewertungen.</div>
+  const spielFelder=`
     ${f("gegner","Gegner",cur.gegner,"z. B. FC Musterstadt")}
-    ${f("ort","Ort",cur.ort,"Sportplatz...")}
+    <div class="mg" style="margin-bottom:8px"><label>Adresse des Gegners</label>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="md-gegner_adresse" value="${esc(cur.gegner_adresse||"")}" placeholder="Straße, Ort..." style="flex:1">
+        <button class="btn btn-sm" onclick="mdMapsSearch()" title="Auf Karte suchen"><i class="ti ti-map-search"></i></button>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">Tipp: Vereinsname eintippen und 🔎 tippen – öffnet die Google-Maps-Suche.</div>
+    </div>`;
+  modal.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:400px;width:100%;max-height:90vh;overflow-y:auto">
+    <div style="font-weight:700;margin-bottom:4px">Eltern-Info · ${typ==="training"?"🏃 Training":"⚽ Spiel"} · ${datum}</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Nur Logistik – für die Eltern sichtbar. Keine Bewertungen.</div>
+    ${typ==="training"?"":spielFelder}
+    ${f("ort","Ort / Sportplatz",cur.ort,"z. B. Sportplatz Dellbrück")}
     ${f("treffpunkt","Treffpunkt (Zeit/Ort)",cur.treffpunkt,"z. B. 9:15 Uhr am Platz")}
-    ${f("anpfiff","Anpfiff",cur.anpfiff,"z. B. 10:00 Uhr")}
-    ${f("trikot","Trikots wäscht",cur.trikot,"z. B. Familie Müller")}
-    ${f("obst","Obst / Snacks",cur.obst,"z. B. Familie Schmidt")}
-    ${f("maps_link","Google-Maps-Link",cur.maps_link,"https://maps.google.com/...")}
+    ${f("anpfiff",typ==="training"?"Trainingszeit":"Anpfiff",cur.anpfiff,typ==="training"?"z. B. 17:00–18:15":"z. B. 10:00 Uhr")}
     <div class="mg" style="margin-bottom:10px"><label>Infos (frei)</label><textarea id="md-infos" rows="2" style="resize:none">${esc(cur.infos||"")}</textarea></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-p" onclick="mdSave('${datum}',this)"><i class="ti ti-device-floppy"></i>Speichern</button>
+      <button class="btn btn-p" onclick="mdSave('${datum}','${typ}',this)"><i class="ti ti-device-floppy"></i>Speichern</button>
       <button class="btn" onclick="mdShareLink('${datum}')"><i class="ti ti-share"></i>Eltern-Link</button>
       <button class="btn" onclick="this.closest('div[style*=fixed]').remove()">Schließen</button>
     </div>
   </div>`;
   document.body.appendChild(modal);
 }
-async function mdSave(datum,btn){
+function mdMapsSearch(){
+  const q=(document.getElementById("md-gegner_adresse")?.value||document.getElementById("md-gegner")?.value||"").trim();
+  if(!q){toast("Erst Gegner oder Adresse eintippen","err");return;}
+  window.open("https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q),"_blank","noopener");
+}
+async function mdSave(datum,typ,btn){
   const g=id=>document.getElementById("md-"+id)?.value.trim()||"";
-  const body={datum,gegner:g("gegner"),ort:g("ort"),treffpunkt:g("treffpunkt"),anpfiff:g("anpfiff"),trikot:g("trikot"),obst:g("obst"),maps_link:g("maps_link"),infos:g("infos"),published:true};
+  const body={datum,typ:typ||"spiel",gegner:g("gegner"),gegner_adresse:g("gegner_adresse"),ort:g("ort"),treffpunkt:g("treffpunkt"),anpfiff:g("anpfiff"),infos:g("infos"),published:true};
   try{
     const r=await fetch(`${SB_URL}/rest/v1/matchday?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(body)});
     if(sbCheck401(r))return;
