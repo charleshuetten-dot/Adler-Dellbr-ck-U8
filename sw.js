@@ -1,4 +1,4 @@
-const CACHE="u9i-adler-v34";
+const CACHE="u9i-adler-v35";
 const PRECACHE=[
   "./",
   "./index.html",
