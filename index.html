@@ -309,6 +309,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .sub-tab{flex:1;padding:7px 4px;border:none;background:transparent;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;color:var(--text2);display:flex;align-items:center;justify-content:center;gap:4px;font-family:inherit;white-space:nowrap}
 .sub-tab.active{background:var(--blue);color:#fff;box-shadow:0 1px 4px rgba(26,86,219,.25)}
 .sub-tab i{font-size:14px}
+@keyframes ptrspin{to{transform:rotate(360deg)}}
+.ptr-spin{animation:ptrspin .8s linear infinite}
 .train-sub{display:none}.train-sub.active{display:block}
 
 /* ANWESENHEIT */
@@ -2552,6 +2554,7 @@ const SECS={
   spieltag:   {cid:"train-sub-spieltag",   sub:true, init:()=>{rotRenderControls();nomInit();}},
 };
 const tabState={}; // zuletzt geöffnete Sektion je Tab (UX: Rückkehr an dieselbe Stelle)
+let curSection="bew"; // aktuell sichtbare Sektion (für Pull-to-Refresh)
 function sectionTab(key){ for(const t in TABS){ if(TABS[t].sections.some(s=>s.key===key))return t; } return null; }
 
 function renderSubbar(tabId,activeKey){
@@ -2582,6 +2585,7 @@ function go(key){
   try{ if(key!=="spieltag"&&rotTimerId){clearInterval(rotTimerId);rotTimerId=null;} }catch(e){}
   if(SECS[key].init)setTimeout(SECS[key].init,50);
   tabState[tabId]=key;
+  curSection=key;
 }
 function openTab(tabId){ if(!TABS[tabId])return; go(tabState[tabId]||TABS[tabId].sections[0].key); }
 // Kompatibilitäts-Shims: bestehende sv()/switchTrainSub()-Aufrufe im Code bleiben gültig
@@ -7660,6 +7664,50 @@ loadDB().then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500)); 
 loadCustomForms();
 openTab("team"); // Start-Tab normalisieren + Sub-Tab-Leiste initial rendern
 
+/* Pull-to-Refresh (Schritt 6): am Listenanfang nach unten wischen -> Daten still neu laden. */
+async function appRefresh(){
+  try{ await loadDB(); if(typeof refreshSelects==="function")refreshSelects(); }catch(e){}
+  try{ const sec=SECS[curSection]; if(sec&&sec.init)sec.init(); }catch(e){}
+}
+(function(){
+  let startY=0, pulling=false, dist=0, ind=null;
+  const THRESH=70;
+  const scrollTop=()=>window.scrollY||document.documentElement.scrollTop||0;
+  function el(){
+    if(ind)return ind;
+    ind=document.createElement("div");
+    ind.id="ptr-ind";
+    ind.style.cssText="position:fixed;top:0;left:50%;z-index:60;background:var(--club-accent,#1a56db);color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.25);transition:transform .18s;transform:translate(-50%,-56px);font-size:18px";
+    ind.innerHTML='<i class="ti ti-refresh"></i>';
+    document.body.appendChild(ind);
+    return ind;
+  }
+  document.addEventListener("touchstart",e=>{
+    if(scrollTop()>0||document.body.classList.contains("quiz-extern")){pulling=false;return;}
+    startY=e.touches[0].clientY; pulling=true; dist=0;
+  },{passive:true});
+  document.addEventListener("touchmove",e=>{
+    if(!pulling)return;
+    dist=e.touches[0].clientY-startY;
+    if(dist<=0||scrollTop()>0){ pulling=false; el().style.transform="translate(-50%,-56px)"; return; }
+    const pull=Math.min(dist,120);
+    el().style.transform=`translate(-50%,${Math.min(pull-56,20)}px) rotate(${Math.round(pull*3)}deg)`;
+  },{passive:true});
+  document.addEventListener("touchend",async()=>{
+    if(!pulling)return;
+    pulling=false;
+    const e=el();
+    if(dist>=THRESH){
+      e.style.transform="translate(-50%,16px)";
+      e.querySelector("i").classList.add("ptr-spin");
+      await appRefresh();
+      if(typeof toast==="function")toast("Aktualisiert ✓");
+      e.querySelector("i").classList.remove("ptr-spin");
+    }
+    e.style.transform="translate(-50%,-56px)";
+  },{passive:true});
+})();
+
 /* switchTrainSub() lebt jetzt als Shim im 5-Tab-Router (siehe oben, delegiert an go()).
    Die frühere vollständige Definition wurde entfernt – ihre Init-Logik steckt in SECS. */
 
@@ -7681,6 +7729,17 @@ async function teamSyncUpsert(table,datum,data){
     });
   }catch(e){/* offline */}
 }
+// Schritt 6 (API-Debouncing): Netzwerk-Schutz. Bursts auf DIESELBE (table,datum)-Zeile
+// werden zu einem Write zusammengefasst (1,5 s). Lokal wird sofort gespeichert (local-first),
+// nur der Supabase-Write wartet – schützt vor Request-Spam bei schnellem Tippen/Speichern.
+const _tsuTimers={};
+function teamSyncUpsertDebounced(table,datum,data){
+  const key=table+"|"+datum;
+  clearTimeout(_tsuTimers[key]);
+  _tsuTimers[key]=setTimeout(()=>{ delete _tsuTimers[key]; teamSyncUpsert(table,datum,data); }, 1500);
+}
+// Generischer Debounce-Helfer (wiederverwendbar)
+function debounce(fn,ms){ let t; return function(...a){ clearTimeout(t); t=setTimeout(()=>fn.apply(this,a),ms); }; }
 
 // G1: lokale Schreib-Zeitstempel je Datum (für Konfliktregel "jüngerer updated_at gewinnt")
 const AW_TS_KEY="adler_anwesenheit_ts",EVAL_TS_KEY="adler_training_eval_ts";
@@ -8761,7 +8820,7 @@ function awSave(){
   AW_DATA[datum]=data;
   localStorage.setItem(AW_KEY,JSON.stringify(AW_DATA));
   teamTsSet(AW_TS_KEY,datum); // G1
-  teamSyncUpsert("anwesenheit",datum,data); // G1: local-first, Fehler still
+  teamSyncUpsertDebounced("anwesenheit",datum,data); // G1 local-first + Schritt-6-Debounce
   awRenderStats();
   awRenderTrainerStats();
   try{navigator.vibrate&&navigator.vibrate(50);}catch(e){} // 1C: haptische Bestätigung
@@ -9349,7 +9408,7 @@ function evalSave(){
   EVAL_DATA[datum]=evals;
   localStorage.setItem(EVAL_KEY,JSON.stringify(EVAL_DATA));
   teamTsSet(EVAL_TS_KEY,datum); // G1
-  teamSyncUpsert("trainings_eval",datum,evals); // G1: local-first, Fehler still
+  teamSyncUpsertDebounced("trainings_eval",datum,evals); // G1 local-first + Schritt-6-Debounce
   const sels=document.querySelectorAll(".tp-form-sel");
   const loggedForms=[];
   sels.forEach(s=>{if(s.value)loggedForms.push(parseInt(s.value));});
