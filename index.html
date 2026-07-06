@@ -2956,13 +2956,8 @@ function printView(viewName){
   const target=document.getElementById("view-"+viewName);
   if(target) target.classList.add("print-active");
 
-  // Add print header
-  const existing=document.getElementById("print-header-block");
-  if(existing) existing.remove();
+  // Titel-Datum für den Druck-Kopf (Kopf-Elemente werden unten in target eingefügt)
   const now=new Date().toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});
-  const header=document.createElement("div");
-  header.id="print-header-block";
-  header.style.cssText="position:fixed;top:0;left:0;right:0;z-index:-1";
 
   let subtitle="";
   if(viewName==="profil"){
@@ -7533,15 +7528,10 @@ function toggleTF(id){
   if(chev)chev.style.transform=open?'rotate(180deg)':'';
 }
 
-/* PRINT */
-function printView(viewName){
-  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('print-active');});
-  var target=document.getElementById('view-'+viewName);
-  if(target)target.classList.add('print-active');
-  window.print();
-  setTimeout(function(){document.querySelectorAll('.view').forEach(function(v){v.classList.remove('print-active');});},1000);
-}
-
+/* PRINT: printView() ist weiter oben (bei renderProfil) vollständig definiert –
+   inkl. Titel/Meta-Kopf und Aufklappen eingeklappter Dim-Blöcke. Die frühere
+   schlanke Duplikat-Definition an dieser Stelle wurde entfernt (sie überschrieb
+   die vollständige Variante und unterdrückte so die Druck-Kopfzeile). */
 
 document.getElementById("p-date").value=new Date().toISOString().slice(0,10);
 document.getElementById("tp-date").value=new Date().toISOString().slice(0,10);
