@@ -361,11 +361,26 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 #tq-panel .btn,#tq-panel .btn-sm{min-height:44px;padding:10px 16px;font-size:13px} /* C4: Kinderfinger */
 .tq-bar{display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
 .tq-panel{background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:12px;margin-bottom:10px}
-.tq-situation{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;line-height:1.5}
-.tq-hint{font-size:11px;color:var(--text2);line-height:1.5}
+.tq-situation{font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px;line-height:1.5} /* K8 */
+.tq-hint{font-size:12.5px;color:var(--text2);line-height:1.5} /* K8 */
 .tq-task{font-size:12px;color:var(--blue);font-weight:600;margin-top:6px;padding:6px 10px;background:var(--blue-bg);border-radius:var(--r)}
 .tq-score{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text);padding:6px 12px;background:var(--surface);border:var(--border-s);border-radius:20px}
-.tq-feedback{margin-top:8px;padding:10px 12px;border-radius:var(--rl);font-size:12px;line-height:1.6}
+.tq-feedback{margin-top:8px;padding:10px 12px;border-radius:var(--rl);font-size:13.5px;line-height:1.5} /* K8 */
+/* K1: Einsteiger-Overlay */
+@keyframes tqTutTap{0%,100%{transform:translate(0,0) scale(1)}20%{transform:translate(0,0) scale(.85)}35%{transform:translate(0,0) scale(1)}55%{transform:translate(60px,70px) scale(1)}70%{transform:translate(60px,70px) scale(.85)}85%{transform:translate(60px,70px) scale(1)}}
+.tq-tutorial{position:absolute;inset:0;z-index:40;background:rgba(15,23,42,.72);border-radius:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:20px}
+.tq-tutorial .tut-hand{font-size:44px;animation:tqTutTap 2.6s ease-in-out infinite}
+.tq-tutorial .tut-text{color:#fff;font-size:14px;font-weight:600;line-height:1.6}
+/* K5: gesperrte Tokens */
+.quiz-mode .tb-token.tq-locked{filter:grayscale(.6)}
+.tb-lock-badge{position:absolute;top:-6px;right:-6px;font-size:10px;pointer-events:none}
+/* K6: Sticky Aufgaben-Chip */
+#tq-task-chip{position:sticky;top:0;z-index:30;background:#1e293b;color:#fff;font-size:12.5px;font-weight:600;line-height:1.4;padding:8px 12px;border-radius:var(--r);margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* K7: Belohnungs-Puls */
+@keyframes tqPulse{0%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.15)}100%{transform:translate(-50%,-50%) scale(1)}}
+.tq-pulse{animation:tqPulse .5s ease-out 1}
+/* K3: Konfetti */
+@keyframes tqConfetti{0%{transform:translateY(-10px) rotate(0deg);opacity:1}100%{transform:translateY(320px) rotate(540deg);opacity:0}}
 .tq-feedback.correct{background:#dcfce7;border:1px solid #86efac;color:#15803d}
 .tq-feedback.wrong{background:#fef2f2;border:1px solid #fca5a5;color:#b91c1c}
 .tq-feedback.partial{background:#fffbeb;border:1px solid #fcd34d;color:#92400e}
@@ -2478,7 +2493,11 @@ function taktikRender(){
     const tok=tbCreateToken(p.name,p.cls||"tb-auf",p.role||"");
     tok.style.left=p.x+"%";tok.style.top=p.y+"%";
     tok.dataset.idx=i;tok.dataset.loc="field";
-    if(tqActive&&p.locked)tok.style.opacity=".5";
+    if(tqActive&&p.locked){ // K5: gesperrte Spieler klar kennzeichnen
+      tok.style.opacity=".5";
+      tok.classList.add("tq-locked");
+      tok.insertAdjacentHTML("beforeend",'<span class="tb-lock-badge">🔒</span>');
+    }
     tbAddDrag(tok,fieldEl);
     tokensEl.appendChild(tok);
   });
@@ -5071,18 +5090,75 @@ document.addEventListener("DOMContentLoaded",()=>{
   });
 });
 
+// K2: Vibrations-Feedback (Feature-Detect, niemals blockierend)
+function tqVibrate(pattern){
+  try{if(navigator.vibrate)navigator.vibrate(pattern);}catch(e){}
+}
+
+// K3: Konfetti ohne Paket (~25 Zeilen), respektiert prefers-reduced-motion
+function confetti(container){
+  if(!container)return;
+  if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  const farben=["#1a56db","#059669","#fbbf24","#f87171"];
+  const n=40+Math.floor(Math.random()*21);
+  for(let i=0;i<n;i++){
+    const d=document.createElement("div");
+    const dauer=1.5+Math.random();
+    d.style.cssText=`position:absolute;top:0;left:${Math.random()*100}%;width:8px;height:8px;z-index:50;pointer-events:none;background:${farben[i%farben.length]};border-radius:${Math.random()<.5?"50%":"2px"};animation:tqConfetti ${dauer}s ease-in forwards;animation-delay:${Math.random()*.4}s`;
+    container.appendChild(d);
+    setTimeout(()=>d.remove(),(dauer+.5)*1000);
+  }
+}
+
+// K6: Sticky Aufgaben-Chip über dem Feld
+function tqChipSet(text){
+  const field=document.getElementById("taktik-field");
+  if(!field)return;
+  let chip=document.getElementById("tq-task-chip");
+  if(!chip){
+    chip=document.createElement("div");
+    chip.id="tq-task-chip";
+    field.parentElement.insertBefore(chip,field);
+  }
+  chip.textContent=text;
+}
+function tqChipRemove(){document.getElementById("tq-task-chip")?.remove();}
+
+// K1: einmaliges Einsteiger-Overlay
+function tqShowTutorial(){
+  if(localStorage.getItem("adler_quiz_tutorial_done"))return;
+  const field=document.getElementById("taktik-field");
+  if(!field||field.querySelector(".tq-tutorial"))return;
+  const ov=document.createElement("div");
+  ov.className="tq-tutorial";
+  ov.innerHTML=`<div class="tut-hand">👆</div>
+    <div class="tut-text">1. Tippe einen Spieler an<br>2. Tippe dahin, wo er hinlaufen soll</div>
+    <button class="btn btn-p" style="min-height:48px;padding:12px 24px;font-size:14px">Los geht's!</button>`;
+  ov.querySelector("button").onclick=()=>{
+    try{localStorage.setItem("adler_quiz_tutorial_done","1");}catch(e){}
+    ov.remove();
+  };
+  field.appendChild(ov);
+}
+
 function tqSelectToken(tok){
   if(tqSelectedToken===tok){tqDeselectToken();return;}
   tqDeselectToken();
   tqSelectedToken=tok;
   tok.style.boxShadow="0 0 0 3px #fff,0 0 0 6px var(--blue)";
   tok.style.transform="translate(-50%,-50%) scale(1.15)";
+  tqVibrate(25); // K2
+  const role=tbField[parseInt(tok.dataset.idx)]?.role||tok.dataset.player||"Spieler"; // K6
+  const sc=tqScenarios&&tqScenarios[tqIdx];
+  if(tqActive&&sc)tqChipSet(`▶ ${role} ausgewählt — tippe aufs Feld!`);
 }
 function tqDeselectToken(){
   if(tqSelectedToken){
     tqSelectedToken.style.boxShadow="";
     tqSelectedToken.style.transform="translate(-50%,-50%)";
     tqSelectedToken=null;
+    const sc=tqScenarios&&tqScenarios[tqIdx]; // K6: zurück zum Task-Text
+    if(tqActive&&sc)tqChipSet(`📋 ${sc.task}`);
   }
 }
 
@@ -5218,8 +5294,9 @@ function tqRenderTrainerView(){
       if(d){
         const pct=Math.round(d.score/d.total*100);
         const col=pct>=80?"#16a34a":pct>=50?"#b45309":"#dc2626";
+        const medaille=d.score>=9?" 🥇":d.score>=7?" 🥈":d.score>=5?" 🥉":""; // K4
         totalScore+=d.score;totalQ+=d.total;
-        html+=`<td style="padding:5px 4px;text-align:center;color:${col};font-weight:700" title="${d.score}/${d.total} am ${d.date}">${pct}%</td>`;
+        html+=`<td style="padding:5px 4px;text-align:center;color:${col};font-weight:700" title="${d.score}/${d.total} am ${d.date}">${pct}%${medaille}</td>`;
       }else{
         html+='<td style="padding:5px 4px;text-align:center;color:var(--text3)">–</td>';
       }
@@ -5267,8 +5344,9 @@ function tqStart(){
       const bp=pp[i];
       const done=bp&&bp.score>=7;
       const pct=bp?Math.round(bp.score/bp.total*100):0;
+      const medaille=bp?(bp.score>=9?" 🥇":bp.score>=7?" 🥈":bp.score>=5?" 🥉":""):""; // K4
       html+=`<div class="tq-block-card${done?" tq-block-done":""}" onclick="tqStartBlock(${i})">
-        <div class="tq-block-title"><i class="ti ${b.icon}" style="margin-right:4px"></i>${b.name}</div>
+        <div class="tq-block-title"><i class="ti ${b.icon}" style="margin-right:4px"></i>${b.name}${medaille}</div>
         <div class="tq-block-sub">Block ${i+1}${bp?" · "+bp.score+"/"+bp.total+" ("+pct+"%)":""}</div>
         <div class="tq-block-prog"><div class="tq-block-prog-fill" style="width:${bp?pct:0}%"></div></div>
       </div>`;
@@ -5300,10 +5378,12 @@ function tqStartBlock(block){
   tqActive=true;tqIdx=0;tqScore=0;tqTotal=0;tqChecked=false;
   document.getElementById("taktik-field")?.classList.add("quiz-mode");
   tqLoadScenario(0);
+  tqShowTutorial(); // K1: nur beim allerersten Mal pro Gerät
 }
 
 function tqStop(){
   tqActive=false;tqBlock=-1;tqCurrentOpps=[];
+  tqChipRemove(); // K6
   document.getElementById("taktik-field")?.classList.remove("quiz-mode");
   if(document.body.classList.contains("quiz-extern")){
     tqStart();return;
@@ -5328,7 +5408,7 @@ function tqLoadScenario(idx){
       <div class="tq-hint">${tqPersonalize(sc.desc)}</div>
       <div class="tq-task">📋 ${esc(pName)}, ${sc.task.charAt(0).toLowerCase()+sc.task.slice(1)}</div>
       <div style="font-size:10px;color:var(--text3);margin-top:4px">💡 ${sc.hint}</div>
-      <div style="font-size:10px;color:var(--text3);margin-top:2px">👆 Tippe Spieler an, dann tippe aufs Feld um ihn zu bewegen</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px;line-height:1.5">👆 Tippe Spieler an, dann tippe aufs Feld um ihn zu bewegen</div>
       <div style="display:flex;gap:6px;margin-top:10px">
         <button class="btn btn-p btn-sm" onclick="tqCheck()"><i class="ti ti-check"></i>Prüfen</button>
         <button class="btn btn-sm" id="tq-skip-btn" onclick="tqSkip()">Überspringen</button>
@@ -5340,6 +5420,7 @@ function tqLoadScenario(idx){
   tbField=sc.start.map(s=>({name:s.name,x:s.x,y:s.y,cls:s.cls,role:s.role,locked:s.locked||false}));
   tbBall={x:sc.ball.from.x,y:sc.ball.from.y};
   tbBench=[];
+  tqChipSet(`📋 ${sc.task}`); // K6: Aufgabe bleibt beim Scrollen sichtbar
   tqCurrentOpps=sc.opps||[]; // B2: VOR taktikRender setzen, sonst rendert es die Gegner des vorherigen Szenarios
   taktikRender();
 
@@ -5417,13 +5498,17 @@ function tqCheck(){
   const encourages=["Schau dir die Lösung an! 💡","So geht's richtig! 👀","Lern-Chance! 📚","Merke es dir für nächstes Mal! 🧠"];
   if(hits===total){
     tqScore++;
+    tqVibrate([40,60,40]); // K2
+    tqRewardAnimation(sc); // K7: Tokens gleiten ins perfekte Rautenbild
     const cheer=cheers[Math.floor(Math.random()*cheers.length)];
     fb.innerHTML=`<div class="tq-feedback correct" style="text-align:center"><div style="font-size:28px;margin-bottom:4px">${cheer}</div><strong>Richtig!</strong> ${hits}/${total} Positionen korrekt!<br>${sc.explain.correct}</div>`;
   } else if(hits>0){
     // C6: Teil-Treffer bekommen wärmeres Partial-Feedback statt komplett rot
+    tqVibrate(80); // K2
     fb.innerHTML=`<div class="tq-feedback partial"><div style="font-size:20px;margin-bottom:4px">💪 Fast!</div><strong>${hits}/${total} richtig.</strong><br>${sc.explain.wrong}</div>`;
     tqShowSolution(sc);
   } else {
+    tqVibrate(80); // K2
     const enc=encourages[Math.floor(Math.random()*encourages.length)];
     fb.innerHTML=`<div class="tq-feedback wrong"><div style="font-size:20px;margin-bottom:4px">${enc}</div><strong>${hits}/${total} richtig.</strong><br>${sc.explain.wrong}</div>`;
     tqShowSolution(sc);
@@ -5433,6 +5518,32 @@ function tqCheck(){
   if(checkBtn){checkBtn.disabled=true;checkBtn.style.opacity=".4";checkBtn.style.pointerEvents="none";}
   const skipBtn=document.getElementById("tq-skip-btn"); // B3: Überspringen nach Prüfen ebenfalls sperren
   if(skipBtn){skipBtn.disabled=true;skipBtn.style.opacity=".4";skipBtn.style.pointerEvents="none";}
+}
+
+// K7: bei voll richtig gleiten die Ziel-Tokens sanft in die exakten Zielzentren, danach Puls
+function tqRewardAnimation(sc){
+  const tokensEl=document.getElementById("taktik-tokens");
+  if(!tokensEl)return;
+  Object.entries(sc.targets).forEach(([role,tgt])=>{
+    const idx=tbField.findIndex(p=>p.role===role);
+    if(idx<0)return;
+    const p=tbField[idx];
+    const alts=Array.isArray(tgt)?tgt:[tgt];
+    let best=alts[0],bd=Infinity; // nächstgelegene Alternative
+    alts.forEach(t=>{const d=(p.x-t.x)**2+(p.y-t.y)**2;if(d<bd){bd=d;best=t;}});
+    const tok=tokensEl.querySelector(`.tb-token[data-idx="${idx}"]`);
+    if(!tok)return;
+    tok.style.transition="left .5s ease-out,top .5s ease-out";
+    tok.style.left=best.x+"%";tok.style.top=best.y+"%";
+    p.x=best.x;p.y=best.y;
+    tok.addEventListener("transitionend",()=>{tok.style.transition="";},{once:true});
+  });
+  setTimeout(()=>{
+    tokensEl.querySelectorAll(".tb-token").forEach(t=>{
+      t.classList.add("tq-pulse");
+      t.addEventListener("animationend",()=>t.classList.remove("tq-pulse"),{once:true});
+    });
+  },550);
 }
 
 function tqShowSolution(sc){
@@ -5467,10 +5578,11 @@ function tqShowResult(){
   const pct=tqTotal?Math.round(tqScore/tqTotal*100):0;
   const pName=tqPlayer||"Du";
   const resultMsg=pct>=80?{emoji:"🏆🦅🏆",title:"TAKTIK-PROFI!",sub:pName+" versteht die Raute – das war stark!"}:pct>=60?{emoji:"🌟⚽🌟",title:"RICHTIG GUT!",sub:pName+" ist auf dem besten Weg zum Taktik-Profi!"}:pct>=40?{emoji:"💪⚡💪",title:"GUTER START!",sub:pName+" wird immer besser – einfach weiter üben!"}:{emoji:"🦅🔥🦅",title:"WEITER SO!",sub:"Jeder Adler fängt mal klein an – "+pName+" schafft das!"};
+  const medaille=tqScore>=9?"🥇":tqScore>=7?"🥈":tqScore>=5?"🥉":""; // K4
   panel.innerHTML=`
-    <div class="tq-panel" style="text-align:center">
+    <div class="tq-panel" id="tq-result-panel" style="text-align:center;position:relative;overflow:hidden">
       <div style="font-size:36px;margin-bottom:4px">${resultMsg.emoji}</div>
-      <div style="font-size:20px;font-weight:800;color:var(--text);margin-bottom:2px">${resultMsg.title}</div>
+      <div style="font-size:20px;font-weight:800;color:var(--text);margin-bottom:2px">${medaille?medaille+" ":""}${resultMsg.title}</div>
       <div style="font-size:16px;font-weight:600;color:var(--text)">${tqScore} von ${tqTotal} richtig!</div>
       <div style="font-size:13px;color:var(--text2);margin:4px 0 12px">${resultMsg.sub}</div>
       <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
@@ -5479,6 +5591,9 @@ function tqShowResult(){
         <button class="btn btn-sm" onclick="tqStop()">Beenden</button>
       </div>
     </div>`;
+  tqVibrate([30,50,30,50,120]); // K2: Blockabschluss
+  if(pct>=70)confetti(document.getElementById("tq-result-panel")); // K3
+  tqChipRemove(); // K6
   if(!document.body.classList.contains("quiz-extern"))taktikReset("adler");
 }
 
