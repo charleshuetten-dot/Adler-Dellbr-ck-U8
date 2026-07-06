@@ -2300,7 +2300,20 @@ function _svApply(name){
   if(name==="kombi")renderKombi();
   if(name==="taktik")taktikInit();
   if(name==="training"){setTimeout(function(){renderTraining();},50);}
+  // Wake Lock: Display bleibt an, solange das Taktik-Board offen ist (Ansprache am Spielfeldrand)
+  if(name==="taktik")requestWakeLock();else releaseWakeLock();
 }
+
+// Wake Lock API (nativ) – verhindert, dass das Display während der Nutzung ausgeht
+let wakeLock=null;
+async function requestWakeLock(){
+  try{if("wakeLock" in navigator&&!wakeLock)wakeLock=await navigator.wakeLock.request("screen");}catch(e){}
+}
+function releaseWakeLock(){try{if(wakeLock){wakeLock.release();wakeLock=null;}}catch(e){}}
+// Nach Tab-Wechsel/Bildschirm-Aus wird der Lock vom System freigegeben – wieder anfordern
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"&&document.getElementById("view-taktik")?.classList.contains("active"))requestWakeLock();
+});
 
 /* ═══════════════════════════════════════════════════════
    KOMBINATIONS-ALGORITHMUS
