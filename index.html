@@ -501,6 +501,8 @@ h1.print-header{display:none}
 .skeleton{height:38px;border-radius:var(--r);background:var(--surface2);animation:skelPulse 1.2s ease-in-out infinite;margin-bottom:8px}
 /* L6: Fokus-Sichtbarkeit */
 :focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+/* Weiche Überblendung beim Tab-Wechsel (View Transitions API, nur wo unterstützt) */
+::view-transition-old(root),::view-transition-new(root){animation-duration:.26s}
 /* H6: neue Team-/Plan-Bedienelemente mindestens 44px hoch */
 #train-sub-team .btn,#train-sub-team select,#train-sub-team input[type="text"]{min-height:44px}
 #train-sub-team select{padding:10px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;font-family:inherit;background:var(--surface);outline:none}
@@ -2217,6 +2219,16 @@ function renderVerlauf(){
    NAV
 ═══════════════════════════════════ */
 function sv(name){
+  // View Transitions API: weiche Überblendung beim Tab-Wechsel, falls verfügbar
+  // (Fallback: harter Wechsel; prefers-reduced-motion überspringt die Animation)
+  const reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(document.startViewTransition&&!reduce){
+    document.startViewTransition(()=>_svApply(name));
+  }else{
+    _svApply(name);
+  }
+}
+function _svApply(name){
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.querySelectorAll(".nb").forEach(b=>b.classList.remove("active"));
   document.getElementById("view-"+name).classList.add("active");
@@ -7831,12 +7843,58 @@ function tpGenerate(){
         if(choice){sel.value=choice.i;tpOnSelectChange(sel);}
       }
     });
+    tpRenderTeamFokus(); // Team-Trainingsgenerator: schwächster Mannschaftswert -> Übungen
     tpRenderMindsetTip(); // E3: Mindset-Baustein des Tages
     setTimeout(()=>addEvalSection(),50);
   },100);
 }
 
 // E3: schlägt zufällig eine der drei Ritual-Formen als festen Baustein der Einheit vor
+// Team-Aggregat: Durchschnitt jeder Dimension über alle bewerteten Spieler
+function teamAggregate(){
+  const dimKeys=["tech","raute","phys","mental","entw"];
+  const sums={},counts={};
+  dimKeys.forEach(k=>{sums[k]=0;counts[k]=0;});
+  Object.keys(DB).forEach(n=>{
+    const pd=getPlayerData(n);
+    if(!pd)return;
+    dimKeys.forEach(k=>{if(pd.ds[k]!=null){sums[k]+=pd.ds[k];counts[k]++;}});
+  });
+  const avg={},n=Object.keys(DB).length;
+  dimKeys.forEach(k=>{avg[k]=counts[k]?Math.round(sums[k]/counts[k]):null;});
+  return{avg,spielerzahl:counts.tech||0};
+}
+
+// Team-Trainingsgenerator: schwächster Mannschaftswert -> passende Übungen aus der Datenbank
+function tpRenderTeamFokus(){
+  const{avg,spielerzahl}=teamAggregate();
+  let box=document.getElementById("tp-team-fokus");
+  if(!box){
+    box=document.createElement("div");
+    box.id="tp-team-fokus";
+    const timeline=document.getElementById("tp-timeline");
+    if(!timeline)return;
+    timeline.insertAdjacentElement("afterend",box);
+  }
+  if(spielerzahl<3){box.innerHTML="";return;} // zu wenig Daten für ein sinnvolles Team-Bild
+  const dimLabel={tech:"Technik & Ball",raute:"Rauten-IQ & Taktik",phys:"Physis & Motorik",mental:"Mentalität & Charakter",entw:"Entwicklungspotenzial"};
+  // Dimension -> passende Übungs-Kategorien
+  const dimKat={tech:["technik","passspiel"],raute:["raute","pressing","wahrnehmung"],phys:["aufwaermen","individual","spass"],mental:["mindset"],entw:["wahrnehmung","mindset"]};
+  const sorted=Object.entries(avg).filter(([,val])=>val!=null).sort((a,b)=>a[1]-b[1]);
+  if(!sorted.length){box.innerHTML="";return;}
+  const[schwach,schwachVal]=sorted[0];
+  const kats=dimKat[schwach]||[];
+  const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+  // Passende Formen: Fokus-Formen bevorzugt, max. 3
+  const passende=allForms.map((f,i)=>({i,f})).filter(x=>kats.includes(x.f.kat));
+  const gewaehlt=passende.filter(x=>x.f.focus).concat(passende.filter(x=>!x.f.focus)).slice(0,3);
+  box.innerHTML=`<div style="margin-top:10px;padding:10px 12px;background:var(--blue-bg);border:1px solid #93c5fd;border-radius:var(--rl)">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#1e40af;margin-bottom:4px">📊 Team-Schwerpunkt (aus ${spielerzahl} Bewertungen)</div>
+    <div style="font-size:12.5px;color:var(--text);margin-bottom:6px">Schwächster Mannschaftswert: <strong>${dimLabel[schwach]}</strong> (Ø ${schwachVal}%). Passende Übungen:</div>
+    ${gewaehlt.length?gewaehlt.map(x=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><button class="btn btn-sm" onclick="tpShowExercise(${x.i})"><i class="ti ti-eye"></i></button><span style="font-size:12px;color:var(--text)">${esc(x.f.name)}</span></div>`).join(""):'<div style="font-size:11px;color:var(--text3)">Keine passende Form gefunden.</div>'}
+  </div>`;
+}
+
 function tpRenderMindsetTip(){
   const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
   const rituale=["Die Kraft des NOCH","Reset-Knopf","Drei-gute-Dinge-Kreis"];
