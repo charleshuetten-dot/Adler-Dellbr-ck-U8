@@ -1,7 +1,10 @@
-const CACHE="u9i-adler-v10";
+const CACHE="u9i-adler-v11";
 const PRECACHE=[
   "./",
   "./index.html",
+  "./logo.png",
+  "./icon-trainer.png",
+  "./icon-quiz.png",
   "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
   "https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css",
   "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
