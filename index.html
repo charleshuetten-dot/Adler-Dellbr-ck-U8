@@ -1165,15 +1165,16 @@ function calcPotenzial(v,total,att,isTw){
   const am={1:0.97,2:1.00,3:1.04}[parseInt(att)]||1.00;
   const nb={1:0,2:3,3:7}[v["t_neug"]||1]||0;
   const db={1:0,2:4,3:9}[v["t_devt"]||1]||0;
-  return Math.min(100,Math.round(total*lm*am+nb+db));
+  return Math.min(100,Math.max(total,Math.round(total*lm*am+nb+db))); // F1: Potenzial nie unter Niveau
 }
 
 /* ═══════════════════════════════════
    RAUTEN-ROLLEN-ALGORITHMUS
 ═══════════════════════════════════ */
-function calcRolle(v,foot){
-  const tn=(val,mx=3)=>val?((val-1)/(mx-1))*100:0;
-  const mn=(val,mx=5)=>val?((val-1)/(mx-1))*100:0;
+function calcRolle(v,foot,neutralMissing=false){
+  // F2: neutralMissing=true (Live-Vorschau) wertet fehlende Kriterien als 50 statt 0 – Vorschau springt nicht mehr
+  const tn=(val,mx=3)=>val?((val-1)/(mx-1))*100:(neutralMissing?50:0);
+  const mn=(val,mx=5)=>val?((val-1)/(mx-1))*100:(neutralMissing?50:0);
   const s=n=>v[n]||0;
   // ── AUFPASSER ──
   const aufRaw=tn(s("t_pass"))*.24+mn(s("m_k4"))*.14+mn(s("m_t7"))*.16
@@ -1451,7 +1452,8 @@ function updateRautePreview(rolle,tw){
   const sEl=document.getElementById(rolle.posId[rolle.sek]);
   if(pEl)pEl.classList.add(rolle.hlCls[rolle.prim]);
   if(sEl&&sEl!==pEl)sEl.classList.add("sek");
-  document.getElementById("raute-hint").textContent=`Primär: ${rolle.primLabel} · Sek: ${rolle.sekLabel}`;
+  const vorlaeufig=countFilled()<totalCrit()?" (vorläufig)":""; // F2
+  document.getElementById("raute-hint").textContent=`Primär: ${rolle.primLabel} · Sek: ${rolle.sekLabel}${vorlaeufig}`;
 }
 
 /* ═══════════════════════════════════
@@ -1495,7 +1497,7 @@ function onChange(){
   document.getElementById("live-pct").textContent=pct?`${pct}%`:"";
   updateTierHL();updateMxHL();updateDimPills();updateLiveRadar();
   const tw=isTWPlayer();
-  if(!tw&&filled>=12)updateRautePreview(calcRolle(getV(),getMeta().foot),false);
+  if(!tw&&filled>=12)updateRautePreview(calcRolle(getV(),getMeta().foot,true),false); // F2: neutralMissing für stabile Vorschau
   else if(tw)updateRautePreview(null,true);
   if(filled===total){
     const v=getV(),meta=getMeta();
