@@ -503,6 +503,9 @@ h1.print-header{display:none}
 :focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 /* Weiche Überblendung beim Tab-Wechsel (View Transitions API, nur wo unterstützt) */
 ::view-transition-old(root),::view-transition-new(root){animation-duration:.26s}
+/* Fokus-Modus (Wizard): eine Dimension pro Screen. Radios bleiben im DOM -> Speichern unverändert. */
+#dims-wrap.wiz-active .dim-block{display:none}
+#dims-wrap.wiz-active .dim-block.wiz-current{display:block}
 /* H6: neue Team-/Plan-Bedienelemente mindestens 44px hoch */
 #train-sub-team .btn,#train-sub-team select,#train-sub-team input[type="text"]{min-height:44px}
 #train-sub-team select{padding:10px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;font-family:inherit;background:var(--surface);outline:none}
@@ -672,6 +675,10 @@ h1.print-header{display:none}
     </div>
   </div>
 
+  <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+    <button class="btn btn-sm" id="wiz-toggle" onclick="wizToggle()"><i class="ti ti-cards"></i>Fokus-Modus</button>
+  </div>
+  <div id="wiz-nav" style="display:none"></div>
   <div id="dims-wrap"></div>
 
   <div class="fbox">
@@ -1740,6 +1747,59 @@ function buildDims(isTw){
     if(existing)existing.destroy();
     liveChart=new Chart(ctx,{type:"radar",data:{labels,datasets:[{label:"Profil",data:emptyData,backgroundColor:"rgba(26,86,219,.1)",borderColor:"#1a56db",borderWidth:2,pointBackgroundColor:colors,pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{min:0,max:100,ticks:{stepSize:25,font:{size:9},backdropColor:"transparent"},pointLabels:{font:{size:10},color:colors},grid:{color:"rgba(100,116,139,.15)"},angleLines:{color:"rgba(100,116,139,.15)"}}}}});
   },80);
+  if(wizOn){wizIdx=0;wizRender();} // Fokus-Modus nach Neuaufbau (Spielerwechsel) neu ausrichten
+}
+
+/* Quick-Rate Fokus-Modus: eine Dimension pro Screen. Reine Sichtebene über dasselbe
+   Formular – die Radio-Buttons bleiben im DOM, daher Speichern/Fortschritt unverändert. */
+let wizIdx=0, wizOn=false;
+function wizToggle(){
+  const blocks=document.querySelectorAll("#dims-wrap .dim-block");
+  if(!blocks.length){toast("Erst einen Spieler wählen","err");return;}
+  wizOn=!wizOn;
+  const wrap=document.getElementById("dims-wrap");
+  const nav=document.getElementById("wiz-nav");
+  const btn=document.getElementById("wiz-toggle");
+  if(wizOn){
+    wrap.classList.add("wiz-active");
+    nav.style.display="block";
+    btn.innerHTML='<i class="ti ti-list"></i>Alle anzeigen';
+    wizIdx=0;wizRender();
+  }else{
+    wrap.classList.remove("wiz-active");
+    nav.style.display="none";
+    btn.innerHTML='<i class="ti ti-cards"></i>Fokus-Modus';
+    wrap.querySelectorAll(".dim-block").forEach(b=>b.classList.remove("wiz-current"));
+  }
+}
+function wizGo(delta){
+  const blocks=document.querySelectorAll("#dims-wrap .dim-block");
+  wizIdx=Math.max(0,Math.min(blocks.length-1,wizIdx+delta));
+  wizRender();
+  document.getElementById("wiz-nav").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function wizRender(){
+  const blocks=[...document.querySelectorAll("#dims-wrap .dim-block")];
+  if(!blocks.length)return;
+  if(wizIdx>=blocks.length)wizIdx=blocks.length-1;
+  blocks.forEach((b,i)=>{
+    b.classList.toggle("wiz-current",i===wizIdx);
+    if(i===wizIdx){const body=b.querySelector(".dim-body");if(body)body.classList.remove("coll");}
+  });
+  const cur=blocks[wizIdx];
+  const label=cur.querySelector(".dim-ht")?.textContent||("Dimension "+(wizIdx+1));
+  const dots=blocks.map((b,i)=>`<span style="width:9px;height:9px;border-radius:50%;background:${i===wizIdx?'var(--blue)':'var(--border)'};display:inline-block"></span>`).join(" ");
+  const letzte=wizIdx===blocks.length-1;
+  const nav=document.getElementById("wiz-nav");
+  nav.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:var(--surface);border:var(--border-s);border-radius:var(--r);margin-bottom:8px;position:sticky;top:0;z-index:15">
+      <button class="btn btn-sm" style="min-width:44px;min-height:44px${wizIdx===0?';opacity:.4':''}" onclick="wizGo(-1)"><i class="ti ti-chevron-left"></i></button>
+      <div style="text-align:center;flex:1">
+        <div style="font-size:13px;font-weight:700;color:var(--text)">${label} · ${wizIdx+1}/${blocks.length}</div>
+        <div style="margin-top:4px;display:flex;gap:5px;justify-content:center">${dots}</div>
+      </div>
+      <button class="btn ${letzte?'btn-p':''} btn-sm" style="min-width:44px;min-height:44px" onclick="${letzte?"document.querySelector('button[onclick=\\\"savePlayer()\\\"]').scrollIntoView({behavior:'smooth'})":"wizGo(1)"}">${letzte?'<i class="ti ti-check"></i>':'<i class="ti ti-chevron-right"></i>'}</button>
+    </div>`;
 }
 
 function toggleDim(head){
