@@ -923,6 +923,16 @@ h1.print-header{display:none}
   <div id="train-sub-team" class="train-sub">
     <div class="sl nt"><i class="ti ti-users"></i>Team-Übersicht</div>
     <div id="team-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:14px"></div>
+    <div class="sl nt"><i class="ti ti-chart-bar"></i>Schwerpunkt-Abstimmung</div>
+    <div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:12px;margin-bottom:14px">
+      <div style="font-size:12.5px;font-weight:600;margin-bottom:8px">Schwerpunkt fürs nächste Training?</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <span style="font-size:11px;color:var(--text2)">Ich bin:</span>
+        <select id="tv-autor" style="min-height:40px;padding:6px 10px;border:var(--border-s);border-radius:var(--r);font-family:inherit"></select>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="tv-buttons"></div>
+      <div id="tv-results"></div>
+    </div>
     <div class="sl nt"><i class="ti ti-message"></i>Team-Pinnwand</div>
     <div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:12px;margin-bottom:10px">
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
@@ -1052,6 +1062,8 @@ function renderTrainerUI(){
   if(aw)aw.innerHTML=TRAINER.map(t=>`<label class="tp-check"><input type="checkbox" value="${t}"><span>${t}</span></label>`).join("");
   const tn=document.getElementById("tn-autor");
   if(tn)tn.innerHTML=TRAINER.map(t=>`<option value="${t}">${t}</option>`).join("");
+  const tv=document.getElementById("tv-autor");
+  if(tv)tv.innerHTML=TRAINER.map(t=>`<option value="${t}">${t}</option>`).join("");
 }
 renderTrainerUI();
 
@@ -7227,7 +7239,7 @@ function switchTrainSub(sub){
   if(sub==="anwesenheit")awRenderList();
   if(sub==="planung"){tpRenderTimeline();addEvalSection();}
   if(sub==="quizresults")tqRenderTrainerView();
-  if(sub==="team"){tnLoad();teamStatsRender();} // G2/G4
+  if(sub==="team"){tnLoad();teamStatsRender();tvInit();} // G2/G4 + Micro-Voting
 }
 
 /* ═══════════════════════════════════
@@ -7291,6 +7303,51 @@ async function teamSyncLoad(){
   };
   await merge("anwesenheit",AW_DATA,AW_KEY,AW_TS_KEY);
   await merge("trainings_eval",EVAL_DATA,EVAL_KEY,EVAL_TS_KEY);
+}
+
+// Micro-Voting: Schwerpunkt-Abstimmung fürs nächste Training (async, aggregiert)
+const TV_OPTIONS=["Umschaltspiel","Passschärfe","Zweikampf","Spaß & Motivation"];
+function tvInit(){
+  const box=document.getElementById("tv-buttons");
+  if(!box)return;
+  box.innerHTML=TV_OPTIONS.map(o=>`<button class="btn btn-sm" style="min-height:44px" onclick="tvVote('${o.replace(/'/g,"")}')">${o}</button>`).join("");
+  tvLoad();
+}
+async function tvVote(wahl){
+  const autor=document.getElementById("tv-autor")?.value||"";
+  if(!autor){toast("Bitte Trainer wählen","err");return;}
+  const datum=new Date().toISOString().slice(0,10);
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/team_polls?on_conflict=datum,autor`,{
+      method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({datum,autor,wahl})
+    });
+    if(sbCheck401(r))return;
+    if(r.ok||r.status===201){toast("Stimme gezählt ✓");tvLoad();}
+    else toast("Fehler beim Abstimmen","err");
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+async function tvLoad(){
+  const wrap=document.getElementById("tv-results");
+  if(!wrap)return;
+  const datum=new Date().toISOString().slice(0,10);
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/team_polls?datum=eq.${encodeURIComponent(datum)}&select=autor,wahl`,{headers:sbAuthHeaders()});
+    if(sbCheck401(r))return;
+    if(!r.ok){wrap.innerHTML="";return;}
+    const rows=await r.json();
+    const counts={};TV_OPTIONS.forEach(o=>counts[o]=0);
+    rows.forEach(v=>{if(counts[v.wahl]!=null)counts[v.wahl]++;});
+    const total=rows.length;
+    if(!total){wrap.innerHTML='<div style="font-size:11px;color:var(--text3)">Noch keine Stimme heute.</div>';return;}
+    wrap.innerHTML=`<div style="font-size:10px;color:var(--text3);margin-bottom:6px">${total} Stimme${total!==1?"n":""} heute</div>`+TV_OPTIONS.map(o=>{
+      const c=counts[o], pct=total?Math.round(c/total*100):0;
+      return `<div style="margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:2px"><span>${o}</span><span style="color:var(--text2)">${c}</span></div>
+        <div style="height:8px;background:var(--surface2);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--blue);border-radius:4px;transition:width .3s"></div></div>
+      </div>`;
+    }).join("");
+  }catch(e){wrap.innerHTML="";}
 }
 
 // G2: Team-Pinnwand
