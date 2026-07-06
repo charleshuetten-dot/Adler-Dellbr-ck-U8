@@ -972,9 +972,15 @@ h1.print-header{display:none}
     <div style="font-size:10.5px;color:var(--text3);margin-top:4px">Lädt alle Tabellen (Profile, Quiz, Anwesenheit, Bewertungen, Notizen, Einheiten) als JSON-Datei.</div>
   </div><!-- /train-sub-team -->
 
-  <!-- SUB: Spieltag (Rotations-Timer + Blitz-Rating) -->
+  <!-- SUB: Spieltag (Nominierung + Rotations-Timer + Blitz-Rating) -->
   <div id="train-sub-spieltag" class="train-sub">
-    <div class="sl nt"><i class="ti ti-clock-play"></i>Rotations-Timer (faire Einsatzzeiten)</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <span style="font-size:11px;color:var(--text2);font-weight:600">Spieltag:</span>
+      <input type="date" id="spieltag-date" onchange="nomLoad()" style="min-height:40px;padding:6px 10px;border:var(--border-s);border-radius:var(--r);font-family:inherit">
+    </div>
+    <div class="sl nt"><i class="ti ti-user-check"></i>Nominierung</div>
+    <div id="nom-panel"></div>
+    <div class="sl nt" style="margin-top:16px"><i class="ti ti-clock-play"></i>Rotations-Timer (faire Einsatzzeiten)</div>
     <div id="rot-panel"></div>
     <div class="sl nt" style="margin-top:16px"><i class="ti ti-bolt"></i>Blitz-Rating nach dem Spiel</div>
     <div id="blitz-panel"></div>
@@ -7275,7 +7281,7 @@ function switchTrainSub(sub){
   if(sub==="termine"){tmInit();} // Kalender-Rückgrat
   if(sub!=="spieltag"&&rotTimerId){clearInterval(rotTimerId);rotTimerId=null;} // Timer beim Verlassen stoppen
   if(sub==="team"){tnLoad();teamStatsRender();tvInit();} // G2/G4 + Micro-Voting
-  if(sub==="spieltag"){rotInit();blitzInit();} // Spieltag: Rotations-Timer + Blitz-Rating
+  if(sub==="spieltag"){rotRenderControls();nomInit();} // Nominierung speist Rotations-Timer + Blitz
 }
 
 /* ═══════════════════════════════════
@@ -7478,8 +7484,56 @@ function tmJump(ziel,datum){
     setTimeout(()=>{const d=document.getElementById("lineup-date");if(d)d.value=datum;kombiLoadLineup();},400);
   }else if(ziel==="blitz"){
     switchTrainSub("spieltag");
-    setTimeout(()=>{const d=document.getElementById("blitz-date");if(d)d.value=datum;toast("Blitz-Auswertung für "+datum);},120);
+    setTimeout(()=>{const d=document.getElementById("spieltag-date");if(d){d.value=datum;nomLoad();}toast("Spieltag "+datum);},120);
   }
+}
+
+// Spieltags-Nominierung: wer ist dabei / nicht / verletzt – speist Rotations-Timer + Blitz
+let nomStatus={};
+function nomInit(){
+  const d=document.getElementById("spieltag-date");
+  if(d&&!d.value)d.value=new Date().toISOString().slice(0,10);
+  nomLoad();
+}
+async function nomLoad(){
+  const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
+  nomStatus={};
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/nominierungen?datum=eq.${encodeURIComponent(datum)}&select=data`,{headers:sbAuthHeaders()});
+    if(!sbCheck401(r)&&r.ok){const rows=await r.json();if(rows.length&&rows[0].data)nomStatus={...rows[0].data};}
+  }catch(e){}
+  KADER.forEach(k=>{if(!nomStatus[k.name])nomStatus[k.name]="dabei";}); // Default: dabei
+  nomRender();
+  nomApplyToTools();
+}
+function nomSet(name,status){nomStatus[name]=status;nomRender();nomApplyToTools();nomSave();}
+async function nomSave(){
+  const datum=document.getElementById("spieltag-date")?.value;
+  if(!datum)return;
+  try{await fetch(`${SB_URL}/rest/v1/nominierungen?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({datum,data:nomStatus})});}catch(e){}
+}
+function nominierteSpieler(){return KADER.map(k=>k.name).filter(n=>nomStatus[n]==="dabei");}
+function nomRender(){
+  const box=document.getElementById("nom-panel");
+  if(!box)return;
+  const stCfg={dabei:{lbl:"Dabei",col:"#15803d"},nicht:{lbl:"Nicht",col:"#64748b"},verletzt:{lbl:"Verletzt",col:"#dc2626"}};
+  box.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">${nominierteSpieler().length} von ${KADER.length} dabei</div>`+
+    KADER.map(k=>{
+      const cur=nomStatus[k.name]||"dabei";
+      return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
+        <span style="flex:1;font-size:12.5px">${getKader(k.name)?.nr?getKader(k.name).nr+" ":""}${esc(k.name)}</span>
+        ${["dabei","nicht","verletzt"].map(s=>`<button onclick="nomSet('${k.name}','${s}')" style="min-height:36px;padding:5px 9px;font-size:11px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;background:${cur===s?stCfg[s].col:"var(--surface)"};color:${cur===s?"#fff":"var(--text2)"}">${stCfg[s].lbl}</button>`).join("")}
+      </div>`;
+    }).join("");
+}
+function nomApplyToTools(){
+  const squad=nominierteSpieler();
+  if(!rotTimerId){ // laufendes Spiel nicht zerstören – nur setzen, wenn Timer nicht läuft
+    rotField=squad.slice(0,5);rotBench=squad.slice(5);
+    rotBenchSec={};squad.forEach(n=>rotBenchSec[n]=0);rotElapsed=0;
+    rotRenderControls();rotRenderLive();
+  }
+  if(document.getElementById("blitz-panel"))blitzInit();
 }
 
 // Rotations-Timer: faire Einsatzzeiten am Spieltag. Feld/Bank, Timer mit Piepton,
@@ -7578,14 +7632,14 @@ function rotReset(){
 // verfälscht NICHT die 37-Kriterien-Hauptbewertung). Karten-Flow, ein Spieler nach dem anderen.
 let blitzIdx=0, blitzPlayers=[];
 function blitzInit(){
-  blitzPlayers=KADER.map(k=>k.name);
+  // nur die nominierten (dabei) Spieler bewerten, falls eine Nominierung vorliegt
+  blitzPlayers=(typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():KADER.map(k=>k.name);
   blitzIdx=0;
   const box=document.getElementById("blitz-panel");
   if(!box)return;
-  const today=new Date().toISOString().slice(0,10);
   box.innerHTML=`
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-      <input type="date" id="blitz-date" value="${today}" style="min-height:40px;padding:6px 10px;border:var(--border-s);border-radius:var(--r);font-family:inherit">
+      <span style="font-size:11px;color:var(--text2)">Bewertet von:</span>
       <select id="blitz-autor" style="min-height:40px;padding:6px 10px;border:var(--border-s);border-radius:var(--r);font-family:inherit">${TRAINER.map(t=>`<option>${t}</option>`).join("")}</select>
     </div>
     <div id="blitz-card"></div>`;
@@ -7617,7 +7671,7 @@ function blitzRenderCard(){
 }
 async function blitzRate(wertung){
   const name=blitzPlayers[blitzIdx];
-  const datum=document.getElementById("blitz-date")?.value||new Date().toISOString().slice(0,10);
+  const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
   const autor=document.getElementById("blitz-autor")?.value||"";
   try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
   blitzIdx++;blitzRenderCard(); // optimistisch weiter, damit der Flow schnell bleibt
