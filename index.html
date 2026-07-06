@@ -8264,11 +8264,20 @@ const AT_ACTIONS=[
   {key:"gewinn",label:"Ballgewinn",col:"#ca8a04",emo:"🟡"},
   {key:"verlust",label:"Ballverlust",col:"#dc2626",emo:"🔴"}
 ];
-let atSel="", atCounts={}; // atCounts[spieler][aktion]=n
+// Korrektur 3: Der Torwart bekommt eigene, positionsgerechte Rating-Buttons.
+const AT_ACTIONS_TW=[
+  {key:"parade",label:"Parade",col:"#15803d",emo:"🟢"},
+  {key:"aufbau",label:"Aufbau/Abwurf",col:"#1a56db",emo:"🔵"},
+  {key:"heraus",label:"Herauslaufen",col:"#ca8a04",emo:"🟡"},
+  {key:"fehler",label:"Torwart-Fehler",col:"#dc2626",emo:"🔴"}
+];
+const AT_EMO={}; [...AT_ACTIONS,...AT_ACTIONS_TW].forEach(a=>AT_EMO[a.key]=a.emo);
+function atActionsFor(name){ return getKader(name)?.tw ? AT_ACTIONS_TW : AT_ACTIONS; }
+let atSel="", atCounts={}, atLog=[], atUid=0; // atCounts[spieler][aktion]=n ; atLog = Undo-Feed
 function atCount(sp,ak){return (atCounts[sp]&&atCounts[sp][ak])||0;}
-function atSummary(sp){return AT_ACTIONS.map(a=>atCount(sp,a.key)?a.emo+atCount(sp,a.key):"").filter(Boolean).join(" ");}
+function atSummary(sp){ if(!atCounts[sp])return ""; return Object.keys(atCounts[sp]).map(k=>atCounts[sp][k]?(AT_EMO[k]||"•")+atCounts[sp][k]:"").filter(Boolean).join(" "); }
 async function atInit(){
-  atCounts={};atSel="";
+  atCounts={};atSel="";atLog=[];atUid=0;
   const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
   try{
     const r=await fetch(`${SB_URL}/rest/v1/match_actions?datum=eq.${encodeURIComponent(datum)}&select=spieler,aktion`,{headers:sbAuthHeaders()});
@@ -8283,24 +8292,59 @@ function atRender(){
   const box=document.getElementById("action-panel");
   if(!box)return;
   const squad=(typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():KADER.map(k=>k.name);
-  const chips=squad.map(n=>`<button onclick="atPick('${n.replace(/'/g,"")}')" style="font-size:12px;padding:7px 10px;min-height:40px;border:var(--border-s);border-radius:16px;cursor:pointer;font-family:inherit;background:${atSel===n?"var(--blue)":"var(--surface2)"};color:${atSel===n?"#fff":"var(--text)"}">${getKader(n)?.nr?getKader(n).nr+" ":""}${esc(n)}${atSummary(n)?' <span style="font-size:9px">'+atSummary(n)+'</span>':''}</button>`).join("");
+  const chips=squad.map(n=>`<button onclick="atPick('${n.replace(/'/g,"")}')" ${getKader(n)?.tw?'data-role="tw"':''} style="font-size:12px;padding:7px 10px;min-height:40px;border:var(--border-s);border-radius:16px;cursor:pointer;font-family:inherit;background:${atSel===n?"var(--blue)":"var(--surface2)"};color:${atSel===n?"#fff":"var(--text)"}">${getKader(n)?.tw?"🥅 ":(getKader(n)?.nr?getKader(n).nr+" ":"")}${esc(n)}${atSummary(n)?' <span style="font-size:9px">'+atSummary(n)+'</span>':''}</button>`).join("");
+  const acts=atSel?atActionsFor(atSel):AT_ACTIONS;
+  const isTw=atSel&&getKader(atSel)?.tw;
+  const feed=atLog.slice(-5).reverse();
   box.innerHTML=`
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Spieler am Ball wählen:</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${chips}</div>
+    ${isTw?'<div style="font-size:10.5px;color:#854d0e;font-weight:600;margin-bottom:6px">🥅 Torwart-Aktionen</div>':''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      ${AT_ACTIONS.map(a=>`<button onclick="atTap('${a.key}')" ${atSel?"":"disabled"} style="min-height:56px;font-size:14px;font-weight:600;border:none;border-radius:var(--rl);cursor:pointer;font-family:inherit;background:${a.col};color:#fff;opacity:${atSel?1:.4}">${a.emo} ${a.label}</button>`).join("")}
+      ${acts.map(a=>`<button onclick="atTap('${a.key}')" ${atSel?"":"disabled"} style="min-height:56px;font-size:14px;font-weight:600;border:none;border-radius:var(--rl);cursor:pointer;font-family:inherit;background:${a.col};color:#fff;opacity:${atSel?1:.4}">${a.emo} ${a.label}</button>`).join("")}
     </div>
-    ${atSel?`<div style="font-size:11px;color:var(--text2);margin-top:8px;text-align:center">Aktiv: <strong>${esc(atSel)}</strong> · ${atSummary(atSel)||"noch keine Aktion"}</div>`:'<div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center">Erst Spieler antippen, dann Aktion.</div>'}`;
+    ${atSel?`<div style="font-size:11px;color:var(--text2);margin-top:8px;text-align:center">Aktiv: <strong>${esc(atSel)}</strong> · ${atSummary(atSel)||"noch keine Aktion"}</div>`:'<div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center">Erst Spieler antippen, dann Aktion.</div>'}
+    ${feed.length?`<div style="margin-top:12px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px">Letzte Aktionen – antippen zum Rückgängigmachen</div>
+      ${feed.map(e=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:5px 9px;background:var(--surface2);border-radius:8px;margin-bottom:3px">
+        <span>${AT_EMO[e.aktion]||"•"}</span>
+        <span style="flex:1">${esc(e.spieler)} · ${esc(e.label)}</span>
+        <button onclick="atUndo(${e.uid})" title="Rückgängig" aria-label="Rückgängig" style="border:none;background:transparent;cursor:pointer;color:#dc2626;font-size:15px;line-height:1;padding:2px 4px"><i class="ti ti-arrow-back-up"></i></button>
+      </div>`).join("")}
+    </div>`:""}`;
 }
 function atPick(n){atSel=n;atRender();}
 async function atTap(aktion){
   if(!atSel)return;
+  const act=atActionsFor(atSel).find(a=>a.key===aktion)||{label:aktion};
   if(!atCounts[atSel])atCounts[atSel]={};
   atCounts[atSel][aktion]=(atCounts[atSel][aktion]||0)+1;
+  const entry={uid:++atUid,id:null,spieler:atSel,aktion,label:act.label};
+  atLog.push(entry);
   try{navigator.vibrate&&navigator.vibrate(20);}catch(e){}
   atRender();
   const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
-  try{const r=await fetch(`${SB_URL}/rest/v1/match_actions`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({datum,spieler:atSel,aktion})});sbCheck401(r);}catch(e){}
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/match_actions`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=representation'},body:JSON.stringify({datum,spieler:atSel,aktion})});
+    if(!sbCheck401(r)&&r.ok){const rows=await r.json();if(rows&&rows[0]&&rows[0].id!=null)entry.id=rows[0].id;}
+  }catch(e){}
+}
+// Undo (Korrektur 2): letzte Aktion am Spielfeldrand zurücknehmen – In-Memory-Zähler
+// runter + die frisch angelegte Supabase-Zeile entfernen (gerade erst erstellt -> Hard-Delete ok).
+async function atUndo(uid){
+  const i=atLog.findIndex(e=>e.uid===uid);
+  if(i<0)return;
+  const e=atLog[i];
+  if(atCounts[e.spieler]&&atCounts[e.spieler][e.aktion]){
+    atCounts[e.spieler][e.aktion]--;
+    if(atCounts[e.spieler][e.aktion]<=0)delete atCounts[e.spieler][e.aktion];
+  }
+  atLog.splice(i,1);
+  try{navigator.vibrate&&navigator.vibrate(12);}catch(err){}
+  atRender();
+  if(e.id!=null){
+    try{const r=await fetch(`${SB_URL}/rest/v1/match_actions?id=eq.${e.id}`,{method:"DELETE",headers:sbAuthHeaders()});sbCheck401(r);}catch(err){}
+  }
 }
 
 // Blitz-Rating: schnelle Nachbewertung nach dem Spiel (eigenes leichtes Protokoll,
