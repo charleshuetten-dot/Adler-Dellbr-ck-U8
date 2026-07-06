@@ -982,6 +982,8 @@ h1.print-header{display:none}
     <div id="nom-panel"></div>
     <div class="sl nt" style="margin-top:16px"><i class="ti ti-clock-play"></i>Rotations-Timer (faire Einsatzzeiten)</div>
     <div id="rot-panel"></div>
+    <div class="sl nt" style="margin-top:16px"><i class="ti ti-player-track-next"></i>Live-Aktionen (während des Spiels)</div>
+    <div id="action-panel"></div>
     <div class="sl nt" style="margin-top:16px"><i class="ti ti-bolt"></i>Blitz-Rating nach dem Spiel</div>
     <div id="blitz-panel"></div>
   </div><!-- /train-sub-spieltag -->
@@ -7281,7 +7283,7 @@ function switchTrainSub(sub){
   if(sub==="termine"){tmInit();} // Kalender-Rückgrat
   if(sub!=="spieltag"&&rotTimerId){clearInterval(rotTimerId);rotTimerId=null;} // Timer beim Verlassen stoppen
   if(sub==="team"){tnLoad();teamStatsRender();tvInit();} // G2/G4 + Micro-Voting
-  if(sub==="spieltag"){rotRenderControls();nomInit();} // Nominierung speist Rotations-Timer + Blitz
+  if(sub==="spieltag"){rotRenderControls();nomInit();} // nomInit -> nomLoad speist Timer + Blitz + Action-Tracker
 }
 
 /* ═══════════════════════════════════
@@ -7505,6 +7507,7 @@ async function nomLoad(){
   KADER.forEach(k=>{if(!nomStatus[k.name])nomStatus[k.name]="dabei";}); // Default: dabei
   nomRender();
   nomApplyToTools();
+  if(document.getElementById("action-panel"))atInit(); // Aktionen fürs neue Datum laden
 }
 function nomSet(name,status){nomStatus[name]=status;nomRender();nomApplyToTools();nomSave();}
 async function nomSave(){
@@ -7534,6 +7537,7 @@ function nomApplyToTools(){
     rotRenderControls();rotRenderLive();
   }
   if(document.getElementById("blitz-panel"))blitzInit();
+  if(typeof atRender==="function"&&document.getElementById("action-panel"))atRender(); // Aktions-Chips folgen der Nominierung
 }
 
 // Rotations-Timer: faire Einsatzzeiten am Spieltag. Feld/Bank, Timer mit Piepton,
@@ -7628,9 +7632,63 @@ function rotReset(){
   rotRenderControls();rotRenderLive();
 }
 
+// Live-Action-Tracker: Co-Trainer tippt während des Spiels 4 Aktionen pro Spieler.
+// Macht das Blitz-Rating danach evidenzbasiert.
+const AT_ACTIONS=[
+  {key:"pass",label:"Guter Pass",col:"#15803d",emo:"🟢"},
+  {key:"dribbling",label:"Dribbling",col:"#1a56db",emo:"🔵"},
+  {key:"gewinn",label:"Ballgewinn",col:"#ca8a04",emo:"🟡"},
+  {key:"verlust",label:"Ballverlust",col:"#dc2626",emo:"🔴"}
+];
+let atSel="", atCounts={}; // atCounts[spieler][aktion]=n
+function atCount(sp,ak){return (atCounts[sp]&&atCounts[sp][ak])||0;}
+function atSummary(sp){return AT_ACTIONS.map(a=>atCount(sp,a.key)?a.emo+atCount(sp,a.key):"").filter(Boolean).join(" ");}
+async function atInit(){
+  atCounts={};atSel="";
+  const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/match_actions?datum=eq.${encodeURIComponent(datum)}&select=spieler,aktion`,{headers:sbAuthHeaders()});
+    if(!sbCheck401(r)&&r.ok){
+      const rows=await r.json();
+      rows.forEach(a=>{if(!atCounts[a.spieler])atCounts[a.spieler]={};atCounts[a.spieler][a.aktion]=(atCounts[a.spieler][a.aktion]||0)+1;});
+    }
+  }catch(e){}
+  atRender();
+}
+function atRender(){
+  const box=document.getElementById("action-panel");
+  if(!box)return;
+  const squad=(typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():KADER.map(k=>k.name);
+  const chips=squad.map(n=>`<button onclick="atPick('${n.replace(/'/g,"")}')" style="font-size:12px;padding:7px 10px;min-height:40px;border:var(--border-s);border-radius:16px;cursor:pointer;font-family:inherit;background:${atSel===n?"var(--blue)":"var(--surface2)"};color:${atSel===n?"#fff":"var(--text)"}">${getKader(n)?.nr?getKader(n).nr+" ":""}${esc(n)}${atSummary(n)?' <span style="font-size:9px">'+atSummary(n)+'</span>':''}</button>`).join("");
+  box.innerHTML=`
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Spieler am Ball wählen:</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${chips}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      ${AT_ACTIONS.map(a=>`<button onclick="atTap('${a.key}')" ${atSel?"":"disabled"} style="min-height:56px;font-size:14px;font-weight:600;border:none;border-radius:var(--rl);cursor:pointer;font-family:inherit;background:${a.col};color:#fff;opacity:${atSel?1:.4}">${a.emo} ${a.label}</button>`).join("")}
+    </div>
+    ${atSel?`<div style="font-size:11px;color:var(--text2);margin-top:8px;text-align:center">Aktiv: <strong>${esc(atSel)}</strong> · ${atSummary(atSel)||"noch keine Aktion"}</div>`:'<div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center">Erst Spieler antippen, dann Aktion.</div>'}`;
+}
+function atPick(n){atSel=n;atRender();}
+async function atTap(aktion){
+  if(!atSel)return;
+  if(!atCounts[atSel])atCounts[atSel]={};
+  atCounts[atSel][aktion]=(atCounts[atSel][aktion]||0)+1;
+  try{navigator.vibrate&&navigator.vibrate(20);}catch(e){}
+  atRender();
+  const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
+  try{const r=await fetch(`${SB_URL}/rest/v1/match_actions`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({datum,spieler:atSel,aktion})});sbCheck401(r);}catch(e){}
+}
+
 // Blitz-Rating: schnelle Nachbewertung nach dem Spiel (eigenes leichtes Protokoll,
 // verfälscht NICHT die 37-Kriterien-Hauptbewertung). Karten-Flow, ein Spieler nach dem anderen.
-let blitzIdx=0, blitzPlayers=[];
+let blitzIdx=0, blitzPlayers=[], blitzCrit={}, blitzCritPlayer=null;
+const BLITZ_CRIT=[
+  {key:"einsatz",label:"Einsatz & Zweikampf"},
+  {key:"technik",label:"Technik am Ball"},
+  {key:"verstaendnis",label:"Spielverständnis"},
+  {key:"team",label:"Teamverhalten"},
+  {key:"form",label:"Tagesform"}
+];
 function blitzInit(){
   // nur die nominierten (dabei) Spieler bewerten, falls eine Nominierung vorliegt
   blitzPlayers=(typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():KADER.map(k=>k.name);
@@ -7658,29 +7716,46 @@ function blitzRenderCard(){
     return;
   }
   const name=blitzPlayers[blitzIdx];const nr=getKader(name)?.nr;
-  card.innerHTML=`<div style="text-align:center;padding:22px 16px;background:var(--surface);border:var(--border-s);border-radius:var(--rl)">
-    <div style="font-size:11px;color:var(--text3)">Spieler ${blitzIdx+1}/${blitzPlayers.length}</div>
-    <div style="font-size:24px;font-weight:800;margin:8px 0 16px">${nr?nr+" ":""}${esc(name)}</div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <button class="btn btn-p" style="min-height:52px;font-size:15px;background:#15803d;border-color:#15803d" onclick="blitzRate('top')">⭐ Überragend</button>
-      <button class="btn" style="min-height:52px;font-size:15px" onclick="blitzRate('solide')">👍 Solide</button>
-      <button class="btn" style="min-height:52px;font-size:15px;color:#b45309" onclick="blitzRate('blass')">😐 Unauffällig</button>
-      <button class="btn btn-sm" style="opacity:.7" onclick="blitzSkip()">Überspringen ›</button>
+  if(blitzCritPlayer!==name){blitzCrit={};BLITZ_CRIT.forEach(c=>blitzCrit[c.key]=2);blitzCritPlayer=name;} // Mitte vorbelegt
+  const evidenz=(typeof atSummary==="function"&&atSummary(name))?`<div style="font-size:12px;color:var(--text2);margin-bottom:12px">Live-Aktionen: ${atSummary(name)}</div>`:"";
+  const lvlBtn=(cKey,val,txt,col)=>{const on=blitzCrit[cKey]===val;return `<button onclick="blitzSetCrit('${cKey}',${val})" style="flex:1;min-height:40px;font-size:12px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;background:${on?col:"var(--surface2)"};color:${on?"#fff":"var(--text2)"}">${txt}</button>`;};
+  card.innerHTML=`<div style="padding:16px;background:var(--surface);border:var(--border-s);border-radius:var(--rl)">
+    <div style="text-align:center">
+      <div style="font-size:11px;color:var(--text3)">Spieler ${blitzIdx+1}/${blitzPlayers.length}</div>
+      <div style="font-size:22px;font-weight:800;margin:6px 0 10px">${nr?nr+" ":""}${esc(name)}</div>
+    </div>
+    ${evidenz}
+    ${BLITZ_CRIT.map(c=>`
+      <div style="margin-bottom:8px">
+        <div style="font-size:11.5px;font-weight:600;margin-bottom:4px">${c.label}</div>
+        <div style="display:flex;gap:5px">
+          ${lvlBtn(c.key,1,"schwach","#dc2626")}
+          ${lvlBtn(c.key,2,"ok","#64748b")}
+          ${lvlBtn(c.key,3,"stark","#15803d")}
+        </div>
+      </div>`).join("")}
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-p" style="flex:1;min-height:48px;font-size:15px" onclick="blitzRate()"><i class="ti ti-check"></i>Speichern & weiter</button>
+      <button class="btn btn-sm" style="opacity:.7" onclick="blitzSkip()">›</button>
     </div>
   </div>`;
 }
-async function blitzRate(wertung){
+function blitzSetCrit(key,val){blitzCrit[key]=val;blitzRenderCard();}
+async function blitzRate(){
   const name=blitzPlayers[blitzIdx];
   const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
   const autor=document.getElementById("blitz-autor")?.value||"";
+  const kriterien={...blitzCrit};
+  const avg=BLITZ_CRIT.reduce((s,c)=>s+(kriterien[c.key]||2),0)/BLITZ_CRIT.length;
+  const wertung=avg>=2.5?"top":avg>=1.7?"solide":"blass"; // Gesamt für Rückwärtskompatibilität
   try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
-  blitzIdx++;blitzRenderCard(); // optimistisch weiter, damit der Flow schnell bleibt
+  blitzIdx++;blitzCritPlayer=null;blitzRenderCard(); // optimistisch weiter
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/blitz_ratings`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({datum,spieler:name,wertung,autor})});
+    const r=await fetch(`${SB_URL}/rest/v1/blitz_ratings`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({datum,spieler:name,wertung,autor,kriterien})});
     sbCheck401(r);
-  }catch(e){/* offline – Wertung geht verloren, aber Flow bleibt flüssig */}
+  }catch(e){/* offline – Wertung geht verloren, Flow bleibt flüssig */}
 }
-function blitzSkip(){blitzIdx++;blitzRenderCard();}
+function blitzSkip(){blitzIdx++;blitzCritPlayer=null;blitzRenderCard();}
 
 // G2: Team-Pinnwand
 async function tnLoad(){
