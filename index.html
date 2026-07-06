@@ -749,6 +749,7 @@ h1.print-header{display:none}
     <button class="btn btn-sm" onclick="taktikReset('igel')"><i class="ti ti-shield"></i>Igel</button>
     <button class="btn btn-sm" onclick="taktikReset('leer')"><i class="ti ti-refresh"></i>Leer</button>
     <button class="btn btn-sm" style="background:#7c3aed;color:#fff;border-color:#7c3aed" onclick="tqStart()"><i class="ti ti-brain"></i>Quiz</button>
+    <button class="btn btn-sm" onclick="taktikShareBild()"><i class="ti ti-share"></i>Aufstellung teilen</button>
   </div>
   <div id="tq-panel" style="display:none"></div>
   <div class="tb-wrap">
@@ -2584,6 +2585,69 @@ function taktikSetup(mode){
 }
 function taktikInit(){taktikSetup("adler");}
 function taktikReset(mode){taktikSetup(mode);}
+
+// Aufstellung als sauberes PNG rendern und per Web Share API teilen (Fallback: Download).
+// Zeichnet Feld + Tokens auf ein Canvas – kein html2canvas o.ä. nötig.
+function tbRoundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function taktikShareBild(){
+  if(!tbField||!tbField.length){toast("Erst eine Aufstellung aufs Feld stellen","err");return;}
+  const W=600,H=800;
+  const canvas=document.createElement("canvas");
+  canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext("2d");
+  // Rasen + Linien (analog zum SVG-Feld)
+  ctx.fillStyle="#2d6a2d";ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle="rgba(255,255,255,.45)";ctx.lineWidth=3;
+  ctx.strokeRect(16,16,W-32,H-32);
+  ctx.beginPath();ctx.moveTo(16,H/2);ctx.lineTo(W-16,H/2);ctx.stroke();
+  ctx.beginPath();ctx.arc(W/2,H/2,80,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.arc(W/2,H/2,4,0,Math.PI*2);ctx.fillStyle="rgba(255,255,255,.45)";ctx.fill();
+  const col={"tb-tw":"#854d0e","tb-auf":"#1a56db","tb-fl":"#059669","tb-jaeg":"#c2410c","tb-frei":"#475569","tb-bench":"#64748b"};
+  ctx.textAlign="center";ctx.textBaseline="middle";
+  tbField.forEach(p=>{
+    const x=p.x/100*W, y=p.y/100*H;
+    const label=p.name||"";
+    ctx.font="bold 16px Arial";
+    const tw=ctx.measureText(label).width;
+    const pillH=36, pillW=Math.max(52,tw+28);
+    ctx.fillStyle=col[p.cls]||"#475569";
+    tbRoundRect(ctx,x-pillW/2,y-pillH/2,pillW,pillH,pillH/2);ctx.fill();
+    ctx.strokeStyle="rgba(255,255,255,.9)";ctx.lineWidth=2.5;ctx.stroke();
+    ctx.fillStyle="#fff";ctx.fillText(label,x,y);
+  });
+  // Ball
+  if(typeof tbBall==="object"&&tbBall){
+    ctx.fillStyle="#fff";ctx.strokeStyle="#222";ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(tbBall.x/100*W,tbBall.y/100*H,9,0,Math.PI*2);ctx.fill();ctx.stroke();
+  }
+  // Titelzeile
+  ctx.fillStyle="rgba(255,255,255,.92)";ctx.font="bold 22px Arial";ctx.textBaseline="alphabetic";
+  ctx.fillText("SV Adler Dellbrück · U9 · 4+1 Raute",W/2,H-22);
+
+  canvas.toBlob(async(blob)=>{
+    if(!blob){toast("Bild konnte nicht erzeugt werden","err");return;}
+    const file=new File([blob],"aufstellung-u9.png",{type:"image/png"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],title:"Aufstellung U9",text:"Aufstellung SV Adler Dellbrück U9"});}
+      catch(e){/* Nutzer hat abgebrochen */}
+    }else{
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download="aufstellung-u9.png";
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+      toast("Bild heruntergeladen ✓");
+    }
+  },"image/png");
+}
 
 function taktikRender(){
   const fieldEl=document.getElementById("taktik-field");
