@@ -19,6 +19,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --blue:#1a56db;--blue-bg:#eff6ff;--blue-dark:#1447b8;
+  --club-accent:var(--blue); /* L7: Charles kann hier später Vereinsfarbe eintragen */
   --green:#15803d;--green-bg:#f0fdf4;
   --amber:#b45309;--amber-bg:#fffbeb;
   --red:#b91c1c;--red-bg:#fef2f2;
@@ -36,7 +37,8 @@
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
 .app{max-width:920px;margin:0 auto;padding:16px 16px 100px}
 
-.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 0 15px;border-bottom:var(--border);margin-bottom:18px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 0 15px;border-bottom:2px solid var(--club-accent);margin-bottom:18px} /* L7 */
+#club-logo{width:38px;height:38px;border-radius:var(--r);object-fit:contain;flex-shrink:0}
 .logo{display:flex;align-items:center;gap:10px}
 .logo-badge{width:38px;height:38px;background:var(--blue);border-radius:var(--r);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;flex-shrink:0;letter-spacing:.5px}
 .logo-t1{font-size:16px;font-weight:700;color:var(--text)}
@@ -48,7 +50,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .nb{padding:8px 2px;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#64748b;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:inherit;font-size:inherit}
 .nb i{font-size:17px}
 .nb span{font-size:8px;white-space:nowrap}
-.nb.active{background:var(--blue);color:#fff;box-shadow:0 2px 6px rgba(26,86,219,.3)}
+.nb.active{background:var(--club-accent);color:#fff;box-shadow:0 2px 6px rgba(26,86,219,.3)} /* L7 */
 .view{display:none}.view.active{display:block}
 
 .sl{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);margin:1.4rem 0 .6rem;padding-top:.9rem;border-top:var(--border);display:flex;align-items:center;gap:6px}
@@ -339,6 +341,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .tb-token:active{cursor:grabbing;box-shadow:0 4px 16px rgba(0,0,0,.5);z-index:20}
 .tb-token .tb-name{font-size:9px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);line-height:1;pointer-events:none}
 .tb-token .tb-pos{font-size:7px;color:rgba(255,255,255,.8);pointer-events:none}
+.tb-token .tb-nr{font-size:8px;color:rgba(255,255,255,.65);line-height:1;pointer-events:none} /* L1 */
 .tb-token.tb-tw{background:#854d0e}
 .tb-token.tb-auf{background:#1a56db}
 .tb-token.tb-fl{background:#059669}
@@ -490,6 +493,14 @@ h1.print-header{display:none}
 .tf-cat-pressing{background:#fef2f2;color:#991b1b}.tf-cat-spass{background:#fef9c3;color:#854d0e}
 .tf-cat-custom{background:var(--surface2);color:var(--text2)}
 .tf-cat-mindset{background:#ecfdf5;color:#047857}
+/* L3: Sticky Sub-Tabs & Filterleiste (104 Formen = viel Scrollweg) */
+#train-subtab-row{position:sticky;top:0;z-index:21}
+#training-filter-row{position:sticky;top:46px;background:var(--bg);z-index:20;padding:4px 0}
+/* L2: Lade-Skeletons */
+@keyframes skelPulse{0%,100%{opacity:.45}50%{opacity:1}}
+.skeleton{height:38px;border-radius:var(--r);background:var(--surface2);animation:skelPulse 1.2s ease-in-out infinite;margin-bottom:8px}
+/* L6: Fokus-Sichtbarkeit */
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 /* H6: neue Team-/Plan-Bedienelemente mindestens 44px hoch */
 #train-sub-team .btn,#train-sub-team select,#train-sub-team input[type="text"]{min-height:44px}
 #train-sub-team select{padding:10px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;font-family:inherit;background:var(--surface);outline:none}
@@ -560,6 +571,8 @@ h1.print-header{display:none}
 
 <div class="topbar">
   <div class="logo">
+    <!-- L7: Charles: Vereinslogo-URL eintragen und display:none entfernen -->
+    <img id="club-logo" src="" alt="Vereinslogo" style="display:none">
     <div class="logo-badge">U9 I</div>
     <div>
       <div class="logo-t1">Spielerprofil U9 I</div>
@@ -760,7 +773,7 @@ h1.print-header{display:none}
 
 <!-- TRAINING VIEW -->
 <div id="view-training" class="view">
-  <div style="display:flex;gap:4px;margin-bottom:14px;background:var(--surface2);padding:3px;border-radius:var(--r);border:var(--border)">
+  <div id="train-subtab-row" style="display:flex;gap:4px;margin-bottom:14px;background:var(--surface2);padding:3px;border-radius:var(--r);border:var(--border)">
     <button class="sub-tab active" id="st-formen" onclick="switchTrainSub('formen')"><i class="ti ti-ball-football"></i>Formen</button>
     <button class="sub-tab" id="st-planung" onclick="switchTrainSub('planung')"><i class="ti ti-calendar-event"></i>Planung</button>
     <button class="sub-tab" id="st-anwesenheit" onclick="switchTrainSub('anwesenheit')"><i class="ti ti-checkbox"></i>Anwesenheit</button>
@@ -910,6 +923,9 @@ h1.print-header{display:none}
       <button class="btn btn-p" onclick="tnSend()"><i class="ti ti-send"></i>Senden</button>
     </div>
     <div id="tn-list"></div>
+    <div class="sl nt" style="margin-top:16px"><i class="ti ti-database-export"></i>Daten-Sicherung</div>
+    <button class="btn" onclick="teamBackupDownload()"><i class="ti ti-download"></i>Backup herunterladen</button>
+    <div style="font-size:10.5px;color:var(--text3);margin-top:4px">Lädt alle Tabellen (Profile, Quiz, Anwesenheit, Bewertungen, Notizen, Einheiten) als JSON-Datei.</div>
   </div><!-- /train-sub-team -->
 
 </div><!-- /view-training -->
@@ -994,22 +1010,23 @@ function ensureLogin(){
 }
 
 // Kader: tw = hat TW-Option, twPrio = TW-Priorität (1=primär, 2=zweite Option)
+// nr = Trikotnummer // TODO Charles: echte Nummern eintragen (aktuell Platzhalter 2-16)
 const KADER=[
-  {name:"Hugo",   tw:true,  twPrio:2},
-  {name:"Mika",   tw:false, twPrio:0},
-  {name:"Kolja",  tw:true,  twPrio:2},
-  {name:"Leon",   tw:false, twPrio:0},
-  {name:"Azem",   tw:false, twPrio:0},
-  {name:"Sevan",  tw:false, twPrio:0},
-  {name:"Lukas",  tw:true,  twPrio:1},
-  {name:"Matteo", tw:false, twPrio:0},
-  {name:"Piet",   tw:false, twPrio:0},
-  {name:"Jonas",  tw:false, twPrio:0},
-  {name:"Leif",   tw:false, twPrio:0},
-  {name:"Samu",   tw:false, twPrio:0},
-  {name:"Jari",   tw:false, twPrio:0},
-  {name:"Tom",    tw:false, twPrio:0},
-  {name:"Fabio",  tw:false, twPrio:0}
+  {name:"Hugo",   tw:true,  twPrio:2, nr:2},
+  {name:"Mika",   tw:false, twPrio:0, nr:3},
+  {name:"Kolja",  tw:true,  twPrio:2, nr:4},
+  {name:"Leon",   tw:false, twPrio:0, nr:5},
+  {name:"Azem",   tw:false, twPrio:0, nr:6},
+  {name:"Sevan",  tw:false, twPrio:0, nr:7},
+  {name:"Lukas",  tw:true,  twPrio:1, nr:8},
+  {name:"Matteo", tw:false, twPrio:0, nr:9},
+  {name:"Piet",   tw:false, twPrio:0, nr:10},
+  {name:"Jonas",  tw:false, twPrio:0, nr:11},
+  {name:"Leif",   tw:false, twPrio:0, nr:12},
+  {name:"Samu",   tw:false, twPrio:0, nr:13},
+  {name:"Jari",   tw:false, twPrio:0, nr:14},
+  {name:"Tom",    tw:false, twPrio:0, nr:15},
+  {name:"Fabio",  tw:false, twPrio:0, nr:16}
 ];
 
 // D2: Trainerliste zentral – speist Select + beide Checkbox-Leisten (Finn neu)
@@ -1721,21 +1738,40 @@ function toggleDim(head){
    SUPABASE
 ═══════════════════════════════════ */
 let DB={};
+let lastSyncTs=null; // L4
 async function loadDB(){
   try{
     const r=await fetch(`${SB_URL}/rest/v1/spielerprofile?select=*`,{headers:sbAuthHeaders()});
-    if(sbCheck401(r))return;
+    if(sbCheck401(r)){window._dbLoaded=true;return;}
     if(r.ok){
       const data=await r.json();DB={};
       data.forEach(p=>{if(!DB[p.name])DB[p.name]=[];DB[p.name].push(p);});
       Object.keys(DB).forEach(n=>DB[n].sort((a,b)=>new Date(a.datum)-new Date(b.datum)));
       document.getElementById("cdot").className="cdot ok";
       document.getElementById("clbl").textContent="Live";
+      lastSyncTs=new Date(); // L4
+      const lbl=document.getElementById("clbl");
+      if(lbl)lbl.title="Zuletzt synchronisiert: "+lastSyncTs.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
     } else throw new Error("HTTP "+r.status);
-  }catch(e){document.getElementById("cdot").className="cdot err";document.getElementById("clbl").textContent="Offline: "+(e.message||"Verbindung fehlgeschlagen").slice(0,30);}
+  }catch(e){
+    document.getElementById("cdot").className="cdot err";
+    document.getElementById("clbl").textContent="Offline: "+(e.message||"Verbindung fehlgeschlagen").slice(0,30);
+    const lbl=document.getElementById("clbl");
+    if(lbl)lbl.title="Offline – Daten vom Gerät";
+  }
+  window._dbLoaded=true; // L2: Skeletons beenden
   refreshSelects();renderKader();
   if(document.getElementById("view-kombi")?.classList.contains("active"))renderKombi();
 }
+// L4: Antippen des Sync-Status zeigt Zeitstempel als Toast
+document.addEventListener("DOMContentLoaded",()=>{
+  const lbl=document.getElementById("clbl");
+  if(lbl)lbl.addEventListener("click",()=>{
+    toast(lastSyncTs?"Zuletzt synchronisiert: "+lastSyncTs.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}):"Offline – Daten vom Gerät");
+  });
+});
+// L2: wiederverwendbare Skeleton-Zeilen
+const skeletonRows=(n=3)=>Array.from({length:n},()=>'<div class="skeleton"></div>').join("");
 
 async function savePlayer(){
   const meta=getMeta();
@@ -1875,6 +1911,7 @@ document.addEventListener("click",e=>{
 
 function renderKader(){
   const names=Object.keys(DB).sort();const wrap=document.getElementById("kader-content");
+  if(!window._dbLoaded&&!names.length){wrap.innerHTML=skeletonRows(3);return;} // L2
   const filtered=names.filter(n=>{
     const lat=DB[n][DB[n].length-1];
     if(activeFilter==="all")return true;
@@ -1897,7 +1934,7 @@ function renderKader(){
     const mini=val=>{let s='<div class="sm">';for(let i=0;i<5;i++)s+=`<div class="sm-s${val>=(i+1)*20?" on":""}"></div>`;return s+'</div>';};
     const snBadge=DB[name].length>1?`<span style="font-size:9px;color:var(--teal);font-weight:600;margin-left:4px">×${DB[name].length}</span>`:"";
     html+=`<tr>
-      <td><div style="font-weight:600;font-size:12.5px">${esc(name)}${isTw?" 🥅":""}</div><div style="font-size:10px;color:var(--text2)">${esc(lat.datum||'')}${snBadge}</div></td>
+      <td><div style="font-weight:600;font-size:12.5px">${getKader(name)?.nr?`<span style="font-size:9px;font-weight:700;color:var(--text3);background:var(--surface2);border:var(--border);border-radius:8px;padding:1px 5px;margin-right:4px">${getKader(name).nr}</span>`:""}${esc(name)}${isTw?" 🥅":""}</div><div style="font-size:10px;color:var(--text2)">${esc(lat.datum||'')}${snBadge}</div></td>
       <td><span class="rbadge ${bMap[prim]||'rb-flex'}">${isTw?`TW / ${esc(lMap[prim]||prim)}`:esc(lMap[prim]||prim)}</span>${lat.sek_rolle&&!isTw?`<br><span style="font-size:10px;color:var(--text2)">${esc(lat.sek_rolle)}</span>`:""}</td>
       <td>${grpB}</td>
       ${[0,1,2].map(i=>`<td><span style="font-size:11px;font-weight:600;color:${dimCols[i]}">${sc[i]||0}%</span>${mini(sc[i]||0)}</td>`).join("")}
@@ -1985,6 +2022,7 @@ async function delSnapshot(name,datum,id){
 let rchart=null,rchartTimer=0;
 function renderProfil(){
   const name=document.getElementById("psel-profil").value;
+  if(!window._dbLoaded&&!Object.keys(DB).length){document.getElementById("profil-content").innerHTML=skeletonRows(3);return;} // L2
   if(!name){document.getElementById("profil-content").innerHTML='<div class="empty"><i class="ti ti-user-circle"></i>Spieler auswählen</div>';return;}
   const snaps=DB[name]||[];if(!snaps.length)return;
   const lat=snaps[snaps.length-1];
@@ -2300,6 +2338,7 @@ function calcBestCombos(){
 
 function renderKombi(){
   const wrap=document.getElementById("kombi-content");
+  if(!window._dbLoaded&&!Object.keys(DB).length){wrap.innerHTML=skeletonRows(3);return;} // L2
   wrap.innerHTML='<div style="text-align:center;padding:2rem;color:var(--text2)"><i class="ti ti-loader" style="font-size:24px;animation:spin 1s linear infinite;display:inline-block"></i><div style="margin-top:8px;font-size:12px">Berechne beste Aufstellung...</div></div>';
   setTimeout(()=>{_renderKombiInner(wrap);},30);
 }
@@ -2532,7 +2571,8 @@ function tbCreateToken(name,cls,roleLabel){
   const el=document.createElement("div");
   el.className="tb-token "+cls;
   el.dataset.player=name;
-  el.innerHTML=`<span class="tb-name">${name}</span>${roleLabel?`<span class="tb-pos">${roleLabel}</span>`:""}`;
+  const nr=getKader(name)?.nr; // L1: Trikotnummer, wenn vorhanden
+  el.innerHTML=`${nr?`<span class="tb-nr">${nr}</span>`:""}<span class="tb-name">${name}</span>${roleLabel?`<span class="tb-pos">${roleLabel}</span>`:""}`;
   return el;
 }
 
@@ -5332,6 +5372,7 @@ function tqStart(){
       html+=`<div class="tq-player-btn" onclick="tqSelectPlayer('${k.name}')">
         <div class="tq-player-icon">⚽</div>
         <div class="tq-player-name">${esc(k.name)}</div>
+        ${k.nr?`<div style="font-size:9px;color:var(--text3)">#${k.nr}</div>`:""}
       </div>`;
     });
     html+=`</div><button class="btn btn-sm" onclick="tqStop()" style="margin-top:8px"><i class="ti ti-x"></i>Abbrechen</button>`;
@@ -6867,6 +6908,26 @@ function teamStatsRender(){
     tile("Letzte Einheit",evalTile)+
     tile("Anwesenheit (letzte 4)",`<div style="font-size:16px;font-weight:700;color:var(--teal)">${quote}</div><div style="font-size:10px;color:var(--text2)">${awDates.length} Termin${awDates.length!==1?"e":""}</div>`)+
     tile("Bewertung überfällig",`<div style="font-size:16px;font-weight:700;color:${stale.length?"#dc2626":"#15803d"};cursor:pointer" onclick="sv('bew')">${stale.length} Spieler</div><div style="font-size:10px;color:var(--text2)">${stale.length?"> 8 Wochen ohne Bewertung":"alle aktuell"}</div>`);
+}
+
+// L5: Daten-Backup – alle sechs Tabellen als eine JSON-Datei
+async function teamBackupDownload(){
+  const tabellen=["spielerprofile","quiz_progress","anwesenheit","trainings_eval","team_notizen","einheiten"];
+  const backup={erstellt:new Date().toISOString(),app:"Adler U9 Spielerprofil"};
+  try{
+    for(const t of tabellen){
+      const r=await fetch(`${SB_URL}/rest/v1/${t}?select=*`,{headers:sbAuthHeaders()});
+      if(sbCheck401(r))return;
+      backup[t]=r.ok?await r.json():{fehler:"HTTP "+r.status};
+    }
+    const blob=new Blob([JSON.stringify(backup,null,2)],{type:"application/json"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="adler-backup-"+new Date().toISOString().slice(0,10)+".json";
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    toast("Backup heruntergeladen ✓");
+  }catch(e){toast("Backup fehlgeschlagen: "+e.message,"err");}
 }
 
 // G3: geplante Einheiten speichern, laden & teilen
