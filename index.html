@@ -7468,7 +7468,7 @@ async function teamBackupDownload(){
 async function tpPlanSave(){
   const datum=document.getElementById("tp-date").value;
   if(!datum){toast("Bitte Datum wählen","err");return;}
-  const plan={slots:tpSlots,forms:{},cats:{},time:document.getElementById("tp-time")?.value||""};
+  const plan={slots:tpSlots,forms:{},cats:{},coaches:{...tpCoaches},time:document.getElementById("tp-time")?.value||""};
   document.querySelectorAll(".tp-form-sel").forEach(s=>{if(s.id)plan.forms[s.id]=s.value;});
   document.querySelectorAll('[id^="tp-cat-"]').forEach(s=>{if(s.id)plan.cats[s.id]=s.value;});
   const trainer=tpGetCheckedTrainers();
@@ -7493,6 +7493,7 @@ async function tpPlanLoad(){
     const{plan,trainer}=rows[0];
     if(Array.isArray(trainer))document.querySelectorAll("#tp-trainer-checks input").forEach(cb=>{cb.checked=trainer.includes(cb.value);});
     if(plan&&Array.isArray(plan.slots))tpSlots=plan.slots;
+    if(plan&&plan.coaches)tpCoaches={...plan.coaches}; // Stationen-Zuweisung wiederherstellen
     if(plan&&plan.time&&document.getElementById("tp-time"))document.getElementById("tp-time").value=plan.time;
     tpRenderTimeline();
     setTimeout(()=>{
@@ -7524,7 +7525,8 @@ function tpShareEinheit(){
       if(!sel.value)return;
       const f=allForms[parseInt(sel.value)];
       if(!f)return;
-      zeilen.push(`  • ${f.name}${f.kurz?" – "+f.kurz:""}`);
+      const stationCoach=tpCoaches[sel.id]?" ("+tpCoaches[sel.id]+")":""; // Stationen-Board
+      zeilen.push(`  • ${f.name}${stationCoach}${f.kurz?" – "+f.kurz:""}`);
       const coach=(f.coaching||"").split("\n")[0];
       if(coach)zeilen.push(`    🎯 ${coach}`);
     });
@@ -7790,6 +7792,18 @@ function tpShowExercise(formIdx){
   document.body.appendChild(modal);
 }
 
+// Stationen-Board: Trainer-Zuweisung pro Übungs-Station (wer macht was)
+let tpCoaches={};
+function tpSetCoach(stationId,name){tpCoaches[stationId]=name;}
+function tpCoachSelect(stationId){
+  const avail=tpGetCheckedTrainers();
+  const list=avail.length?avail:TRAINER;
+  const cur=tpCoaches[stationId]||"";
+  return `<select class="tp-coach-sel" data-station="${stationId}" onchange="tpSetCoach('${stationId}',this.value)" title="Trainer für diese Station" style="min-width:90px;padding:5px 6px;border:var(--border-s);border-radius:var(--r);font-size:10px;background:var(--surface);font-family:inherit">
+    <option value="">👤 Trainer?</option>${list.map(t=>`<option value="${t}"${t===cur?" selected":""}>${t}</option>`).join("")}
+  </select>`;
+}
+
 function tpRenderTimeline(){
   const wrap=document.getElementById("tp-timeline");
   if(!wrap)return;
@@ -7828,6 +7842,7 @@ function tpRenderTimeline(){
             <option value="">— Übung wählen —</option>${formOpts}
           </select>
           <button onclick="tpShowExFromSel('tp-form-${si}-0')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--primary)" title="Übung anzeigen">ℹ️</button>
+          ${tpCoachSelect(`tp-form-${si}-0`)}
         </div>
         <div id="tp-form-${si}-0-hist" style="padding-left:60px"></div>
       </div>`;
@@ -7846,6 +7861,7 @@ function tpRenderTimeline(){
           <option value="">— Übung wählen —</option>${formOpts}
         </select>
         <button onclick="tpShowExFromSel('tp-form-${si}-0')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--primary)" title="Übung anzeigen">ℹ️</button>
+        ${tpCoachSelect(`tp-form-${si}-0`)}
       </div>
       <div id="tp-form-${si}-0-hist" style="padding-left:60px"></div>`;
     } else {
@@ -7853,6 +7869,7 @@ function tpRenderTimeline(){
       for(let p=0;p<parallelSlots;p++){
         const selId=`tp-form-${si}-${p}`;
         const groupLabel=noGroups?"Alle Kinder":(trainers[p]||`Trainer ${p+1}`);
+        if(!tpCoaches[selId]&&!noGroups&&trainers[p])tpCoaches[selId]=trainers[p]; // Station standardmäßig dem Gruppen-Trainer zuweisen
         const isMain=typ==="main";
         const catOpts=isMain?TP_MAIN_CATS.map(c=>`<option value="${c.key}">${c.label}</option>`).join(""):"";
         html+=`<div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap">
@@ -7866,6 +7883,7 @@ function tpRenderTimeline(){
             <option value="">— Übung wählen —</option>${formOpts}
           </select>
           <button onclick="tpShowExFromSel('${selId}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--primary)" title="Übung anzeigen">ℹ️</button>
+          ${noGroups?"":tpCoachSelect(selId)}
         </div>
         <div id="${selId}-hist" style="padding-left:60px"></div>`;
       }
