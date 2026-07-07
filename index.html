@@ -109,7 +109,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .topt label.sel{background:var(--blue-bg)!important;color:#1e3a8a}
 .topt input[type=radio]{display:none}
 .lb{font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;flex-shrink:0;margin-top:2px}
-.lb1{background:#fee2e2;color:#991b1b}.lb2{background:#fef3c7;color:#92400e}.lb3{background:#dcfce7;color:#166534}
+.lb1{background:#fee2e2;color:#991b1b}.lb2{background:#fef3c7;color:#92400e}.lb3{background:#dcfce7;color:#166534}.lb4{background:#dbeafe;color:#1e40af}
 .ltitle{font-weight:600;display:block;font-size:11.5px;color:var(--text)}
 .ldesc{display:block;font-size:10.5px;color:var(--text2);margin-top:1px}
 
@@ -1209,194 +1209,176 @@ renderTrainerUI();
    t_auftreten, m_m1, m_m4, m_m8, m_m9. Deren Aspekte wurden in die Hilfetexte
    verbleibender Kriterien integriert. DIMS_TW bleibt unverändert. */
 const DIMS_FELD=[
-{id:"tech",label:"Technik & Ball",icon:"ti-ball-football",col:"#1a56db",w:0.28,
+{id:"tech",label:"Technik & Ball",icon:"ti-ball-football",col:"#1a56db",w:0.24,
  tier:[
-  {n:"t_ball",l:"Ballkontrolle",h:"Im Spielbetrieb unter Gegnerdruck",opts:[
-    {v:1,t:"Verspringt",d:"Annahme und erste Mitnahme noch unsicher"},
-    {v:2,t:"Kontrolliert",d:"Stabiles Dribbling im freien Raum, verliert Ball selten"},
-    {v:3,t:"Klebefuß",d:"Enger Kontakt auch direkt unter Gegnerdruck – intuitiv"}
+  {n:"f_ballkontrolle",l:"Ballkontrolle & Dribbling",h:"Enge Ballführung & 1gg1 unter Gegnerdruck",opts:[
+    {v:1,t:"Verspringt",d:"Annahme/Mitnahme unsicher, verliert Ball schnell"},
+    {v:2,t:"Kontrolliert",d:"Sichere Ballführung im freien Raum"},
+    {v:3,t:"Dribbelstark",d:"Übersteht 1gg1, Tempo- und Richtungswechsel"},
+    {v:4,t:"Klebefuß",d:"Löst enge Situationen kreativ – Ball wie angebunden"}
   ]},
-  {n:"t_pass",l:"Passspiel & Mitspieler-Sicht",h:"Qualität, Schärfe, Präzision, bewusstes Abspielen",opts:[
-    {v:1,t:"Wegschlagen",d:"Kein Mitspieler-Blick, unkontrolliertes Befreien"},
-    {v:2,t:"Gezielt",d:"Flache, bewusste Pässe – Mitspieler wird erkannt"},
-    {v:3,t:"Spielmacher",d:"Sieht Mitspieler im Raum – spielt präzise und mit Timing"}
+  {n:"f_pass",l:"Passspiel & Mitspielersicht",h:"Bewusstes, präzises Abspiel",opts:[
+    {v:1,t:"Wegschlagen",d:"Kein Mitspielerblick, befreit unkontrolliert"},
+    {v:2,t:"Gezielt",d:"Flache bewusste Pässe zum freien Mann"},
+    {v:3,t:"Vorausschauend",d:"Erkennt Anspiel früh, gutes Timing"},
+    {v:4,t:"Spielmacher",d:"Öffnet mit dem Pass Räume – präzise unter Druck"}
   ]},
-  {n:"t_dribble",l:"Dribbling & Finte",h:"1gg1-Mut, Kreativität, Lösungsfindung – auch in engen Räumen",opts:[
-    {v:1,t:"Geradeaus",d:"Keine Richtungswechsel, kein Täuschungsversuch"},
-    {v:2,t:"Variabel",d:"Tempowechsel, Außenrist, einfache Richtungswechsel"},
-    {v:3,t:"Straßenkicker",d:"Erfindet eigene Lösungen, traut sich Finten im 1gg1 zu"}
+  {n:"f_abschluss",l:"Torabschluss & Mut vorm Tor",h:"Entschlossenheit im Abschluss",opts:[
+    {v:1,t:"Zögert",d:"Sucht den Abschluss nicht, spielt lieber ab"},
+    {v:2,t:"Sucht Tor",d:"Schließt in klaren Situationen ab"},
+    {v:3,t:"Torgefährlich",d:"Geht entschlossen zum Abschluss"},
+    {v:4,t:"Vollstrecker",d:"Eiskalt & mutig, sucht den Abschluss aktiv"}
   ]}
  ],
- mx:[
-  {n:"m_t2",l:"Schwacher Fuß",h:"Grundnutzung im echten Spielbetrieb"},
-  {n:"m_t3",l:"Erste Ballmitnahme",h:"Vorwärts gerichtet, kontrolliert"},
-  {n:"m_t5",l:"Torschuss-Mut",h:"Entschlossenheit vor dem Tor – kein Zögern"},
-  {n:"m_t6",l:"Offensiv-1gg1",h:"Durchsetzung gegen Verteidiger"},
-  {n:"m_t7",l:"Defensiv-Zweikampf & Körpereinsatz",h:"Timing, Mut, Robustheit, Fairness"}
- ]
+ mx:[]
 },
-{id:"raute",label:"Rauten-IQ & Taktik",icon:"ti-chess",col:"#7c3aed",w:0.22,
+{id:"raute",label:"Spielintelligenz & Taktik",icon:"ti-chess",col:"#7c3aed",w:0.24,
  tier:[
-  {n:"t_raum",l:"Raumverständnis (Adler/Igel)",h:"Klumpen vs. Feld-groß-machen – Kernthema U9",opts:[
-    {v:1,t:"Balljäger",d:"Klumpen – orientiert sich nur am Ball, kennt weder Adler- noch Igel-Form"},
-    {v:2,t:"Auf Zuruf",d:"Reagiert auf 'Adler!' (breit) bzw. 'Igel!' (eng) wenn Trainer es ansagt"},
-    {v:3,t:"Eigenständig",d:"Wechselt selbstständig zwischen Adler (breit/offensiv) und Igel (eng/defensiv)"}
+  {n:"f_raum",l:"Raum & Position (Adler/Igel)",h:"Feld groß/eng machen statt Klumpen – Kernthema U9",opts:[
+    {v:1,t:"Balljäger",d:"Klumpen – orientiert sich nur am Ball"},
+    {v:2,t:"Auf Zuruf",d:"Reagiert auf 'Adler!'/'Igel!' des Trainers"},
+    {v:3,t:"Positionsbewusst",d:"Hält Korridor/Position eigenständig"},
+    {v:4,t:"Feldleser",d:"Wechselt selbst zwischen breit & eng, liest Situation"}
   ]},
-  {n:"t_rolle",l:"Rollenverständnis",h:"Position in der 4+1 Raute kennen und halten",opts:[
-    {v:1,t:"Freestyle",d:"Keine feste Rolle erkennbar – wechselt unkontrolliert"},
-    {v:2,t:"Mit Kommando",d:"Hält seine Rauten-Rolle nach Traineranweisung"},
-    {v:3,t:"Eigenverantwortlich",d:"Übernimmt Rolle selbstständig, liest Spielsituation"}
+  {n:"f_umschalt",l:"Umschalten & Pressing",h:"Offensiv ↔ Defensiv nach Ballverlust/-gewinn",opts:[
+    {v:1,t:"Träge",d:"Bleibt beim Umschaltmoment stehen"},
+    {v:2,t:"Reaktiv",d:"Schaltet auf Kommando um"},
+    {v:3,t:"Aktiv",d:"Läuft nach Ballverlust selbst an"},
+    {v:4,t:"Instinktiv",d:"Antizipiert Umschalten – sofortiges Gegenpressing"}
   ]},
-  {n:"t_umschalt",l:"Umschalt-Instinkt",h:"Offensiv ↔ Defensiv – Kernthema U9",opts:[
-    {v:1,t:"Träge",d:"Reagiert auf Ballverlust/-gewinn nicht aktiv – bleibt stehen"},
-    {v:2,t:"Reaktiv",d:"Schaltet auf direktes Trainerkommando um"},
-    {v:3,t:"Antizipativ",d:"Erkennt Umschaltmoment früh – instinktives Gegenpressing"}
+  {n:"f_laufweg",l:"Offensiv-Laufwege & Entscheidung",h:"Freilaufen, Tiefe, Solo vs. Abspiel",opts:[
+    {v:1,t:"Steht",d:"Bietet sich nicht an, keine Tiefe"},
+    {v:2,t:"Bewegt sich",d:"Löst sich, einfache Freiläufe"},
+    {v:3,t:"Timing",d:"Läuft in Schnittstellen, gute Entscheidung"},
+    {v:4,t:"Cleverness",d:"Antizipiert, wählt konstant die beste Lösung"}
+  ]},
+  {n:"f_defense",l:"Zweikampf & Verteidigen",h:"Absichern, Zweikampf, Timing, Fairness",opts:[
+    {v:1,t:"Weicht aus",d:"Meidet Zweikämpfe, lässt Gegner ziehen"},
+    {v:2,t:"Stellt",d:"Geht in Zweikämpfe, solides Timing"},
+    {v:3,t:"Ballgewinner",d:"Erobert Bälle, gutes Stellungsspiel hinten"},
+    {v:4,t:"Abwehrchef",d:"Sichert ab, gewinnt Zweikämpfe fair & robust"}
   ]}
  ],
- mx:[
-  {n:"m_k1",l:"Freiläufe vor Ballerhalt",h:"Antizipation und Timing"},
-  {n:"m_k2",l:"Defensiv-Positionierung",h:"Aufpasser-Rolle, Restverteidigung absichern"},
-  {n:"m_k3",l:"Offensiv-Laufwege",h:"Flitzer/Jäger – Tiefenläufe in Schnittstellen"},
-  {n:"m_k4",l:"Solo vs. Abspiel",h:"Entscheidungsqualität in der konkreten Situation"},
-  {n:"m_k6",l:"Pressing-Instinkt",h:"Aktives Anlaufen nach Ballverlust"}
- ]
+ mx:[]
 },
-{id:"phys",label:"Physis & Motorik",icon:"ti-run",col:"#d97706",w:0.2,
+{id:"phys",label:"Dynamik & Motorik",icon:"ti-run",col:"#d97706",w:0.16,
  tier:[
-  {n:"t_speed",l:"Antritt & Tempo",h:"Sprint 10m – Reaktionsschnelligkeit",opts:[
-    {v:1,t:"Gemächlich",d:"Deutlich langsamer als Altersgruppe"},
+  {n:"f_tempo",l:"Tempo & Antritt",h:"Sprint & Reaktionsschnelligkeit",opts:[
+    {v:1,t:"Gemächlich",d:"Langsamer als der Altersschnitt"},
     {v:2,t:"Altersgerecht",d:"Durchschnittlicher Antritt für U9"},
-    {v:3,t:"Blitzschnell",d:"Klar überdurchschnittlich – entscheidende Waffe im 1gg1"}
+    {v:3,t:"Schnell",d:"Überdurchschnittlich – Waffe im 1gg1"},
+    {v:4,t:"Blitzschnell",d:"Klar schnellster Bereich, entscheidet Duelle"}
   ]},
-  {n:"t_koord",l:"Koordination & Motorik",h:"Bewegungsqualität, Gleichgewicht (auch bei Körperkontakt), Wendigkeit",opts:[
-    {v:1,t:"Unsicher",d:"Stolpert, Richtungswechsel noch schwierig"},
+  {n:"f_koord",l:"Koordination & Wendigkeit",h:"Bewegungsqualität, Gleichgewicht, Richtungswechsel",opts:[
+    {v:1,t:"Unsicher",d:"Stolpert, Richtungswechsel schwierig"},
     {v:2,t:"Solide",d:"Altersgerechte Grundkoordination"},
-    {v:3,t:"Athletisch",d:"Überdurchschnittlich – elegante Richtungswechsel, sicheres Gleichgewicht"}
+    {v:3,t:"Wendig",d:"Saubere Richtungswechsel, gutes Gleichgewicht"},
+    {v:4,t:"Athletisch",d:"Elegant & wendig, auch bei Körperkontakt stabil"}
   ]},
-  {n:"t_einsatz",l:"Laufbereitschaft",h:"Energie und Aktivität über das gesamte Training – auch Laufarbeit ohne Ball",opts:[
-    {v:1,t:"Passiv",d:"Zieht sich aus Laufduellen heraus – wartet auf den Ball"},
-    {v:2,t:"Stabil",d:"Regelmäßige, verlässliche Laufarbeit"},
-    {v:3,t:"Ausdauermotor",d:"Immer anspielbar und anlaufend – höchste Aktivität"}
+  {n:"f_einsatz",l:"Laufbereitschaft & Energie",h:"Aktivität über die gesamte Einheit – auch ohne Ball",opts:[
+    {v:1,t:"Passiv",d:"Wartet auf den Ball, zieht sich raus"},
+    {v:2,t:"Stabil",d:"Verlässliche Laufarbeit"},
+    {v:3,t:"Aktiv",d:"Immer anspielbar und anlaufend"},
+    {v:4,t:"Ausdauermotor",d:"Höchste Aktivität bis zum Schluss"}
   ]}
  ],
- mx:[
-  {n:"m_p2",l:"Beweglichkeit & Wendigkeit",h:"Richtungswechsel mit und ohne Ball"},
-  {n:"m_p5",l:"Leistungskurve Training",h:"Hält Niveau bis zum Trainingsende"}
- ]
+ mx:[]
 },
-{id:"mental",label:"Mentalität & Charakter",icon:"ti-brain",col:"#059669",w:0.19,
+{id:"mental",label:"Persönlichkeit & Charakter",icon:"ti-brain",col:"#059669",w:0.24,
  tier:[
-  {n:"t_fokus",l:"Fokus & Konzentration",h:"Im Training – bei Erklärungen, Wartezeiten, Übergängen",opts:[
-    {v:1,t:"Abgelenkt",d:"Verliert schnell den Fokus – spielt, quatscht, schaut woanders hin"},
-    {v:2,t:"Stabil",d:"Folgt Erklärungen, bleibt bei der Sache mit gelegentlichen Aussetzern"},
-    {v:3,t:"Hochkonzentriert",d:"Volle Aufmerksamkeit – nimmt jeden Impuls sofort auf"}
+  {n:"f_selbst",l:"Selbstvertrauen & Mut unter Druck",h:"Traut sich Aktionen ohne Bestätigung zu",opts:[
+    {v:1,t:"Zögert",d:"Weicht Druck aus, gibt Ball schnell ab"},
+    {v:2,t:"Stabil",d:"Sicher in Normalsituationen"},
+    {v:3,t:"Mutig",d:"Sucht Verantwortung auch unter Druck"},
+    {v:4,t:"Sucht die Situation",d:"Will den Ball in engen Momenten, traut sich alles"}
   ]},
-  {n:"t_resil",l:"Resilienz",h:"Umgang mit Fehlern, Niederlagen, schwierigen Phasen",opts:[
-    {v:1,t:"Bricht ein",d:"Fehler blockieren das Weiterspielen – Kopf hängt sofort"},
-    {v:2,t:"Erholt sich",d:"Braucht kurz, findet dann wieder zurück"},
-    {v:3,t:"Unerschütterlich",d:"Nutzt Fehler als Antrieb – wird danach stärker"}
+  {n:"f_team",l:"Teamgeist & Kommunikation",h:"Ansagen, anfeuern, Mitspieler fördern",opts:[
+    {v:1,t:"Einzelkämpfer",d:"Kaum Interaktion, fordert Ball nur für sich"},
+    {v:2,t:"Teamplayer",d:"Spielt ab, kommuniziert, unterstützt"},
+    {v:3,t:"Motivator",d:"Feuert an, coacht Mitspieler"},
+    {v:4,t:"Anführer",d:"Reißt Team mit, auch nach Rückschlägen"}
   ]},
-  {n:"t_sozial",l:"Soziale Einstellung & Auftreten",h:"Augenhöhe, Respekt (auch ggü. Schwächeren), Miteinander – im Spiel, in Pausen, in der Kabine",opts:[
-    {v:1,t:"Außenseiter",d:"Isoliert sich oder zeigt Überlegenheitsgefühl – auf Augenhöhe schwierig"},
-    {v:2,t:"Integriert",d:"Spielt fair zusammen, akzeptiert alle Mitspieler"},
-    {v:3,t:"Echte Einheit",d:"Fördert Zusammenhalt aktiv – niemand bleibt außen vor"}
+  {n:"f_sozial",l:"Soziale Einstellung & Fairness",h:"Augenhöhe, Respekt, Miteinander",opts:[
+    {v:1,t:"Schwierig",d:"Isoliert sich oder zeigt Überlegenheit"},
+    {v:2,t:"Integriert",d:"Fair, akzeptiert alle Mitspieler"},
+    {v:3,t:"Verbindend",d:"Bindet ein, achtet auf Schwächere"},
+    {v:4,t:"Herz des Teams",d:"Fördert Zusammenhalt aktiv – niemand außen vor"}
   ]},
-  {n:"t_team",l:"Teamgeist & Kommunikation",h:"Interaktion, Ansagen, Mitspieler fördern",opts:[
-    {v:1,t:"Einzelkämpfer",d:"Kaum Interaktion, feuert nicht an, fordert Ball nur für sich"},
-    {v:2,t:"Teamplayer",d:"Spielt freiwillig ab, kommuniziert, unterstützt"},
-    {v:3,t:"Anführer",d:"Reißt Team mit, motiviert nach Rückschlägen aktiv"}
-  ]},
-  {n:"t_lern",l:"Coachability",h:"Umsetzung von Trainer-Impulsen im Spielbetrieb",opts:[
-    {v:1,t:"Braucht Zeit",d:"Fehler wiederholt sich trotz mehrfacher Ansprache"},
-    {v:2,t:"Regelmäßig",d:"Lernt mit mehrfacher Wiederholung zuverlässig"},
-    {v:3,t:"Blitzlernend",d:"Ein Hinweis genügt – sofortige Umsetzung im nächsten Spielzug"}
-  ]},
-  {n:"t_selbstvertrauen",l:"Selbstvertrauen unter Druck",h:"Verhalten mit Ball unter Druck – traut sich eigene Entscheidungen ohne Trainerbestätigung zu",opts:[
-    {v:1,t:"Zögert",d:"Weicht Druck aus, gibt Ball schnell ab, meidet riskante Situationen"},
-    {v:2,t:"Stabil",d:"Spielt sicher in normalen Situationen, bei hohem Druck etwas zurückhaltend"},
-    {v:3,t:"Sucht die Situation",d:"Hohes Selbstvertrauen – sucht Druck aktiv, traut sich alles zu"}
+  {n:"f_resil",l:"Resilienz & Frustrationstoleranz",h:"Umgang mit Fehlern & Rückschlägen",opts:[
+    {v:1,t:"Bricht ein",d:"Kopf hängt sofort nach Fehler"},
+    {v:2,t:"Erholt sich",d:"Braucht kurz, findet zurück"},
+    {v:3,t:"Stabil",d:"Steckt Fehler weg, bleibt im Spiel"},
+    {v:4,t:"Unerschütterlich",d:"Nutzt Fehler als Antrieb"}
   ]}
  ],
- mx:[
-  {n:"m_m2",l:"Frustrationstoleranz & Auftreten nach Misserfolg",h:"Bei eigenem Fehler, Gegentor, Niederlage – inkl. Körpersprache danach"},
-  {n:"m_m3",l:"Spielfreude & Eigenmotivation",h:"Kommt mit Energie, fragt nach mehr, hat Spaß"},
-  {n:"m_m5",l:"Kommunikation auf dem Feld",h:"Ruft an, zeigt sich, fordert Ball, lobt Mitspieler"},
-  {n:"m_m6",l:"Körpersprache im Spiel",h:"Aufrechte Haltung, Präsenz, Ausstrahlung"},
-  {n:"m_m7",l:"Umgang mit Kritik",h:"Reaktion wenn Trainer korrigiert – Hinweis annehmen und umsetzen"}
- ]
+ mx:[]
 },
-{id:"entw",label:"Entwicklungspotenzial",icon:"ti-trending-up",col:"#0e7490",w:0.11,
+{id:"entw",label:"Lernen & Entwicklung",icon:"ti-trending-up",col:"#0e7490",w:0.12,
  tier:[
-  {n:"t_neug",l:"Eigeninitiative & Neugier",h:"Engagement über das Training hinaus",opts:[
-    {v:1,t:"Passiv",d:"Entwicklung nur im strukturierten Training sichtbar"},
-    {v:2,t:"Interessiert",d:"Fragt nach Übungen, probiert Sachen selbst"},
-    {v:3,t:"Fußball-Junkie",d:"Kickt privat, kommt mit eigenen Ideen"}
+  {n:"f_coach",l:"Coachability & Fokus",h:"Impulse aufnehmen & konzentriert umsetzen",opts:[
+    {v:1,t:"Braucht Zeit",d:"Fehler wiederholt sich, oft abgelenkt"},
+    {v:2,t:"Regelmäßig",d:"Setzt mit Wiederholung um, solider Fokus"},
+    {v:3,t:"Aufmerksam",d:"Nimmt Hinweise gut auf, konzentriert"},
+    {v:4,t:"Blitzlernend",d:"Ein Hinweis genügt, volle Aufmerksamkeit"}
   ]},
-  {n:"t_devt",l:"Entwicklungstempo",h:"Fortschritt seit letzter Bewertung / Saisonstart",opts:[
-    {v:1,t:"Stagnation",d:"Kaum sichtbarer Fortschritt trotz regelmäßigem Training"},
-    {v:2,t:"Kontinuierlich",d:"Altersgerechter, stetiger Fortschritt"},
-    {v:3,t:"Sprung",d:"Deutlicher Schritt nach vorne – übertrifft Erwartungen klar"}
+  {n:"f_freude",l:"Spielfreude & Eigeninitiative",h:"Energie, Neugier, Engagement über das Training hinaus",opts:[
+    {v:1,t:"Passiv",d:"Wenig sichtbare Eigenmotivation"},
+    {v:2,t:"Interessiert",d:"Kommt gern, macht mit"},
+    {v:3,t:"Begeistert",d:"Fragt nach mehr, probiert selbst"},
+    {v:4,t:"Fußball-Junkie",d:"Brennt, kickt privat, bringt eigene Ideen"}
   ]}
  ],
- mx:[
-  {n:"m_e1",l:"Regelverständnis Funino/4+1",h:"Kennt und hält die Grundregeln"},
-  {n:"m_e2",l:"Transferleistung",h:"Gelerntes in neuen Situationen anwenden"},
-  {n:"m_e3",l:"Kreativität & Problemlösung",h:"Erfindet eigene spielerische Lösungen"}
- ]
+ mx:[]
 }
 ];
 
 /* TW-Kriterien (für Lukas, Hugo, Kolja als Erweiterung) */
 const DIMS_TW=[
-{id:'tw_tech',label:'TW-Technik & Reaktion',icon:'ti-hand-stop',col:'#854d0e',w:0.55,
+{id:'tw_tech',label:'TW-Technik & Aktion',icon:'ti-hand-stop',col:'#854d0e',w:0.55,
  tier:[
-  {n:'tw_pos',l:'Grundposition & Bereitschaft',h:'Haltung, Federbewegung, Positionierung im Tor',opts:[
-    {v:1,t:'Steht flach',d:'Keine Bereitschaftshaltung – reagiert zu spät auf Schüsse'},
-    {v:2,t:'Grundstellung',d:'Hält altersgerechte TW-Position mit leichter Vorlage'},
-    {v:3,t:'Aktiv bereit',d:'Federt, antizipiert Schussrichtung – immer in Bewegungsbereitschaft'}
+  {n:'tw_fangen',l:'Fangen & Ball sichern',h:'Bälle sicher fangen und festhalten',opts:[
+    {v:1,t:'Unsicher',d:'Lässt viele Bälle abprallen, kein sicherer Griff'},
+    {v:2,t:'Solide',d:'Fängt erreichbare Bälle altersgerecht'},
+    {v:3,t:'Sicher',d:'Sichert Bälle zuverlässig mit beiden Händen'},
+    {v:4,t:'Fangsicher',d:'Klebt am Ball – auch schwierige Bälle festgehalten'}
   ]},
-  {n:'tw_reflex',l:'Reaktion & Reflexe',h:'Auf direkte Schüsse – reine Reflexqualität',opts:[
-    {v:1,t:'Zu spät',d:'Reagiert häufig zu spät – Ball ist schon drin bevor er sich bewegt'},
-    {v:2,t:'Altersgerecht',d:'Hält Bälle die für U9 erreichbar sind – solide Grundreaktion'},
-    {v:3,t:'Blitzreaktion',d:'Außergewöhnliche Reflexe für das Alter – hält auch schwierige Bälle'}
+  {n:'tw_heraus',l:'Herausgehen: Mut & Entscheidung',h:'Wann kommt er raus – mutig und richtig?',opts:[
+    {v:1,t:'Bleibt',d:'Bleibt auf der Linie, auch bei klaren Situationen'},
+    {v:2,t:'Auf Ansage',d:'Geht heraus wenn Trainer/Mitspieler es ansagt'},
+    {v:3,t:'Entscheidet',d:'Entscheidet meist selbst und richtig'},
+    {v:4,t:'Herr des Raums',d:'Mutig & sicher, beherrscht den Strafraum'}
   ]},
-  {n:'tw_heraus',l:'Herausgehen & Entscheidung',h:'Wann kommt er raus? Mutig oder zögerlich?',opts:[
-    {v:1,t:'Bleibt immer',d:'Kein Herausgehen auch bei klaren Situationen – bleibt auf der Linie'},
-    {v:2,t:'Auf Ansage',d:'Geht heraus wenn Trainer oder Mitspieler es ansagt'},
-    {v:3,t:'Eigenständig',d:'Entscheidet selbst und richtig – mutig, sicher, zum richtigen Moment'}
+  {n:'tw_reaktion',l:'Reaktion auf Schüsse',h:'Reaktionsschnelligkeit auf direkte Schüsse',opts:[
+    {v:1,t:'Zu spät',d:'Reagiert oft zu spät – Ball ist schon drin'},
+    {v:2,t:'Altersgerecht',d:'Hält für U9 erreichbare Bälle'},
+    {v:3,t:'Schnell',d:'Gute Reaktion, hält auch platzierte Bälle'},
+    {v:4,t:'Reflexstark',d:'Außergewöhnliche Reflexe für das Alter'}
+  ]},
+  {n:'tw_stellung',l:'Stellungsspiel & Winkel',h:'Position im Tor – verkürzt Winkel',opts:[
+    {v:1,t:'Steht mittig',d:'Bleibt immer in der Tormitte stehen'},
+    {v:2,t:'Grundstellung',d:'Hält altersgerechte Grundposition'},
+    {v:3,t:'Verkürzt',d:'Geht dem Schützen entgegen, verkürzt Winkel'},
+    {v:4,t:'Winkel-clever',d:'Stellt sich stark, macht das Tor klein'}
   ]}
  ],
- mx:[
-  {n:'m_tw1',l:'Fangen & Festhalten',h:'Bälle sicher mit beiden Händen fangen und festhalten'},
-  {n:'m_tw2',l:'Abwurf & Ballverteilung',h:'Gezielter Abwurf nach Parade – initiiert Konter'},
-  {n:'m_tw3',l:'1gg1 beim Herauslaufen',h:'Richtige Entscheidung im Duell mit dem Stürmer'},
-  {n:'m_tw4',l:'Positionierung im Tor',h:'Verkürzt Winkel aktiv – steht nicht immer in der Mitte'}
- ]
+ mx:[]
 },
-{id:'tw_spiel',label:'TW-Spielverhalten & Führung',icon:'ti-chess',col:'#6d28d9',w:0.45,
+{id:'tw_spiel',label:'TW-Spiel & Führung',icon:'ti-chess',col:'#6d28d9',w:0.45,
  tier:[
-  {n:'tw_komm',l:'Kommunikation & Führung',h:'Ansagen an Mitspieler – dirigiert die Viererkette',opts:[
-    {v:1,t:'Still',d:'Keine Ansagen – Mitspieler erhalten vom TW keine Orientierung'},
-    {v:2,t:'Reagiert',d:'Ruft bei klaren Situationen – Mein Ball! oder Komm!'},
-    {v:3,t:'Dirigiert',d:'Organisiert Viererkette aktiv – echter Torhüter-Leader für sein Alter'}
+  {n:'tw_aufbau',l:'Abwurf & Spielaufbau',h:'Qualität des ersten Passes nach Ballbesitz',opts:[
+    {v:1,t:'Wegschlagen',d:'Unkontrolliert ohne Mitspielersicht'},
+    {v:2,t:'Gezielt',d:'Spielt bewusst zum Aufpasser/freien Mann'},
+    {v:3,t:'Eröffnet',d:'Leitet Angriffe gezielt ein'},
+    {v:4,t:'Spielmacher',d:'Initiiert Konter mit präzisem erstem Pass'}
   ]},
-  {n:'tw_aufbau',l:'Spielaufbau nach Parade',h:'Qualität des ersten Passes nach Ballbesitz',opts:[
-    {v:1,t:'Wegschlagen',d:'Unkontrolliertes Wegschlagen ohne Mitspieler-Sicht'},
-    {v:2,t:'Gezielt',d:'Spielt bewusst auf Aufpasser oder freien Mitspieler'},
-    {v:3,t:'Spielmacher',d:'Initiiert Angriffe mit präzisem gezieltem ersten Pass'}
-  ]},
-  {n:'tw_mut',l:'Mut & Zweikampfbereitschaft',h:'Wirft sich in riskante Situationen – kein Zögern',opts:[
-    {v:1,t:'Zögerlich',d:'Zieht zurück wenn Druck kommt – meidet Körperkontakt'},
-    {v:2,t:'Stabil',d:'Geht in normale Situationen ohne Zögern – solide Grundhaltung'},
-    {v:3,t:'Furchtlos',d:'Wirft sich mutig auch in riskante 50/50-Situationen'}
+  {n:'tw_komm',l:'Kommunikation & Organisieren',h:'Ansagen an Mitspieler – dirigiert die Abwehr',opts:[
+    {v:1,t:'Still',d:'Keine Ansagen, gibt keine Orientierung'},
+    {v:2,t:'Reagiert',d:'Ruft bei klaren Situationen: Mein Ball! / Komm!'},
+    {v:3,t:'Dirigiert',d:'Organisiert die Abwehr aktiv'},
+    {v:4,t:'Leader',d:'Echter Torhüter-Leader für sein Alter'}
   ]}
  ],
- mx:[
-  {n:'m_tw5',l:'Verhalten bei Standards & Ecken',h:'Richtige Position, Herausgehen vs. Bleiben'},
-  {n:'m_tw6',l:'Konter-Einleitung nach Parade',h:'Schnelle gezielte Ballverteilung in Angriff'},
-  {n:'m_tw7',l:'Führungsverhalten auf dem Platz',h:'Motiviert Mitspieler auch nach Gegentor aktiv'},
-  {n:'m_tw8',l:'Fußarbeit & Mitspielen',h:'Aktives Mitspielen als +1 – Anspielstation für Aufpasser, saubere Ballverarbeitung mit dem Fuß'}
- ]
+ mx:[]
 }];
 
 /* ═══════════════════════════════════
@@ -1432,63 +1414,52 @@ const getMeta=()=>({
    SCORES
 ═══════════════════════════════════ */
 function calcScores(v,dims){
-  const tn=(val,mx=3)=>val?((val-1)/(mx-1))*100:null;
-  const mn=(val,mx=5)=>val?((val-1)/(mx-1))*100:null;
+  // Bewertungsmodell v2: einheitliche 1–4-Skala (1=Ansatz … 4=Stark) -> 0–100.
+  // Alle Kriterien liegen in d.tier; d.mx ist leer (Altstruktur, defensiv mitgenommen).
+  const sc=val=>val?((val-1)/3)*100:null;
   const ds={};
   dims.forEach(d=>{
-    const tv=d.tier.map(t=>tn(v[t.n])).filter(x=>x!==null);
-    const mv=d.mx.map(m=>mn(v[m.n])).filter(x=>x!==null);
-    const ta=tv.length?tv.reduce((a,b)=>a+b,0)/tv.length:0;
-    const ma=mv.length?mv.reduce((a,b)=>a+b,0)/mv.length:0;
-    ds[d.id]=Math.round(ta*0.45+ma*0.55);
+    const vals=[...d.tier.map(t=>sc(v[t.n])),...d.mx.map(m=>sc(v[m.n]))].filter(x=>x!==null);
+    ds[d.id]=vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):0;
   });
   // Gesamtscore nur aus Feldspieler-Dimensionen (fair für TW-Spieler)
   const feldDims=dims.filter(d=>!d.id.startsWith("tw_"));
-  const total=Math.round(feldDims.reduce((s,d)=>s+(ds[d.id]||0)*d.w/feldDims.reduce((a,b)=>a+b.w,0),0));
+  const wsum=feldDims.reduce((a,b)=>a+b.w,0);
+  const total=wsum?Math.round(feldDims.reduce((s,d)=>s+(ds[d.id]||0)*d.w/wsum,0)):0;
   return{dims:ds,total};
 }
 
 function calcPotenzial(v,total,att,isTw){
-  const lernKey="t_lern";
-  const lm={1:1.00,2:1.06,3:1.14}[v[lernKey]||2]||1.06;
+  // v2: Lernfähigkeit (f_coach) als Multiplikator, Spielfreude/Eigeninitiative (f_freude) als Bonus.
+  const lm={1:1.00,2:1.05,3:1.10,4:1.15}[v["f_coach"]||2]||1.05;
   const am={1:0.97,2:1.00,3:1.04}[parseInt(att)]||1.00;
-  const nb={1:0,2:3,3:7}[v["t_neug"]||1]||0;
-  const db={1:0,2:4,3:9}[v["t_devt"]||1]||0;
-  return Math.min(100,Math.max(total,Math.round(total*lm*am+nb+db))); // F1: Potenzial nie unter Niveau
+  const fb={1:0,2:3,3:6,4:9}[v["f_freude"]||1]||0;
+  return Math.min(100,Math.max(total,Math.round(total*lm*am+fb))); // Potenzial nie unter Niveau
 }
 
 /* ═══════════════════════════════════
    RAUTEN-ROLLEN-ALGORITHMUS
 ═══════════════════════════════════ */
 function calcRolle(v,foot,neutralMissing=false){
-  // F2: neutralMissing=true (Live-Vorschau) wertet fehlende Kriterien als 50 statt 0 – Vorschau springt nicht mehr
-  const tn=(val,mx=3)=>val?((val-1)/(mx-1))*100:(neutralMissing?50:0);
-  const mn=(val,mx=5)=>val?((val-1)/(mx-1))*100:(neutralMissing?50:0);
-  const s=n=>v[n]||0;
-  // ── AUFPASSER ──
-  const aufRaw=tn(s("t_pass"))*.24+mn(s("m_k4"))*.14+mn(s("m_t7"))*.16
-              +mn(s("m_k6"))*.12+mn(s("m_k2"))*.12+tn(s("t_rolle"))*.12+tn(s("t_raum"))*.10;
-  // In der Live-Vorschau (neutralMissing) keine Maluse: sie sollen bestätigte Schwäche
-  // bestrafen, nicht neutral aufgefüllte Lücken – sonst wird Aufpasser systematisch
-  // benachteiligt und die Vorschau kippt zu Flitzer (Review 3, Punkt 4a).
-  const passQuality=(tn(s("t_pass"))+mn(s("m_k4")))/2;
-  const aufMalus=neutralMissing?1.0:(passQuality<35?0.65:passQuality<55?0.85:1.0);
-  const aufBonus=(mn(s("m_t7"))>60&&passQuality>60)?1.08:1.0;
-  const auf=aufRaw*aufMalus*aufBonus;
+  // v2: einheitliche 1–4-Skala. neutralMissing=true (Live-Vorschau) wertet fehlende
+  // Kriterien als 50 statt 0 – die Vorschau springt dann nicht.
+  const S=n=>{const val=v[n];return val?((val-1)/3)*100:(neutralMissing?50:0);};
+  // ── AUFPASSER ── Pass, Raum, Zweikampf, Umschalten (Gewichte summieren auf 1.0)
+  const aufRaw=S("f_pass")*.30+S("f_raum")*.24+S("f_defense")*.28+S("f_umschalt")*.18;
+  const passQuality=S("f_pass");
+  const aufMalus=neutralMissing?1.0:(passQuality<33?0.68:passQuality<55?0.86:1.0);
+  const auf=aufRaw*aufMalus;
 
-  // ── JÄGER ──
-  const jaegRaw=mn(s("m_t5"))*.28+mn(s("m_t6"))*.24+mn(s("m_k3"))*.18
-               +tn(s("t_dribble"))*.12+mn(s("m_k1"))*.10+tn(s("t_selbstvertrauen"))*.08;
-  const torInstinkt=(mn(s("m_t5"))+mn(s("m_t6")))/2;
-  const jaegMalus=neutralMissing?1.0:(torInstinkt<25?0.70:torInstinkt<45?0.85:1.0);
+  // ── JÄGER ── Abschluss, Laufweg, Selbstvertrauen, Ballkontrolle
+  const jaegRaw=S("f_abschluss")*.34+S("f_laufweg")*.24+S("f_selbst")*.16+S("f_ballkontrolle")*.26;
+  const torInstinkt=S("f_abschluss");
+  const jaegMalus=neutralMissing?1.0:(torInstinkt<33?0.70:torInstinkt<55?0.86:1.0);
   const jaeg=jaegRaw*jaegMalus;
 
-  // ── FLITZER ──
-  const fbRaw=tn(s("t_speed"))*.30+mn(s("m_p2"))*.18+tn(s("t_raum"))*.14
-             +tn(s("t_koord"))*.16+tn(s("t_einsatz"))*.10+tn(s("t_dribble"))*.12;
-  const tempoMalus=neutralMissing?1.0:(tn(s("t_speed"))<25?0.75:tn(s("t_speed"))<50?0.90:1.0);
-  const raumMalus=neutralMissing?1.0:(tn(s("t_raum"))<25?0.85:1.0);
-  const fb=fbRaw*tempoMalus*raumMalus;
+  // ── FLITZER ── Tempo, Koordination, Ballkontrolle, Einsatz
+  const fbRaw=S("f_tempo")*.34+S("f_koord")*.22+S("f_ballkontrolle")*.24+S("f_einsatz")*.20;
+  const tempoMalus=neutralMissing?1.0:(S("f_tempo")<33?0.76:S("f_tempo")<55?0.90:1.0);
+  const fb=fbRaw*tempoMalus;
 
   const fl_l=foot==="L"?fb*1.03:foot==="B"?fb:fb*.94;
   const fl_r=foot==="R"?fb*1.03:foot==="B"?fb:fb*.94;
@@ -1520,39 +1491,31 @@ function generateFazitFeld(v,meta){
   const name=meta.name;
   const age=parseInt(meta.age);
   const bench=age<=7?36:44;
+  const sc=n=>{const val=v[n];return val?((val-1)/3)*100:0;};
 
-  // Spielertyp-Charakterisierung
-  const stMax=Object.entries(ds).sort((a,b)=>b[1]-a[1])[0];
-  const stMin=Object.entries(ds).sort((a,b)=>a[1]-b[1])[0];
-  const typMap={tech:"technischer Spieler",raute:"taktisch denkender Spieler",phys:"athletischer Spieler",mental:"charakterstarker Spieler",entw:"lernbegieriger Spieler"};
+  // Spielertyp aus stärkster Feld-Dimension
+  const dsF=Object.entries(ds).filter(([k])=>!k.startsWith("tw_"));
+  const stMax=[...dsF].sort((a,b)=>b[1]-a[1])[0]||["tech",0];
+  const typMap={tech:"technischer Spieler",raute:"spielintelligenter Spieler",phys:"dynamischer Spieler",mental:"charakterstarker Spieler",entw:"lernbegieriger Spieler"};
   const typ=typMap[stMax[0]]||"Allrounder";
 
-  // Soziale Einstellung Flags
-  const sozRaw=v["t_sozial"]||2;
-  const sozOK=sozRaw>=2;
-  const sozKrit=sozRaw===1;
-  const fokusRaw=v["t_fokus"]||2;
-  const fokusStark=fokusRaw===3;
-  const fokusSchwach=fokusRaw===1;
+  const sozRaw=v["f_sozial"]||2, sozKrit=sozRaw===1;
+  const coachRaw=v["f_coach"]||2, fokusStark=coachRaw===4, fokusSchwach=coachRaw===1;
 
-  // ── ZUSAMMENFASSUNG (wird separat gerendered) ──
+  // ── ZUSAMMENFASSUNG ──
   let summary="";
-  if(ds.tech>=bench+20)summary+=`${name} zeigt technisch bereits ein Niveau, das klar über dem Altersschnitt der U9 I liegt. `;
-  else if(ds.tech>=bench)summary+=`${name} befindet sich technisch auf altersgerechtem Niveau mit einem soliden Fundament. `;
-  else summary+=`${name} ist technisch noch im Aufbau – die Grundlagen wollen mit Geduld und vielen Ballkontakten weiter gefestigt werden. `;
+  if(ds.tech>=bench+20)summary+=`${name} zeigt technisch bereits ein Niveau klar über dem Altersschnitt der U9 I. `;
+  else if(ds.tech>=bench)summary+=`${name} befindet sich technisch auf altersgerechtem Niveau mit solidem Fundament. `;
+  else summary+=`${name} ist technisch noch im Aufbau – Grundlagen mit Geduld und vielen Ballkontakten festigen. `;
+  if((v["f_raum"]||0)>=3)summary+=`Das Raumgefühl in der Raute ist ausgeprägt – ${name} öffnet das Feld selbstständig. `;
+  else if((v["f_raum"]||0)===1)summary+=`Die Tendenz zur Klumpenbildung ist aktuell das größte taktische Entwicklungsfeld. `;
+  if(fokusStark)summary+=`Besonders auffällig ist die Konzentration und Lernbereitschaft. `;
+  else if(fokusSchwach)summary+=`Fokus und die Umsetzung von Hinweisen sind ausbaufähig. `;
+  if(sozKrit)summary+=`Im sozialen Miteinander zeigt ${name} Verhalten, das die Teamdynamik erschwert – ein wichtiges Thema. `;
+  else if(sozRaw>=3)summary+=`${name} ist ein echter Teamplayer, der Zusammenhalt aktiv fördert. `;
+  summary+=`Als ${typ} mit Tendenz zur Rolle ${rolle.primLabel}. Entwicklungsstand: ${total}% – Potenzial: ~${pot}%.`;
 
-  if(v["t_raum"]===3)summary+=`Das Raumgefühl in der 4+1 Raute ist bereits ausgeprägt – ${name} öffnet das Feld selbstständig und stabilisiert das System. `;
-  else if(v["t_raum"]===1)summary+=`Die Tendenz zur Klumpenbildung ist aktuell das größte taktische Entwicklungsfeld. `;
-
-  if(fokusStark)summary+=`Besonders auffällig ist die außergewöhnliche Konzentration im Training. `;
-  else if(fokusSchwach)summary+=`Die Konzentration im Training ist ausbaufähig – ${name} verliert den Fokus häufig während Erklärungen und Übungen. `;
-
-  if(sozKrit)summary+=`Im sozialen Miteinander zeigt ${name} Verhaltensweisen, die eine echte Teamdynamik erschweren – ein wichtiges Thema für die weitere Entwicklung. `;
-  else if(sozRaw===3)summary+=`${name} ist ein echter Teamplayer, der Zusammenhalt aktiv fördert und alle Mitspieler einbezieht. `;
-
-  summary+=`Als ${typ} mit der Tendenz zur Rolle ${rolle.primLabel} bringt ${name} Qualitäten mit, die in der Raute gezielt eingesetzt werden können. Entwicklungsstand: ${total}% – Potenzial: ~${pot}%.`;
-
-  // ── VOLLSTÄNDIGES FAZIT ──
+  // ── VOLLTEXT ──
   let r="";
   r+="┌─ ROLLE 4+1 RAUTE ─────────────────────────────┐\n";
   r+=`  Primär:    ${rolle.primLabel}\n`;
@@ -1561,111 +1524,62 @@ function generateFazitFeld(v,meta){
   r+=`  Bewertet:  ${meta.trainer} · ${meta.date||"–"}\n`;
   r+="└──────────────────────────────────────────────┘\n";
 
-  r+="\n━━ STÄRKEN ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
-  const st=[];
-  if(v["t_speed"]===3)    st.push("Explosiver Antritt – entscheidende Waffe im 1gg1 und Flitzer-Modus");
-  if((v["m_t5"]||0)>=4)   st.push("Torschuss-Mut – sucht und findet den Abschluss aktiv");
-  if((v["m_t6"]||0)>=4)   st.push("Offensiv-1gg1 – überspielt Gegner regelmäßig und selbstbewusst");
-  if(v["t_pass"]===3)     st.push("Spielmacher-Qualität – erkennt Mitspieler im Raum und spielt präzise");
-  if((v["m_t7"]||0)>=4)   st.push("Defensiv-Zweikampf – aggressiv, fair, mit gutem Timing");
-  if((v["m_k6"]||0)>=4)   st.push("Pressing-Instinkt – schaltet nach Ballverlust sofort um");
-  if(v["t_lern"]===3)     st.push("Blitzlernend – ein Trainer-Hinweis, sofortige Umsetzung");
-  if(v["t_team"]===3)     st.push("Anführerqualität – kommuniziert aktiv, motiviert das Team");
-  if(v["t_resil"]===3)    st.push("Mentale Stärke – Fehler als Antrieb, nicht als Bremse");
-  if(v["t_raum"]===3)     st.push("Raum-IQ – öffnet das Feld selbstständig breit und tief");
-  if(v["t_dribble"]===3)  st.push("Kreative Finten – findet unorthodoxe Lösungen im Dribbling");
-  if((v["m_k4"]||0)>=4)   st.push("Spielintelligenz – weiß wann Solo, wann Abspiel");
-  if(fokusStark)          st.push("Ausnahme-Konzentration – nimmt jeden Impuls sofort auf");
-  if(v["t_sozial"]===3)   st.push("Echter Teamplayer – fördert Zusammenhalt, bindet alle ein");
-  if(v["t_neug"]===3)     st.push("Fußball-Junkie – wächst auch außerhalb des Trainings");
-  if((v["m_m6"]||0)>=4)   st.push("Starke Körpersprache und Präsenz auf dem Feld");
+  // Stärken/Felder datengetrieben aus den 16 Kriterien (4=stark, 1–2=Entwicklungsfeld)
+  const allCrit=DIMS_FELD.flatMap(d=>d.tier.map(t=>({n:t.n,l:t.l})));
+  const st=allCrit.filter(c=>(v[c.n]||0)>=4).map(c=>c.l);
   if(st.length===0) st.push("Verlässliche, konstante Präsenz – solider Mannschaftsspieler");
-  st.forEach(s=>r+=`  + ${s}\n`);
+  r+="\n━━ STÄRKEN ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+  st.slice(0,8).forEach(s=>r+=`  + ${s}\n`);
 
+  const ef=allCrit.filter(c=>{const x=v[c.n]||0;return x>0&&x<=2;}).map(c=>c.l);
   r+="\n━━ ENTWICKLUNGSFELDER ━━━━━━━━━━━━━━━━━━━━━━━━━\n";
-  const ef=[];
-  if(v["t_raum"]===1)         ef.push("Raumverständnis: Korridor halten, Klumdenbildung aktiv auflösen");
-  if(v["t_rolle"]===1)        ef.push("Rauten-Rolle: eigene Position kennen und ohne Ansage halten");
-  if(fokusSchwach)            ef.push("Fokus im Training: Ablenkungen reduzieren – klare Erwartungshaltung");
-  if(sozKrit)                 ef.push("Soziale Einstellung: Augenhöhe zu allen Mitspielern gezielt fördern");
-  if((v["m_t2"]||0)<=2)       ef.push("Schwacher Fuß: Grundnutzung im echten Spielbetrieb aufbauen");
-  if((v["m_t5"]||0)<=2)       ef.push("Abschlussmut: entschlossener Torabschluss statt Zögern");
-  if(v["t_umschalt"]===1)     ef.push("Umschalten: sofortige Reaktion nach Ballverlust und -gewinn");
-  if((v["m_k4"]||0)<=2)       ef.push("Entscheidung Solo vs. Abspiel: Spielintelligenz schulen");
-  if(v["t_koord"]===1)        ef.push("Koordination: Koordinationsleiter, Fangspiele, Gleichgewichtsübungen");
-  if((v["m_k6"]||0)<=2)       ef.push("Pressing: aktives Anlaufen nach Ballverlust automatisieren");
-  if((v["m_m7"]||0)<=2)       ef.push("Umgang mit Kritik: Offenheit für Korrekturen stärken");
-  if(ef.length===0) ef.push("Handlungsschnelligkeit unter maximalem Gegnerdruck weiter schärfen");
-  ef.forEach(e=>r+=`  → ${e}\n`);
+  if(ef.length===0) r+="  → Auf gutem Niveau – Handlungsschnelligkeit unter Druck weiter schärfen\n";
+  else ef.slice(0,8).forEach(e=>r+=`  → ${e}\n`);
 
+  // ── RAUTEN-ANALYSE ──
   r+="\n━━ RAUTEN-ANALYSE (4+1) ━━━━━━━━━━━━━━━━━━━━━━━\n";
-  const passQ=((tn3(v["t_pass"])+mn5(v["m_k4"]))/2);
-  const aufDescStark=`${name} hat die Qualitäten für die Basis der Raute. Verteidigen, absichern, ersten Ball verteilen – das liegt ihm. Schlüsselfigur für defensive Stabilität.`;
-  const aufDescMittel=`${name} bringt die Basis für die Aufpasser-Position mit – Zweikampf, Absicherung und ein altersgerecht solides Passspiel. Der saubere erste Pass darf für mehr Stabilität in der Raute weiter wachsen, das Fundament stimmt aber.`;
-  const aufDescSchwach=`${name} bringt die körperliche und kämpferische Basis für die Aufpasser-Position mit (Zweikampf, Robustheit, Einsatz). Das Passspiel und die Spieleröffnung sind aktuell aber noch der limitierende Faktor – ohne sauberen ersten Pass bleibt die Raute hier instabil. Genau das ist der nächste Entwicklungsschritt.`;
+  const passQ=sc("f_pass");
+  const aufDescStark=`${name} hat die Qualitäten für die Basis der Raute: verteidigen, absichern, ersten Ball verteilen. Schlüsselfigur für defensive Stabilität.`;
+  const aufDescMittel=`${name} bringt die Basis für den Aufpasser mit – Zweikampf, Absicherung, altersgerechtes Passspiel. Der saubere erste Pass darf weiter wachsen.`;
+  const aufDescSchwach=`${name} bringt Zweikampf und Robustheit für den Aufpasser mit, aber Passspiel und Spieleröffnung sind noch der limitierende Faktor – der nächste Entwicklungsschritt.`;
   const rDesc={
-    // Mittleres Band (40–60 %): solide, altersgerecht – kein harter Sprung von "instabil" auf "Schlüsselfigur" (Review 3, Punkt 2)
     aufpasser:passQ<40?aufDescSchwach:passQ<60?aufDescMittel:aufDescStark,
-    jaeger:`${name}s Torhunger und Entschlossenheit machen ihn zur natürlichen Spitze. Den direkten Weg zum Tor suchen und nach Ballverlust sofort pressen.`,
-    flitzer_l:`${name}s Tempo und Wendigkeit prädestinieren ihn für die linke Außenbahn. Breite halten, Flanken ziehen, Räume für den Jäger öffnen.`,
-    flitzer_r:`${name}s Tempo und Wendigkeit machen ihn auf der rechten Außenbahn gefährlich. Breite halten, Korridor bespielen, Tiefenläufe für den Jäger einleiten.`
+    jaeger:`${name}s Torhunger und Entschlossenheit machen ihn zur natürlichen Spitze. Direkten Weg zum Tor suchen, nach Ballverlust sofort pressen.`,
+    flitzer_l:`${name}s Tempo und Wendigkeit prädestinieren ihn für die linke Außenbahn. Breite halten, Räume für den Jäger öffnen.`,
+    flitzer_r:`${name}s Tempo und Wendigkeit machen ihn rechts gefährlich. Breite halten, Tiefenläufe für den Jäger einleiten.`
   };
   r+=rDesc[rolle.prim]+"\n";
-  if(rolle.clarity==="unklar"){
-    r+=`Die Rollenfindung ist noch nicht eindeutig – ${name} liegt zwischen ${rolle.primLabel} und ${rolle.sekLabel} fast gleichauf. Aktuell macht es Sinn, beide Positionen im Training auszuprobieren statt früh festzulegen.\n`;
-  } else {
-    r+=`Sekundär einsetzbar als: ${rolle.sekLabel}.\n`;
-  }
-  if(rolle.topScore<35) r+="⚠ Insgesamt noch sehr früh in der Entwicklung – Rollenangaben sind erste Tendenzen, keine Festlegung.\n";
-  if(v["t_raum"]===1||ds.raute<40) r+="⚠ Raumverständnis noch schwach – klare Korridore vor fester Rollenvergabe einführen.\n";
-  if(rolle.prim==="aufpasser"&&passQ<40) r+="⚠ Passspiel/Spielaufbau ist Entwicklungspriorität Nr. 1 für diese Rolle – siehe Trainingsschwerpunkt.\n";
-  if((tn3(v["t_pass"])<35)&&(mn5(v["m_k4"])<35)) r+=`⚠ ${name} sucht aktuell fast ausschließlich die 1gg1-Lösung statt den Pass – häufiges Muster in diesem Alter, aber gezielt zu adressieren.\n`;
+  if(rolle.clarity==="unklar") r+=`Die Rollenfindung ist noch nicht eindeutig – ${name} liegt zwischen ${rolle.primLabel} und ${rolle.sekLabel} fast gleichauf. Beide Positionen im Training ausprobieren.\n`;
+  else r+=`Sekundär einsetzbar als: ${rolle.sekLabel}.\n`;
+  if(rolle.topScore<35) r+="⚠ Insgesamt noch sehr früh in der Entwicklung – Rollenangaben sind Tendenzen, keine Festlegung.\n";
+  if((v["f_raum"]||0)===1||ds.raute<40) r+="⚠ Raumverständnis noch schwach – klare Korridore vor fester Rollenvergabe.\n";
+  if(rolle.prim==="aufpasser"&&passQ<40) r+="⚠ Passspiel/Spielaufbau ist Entwicklungspriorität Nr. 1 für diese Rolle.\n";
 
+  // ── TRAININGS-SCHWERPUNKT (aus schwächster Dimension) ──
   r+="\n━━ TRAININGS-SCHWERPUNKT (2–3 WOCHEN) ━━━━━━━━━\n";
-  const sortedDims=Object.entries(ds).filter(([k])=>!k.startsWith("tw_")).sort((a,b)=>a[1]-b[1]);
-  const wn={tech:"Technik",raute:"Rauten-IQ",phys:"Physis",mental:"Mentalität & Charakter",entw:"Entwicklungspotenzial"};
-  // Überschrift und Übungen aus DERSELBEN Auswahl ableiten, damit sie zusammenpassen
-  // (Review 3, Punkt 3: vorher entkoppelt – "Baustelle: Physis" + Raum-Übung).
-  // Reihenfolge = pädagogische Trainingspriorität (konkreteste Baustelle zuerst).
-  let fokusLabel,ueb;
-  if((tn3(v["t_pass"])<35)&&(mn5(v["m_k4"])<35)){
-    fokusLabel="Passspiel & Spielaufbau";
-    ueb="ÜBUNG 1 – 'Pflichtpass-Funino':\nTor gilt nur wenn alle Spieler des Teams mindestens 1x den Ball hatten. Erzwingt Passspiel statt Solo-Lösungen – ohne dass der Trainer eingreifen muss.\n\nÜBUNG 2 – 'Komm-Geh-Passspiel':\nSpieler täuscht Richtung an, fordert dann Ball in den freien Raum. Grundprinzip des Freilaufens und der Anspielbarkeit – die Basis für jeden ersten Pass.";
-  } else if(v["t_raum"]===1){
-    fokusLabel="Raumverständnis (Rauten-IQ)";
-    ueb="ÜBUNG 1 – 'Korridor-Funino':\n3 Längskorridore. Jeder Spieler hält seinen. Tor gilt nur wenn alle 3 Korridore besetzt. Kommando: 'Feld groß machen!'\n\nÜBUNG 2 – 'Schattenspieler':\nOhne Ball dem Mitspieler folgen – aber immer auf maximalem Abstand. Raum-Bewusstsein durch Körpergefühl.";
-  } else if(fokusSchwach){
-    fokusLabel="Konzentration (Mentalität)";
-    ueb="ÜBUNG 1 – 'Fokus-Pause':\nVor jeder Erklärung: 3 Sekunden Stille, Augenkontakt, dann Erklärung. Konzentration als Pflichtvoraussetzung etablieren.\n\nÜBUNG 2 – 'Mini-Aufgaben mit Nachfrage':\nNach jeder Erklärung kurze Frage an den Spieler was erklärt wurde. Aktives Zuhören einfordern.";
-  } else if(sozKrit){
-    fokusLabel="Teamverhalten (Mentalität)";
-    ueb="ÜBUNG 1 – 'Pflichtpass-Spielform':\nTor gilt nur wenn jeder Spieler mindestens 1 Pass gespielt hat. Teamwork als Pflichtbestandteil verankern.\n\nÜBUNG 2 – 'Lobpflicht':\nNach jedem Tor muss der Torschütze einen Mitspieler loben der geholfen hat. Wertschätzung trainieren.";
-  } else if((v["m_t5"]||0)<=2&&(v["m_t6"]||0)<=2){
-    fokusLabel="Torabschluss & Offensiv-1gg1";
-    ueb="ÜBUNG 1 – '1gg1 kein Abspiel':\nKein Pass erlaubt. Tore des Spielers zählen doppelt. Torhunger direkt provozieren.\n\nÜBUNG 2 – 'Tore-Duell':\nZwei Spieler auf ein Tor. Wettbewerb aktiviert Abschluss-Instinkt ohne Mannschaftsdruck.";
-  } else if((v["m_t2"]||0)<=2){
-    fokusLabel="Schwacher Fuß (Technik)";
-    ueb="ÜBUNG 1 – 'Einbein-Autodrom':\nParcours mit erzwungenem schwachen Fuß. Max. 2 Kontakte mit starkem Fuß.\n\nÜBUNG 2 – 'Spiegeldribbling':\nBeide face-to-face, nur schwacher Fuß. Spielerisches Automatisieren.";
-  } else if(v["t_umschalt"]===1){
-    fokusLabel="Umschalten (Rauten-IQ)";
-    ueb="ÜBUNG 1 – 'Gegenpressing-Pfeife':\nNach Ballverlust Pfeife – sofort 3 Schritte Richtung Ball. Automatisierung durch akustisches Signal.\n\nÜBUNG 2 – 'Pressing-Welle (2gg2)':\nNach Ballverlust 5s intensives Pressing. Zurückerobern = 2 Bonuspunkte.";
-  } else {
-    fokusLabel="Handlungsschnelligkeit & Entscheidung";
-    ueb="ÜBUNG 1 – 'Farb-Pässe':\nHütchenfarbe = Passziel-Signal. Handlungsschnelligkeit unter kognitiver Last trainieren.\n\nÜBUNG 2 – '3gg2 Pflichtquerpass':\nTor gilt nur nach Querpass vor Abschluss. Entscheidungsqualität schulen.";
-  }
-  r+=`Schwächster Messwert: ${wn[sortedDims[0][0]]} (${sortedDims[0][1]}%)\nKonkreter Schwerpunkt: ${fokusLabel}\n\n`;
-  r+=ueb;
+  const sortedDims=[...dsF].sort((a,b)=>a[1]-b[1]);
+  const wn={tech:"Technik & Ball",raute:"Spielintelligenz",phys:"Dynamik",mental:"Persönlichkeit",entw:"Lernen & Entwicklung"};
+  const uebBank={
+    tech:"ÜBUNG 1 – 'Pflichtpass-Funino':\nTor gilt nur, wenn alle Spieler mindestens 1x den Ball hatten.\n\nÜBUNG 2 – '1gg1-Turnier':\nViele kurze Duelle, jeder gegen jeden – Ballführung & Abschluss.",
+    raute:"ÜBUNG 1 – 'Korridor-Funino':\n3 Längskorridore, jeder hält seinen. Kommando 'Feld groß machen!'.\n\nÜBUNG 2 – 'Gegenpressing-Pfeife':\nNach Ballverlust sofort 3 Schritte Richtung Ball.",
+    phys:"ÜBUNG 1 – 'Reaktions-Sprints':\nAuf Signal starten, kurze Antritte mit Richtungswechsel.\n\nÜBUNG 2 – 'Koordinationsleiter + Ball':\nFußarbeit, Gleichgewicht, Wendigkeit.",
+    mental:"ÜBUNG 1 – 'Lobpflicht':\nNach jedem Tor lobt der Schütze einen Helfer.\n\nÜBUNG 2 – 'Fokus-Pause':\nVor jeder Erklärung 3 Sekunden Stille, Augenkontakt.",
+    entw:"ÜBUNG 1 – 'Freies Spiel mit Aufgabe':\nEine selbst gewählte Finte pro Angriff ausprobieren.\n\nÜBUNG 2 – 'Frag-den-Trainer':\nKind erklärt die Übung mit eigenen Worten."
+  };
+  const wd=sortedDims[0][0];
+  r+=`Schwächster Messwert: ${wn[wd]} (${sortedDims[0][1]}%)\n\n`;
+  r+=uebBank[wd]||uebBank.tech;
 
   if(parseInt(meta.eltern)===1){
     r+="\n\n━━ ELTERN-HINWEIS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
-    r+="⚠ Externes Coaching belastet intrinsische Motivation.\nEmpfehlung: 5-Minuten-Gespräch – Fehler sind Lernmomente, Spielfreude vor Leistung, kein Coaching von der Seitenlinie.";
+    r+="⚠ Externes Coaching belastet die intrinsische Motivation.\nEmpfehlung: Fehler sind Lernmomente, Spielfreude vor Leistung, kein Coaching von der Seitenlinie.";
   }
 
   r+="\n\n━━ ENTWICKLUNGSPROGNOSE ━━━━━━━━━━━━━━━━━━━━━━━\n";
   r+=`Aktuell: ${total}% · Potenzial: ~${pot}%\n`;
-  if(total>=70) r+=`${name} ist überdurchschnittlich für U9 I. Gezielt mit erhöhtem Anforderungsgrad fördern – Unterforderung aktiv verhindern.`;
-  else if(total>=48) r+=`${name} entwickelt sich altersgerecht auf gutem Kurs. Klare Struktur und viel positive Wiederholung bringen den nächsten Sprung.`;
-  else r+=`${name} ist im Aufbau. Spaßbetonte Grundlagenformen, Erfolge feiern – keine Leistungsorientierung in diesem Entwicklungsstand.`;
+  if(total>=70) r+=`${name} ist überdurchschnittlich für U9 I. Mit erhöhtem Anforderungsgrad fördern – Unterforderung vermeiden.`;
+  else if(total>=48) r+=`${name} entwickelt sich altersgerecht auf gutem Kurs. Struktur und positive Wiederholung bringen den nächsten Sprung.`;
+  else r+=`${name} ist im Aufbau. Spaßbetonte Grundlagen, Erfolge feiern – keine Leistungsorientierung in diesem Stand.`;
 
   return{text:r,summary,rolle,dims:ds,total,pot,tw:false,sozKrit,fokusSchwach,fokusStark};
 }
@@ -1695,20 +1609,21 @@ function generateFazitTW(v,meta){
   r+=`TW-Status: ${twPrioText}\n`;
   r+=`TW-Niveau (separat, nicht Teil des Gesamtscores): ${twTotal}%\n\n`;
   const twSt=[];
-  if(v["tw_mut"]===3)     twSt.push("Furchtlos – wirft sich mutig in riskante Situationen");
-  if(v["tw_reflex"]===3)  twSt.push("Außergewöhnliche Reflexe für das Alter");
-  if(v["tw_komm"]===3)    twSt.push("Dirigiert die Viererkette – echter Torhüter-Leader");
-  if(v["tw_heraus"]===3)  twSt.push("Eigenständiges Herausgehen – richtige Entscheidungen");
-  if((v["m_tw2"]||0)>=4)  twSt.push("Gezielter Abwurf – initiiert Konter nach Parade");
-  if(v["tw_aufbau"]===3)  twSt.push("Spielmacher von hinten – initiiert Angriffe");
+  if((v["tw_fangen"]||0)>=4)   twSt.push("Fangsicher – klebt am Ball, auch schwierige Bälle festgehalten");
+  if((v["tw_reaktion"]||0)>=4) twSt.push("Reflexstark – außergewöhnliche Reaktion für das Alter");
+  if((v["tw_komm"]||0)>=4)     twSt.push("Torhüter-Leader – organisiert die Abwehr aktiv");
+  if((v["tw_heraus"]||0)>=4)   twSt.push("Herr des Raums – mutiges, sicheres Herausgehen");
+  if((v["tw_aufbau"]||0)>=4)   twSt.push("Spielmacher von hinten – initiiert Konter mit erstem Pass");
+  if((v["tw_stellung"]||0)>=4) twSt.push("Winkel-clever – stellt sich stark, macht das Tor klein");
   if(twSt.length===0) twSt.push("Verlässliche Grundleistung im Tor");
   twSt.forEach(s=>r+=`  + ${s}\n`);
 
   const twEf=[];
-  if(v["tw_pos"]===1)    twEf.push("Grundposition: Bereitschaftshaltung automatisieren");
-  if(v["tw_heraus"]===1) twEf.push("Herausgehen: klare Situationen erkennen und handeln");
-  if(v["tw_komm"]===1)   twEf.push("Kommunikation: 'Mein Ball!', 'Komm!' als Pflicht-Ansagen");
-  if(v["tw_mut"]===1)    twEf.push("Mut: Zweikampfbereitschaft durch gezielte TW-Übungen");
+  if((v["tw_fangen"]||0)<=2)   twEf.push("Fangen & Sichern: Bälle mit beiden Händen festhalten");
+  if((v["tw_heraus"]||0)<=2)   twEf.push("Herausgehen: klare Situationen erkennen und handeln");
+  if((v["tw_komm"]||0)<=2)     twEf.push("Kommunikation: 'Mein Ball!', 'Komm!' als Pflicht-Ansagen");
+  if((v["tw_stellung"]||0)<=2) twEf.push("Stellungsspiel: dem Schützen entgegengehen, Winkel verkürzen");
+  if((v["tw_aufbau"]||0)<=2)   twEf.push("Spielaufbau: ersten Pass gezielt zum Aufpasser");
   if(twEf.length===0) twEf.push("Entscheidungsschnelligkeit beim Herausgehen weiter schärfen");
   r+="\n";
   twEf.forEach(e=>r+=`  → ${e}\n`);
@@ -1761,7 +1676,7 @@ function updateRautePreview(rolle,tw){
 ═══════════════════════════════════ */
 function updateTierHL(){
   const dims=currentDims();
-  getAllT(dims).forEach(n=>[1,2,3].forEach(v=>{
+  getAllT(dims).forEach(n=>[1,2,3,4].forEach(v=>{
     const l=document.getElementById(`tl-${n}-${v}`);
     if(l)l.classList.toggle("sel",!!document.querySelector(`input[name="${n}"][value="${v}"]`)?.checked);
   }));
@@ -1861,18 +1776,19 @@ function buildDims(isTw){
     wrap.appendChild(block);
     const body=document.getElementById(`dbody-${d.id}`);
     const tt=document.createElement("table");tt.className="tier-t";
-    tt.innerHTML=`<thead><tr><th>Beobachtung</th><th>Basis</th><th>Gut</th><th>Stark</th></tr></thead>`;
+    tt.innerHTML=`<thead><tr><th>Beobachtung</th><th>Ansatz</th><th>Solide</th><th>Gut</th><th>Stark</th></tr></thead>`;
     const tb=document.createElement("tbody");
     d.tier.forEach(t=>{
       const tr=document.createElement("tr");
       let h=`<td class="cn">${t.l}<small>${t.h}</small></td>`;
       t.opts.forEach(o=>{
-        const bc=o.v===1?"lb1":o.v===2?"lb2":"lb3";
-        h+=`<td><div class="topt"><label id="tl-${t.n}-${o.v}"><input type="radio" name="${t.n}" value="${o.v}" onchange="onChange()"><span class="lb ${bc}">${["","Basis","Gut","Stark"][o.v]}</span><span><span class="ltitle">${o.t}</span><span class="ldesc">${o.d}</span></span></label></div></td>`;
+        const bc=o.v===1?"lb1":o.v===2?"lb2":o.v===3?"lb3":"lb4";
+        h+=`<td><div class="topt"><label id="tl-${t.n}-${o.v}"><input type="radio" name="${t.n}" value="${o.v}" onchange="onChange()"><span class="lb ${bc}">${["","Ansatz","Solide","Gut","Stark"][o.v]}</span><span><span class="ltitle">${o.t}</span><span class="ldesc">${o.d}</span></span></label></div></td>`;
       });
       tr.innerHTML=h;tb.appendChild(tr);
     });
     tt.appendChild(tb);body.appendChild(tt);
+    if(d.mx.length){ // Detail-Matrix nur rendern, wenn die Dimension welche hat (v2: leer)
     const sep=document.createElement("div");
     sep.style.cssText="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);padding:6px 0 4px;margin-top:4px";
     sep.textContent="Detail-Bewertung (1–5)";
@@ -1895,6 +1811,7 @@ function buildDims(isTw){
     body.appendChild(mxHint);
     mxWrap.appendChild(mx);
     body.appendChild(mxWrap);
+    } // /if d.mx.length
   });
   if(liveChart){liveChart.destroy();liveChart=null;}
   setTimeout(()=>{
@@ -2627,11 +2544,11 @@ function roleScore(player,role){
 function lat_foot(player){return player.lat.strong_foot||"R";}
 
 function socialScore(players){
-  // Penalize if multiple players have social issues or high ego
+  // v2-Keys: f_sozial (Soziale Einstellung), f_selbst (Selbstvertrauen), Skala 1–4
   let score=100;
-  const sozProblems=players.filter(p=>(p.v.t_sozial||2)===1).length;
-  const selfConfHigh=players.filter(p=>(p.v.t_selbstvertrauen||2)===3).length;
-  const selfConfLow=players.filter(p=>(p.v.t_selbstvertrauen||2)===1).length;
+  const sozProblems=players.filter(p=>(p.v.f_sozial||2)===1).length;
+  const selfConfHigh=players.filter(p=>(p.v.f_selbst||2)>=3).length;
+  const selfConfLow=players.filter(p=>(p.v.f_selbst||2)===1).length;
   score -= sozProblems * 18; // each social problem player costs points
   if(sozProblems>=2) score -= 15; // extra penalty for two problematic players together
   score -= selfConfLow * 8; // too many shy players
@@ -2640,25 +2557,23 @@ function socialScore(players){
 }
 
 function complementScore(aufpasser, jaeger, fl_l, fl_r){
-  // Good combos: passing aufpasser + running jaeger, balanced speeds
+  // v2-Keys: f_pass, f_laufweg (Tiefenläufe), f_tempo, f_sozial, f_selbst – Skala 1–4
   let score=70;
-  const passAuf=(aufpasser.v.t_pass||1);
-  const jaegRun=(jaeger.v.m_k3||1);
-  // else if: Top-Duo bekommt NUR den höheren Bonus, nicht beide gestapelt (Review 3, Punkt 5a)
-  if(passAuf===3&&jaegRun>=4) score+=15; // steilpass aufpasser + deep runner jaeger = perfect
-  else if(passAuf>=2&&jaegRun>=3) score+=8;
+  const passAuf=(aufpasser.v.f_pass||1);
+  const jaegRun=(jaeger.v.f_laufweg||1);
+  // else if: Top-Duo bekommt NUR den höheren Bonus, nicht beide gestapelt
+  if(passAuf>=3&&jaegRun>=3) score+=15; // guter Passgeber + tiefer Läufer = perfekt
+  else if(passAuf>=2&&jaegRun>=2) score+=8;
   // Balanced flitzers
-  const speedDiff=Math.abs((fl_l.v.t_speed||2)-(fl_r.v.t_speed||2));
+  const speedDiff=Math.abs((fl_l.v.f_tempo||2)-(fl_r.v.f_tempo||2));
   if(speedDiff===0) score+=10; // same speed = balanced wings
   else if(speedDiff>=2) score-=10;
-  // Soziale Eignung wird bereits in socialScore() abgebildet – hier nicht ein zweites Mal
-  // bestrafen (Review 3, Punkt 5b: verhinderte sonst faktisch die Rotation dieser Kinder)
+  // Soziale Eignung wird bereits in socialScore() abgebildet – hier nicht doppelt bestrafen.
 
   // Buddy-System (Psycho-Synergie): ein selbstbewusstes "Anker"-Kind direkt neben
-  // einem stillen/unsicheren Kind stützt es – Bonus für solche Nachbarschaften in
-  // der Raute (aufpasser↔flügel, flügel↔jäger).
-  const shy   =p=>((p.v.t_sozial||2)===1)||((p.v.t_selbstvertrauen||2)===1);
-  const anchor=p=>((p.v.t_sozial||2)===3)||((p.v.t_selbstvertrauen||2)===3);
+  // einem stillen/unsicheren Kind stützt es – Bonus für solche Nachbarschaften.
+  const shy   =p=>((p.v.f_sozial||2)===1)||((p.v.f_selbst||2)===1);
+  const anchor=p=>((p.v.f_sozial||2)>=3)||((p.v.f_selbst||2)>=3);
   const nachbarn=[[aufpasser,fl_l],[aufpasser,fl_r],[fl_l,jaeger],[fl_r,jaeger]];
   let buddy=0;
   nachbarn.forEach(([a,b])=>{ if((shy(a)&&anchor(b))||(shy(b)&&anchor(a))) buddy+=6; });
@@ -2693,19 +2608,19 @@ function generateInsights(tw, aufpasser, fl_l, fl_r, jaeger, score){
   const insights=[];
   const v_auf=aufpasser.v, v_jaeg=jaeger.v, v_fl_l=fl_l.v, v_fl_r=fl_r.v;
 
-  // Positive synergies
-  if((v_auf.t_pass||1)===3&&(v_jaeg.m_k3||1)>=4)
+  // Positive synergies (v2-Keys, Skala 1–4)
+  if((v_auf.f_pass||1)>=3&&(v_jaeg.f_laufweg||1)>=3)
     insights.push({type:"pos",text:`${aufpasser.name} (Passspiel) + ${jaeger.name} (Tiefenläufe) = starke Verbindung im Kader`});
-  if((v_fl_l.t_speed||1)===3&&(v_fl_r.t_speed||1)===3)
+  if((v_fl_l.f_tempo||1)>=3&&(v_fl_r.f_tempo||1)>=3)
     insights.push({type:"pos",text:`${fl_l.name} + ${fl_r.name} bilden die schnellsten Außenbahnen – maximale Breite`});
-  if((v_auf.m_k6||1)>=4&&(v_jaeg.m_t5||1)>=4)
+  if((v_auf.f_umschalt||1)>=3&&(v_jaeg.f_abschluss||1)>=3)
     insights.push({type:"pos",text:`${aufpasser.name} gewinnt den Ball, ${jaeger.name} schließt ab – idealer Konter-Rhythmus`});
-  if((v_jaeg.t_selbstvertrauen||2)===3)
+  if((v_jaeg.f_selbst||2)>=3)
     insights.push({type:"pos",text:`${jaeger.name} sucht Druck aktiv – perfekte Mentalität für die Spitze`});
   // Buddy-System: ein Anker-Kind neben einem stillen/unsicheren Kind
   {
-    const shyF=p=>((p.v.t_sozial||2)===1)||((p.v.t_selbstvertrauen||2)===1);
-    const ancF=p=>((p.v.t_sozial||2)===3)||((p.v.t_selbstvertrauen||2)===3);
+    const shyF=p=>((p.v.f_sozial||2)===1)||((p.v.f_selbst||2)===1);
+    const ancF=p=>((p.v.f_sozial||2)>=3)||((p.v.f_selbst||2)>=3);
     const pairs=[[aufpasser,fl_l],[aufpasser,fl_r],[fl_l,jaeger],[fl_r,jaeger]];
     for(const [a,b] of pairs){
       let anc,sh;
@@ -2713,37 +2628,35 @@ function generateInsights(tw, aufpasser, fl_l, fl_r, jaeger, score){
       if(anc){insights.push({type:"pos",text:`${anc.name} gibt ${sh.name} auf der Nachbarposition Rückhalt – ideales Buddy-Paar für ein unsicheres Kind`});break;}
     }
   }
-  // F3(a): t_auftreten gestrichen – Aspekt lebt in t_sozial weiter
-  if((v_auf.t_sozial||2)===3||(v_jaeg.t_sozial||2)===3){
-    const leader=[aufpasser,jaeger].find(p=>(p.v.t_sozial||2)===3);
+  if((v_auf.f_sozial||2)>=3||(v_jaeg.f_sozial||2)>=3){
+    const leader=[aufpasser,jaeger].find(p=>(p.v.f_sozial||2)>=3);
     if(leader) insights.push({type:"pos",text:`${leader.name} geht aktiv auf Mitspieler zu – natürlicher Kommunikator auf dem Feld`});
   }
 
   // Warnings
-  const sozProbs=[aufpasser,fl_l,fl_r,jaeger].filter(p=>(p.v.t_sozial||2)===1);
+  const sozProbs=[aufpasser,fl_l,fl_r,jaeger].filter(p=>(p.v.f_sozial||2)===1);
   if(sozProbs.length>=2)
     insights.push({type:"warn",text:`Achtung: ${sozProbs.map(p=>p.name).join(" + ")} haben beide Tendenzen zur Distanzierung – Gruppenklima beobachten`});
   else if(sozProbs.length===1)
     insights.push({type:"warn",text:`${sozProbs[0].name} braucht bewusste Integration ins Team – aktiv ansprechen`});
 
-  const speedDiff=Math.abs((v_fl_l.t_speed||2)-(v_fl_r.t_speed||2));
+  const speedDiff=Math.abs((v_fl_l.f_tempo||2)-(v_fl_r.f_tempo||2));
   if(speedDiff>=2)
     insights.push({type:"warn",text:`Geschwindigkeitsunterschied zwischen ${fl_l.name} und ${fl_r.name} – eine Seite wird stärker bespielt`});
 
-  if((v_auf.t_raum||1)===1)
+  if((v_auf.f_raum||1)===1)
     insights.push({type:"warn",text:`${aufpasser.name} neigt zur Klumpenbildung – klare Korridor-Ansagen nötig`});
 
   // Einsatz-Fairness: seltener Trainingsgänger allein in der Spitze
   if(+(jaeger.lat?.attendance||2)===1)
     insights.push({type:"info",text:`${jaeger.name} ist selten im Training – in der Spitze fehlen dann oft die Abläufe. Ggf. rotieren.`});
 
-  // Info (F3(a): "Anlaufzeit"-Block entfernt – redundant zur t_sozial-Warnung oben)
-  const lowConf=[aufpasser,fl_l,fl_r,jaeger].filter(p=>(p.v.t_selbstvertrauen||2)===1);
+  const lowConf=[aufpasser,fl_l,fl_r,jaeger].filter(p=>(p.v.f_selbst||2)===1);
   if(lowConf.length>=2)
     insights.push({type:"info",text:`${lowConf.map(p=>p.name).join(", ")} zögern unter Druck – Erfolgserlebnisse gezielt einbauen`});
 
   if(tw)
-    insights.push({type:"info",text:`Torwart: ${tw.name}${tw.lat.tw_komm===3?" – kommuniziert und dirigiert die Viererkette aktiv":""}`});
+    insights.push({type:"info",text:`Torwart: ${tw.name}${(tw.lat&&tw.lat.tw_komm>=3)?" – kommuniziert und dirigiert die Abwehr aktiv":""}`});
 
   return insights;
 }
@@ -7303,43 +7216,43 @@ coaching:'Explosiver Antritt – erste 3 Schritte entscheiden!\nTiefer Schwerpun
 {id:'ind06',kat:'individual',focus:false,name:'Schwacher-Fuß-Intensiv',kurz:'Gezieltes Training des schwachen Fußes – Pass, Schuss, Dribbling nur mit dem schwachen Fuß.',spieler:'1',feld:'10×10m + Tor',dauer:'10',spass:3,diff:3,
 ablauf:'Alles NUR mit dem schwachen Fuß:\n\n1. 20× Ball gegen Wand passen und annehmen\n2. Slalom durch 6 Hütchen (4×)\n3. 10× Torschuss aus 8m – nur schwacher Fuß\n4. Dribbel-Parcours: 3 Hütchen umdribbeln, Schuss (5×)\n5. Jonglieren: Ziel 5× hintereinander mit schwachem Fuß',
 varianten:'- Starker Fuß auf Socke stellen (Erinnerung)\n- Wettbewerb: Wie viele Treffer mit schwachem Fuß in 2 Min?\n- Partner-Variante: nur schwacher Fuß erlaubt',
-coaching:'Geduld! Der schwache Fuß braucht 3× so viele Wiederholungen\nQualität vor Tempo – sauber vor schnell\nJeden kleinen Fortschritt loben',svg:'',tags:['Individual','Schwacher Fuß','Technik'],deficit:'m_t2'},
+coaching:'Geduld! Der schwache Fuß braucht 3× so viele Wiederholungen\nQualität vor Tempo – sauber vor schnell\nJeden kleinen Fortschritt loben',svg:'',tags:['Individual','Schwacher Fuß','Technik'],deficit:'f_ballkontrolle'},
 {id:'ind07',kat:'individual',focus:false,name:'Kopf-hoch-Training',kurz:'Orientierung beim Dribbeln – Kopf oben halten, Umfeld scannen.',spieler:'1-2',feld:'15×15m',dauer:'10',spass:4,diff:2,
 ablauf:'1. Dribbeln im Quadrat – Trainer zeigt Finger (1-5), Spieler ruft Zahl (20×)\n2. Dribbeln mit Blick auf Farbkarten – Trainer hebt Karte, Spieler ruft Farbe (15×)\n3. Dribbeln und gleichzeitig Hütchen zählen die Trainer aufstellt (5×)\n4. Partner-Variante: A dribbelt, B bewegt sich frei – A muss immer wissen wo B ist\n5. Spiel: Dribbeln + auf Kommando nächstes freies Hütchen finden (8×)',
 varianten:'- Schwieriger: 2 Farben gleichzeitig merken\n- Mit Gegnerdruck: Trainer versucht Ball zu klauen\n- Rechenaufgaben während dem Dribbeln',
-coaching:'Nicht auf den Ball schauen – den Ball FÜHLEN!\nKurze Blicke nach oben reichen – Scannen wie ein Radar\nBall muss eng am Fuß sein wenn der Kopf oben ist',svg:'',tags:['Individual','Wahrnehmung','Dribbling'],deficit:'t_raum'},
+coaching:'Nicht auf den Ball schauen – den Ball FÜHLEN!\nKurze Blicke nach oben reichen – Scannen wie ein Radar\nBall muss eng am Fuß sein wenn der Kopf oben ist',svg:'',tags:['Individual','Wahrnehmung','Dribbling'],deficit:'f_raum'},
 {id:'ind08',kat:'individual',focus:false,name:'Entscheidungstraining Solo/Pass',kurz:'Wann dribbeln, wann passen? Spielintelligenz durch Entscheidungssituationen.',spieler:'1-2',feld:'15×10m + Tore',dauer:'10',spass:4,diff:3,
 ablauf:'Trainer steht als "Verteidiger" passiv im Feld:\n\n1. Trainer macht Weg FREI → Spieler muss dribbeln und schießen (5×)\n2. Trainer macht Weg ZU → Spieler muss abspielen auf Hütchen-Tor (5×)\n3. Gemischt: Trainer entscheidet spontan ob frei oder zu → Spieler muss lesen und richtig reagieren (10×)\n4. Steigerung: 2 Optionen gleichzeitig (Pass links oder rechts ODER Solo)\n5. Finale: echtes 1gg1 wo Spieler entscheidet ob Solo oder Rückpass',
 varianten:'- Hütchen statt Trainer als passive Hindernisse\n- Zeitdruck: 3 Sekunden für Entscheidung\n- Belohnungssystem: richtige Entscheidung = 2 Punkte',
-coaching:'LESEN vor dem Ball! Schau VOR der Annahme\nEs gibt keine falsche Entscheidung wenn du schnell entscheidest\nLieber eine klare falsche als gar keine Entscheidung',svg:'',tags:['Individual','Spielintelligenz','Entscheidung'],deficit:'m_k4'},
+coaching:'LESEN vor dem Ball! Schau VOR der Annahme\nEs gibt keine falsche Entscheidung wenn du schnell entscheidest\nLieber eine klare falsche als gar keine Entscheidung',svg:'',tags:['Individual','Spielintelligenz','Entscheidung'],deficit:'f_laufweg'},
 {id:'ind09',kat:'individual',focus:false,name:'Pressing-Schule 1gg1',kurz:'Richtiges Anlaufen und Pressing im 1gg1 – Winkel, Tempo, Timing.',spieler:'1-2',feld:'10×10m',dauer:'10',spass:4,diff:2,
 ablauf:'1. Trockenübung: Trainer zeigt Anlaufwinkel – Spieler läuft Bogen zum "Gegner" (8×)\n2. Trainer dribbelt langsam – Spieler presst mit richtigem Winkel (6×)\n3. Pressing-Timing: Trainer hat Ball – bei schlechter Annahme sofort attackieren (6×)\n4. Pressing + Absperren: Spieler lenkt Trainer zur Seitenlinie (5×)\n5. Echtes 1gg1: Spieler muss Ball innerhalb 5 Sek. erobern (5×)',
 varianten:'- Zu zweit: einer presst, einer sichert schräg dahinter\n- Pressing-Auslöser üben: nur pressen bei Rückpass/schlechter Annahme\n- Mit Wettbewerb: Wie oft erobert in 2 Min?',
-coaching:'Nie frontal anlaufen – BOGEN laufen!\nLetzte 3 Meter LANGSAM – nicht vorbeirauschen\nKörper seitlich – eine Seite absperren',svg:'',tags:['Individual','Pressing','Verteidigung'],deficit:'m_k6'},
+coaching:'Nie frontal anlaufen – BOGEN laufen!\nLetzte 3 Meter LANGSAM – nicht vorbeirauschen\nKörper seitlich – eine Seite absperren',svg:'',tags:['Individual','Pressing','Verteidigung'],deficit:'f_umschalt'},
 {id:'ind10',kat:'individual',focus:false,name:'Resilienz-Booster',kurz:'Mentales Training – Umgang mit Fehlern und Drucksituationen.',spieler:'1',feld:'beliebig',dauer:'10',spass:3,diff:2,
 ablauf:'1. Absichtlich Fehler einbauen: Spieler macht Übung, Trainer sagt "Fehler!" → Spieler muss SOFORT weitermachen ohne zu stoppen (5×)\n2. Druck-Schuss: 1 Versuch, alle schauen zu. Egal ob Treffer: Körpersprache muss positiv bleiben (5×)\n3. Rückstands-Simulation: "Du liegst 0:2 zurück" → trotzdem volle Energie im Dribbling (3 Min)\n4. Fehler-Applaus: Nach jedem Fehler kurz klatschen ("Nächstes Mal!") → positive Routine aufbauen\n5. Abschluss: 3 Sachen nennen die heute gut waren (Selbstreflexion)',
 varianten:'- Partner gibt "Druck" (klatscht, ruft)\n- Zeitdruck-Situationen\n- Video-Analyse nach dem Training',
-coaching:'Fehler sind TEIL des Spiels – nicht das Ende!\nKörpersprache nach Fehler = Schlüssel\nImmer: Was mache ich NÄCHSTES MAL anders?',svg:'',tags:['Individual','Mentalität','Resilienz'],deficit:'t_resil'},
+coaching:'Fehler sind TEIL des Spiels – nicht das Ende!\nKörpersprache nach Fehler = Schlüssel\nImmer: Was mache ich NÄCHSTES MAL anders?',svg:'',tags:['Individual','Mentalität','Resilienz'],deficit:'f_resil'},
 {id:'ind11',kat:'individual',focus:false,name:'Erste-Berührung-Training',kurz:'Ballmitnahme vorwärts – der wichtigste technische Aspekt für U9.',spieler:'1',feld:'15×10m',dauer:'10',spass:3,diff:2,
 ablauf:'Trainer spielt Bälle aus verschiedenen Richtungen zu:\n\n1. Ball von vorne → Mitnahme nach rechts/links mit Innenseite (10×)\n2. Ball von der Seite → offene Mitnahme nach vorne (10×)\n3. Ball von hinten → Drehung + Mitnahme vorwärts (8×)\n4. Flacher Ball → Mitnahme mit Sohle und sofort Dribbling (8×)\n5. Halbhoher Ball → Oberschenkel/Brust + erster Kontakt vorwärts (6×)',
 varianten:'- Mit passivem Verteidiger → Mitnahme weg vom Gegner\n- Verschiedene Ballgeschwindigkeiten\n- Ziel-Hütchen nach Mitnahme anlaufen',
-coaching:'Erster Kontakt IMMER vorwärts – nie zur Seite oder zurück!\nFuß dem Ball entgegenstrecken, nicht warten\nWeiche Annahme – Ball nicht wegspringen lassen',svg:'',tags:['Individual','Technik','Ballkontrolle'],deficit:'m_t3'},
+coaching:'Erster Kontakt IMMER vorwärts – nie zur Seite oder zurück!\nFuß dem Ball entgegenstrecken, nicht warten\nWeiche Annahme – Ball nicht wegspringen lassen',svg:'',tags:['Individual','Technik','Ballkontrolle'],deficit:'f_ballkontrolle'},
 {id:'ind12',kat:'individual',focus:false,name:'Freilauf-Training',kurz:'Sich vom Gegner lösen – Antäuschen, Richtungswechsel, Timing.',spieler:'1-2',feld:'10×10m',dauer:'10',spass:4,diff:2,
 ablauf:'1. V-Lauf: Zum Trainer hin, kurz stoppen, scharf weg – Ball fordern (8×)\n2. L-Lauf: Nach links andeuten, scharf nach rechts starten (8×)\n3. Hinterlaufen: Am Partner vorbeilaufen und Ball fordern (6×)\n4. Doppel-Check: 2× Richtung andeuten, 3. Mal wirklich starten (6×)\n5. Spiel: Trainer wirft Ball nur wenn Spieler sich WIRKLICH freigelaufen hat (5×)',
 varianten:'- Mit passivem Gegner der den Laufweg "bewacht"\n- Kombination aus Freilaufen + erste Berührung\n- Im echten Spielfeld mit Tor am Ende',
-coaching:'Timing ist alles – NICHT zu früh starten!\nTempo-Wechsel: langsam-langsam-SCHNELL\nKommunikation: Hand zeigen, rufen, Blickkontakt',svg:'',tags:['Individual','Laufwege','Freilaufen'],deficit:'m_k1'},
+coaching:'Timing ist alles – NICHT zu früh starten!\nTempo-Wechsel: langsam-langsam-SCHNELL\nKommunikation: Hand zeigen, rufen, Blickkontakt',svg:'',tags:['Individual','Laufwege','Freilaufen'],deficit:'f_laufweg'},
 {id:'ind13',kat:'individual',focus:false,name:'Umschalt-Blitz',kurz:'Sofortiges Reagieren auf Ballgewinn und Ballverlust.',spieler:'1-2',feld:'15×15m',dauer:'10',spass:4,diff:2,
 ablauf:'1. Signal-Reaktion: Trainer ruft "ADLER!" → Spieler sprintet breit. "IGEL!" → Spieler sprintet eng zur Mitte (10×)\n2. Ball-Reaktion: Trainer verliert Ball absichtlich → Spieler muss in 3 Sek. reagieren (8×)\n3. Umschalt-Parcours: Dribbeln (offensiv) → Ball verlieren → 3 Schritte Pressing → Ball zurückgewinnen → sofort breit (5×)\n4. Gedankenübung: Spieler beschreibt laut was er tut: "Ball weg – ich presse! Ball da – ich gehe breit!" (5×)\n5. 1gg1 mit Umschalt-Pflicht: nach jedem Ballwechsel 2 Sek. richtig reagieren bevor weiter gespielt wird',
 varianten:'- Ohne Ball – nur Laufwege\n- Visuelles Signal statt akustisches\n- Im Spielfeld mit echten Positionen',
-coaching:'Umschalten beginnt IM KOPF – nicht in den Beinen!\nErste 2 Sekunden nach Ballwechsel sind entscheidend\nLaut denken hilft: "Ball weg – IGEL!"',svg:'',tags:['Individual','Umschalten','Taktik'],deficit:'t_umschalt'},
+coaching:'Umschalten beginnt IM KOPF – nicht in den Beinen!\nErste 2 Sekunden nach Ballwechsel sind entscheidend\nLaut denken hilft: "Ball weg – IGEL!"',svg:'',tags:['Individual','Umschalten','Taktik'],deficit:'f_umschalt'},
 {id:'ind14',kat:'individual',focus:false,name:'Kommunikations-Training',kurz:'Ansagen auf dem Platz – Rufen, Zeigen, Fordern, Loben.',spieler:'1-3',feld:'15×15m',dauer:'10',spass:3,diff:1,
 ablauf:'1. Rufrunde: Spieler dribbelt und ruft bei jedem Hütchen laut "HIER!", "LINKS!", "DREH!" (10×)\n2. Partner-Blind: Spieler A hat Augen zu, B dirigiert nur mit Stimme zum Tor (3×)\n3. Anführer-Übung: Spieler muss 3 Mitspieler laut positionieren bevor er Ball bekommt (5×)\n4. Lob-Pflicht: Nach jedem Pass dem Passgeber laut "Gut!" oder "Super!" zurufen (5 Min)\n5. Spiel-Simulation: 2gg1 – Spieler am Ball MUSS vor jeder Aktion laut sagen was er vorhat (5×)',
 varianten:'- Nur Flüstern erlaubt (Nähe erzwingen)\n- Fremde Sprache: Nur mit Handzeichen kommunizieren\n- Wettbewerb: Wer ruft am meisten in 3 Min?',
-coaching:'Kommunikation ist eine WAFFE – wer redet gewinnt!\nVOR dem Pass rufen, nicht danach\nAuch loben ist Kommunikation – dein Team braucht das',svg:'',tags:['Individual','Kommunikation','Teamgeist'],deficit:'m_m5'},
+coaching:'Kommunikation ist eine WAFFE – wer redet gewinnt!\nVOR dem Pass rufen, nicht danach\nAuch loben ist Kommunikation – dein Team braucht das',svg:'',tags:['Individual','Kommunikation','Teamgeist'],deficit:'f_team'},
 {id:'ind15',kat:'individual',focus:false,name:'Konzentrations-Parcours',kurz:'Fokus und Aufmerksamkeit unter Ablenkung trainieren.',spieler:'1',feld:'15×10m',dauer:'10',spass:4,diff:2,
 ablauf:'1. Dribbel-Rechnen: Spieler dribbelt, Trainer stellt Rechenaufgaben (10×)\n2. Farb-Hütchen: 4 Farben im Feld – Trainer ruft Farbe, Spieler muss mit Ball dahin (10×)\n3. Ablenkung: Trainer versucht Spieler mit Gespräch/Witzen abzulenken während er dribbelt (3 Min)\n4. Gedächtnis-Parcours: 5 Stationen merken, in richtiger Reihenfolge ablaufen (3×)\n5. Doppelaufgabe: Dribbeln + Bälle zählen die Trainer rollt (5×)',
 varianten:'- Musik an/aus als Signal\n- Zuschauer simulieren (Eltern klatschen/rufen)\n- Progressiv: jede Runde eine Aufgabe mehr',
-coaching:'Konzentration ist ein Muskel – man kann sie trainieren!\nWenn du abgelenkt bist: Ball stoppen, kurz durchatmen, weiter\nIm Spiel: Erst orientieren, DANN handeln',svg:'',tags:['Individual','Konzentration','Kognition'],deficit:'t_fokus'}
+coaching:'Konzentration ist ein Muskel – man kann sie trainieren!\nWenn du abgelenkt bist: Ball stoppen, kurz durchatmen, weiter\nIm Spiel: Erst orientieren, DANN handeln',svg:'',tags:['Individual','Konzentration','Kognition'],deficit:'f_coach'}
 
 ,
 /* ═══════════════════════════════════════════════════════════════
@@ -9136,17 +9049,10 @@ function tpIndPlayerChange(slotIdx){
     reco.innerHTML='<div style="font-size:10px;color:var(--text3);padding:2px 0">Kein Spielerprofil vorhanden – alle Übungen verfügbar.</div>';
     return;
   }
+  // v2: Defizite über die 16 f_-Kriterien (Skala 1–4; <=2 = Entwicklungsfeld)
   const deficits=[];
-  if((vals["m_t2"]||0)<=2) deficits.push({key:"m_t2",label:"Schwacher Fuß",score:vals["m_t2"]||0});
-  if((vals["m_t3"]||0)<=2) deficits.push({key:"m_t3",label:"Erste Berührung",score:vals["m_t3"]||0});
-  if((vals["m_k4"]||0)<=2) deficits.push({key:"m_k4",label:"Solo/Pass-Entscheidung",score:vals["m_k4"]||0});
-  if((vals["m_k6"]||0)<=2) deficits.push({key:"m_k6",label:"Pressing",score:vals["m_k6"]||0});
-  if((vals["m_k1"]||0)<=2) deficits.push({key:"m_k1",label:"Freilaufen",score:vals["m_k1"]||0});
-  if((vals["m_m5"]||0)<=2) deficits.push({key:"m_m5",label:"Kommunikation",score:vals["m_m5"]||0});
-  if(vals["t_raum"]===1) deficits.push({key:"t_raum",label:"Raumverständnis",score:1});
-  if(vals["t_fokus"]===1) deficits.push({key:"t_fokus",label:"Konzentration",score:1});
-  if(vals["t_resil"]===1) deficits.push({key:"t_resil",label:"Resilienz",score:1});
-  if(vals["t_umschalt"]===1) deficits.push({key:"t_umschalt",label:"Umschalten",score:1});
+  const critLabels={f_ballkontrolle:"Ballkontrolle & Dribbling",f_pass:"Passspiel",f_abschluss:"Torabschluss",f_raum:"Raumverständnis",f_umschalt:"Umschalten & Pressing",f_laufweg:"Laufwege",f_defense:"Zweikampf & Verteidigen",f_tempo:"Tempo",f_koord:"Koordination",f_einsatz:"Laufbereitschaft",f_selbst:"Selbstvertrauen",f_team:"Kommunikation",f_resil:"Resilienz",f_coach:"Fokus"};
+  Object.keys(critLabels).forEach(k=>{const s=vals[k]||0;if(s>0&&s<=2)deficits.push({key:k,label:critLabels[k],score:s});});
 
   const matched=[];
   indForms.forEach(x=>{
