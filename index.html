@@ -1056,6 +1056,8 @@ h1.print-header{display:none}
     <div id="rot-panel"></div>
     <div class="sl nt" style="margin-top:16px"><i class="ti ti-player-track-next"></i>Live-Aktionen (während des Spiels)</div>
     <div id="action-panel"></div>
+    <div class="sl nt" style="margin-top:16px"><i class="ti ti-broadcast"></i>Eltern-Liveticker</div>
+    <div id="ticker-panel"></div>
     <div class="sl nt" style="margin-top:16px"><i class="ti ti-bolt"></i>Blitz-Rating nach dem Spiel</div>
     <div id="blitz-panel"></div>
   </div><!-- /train-sub-spieltag -->
@@ -8049,7 +8051,7 @@ function nomApplyToTools(){
    paused_ms. Jeder Client rechnet die verstrichene Zeit selbst aus dem Anker –
    kein Sekunden-Broadcast nötig. Speist später die Minute für den Eltern-Ticker.
 ═══════════════════════════════════ */
-let mcState=null, mcTickId=null, mcSpieldauer=20;
+let mcState=null, mcTickId=null, mcSpieldauer=20, mcTickerOpen=true, mcDelegateToken=null;
 function mcElapsedSec(mc){
   const paused=mc.paused_ms||0;
   if(mc.clock_status==="running"&&mc.started_at){
@@ -8072,17 +8074,20 @@ async function mcLoad(){
   const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
   try{
     const [mdRes,tmRes]=await Promise.all([
-      fetch(`${SB_URL}/rest/v1/matchday?datum=eq.${encodeURIComponent(datum)}&select=half,clock_status,started_at,paused_ms`,{headers:sbAuthHeaders()}),
+      fetch(`${SB_URL}/rest/v1/matchday?datum=eq.${encodeURIComponent(datum)}&select=half,clock_status,started_at,paused_ms,ticker_open,delegate_token`,{headers:sbAuthHeaders()}),
       fetch(`${SB_URL}/rest/v1/termine?datum=eq.${encodeURIComponent(datum)}&select=spieldauer_min&order=id.desc&limit=1`,{headers:sbAuthHeaders()})
     ]);
     const mdRows=mdRes.ok?await mdRes.json():[];
     const tmRows=tmRes.ok?await tmRes.json():[];
     mcSpieldauer=(tmRows[0]&&tmRows[0].spieldauer_min)||20;
     mcState=mdRows[0]||{half:1,clock_status:"idle",started_at:null,paused_ms:0};
+    mcTickerOpen=mdRows[0]?mdRows[0].ticker_open!==false:true;
+    mcDelegateToken=(mdRows[0]&&mdRows[0].delegate_token)||null;
   }catch(e){
     mcState=mcState||{half:1,clock_status:"idle",started_at:null,paused_ms:0};
   }
   mcRenderLive();
+  tickerRenderControls();
   clearInterval(mcTickId);
   mcTickId=setInterval(()=>{ if(mcState&&mcState.clock_status==="running")mcRenderLive(); },1000);
 }
@@ -8092,7 +8097,7 @@ async function mcSave(patch){
   mcRenderLive();
   try{await fetch(`${SB_URL}/rest/v1/matchday?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({datum,...patch})});}catch(e){}
 }
-function mcStart(){ mcSave({half:1,clock_status:"running",started_at:new Date().toISOString(),paused_ms:0}); }
+function mcStart(){ mcSave({half:1,clock_status:"running",started_at:new Date().toISOString(),paused_ms:0,spieldauer_min:mcSpieldauer}); }
 function mcPause(){
   if(!mcState||mcState.clock_status!=="running")return;
   const addMs=Date.now()-new Date(mcState.started_at).getTime();
@@ -8124,6 +8129,97 @@ function mcRenderLive(){
     <div style="font-size:11px;color:var(--text2)">${mcState.half===2?"2. Halbzeit":"1. Halbzeit"} · ${mcSpieldauer} Min./HZ</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto">${controls}</div>
   </div>`;
+}
+
+/* ═══════════════════════════════════
+   ELTERN-LIVETICKER (Phase 4) – Trainer-Seite.
+   Speist sich aus dem Live-Action-Tracker (atTap): NUR positive Aktionen lösen
+   einen Ticker-Push aus (Pädagogik-Filter). Torwart-Fehler/Ballverlust werden
+   nie gepusht. Zusätzlich: Tor/Gegentor-Buttons + Wolff-Fuss-Toggle + Delegate-Link.
+═══════════════════════════════════ */
+const TICKER_POSITIVE_KEYS=["pass","dribbling","gewinn","parade","aufbau","heraus"]; // verlust/fehler bewusst NICHT enthalten
+const TICKER_PHRASES={
+  pass:["{name} mit einem Zuckerpass!","{name} findet den freien Mann – starkes Auge!","Sauberer Pass von {name}!"],
+  dribbling:["{name} tanzt durch die Abwehr!","{name} zeigt eine starke Dribbling-Einlage!","Mutiges 1-gegen-1 von {name}!"],
+  gewinn:["{name} erobert den Ball zurück!","Ballgewinn durch {name} – stark gemacht!"],
+  parade:["Riesenparade von {name}!","{name} hält den Kasten sauber!","Klasse Reflex von {name}!"],
+  aufbau:["{name} eröffnet das Spiel von hinten!","Sauberer Aufbau durch {name}!"],
+  heraus:["{name} klärt mutig vor dem Tor!","{name} behält die Nerven im Zweikampf!"],
+  tor:["TOOOR für die Adler durch {name}!","{name} trifft ins Schwarze!","Was für ein Tor von {name}!"],
+  aktion:["{name} war richtig aktiv!","Starke Szene von {name}!","{name} zeigt vollen Einsatz!"],
+  gegentor:["Adler kämpfen weiter!","Kopf hoch, Team – weiter geht's!","Nächster Angriff, Adler!"]
+};
+function tickerPhrase(typ,name){
+  const arr=TICKER_PHRASES[typ]||["Die Adler waren aktiv!"];
+  const p=arr[Math.floor(Math.random()*arr.length)];
+  if(!p.includes("{name}"))return p;
+  return p.replace("{name}",name||"Die Adler");
+}
+async function tickerPush(name,typ){
+  if(mcTickerOpen===false)return; // Wolff-Fuss aktiv – nichts senden
+  const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
+  const minute=mcState?mcMinuteLabel(mcState,mcSpieldauer):"";
+  const text=tickerPhrase(typ,name);
+  try{
+    // matchday-Zeile sicherstellen (ticker_events.datum hat FK darauf) – ueberschreibt bestehende Felder nicht
+    await fetch(`${SB_URL}/rest/v1/matchday?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({datum})});
+    await fetch(`${SB_URL}/rest/v1/ticker_events`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({datum,text,typ,minute,source:"trainer"})});
+    tickerRenderFeed();
+  }catch(e){}
+}
+function tickerToggle(){
+  mcTickerOpen=mcTickerOpen===false?true:false;
+  mcSave({ticker_open:mcTickerOpen});
+  tickerRenderControls();
+}
+function tickerGoal(){
+  if(!atSel){toast("Erst Spieler oben antippen","err");return;}
+  tickerPush(atSel,"tor");
+}
+function tickerCounterGoal(){ tickerPush(null,"gegentor"); }
+async function tickerShareDelegateLink(){
+  if(!mcDelegateToken){
+    const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
+    try{
+      await fetch(`${SB_URL}/rest/v1/matchday?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({datum})});
+      const r=await fetch(`${SB_URL}/rest/v1/matchday?datum=eq.${encodeURIComponent(datum)}&select=delegate_token`,{headers:sbAuthHeaders()});
+      const rows=r.ok?await r.json():[];
+      mcDelegateToken=rows[0]&&rows[0].delegate_token;
+    }catch(e){}
+  }
+  if(!mcDelegateToken){toast("Konnte Helfer-Link nicht erzeugen","err");return;}
+  const url=location.origin+location.pathname+"?delegate="+encodeURIComponent(mcDelegateToken);
+  const text=`⚽ Liveticker-Helfer U9:\n${url}`;
+  if(navigator.share){navigator.share({title:"Ticker-Helfer",text,url}).catch(()=>{});}
+  else{navigator.clipboard?.writeText(url).then(()=>toast("Helfer-Link kopiert ✓"),()=>prompt("Helfer-Link:",url));}
+}
+function tickerRenderControls(){
+  const box=document.getElementById("ticker-panel");
+  if(!box)return;
+  const open=mcTickerOpen!==false;
+  box.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="btn ${open?"btn-p":""}" onclick="tickerToggle()">${open?"🔔 Ticker AN":"🔕 Ticker AUS"}</button>
+      <button class="btn btn-sm" onclick="tickerShareDelegateLink()"><i class="ti ti-user-share"></i>Helfer-Link</button>
+      <span style="font-size:10.5px;color:var(--text2)">${open?"Eltern sehen positive Highlights live.":"Eltern sehen: „Trainer fokussieren sich zu 100% auf die Kids – kein Ticker heute.“"}</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <button class="btn btn-p" onclick="tickerGoal()" ${open?"":"disabled"}><i class="ti ti-ball-football"></i>Tor!</button>
+      <button class="btn" onclick="tickerCounterGoal()" ${open?"":"disabled"}><i class="ti ti-shield-x"></i>Gegentor</button>
+    </div>
+    <div id="ticker-feed" style="font-size:11.5px;color:var(--text2)"></div>`;
+  tickerRenderFeed();
+}
+async function tickerRenderFeed(){
+  const box=document.getElementById("ticker-feed");
+  if(!box)return;
+  const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/ticker_events?datum=eq.${encodeURIComponent(datum)}&select=text,typ,minute,source,created_at&order=created_at.desc&limit=5`,{headers:sbAuthHeaders()});
+    if(!r.ok){box.innerHTML="";return;}
+    const rows=await r.json();
+    box.innerHTML=rows.length?rows.map(e=>`<div style="padding:4px 0;border-bottom:1px solid var(--surface2)">${e.minute?`<strong>${esc(e.minute)}</strong> `:""}${esc(e.text)}${e.source==="delegate"?' <span style="opacity:.6">(Eltern-Helfer)</span>':""}</div>`).join(""):'<div style="color:var(--text3)">Noch keine Ticker-Einträge.</div>';
+  }catch(e){}
 }
 
 /* ═══════════════════════════════════
@@ -8168,10 +8264,100 @@ async function renderElternView(datum){
         ${row("ℹ️","Infos",m.infos)}
         ${routeUrl?`<a href="${routeUrl}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:14px;background:#1e3a8a;color:#fff;padding:13px;border-radius:12px;text-decoration:none;font-weight:600">🗺️ Route ${istTraining?"zum Platz":"zum Gegner"}</a>`:""}
       </div>
-      ${istTraining?`<div id="ev-dabei" style="margin-top:14px"></div><div id="ev-fahrt" style="margin-top:14px"></div>`:""}
+      ${istTraining?`<div id="ev-dabei" style="margin-top:14px"></div><div id="ev-fahrt" style="margin-top:14px"></div>`:`<div id="ev-ticker" style="margin-top:14px"></div>`}
       <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:14px">SV Adler Dellbrück e.V. · Angaben ohne Gewähr</div>`;
     if(istTraining){edLoad(m.datum);fgLoad(m.datum);}
+    else{
+      elTickerLoad(m.datum,m.spieldauer_min||20);
+      clearInterval(elTickerTimer);
+      elTickerTimer=setInterval(()=>elTickerLoad(m.datum,m.spieldauer_min||20),20000);
+    }
   }catch(e){root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Konnte nicht laden. Bitte später erneut versuchen.</div>';}
+}
+// Eltern-Liveticker: pollt alle 20s (kein Realtime-Client nötig, passt zur REST-Architektur).
+// Respektiert den Wolff-Fuss-Toggle des Trainers unabhängig vom ticker_events-Inhalt.
+let elTickerTimer=null;
+async function elTickerLoad(datum,dauer){
+  const box=document.getElementById("ev-ticker");
+  if(!box)return;
+  const wolffFussMsg='<div style="text-align:center;font-size:12.5px;color:#64748b;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px">🤫 Trainer fokussieren sich zu 100% auf die Kids – kein Ticker heute.</div>';
+  try{
+    const [evRes,mdRes]=await Promise.all([
+      fetch(`${SB_URL}/rest/v1/ticker_events?datum=eq.${encodeURIComponent(datum)}&select=text,typ,minute,created_at&order=created_at.desc&limit=20`,{headers:elternHeaders()}),
+      fetch(`${SB_URL}/rest/v1/matchday?datum=eq.${encodeURIComponent(datum)}&select=ticker_open`,{headers:elternHeaders()})
+    ]);
+    const mdRows=mdRes.ok?await mdRes.json():[];
+    if(mdRows.length&&mdRows[0].ticker_open===false){
+      box.innerHTML=wolffFussMsg;
+      clearInterval(elTickerTimer);elTickerTimer=null;
+      return;
+    }
+    const rows=evRes.ok?await evRes.json():[];
+    box.innerHTML=`<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px">
+      <div style="font-weight:700;margin-bottom:8px">📣 Liveticker</div>
+      ${rows.length?rows.map(e=>`<div style="padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:13px"><strong style="color:#1e3a8a">${e.minute?elternEsc(e.minute):""}</strong> ${elternEsc(e.text)}</div>`).join(""):'<div style="font-size:12px;color:#94a3b8">Noch keine Ereignisse. Bleib dran!</div>'}
+    </div>`;
+  }catch(e){}
+}
+
+/* Delegate-Modus (?delegate=<token>): Eltern-Helfer am Spielfeldrand uebernimmt den
+   Ticker – reduziertes UI (nur Kaderchips + Aktions-Buttons), keine Trainer-Rechte.
+   Schreibt ausschliesslich ueber die security-definer-RPC ticker_post() mit dem
+   Capability-Token; die Text-Engine (tickerPhrase) laeuft identisch zur Trainer-Seite. */
+async function renderDelegateView(token){
+  const root=document.createElement("div");
+  root.style.cssText="max-width:440px;margin:0 auto;padding:16px;font-family:inherit;min-height:100vh;background:#f1f5f9";
+  document.body.appendChild(root);
+  root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Lade...</div>';
+  let m=null;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/matchday?delegate_token=eq.${encodeURIComponent(token)}&select=*`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    const rows=r.ok?await r.json():[];
+    m=rows[0]||null;
+  }catch(e){}
+  if(!m||m.ticker_open===false){
+    root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Der Liveticker ist gerade nicht aktiv.<br>Frag den Trainer, ob der Link noch gilt.</div>';
+    return;
+  }
+  let selected=null;
+  const squad=KADER.map(k=>k.name); // KADER ist ohnehin oeffentlich im Client-Code enthalten
+  function draw(){
+    const dauer=m.spieldauer_min||20;
+    const minuteNow=mcMinuteLabel({half:m.half,clock_status:m.clock_status,started_at:m.started_at,paused_ms:m.paused_ms},dauer);
+    root.innerHTML=`
+      <div style="text-align:center;margin:8px 0 16px">
+        <img src="logo.png" style="width:56px;height:56px" alt="SV Adler Dellbrück">
+        <div style="font-size:16px;font-weight:800;color:#1e3a8a;margin-top:6px">Ticker-Helfer${m.gegner?` · gegen ${elternEsc(m.gegner)}`:""}</div>
+        <div style="font-size:12px;color:#64748b">Spielminute: ${elternEsc(minuteNow)} · Erst Kind, dann Aktion antippen.</div>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin-bottom:12px">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+          ${squad.map(n=>`<button onclick="dgPick('${n.replace(/'/g,"")}')" style="font-size:12px;padding:7px 10px;border-radius:16px;border:1px solid #cbd5e1;background:${selected===n?"#1e3a8a":"#f1f5f9"};color:${selected===n?"#fff":"#1e293b"};cursor:pointer;font-family:inherit">${elternEsc(n)}</button>`).join("")}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button onclick="dgSend('tor')" ${selected?"":"disabled"} style="min-height:52px;border:none;border-radius:12px;background:#15803d;color:#fff;font-weight:700;font-size:13px;cursor:pointer">⚽ Tor!</button>
+          <button onclick="dgSend('aktion')" ${selected?"":"disabled"} style="min-height:52px;border:none;border-radius:12px;background:#1a56db;color:#fff;font-weight:700;font-size:13px;cursor:pointer">👏 Starke Aktion</button>
+          ${(selected&&getKader(selected)?.tw)?`<button onclick="dgSend('parade')" style="min-height:52px;border:none;border-radius:12px;background:#854d0e;color:#fff;font-weight:700;font-size:13px;cursor:pointer;grid-column:span 2">🧤 Parade</button>`:""}
+        </div>
+        <button onclick="dgSend('gegentor')" style="width:100%;margin-top:8px;min-height:44px;border:1px solid #cbd5e1;border-radius:12px;background:#f1f5f9;color:#334155;font-size:12.5px;cursor:pointer">Gegentor melden</button>
+      </div>
+      <div id="dg-status" style="text-align:center;font-size:12px;color:#94a3b8;min-height:16px"></div>
+      <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:14px">Danke fürs Mithelfen! · SV Adler Dellbrück e.V.</div>`;
+  }
+  window.dgPick=(n)=>{selected=(selected===n)?null:n;draw();};
+  window.dgSend=async(typ)=>{
+    const name=typ==="gegentor"?null:selected;
+    const text=tickerPhrase(typ,name);
+    const dauer=m.spieldauer_min||20;
+    const minute=mcMinuteLabel({half:m.half,clock_status:m.clock_status,started_at:m.started_at,paused_ms:m.paused_ms},dauer);
+    const status=document.getElementById("dg-status");
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/rpc/ticker_post`,{method:"POST",headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_token:token,p_text:text,p_typ:typ,p_minute:minute})});
+      const ok=r.ok?await r.json():false;
+      if(status)status.textContent=ok?"✓ Gesendet: "+text:"Konnte nicht gesendet werden (zu schnell hintereinander?)";
+    }catch(e){ if(status)status.textContent="Netzwerkfehler."; }
+  };
+  draw();
 }
 
 // Eltern-Interaktion (anonym, nur Training): Anwesenheit + Fahrgemeinschaften
@@ -8582,6 +8768,10 @@ async function atTap(aktion){
   atLog.push(entry);
   try{navigator.vibrate&&navigator.vibrate(20);}catch(e){}
   atRender();
+  // Paedagogik-Filter (Phase 4): nur positive Aktionen speisen den Eltern-Ticker – Undo
+  // nimmt das interne Rating zurueck, ein bereits oeffentlich gepushter Ticker-Satz bleibt
+  // stehen (geringes Risiko, da nur positive Ereignisse gepusht werden).
+  if(TICKER_POSITIVE_KEYS.includes(aktion))tickerPush(atSel,aktion);
   const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
   try{
     const r=await fetch(`${SB_URL}/rest/v1/match_actions`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=representation'},body:JSON.stringify({datum,spieler:atSel,aktion})});
@@ -9391,6 +9581,16 @@ async function pinCheck(){
     document.getElementById("main-app")?.remove();
     if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
     renderElternView(params.get("match")||"");
+    return;
+  }
+  // Delegate-Modus: Eltern-Helfer übernimmt den Ticker am Platz (Capability-Token, keine Trainer-Rechte)
+  if(params.has("delegate")){
+    document.title="Ticker-Helfer – SV Adler Dellbrück U9";
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#1e3a8a");
+    document.getElementById("pin-gate")?.remove();
+    document.getElementById("main-app")?.remove();
+    if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+    renderDelegateView(params.get("delegate"));
     return;
   }
   const isQuizMode=params.has("quiz");
