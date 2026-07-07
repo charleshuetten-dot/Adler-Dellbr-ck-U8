@@ -2363,6 +2363,7 @@ function kaderEditRow(k,i){
       ${k.foto_path?'<span style="font-size:10px;color:#059669">✓ vorhanden</span>':''}
     </div>
     <input class="ke-medical" value="${esc(k.medical||'')}" placeholder="Medical-Hinweis (z. B. Asthma, Allergie…)" style="width:100%;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
+    ${k._id?`<button type="button" class="btn btn-sm" onclick="kontakteEditOpen(${k._id})" style="margin-top:6px;width:100%"><i class="ti ti-address-book"></i>Kontakte & Eltern-Login</button>`:'<div style="font-size:10px;color:var(--text3);margin-top:6px">Erst speichern – dann sind Kontakte & Eltern-Login hinterlegbar.</div>'}
   </div>`;
 }
 // Foto aus einer Kader-Zeile hochladen (nutzt den aktuellen Namen der Zeile).
@@ -2401,6 +2402,84 @@ async function kaderEditDelete(btn,name,id){
     try{const r=await fetch(`${SB_URL}/rest/v1/kader?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
   }
   btn.closest(".kader-edit-row")?.remove();
+}
+/* ═══════════════════════════════════
+   KONTAKTE & ELTERN-LOGIN pro Kind (Phase 10-M, Etappe 1) – trainer-verwaltet.
+   • Login-E-Mails → eltern_kinder (wer darf sich im Portal anmelden & zu-/absagen)
+   • Telefonnummern → kind_kontakte (beliebig viele: Vater/Mutter/Oma…)
+   Sofort-speichernd (Add/Delete schreiben direkt), RLS erlaubt Schreiben nur Trainern.
+═══════════════════════════════════ */
+function kontakteEditOpen(spielerId){
+  if(!spielerId){toast("Bitte den Spieler zuerst speichern","err");return;}
+  const k=KADER.find(x=>x._id===spielerId);
+  document.getElementById("kontakte-modal")?.remove();
+  const modal=document.createElement("div");
+  modal.id="kontakte-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  modal.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:420px;width:100%;margin:auto">
+    <div style="font-weight:700;margin-bottom:2px">📇 ${esc(k?k.name:"Spieler")} – Kontakte & Eltern-Login</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Login-E-Mails: wer sich im Eltern-Bereich anmelden & zu-/absagen darf. Telefonnummern: beliebig viele (Vater, Mutter, Oma…).</div>
+    <div id="kontakte-body"><div style="color:var(--text3);font-size:12px;padding:12px">Lade…</div></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn" onclick="document.getElementById('kontakte-modal').remove()">Schließen</button></div>
+  </div>`;
+  document.body.appendChild(modal);
+  kontakteRender(spielerId);
+}
+async function kontakteRender(sid){
+  const body=document.getElementById("kontakte-body");
+  if(!body)return;
+  let emails=[],phones=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?spieler_id=eq.${sid}&select=id,email,label&order=id`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)emails=await r.json();}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_kontakte?spieler_id=eq.${sid}&select=id,name,rolle,telefon&order=id`,{headers:sbAuthHeaders()});if(r.ok)phones=await r.json();}catch(e){}
+  const inp="padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px";
+  body.innerHTML=`
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">🔑 Login-E-Mails</div>
+    ${emails.length?emails.map(e=>`<div style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 0;border-bottom:1px solid var(--surface2)">
+      <span style="flex:1;word-break:break-all">${esc(e.email)}${e.label?` <span style="color:var(--text3);font-size:11px">(${esc(e.label)})</span>`:""}</span>
+      <button onclick="kontakteDelEmail(${e.id},${sid})" title="Entfernen" style="border:none;background:transparent;color:#dc2626;cursor:pointer"><i class="ti ti-trash"></i></button>
+    </div>`).join(""):'<div style="font-size:12px;color:var(--text3)">Noch keine Login-E-Mail.</div>'}
+    <div style="display:flex;gap:6px;margin:8px 0 16px;flex-wrap:wrap">
+      <input id="kk-new-email" type="email" placeholder="eltern@mail.de" style="flex:2;min-width:130px;${inp}">
+      <input id="kk-new-email-label" placeholder="Rolle (optional)" style="flex:1;min-width:80px;${inp}">
+      <button class="btn btn-sm" onclick="kontakteAddEmail(${sid})"><i class="ti ti-plus"></i></button>
+    </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">📞 Telefonnummern</div>
+    ${phones.length?phones.map(p=>`<div style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 0;border-bottom:1px solid var(--surface2)">
+      <span style="flex:1">${esc(p.telefon)}${(p.name||p.rolle)?` <span style="color:var(--text3);font-size:11px">(${esc([p.rolle,p.name].filter(Boolean).join(" · "))})</span>`:""}</span>
+      <button onclick="kontakteDelPhone(${p.id},${sid})" title="Entfernen" style="border:none;background:transparent;color:#dc2626;cursor:pointer"><i class="ti ti-trash"></i></button>
+    </div>`).join(""):'<div style="font-size:12px;color:var(--text3)">Noch keine Nummer.</div>'}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+      <input id="kk-new-tel" type="tel" placeholder="Telefon" style="flex:2;min-width:110px;${inp}">
+      <input id="kk-new-rolle" placeholder="Rolle (z. B. Mutter)" style="flex:1;min-width:90px;${inp}">
+      <input id="kk-new-name" placeholder="Name (optional)" style="flex:1;min-width:90px;${inp}">
+      <button class="btn btn-sm" onclick="kontakteAddPhone(${sid})"><i class="ti ti-plus"></i></button>
+    </div>`;
+}
+async function kontakteAddEmail(sid){
+  const email=(document.getElementById("kk-new-email")?.value||"").trim().toLowerCase();
+  const label=(document.getElementById("kk-new-email-label")?.value||"").trim();
+  if(!email||!/.+@.+\..+/.test(email)){toast("Gültige E-Mail eingeben","err");return;}
+  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?on_conflict=spieler_id,email`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({spieler_id:sid,email,label:label||null})});if(sbCheck401(r))return;if(!r.ok){toast("Konnte nicht speichern","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Login-E-Mail hinterlegt ✓");
+  kontakteRender(sid);
+}
+async function kontakteDelEmail(id,sid){
+  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
+  kontakteRender(sid);
+}
+async function kontakteAddPhone(sid){
+  const telefon=(document.getElementById("kk-new-tel")?.value||"").trim();
+  const rolle=(document.getElementById("kk-new-rolle")?.value||"").trim();
+  const name=(document.getElementById("kk-new-name")?.value||"").trim();
+  if(!telefon){toast("Telefonnummer eingeben","err");return;}
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_kontakte`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({spieler_id:sid,telefon,rolle:rolle||null,name:name||null})});if(sbCheck401(r))return;if(!r.ok){toast("Konnte nicht speichern","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Nummer hinterlegt ✓");
+  kontakteRender(sid);
+}
+async function kontakteDelPhone(id,sid){
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_kontakte?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
+  kontakteRender(sid);
 }
 async function kaderSaveAll(btn){
   const rows=[...document.querySelectorAll(".kader-edit-row")];
