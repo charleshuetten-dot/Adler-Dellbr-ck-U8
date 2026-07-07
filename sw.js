@@ -1,8 +1,9 @@
-const CACHE="u9i-adler-v82";
+const CACHE="u9i-adler-v83";
 const PRECACHE=[
   "./",
   "./index.html",
   "./styles.css",
+  "./data.js",
   "./logo.png",
   "./icon-trainer.png",
   "./icon-quiz.png",
