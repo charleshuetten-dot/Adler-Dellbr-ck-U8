@@ -621,7 +621,7 @@ h1.print-header{display:none}
   <button class="nb active" id="nb-home" onclick="openTab('home')"><i class="ti ti-home"></i><span>Home</span></button>
   <button class="nb" id="nb-team" onclick="openTab('team')"><i class="ti ti-users"></i><span>Team</span></button>
   <button class="nb" id="nb-training" onclick="openTab('training')"><i class="ti ti-run"></i><span>Training</span></button>
-  <button class="nb" id="nb-spieltag" onclick="openTab('spieltag')"><i class="ti ti-whistle"></i><span>Spieltag</span></button>
+  <button class="nb" id="nb-spieltag" onclick="openTab('spieltag')"><i class="ti ti-ball-football"></i><span>Spieltag</span></button>
   <button class="nb" id="nb-taktik" onclick="openTab('taktik')"><i class="ti ti-arrows-move"></i><span>Taktik</span></button>
   <button class="nb" id="nb-orga" onclick="openTab('orga')"><i class="ti ti-calendar"></i><span>Orga</span></button>
 </div>
@@ -1370,9 +1370,9 @@ function adlerCardDataFromChild(p){
   const theme=p.tw?CARD_THEMES.keeper:(CARD_THEMES[topDim[0]]||CARD_THEMES.tech);
   const posMap={aufpasser:"Aufpasser",jaeger:"Jäger",flitzer_l:"Flitzer",flitzer_r:"Flitzer"};
   const pos=p.lieblingsposition||(p.tw?"Torwart":(posMap[p.snap_position]||p.prim_rolle||"Allrounder"));
-  const fussMap={L:"Links",R:"Rechts",B:"Beidfüßig"};
+  const fussMap={L:"linker Fuß",R:"rechter Fuß",B:"beidfüßig"};
   const s=p.stats||{};
-  return {name:p.name,nr:p.nr,tw:!!p.tw,geb:p.geb,fotoPath:p.foto_path,pos,
+  return {name:p.name,nr:p.nr,tw:!!p.tw,geb:p.geb,fotoPath:p.foto_path,pos:cardPosLabel(pos),
     fuss:fussMap[p.starker_fuss||p.strong_foot]||"",
     alter:p.geb?homeAlter(p.geb):(p.age||null),
     badges:strengths.map(x=>CARD_BADGES[x.key]),theme,
@@ -3036,6 +3036,16 @@ const CARD_THEMES={
   phys:{a:"#9a3412",b:"#f97316",name:"DYNAMIK"}, mental:{a:"#065f46",b:"#10b981",name:"CHARAKTER"},
   entw:{a:"#155e75",b:"#06b6d4",name:"TALENT"}, keeper:{a:"#854d0e",b:"#eab308",name:"TORWART"}
 };
+// Position ausschreiben: "Flitzer R" -> "Rechter Flitzer", Codes -> Klartext.
+function cardPosLabel(pos){
+  if(!pos)return pos;
+  const p=String(pos).trim(), low=p.toLowerCase();
+  const direct={aufpasser:"Aufpasser","jäger":"Jäger",jaeger:"Jäger",torwart:"Torwart",tw:"Torwart",allrounder:"Allrounder",flitzer:"Flitzer",flitzer_l:"Linker Flitzer",flitzer_r:"Rechter Flitzer"};
+  if(direct[low])return direct[low];
+  const m=low.match(/^(.+?)\s+(r|l|rechts|links)$/);
+  if(m){const seite=/^(r|rechts)$/.test(m[2])?"Rechter":"Linker",base=m[1].trim();return seite+" "+base.charAt(0).toUpperCase()+base.slice(1);}
+  return p;
+}
 function adlerCardData(name){
   const snaps=DB[name]||[];
   if(!snaps.length)return null;
@@ -3050,8 +3060,8 @@ function adlerCardData(name){
   const theme=k.tw?CARD_THEMES.keeper:(CARD_THEMES[topDim[0]]||CARD_THEMES.tech);
   const posMap={aufpasser:"Aufpasser",jaeger:"Jäger",flitzer_l:"Flitzer",flitzer_r:"Flitzer"};
   const pos=k.lieblingsposition||(k.tw?"Torwart":(posMap[lat.position]||lat.prim_rolle||"Allrounder"));
-  const fussMap={L:"Links",R:"Rechts",B:"Beidfüßig"};
-  return {name,nr:k.nr,tw:!!k.tw,geb:k.geb,fotoPath:k.foto_path,pos,fuss:fussMap[k.starker_fuss||lat.strong_foot]||"",
+  const fussMap={L:"linker Fuß",R:"rechter Fuß",B:"beidfüßig"};
+  return {name,nr:k.nr,tw:!!k.tw,geb:k.geb,fotoPath:k.foto_path,pos:cardPosLabel(pos),fuss:fussMap[k.starker_fuss||lat.strong_foot]||"",
           alter:k.geb?homeAlter(k.geb):(lat.age||null), badges:strengths.map(s=>CARD_BADGES[s.key]), theme};
 }
 function adlerCardDraw(ctx,W,H,d,photoImg){
@@ -3101,7 +3111,7 @@ function adlerCardDraw(ctx,W,H,d,photoImg){
   ctx.textAlign="center";ctx.fillStyle="#fff";ctx.font="800 33px Arial";
   ctx.fillText(d.name||"", W/2, nameY);
   ctx.font="600 15px Arial";ctx.fillStyle="rgba(255,255,255,.9)";
-  const sub=[d.alter?d.alter+" Jahre":"",d.fuss?d.fuss+"er Fuß":""].filter(Boolean).join("  ·  ");
+  const sub=[d.alter?d.alter+" Jahre":"",d.fuss||""].filter(Boolean).join("  ·  ");
   if(sub)ctx.fillText(sub,W/2,nameY+24);
 
   // ── Einsatz-Zähler (Fleiß statt Skill-Ranking): positionsgerecht (TW → Paraden) ──
@@ -3338,9 +3348,9 @@ const TABS={
     {key:"home",    label:"Dashboard", icon:"ti-home"},
   ]},
   team:    {sections:[
-    {key:"bew",     label:"Bewerten", icon:"ti-clipboard-list"},
     {key:"kader",   label:"Kader",    icon:"ti-users"},
     {key:"profil",  label:"Profil",   icon:"ti-user"},
+    {key:"bew",     label:"Bewerten", icon:"ti-clipboard-list"},
     {key:"verlauf", label:"Verlauf",  icon:"ti-chart-line"},
   ]},
   training:{sections:[
