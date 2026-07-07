@@ -2199,6 +2199,9 @@ async function loadKader(){
         if(x.nr!=null)o.nr=x.nr;
         if(x.geb)o.geb=x.geb;
         if(x.medical)o.medical=x.medical;
+        if(x.starker_fuss)o.starker_fuss=x.starker_fuss;
+        if(x.lieblingsposition)o.lieblingsposition=x.lieblingsposition;
+        if(x.foto_path)o.foto_path=x.foto_path;
         return o;
       }));
     }
@@ -2221,8 +2224,30 @@ function kaderEditRow(k,i){
       </select>
       <input class="ke-geb" type="date" value="${esc(k.geb||'')}" title="Geburtstag" style="padding:6px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
     </div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+      <select class="ke-fuss" title="Starker Fuß" style="padding:6px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
+        <option value=""${!k.starker_fuss?" selected":""}>Fuß?</option>
+        <option value="R"${k.starker_fuss==="R"?" selected":""}>Rechts</option>
+        <option value="L"${k.starker_fuss==="L"?" selected":""}>Links</option>
+        <option value="B"${k.starker_fuss==="B"?" selected":""}>Beidfüßig</option>
+      </select>
+      <input class="ke-pos" value="${esc(k.lieblingsposition||'')}" placeholder="Lieblingsposition" style="flex:1;min-width:90px;padding:6px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;color:var(--text2)">Foto (Karte):</span>
+      <input type="file" accept="image/*" onchange="kaderRowFoto(this)" style="font-size:11px;flex:1">
+      ${k.foto_path?'<span style="font-size:10px;color:#059669">✓ vorhanden</span>':''}
+    </div>
     <input class="ke-medical" value="${esc(k.medical||'')}" placeholder="Medical-Hinweis (z. B. Asthma, Allergie…)" style="width:100%;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
   </div>`;
+}
+// Foto aus einer Kader-Zeile hochladen (nutzt den aktuellen Namen der Zeile).
+function kaderRowFoto(input){
+  const row=input.closest(".kader-edit-row");
+  const name=row?.querySelector(".ke-name")?.value.trim();
+  if(!name){toast("Erst Namen eintragen (und Spieler speichern)","err");input.value="";return;}
+  const file=input.files&&input.files[0];
+  if(file)fotoUpload(name,file,input);
 }
 function kaderEditOpen(){
   if(!sbToken()){toast("Bitte zuerst als Trainer anmelden","err");return;}
@@ -2262,11 +2287,14 @@ async function kaderSaveAll(btn){
     const nrV=row.querySelector(".ke-nr").value;
     const geb=row.querySelector(".ke-geb").value;
     const medical=row.querySelector(".ke-medical").value.trim();
+    const fuss=row.querySelector(".ke-fuss")?.value||"";
+    const pos=row.querySelector(".ke-pos")?.value.trim()||"";
     payload.push({
       name, nr:nrV!==""?parseInt(nrV):null,
       tw:row.querySelector(".ke-tw").checked,
       tw_prio:parseInt(row.querySelector(".ke-prio").value)||0,
-      geb:geb||null, medical:medical||null, sort_order:i+1
+      geb:geb||null, medical:medical||null,
+      starker_fuss:fuss||null, lieblingsposition:pos||null, sort_order:i+1
     });
   });
   if(!payload.length){toast("Kein Spieler eingetragen","err");return;}
@@ -2673,17 +2701,88 @@ function adlerCardDraw(ctx,W,H,d,photoImg){
   ctx.textAlign="center";ctx.font="600 12px Arial";ctx.fillStyle="rgba(255,255,255,.75)";
   ctx.fillText("SV Adler Dellbrück · U9 · Saison "+saisonLabel(), W/2, H-24);
 }
-let adlerCardBlob=null;
+/* Foto-Pipeline (D2): Kompression nativ (Canvas+toBlob), Upload in den privaten
+   Bucket, Laden per authentifiziertem GET -> Blob -> Object-URL (kein CORS/tainted
+   canvas), optionaler Comic-Filter (Posterize) rein lokal. */
+function fotoLoadFromFile(file){
+  // EXIF-Orientierung beruecksichtigen, wo verfuegbar (createImageBitmap), sonst Fallback.
+  if(window.createImageBitmap){
+    return createImageBitmap(file,{imageOrientation:"from-image"}).catch(()=>fotoLoadFallback(file));
+  }
+  return fotoLoadFallback(file);
+}
+function fotoLoadFallback(file){
+  return new Promise((res,rej)=>{const url=URL.createObjectURL(file);const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url;});
+}
+async function fotoCompress(file,size=400){
+  const img=await fotoLoadFromFile(file);
+  const iw=img.width||img.naturalWidth, ih=img.height||img.naturalHeight;
+  const s=Math.min(iw,ih), sx=(iw-s)/2, sy=(ih-s)/2; // zentriert quadratisch zuschneiden
+  const cv=document.createElement("canvas");cv.width=size;cv.height=size;
+  cv.getContext("2d").drawImage(img,sx,sy,s,s,0,0,size,size);
+  return await new Promise(r=>cv.toBlob(r,"image/jpeg",0.82)); // JPEG-Default (iOS-sicher), spart Traffic
+}
+function fotoComicCanvas(img,size=400){
+  const cv=document.createElement("canvas");cv.width=size;cv.height=size;
+  const ctx=cv.getContext("2d");
+  ctx.drawImage(img,0,0,size,size);
+  // Posterize (Farbstufen reduzieren) + leichte Saettigung = "Comic"-Look, kein KI noetig
+  const id=ctx.getImageData(0,0,size,size),d=id.data,levels=5,step=255/(levels-1);
+  for(let i=0;i<d.length;i+=4){
+    for(let c=0;c<3;c++){
+      let val=Math.round(d[i+c]/step)*step;
+      const avg=(d[i]+d[i+1]+d[i+2])/3;
+      val=Math.max(0,Math.min(255,avg+(val-avg)*1.35)); // Saettigung anheben
+      d[i+c]=val;
+    }
+  }
+  ctx.putImageData(id,0,0);
+  return cv;
+}
+async function fotoLoadImage(path){
+  if(!path||!sbToken())return null;
+  try{
+    const r=await fetch(`${SB_URL}/storage/v1/object/authenticated/spielerfotos/${path}`,{headers:{'Authorization':'Bearer '+sbToken()}});
+    if(!r.ok)return null;
+    const blob=await r.blob();
+    const url=URL.createObjectURL(blob);
+    return await new Promise((res,rej)=>{const i=new Image();i.onload=()=>{res(i);};i.onerror=rej;i.src=url;});
+  }catch(e){return null;}
+}
+async function fotoUpload(name,file,btn){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  if(btn)btn.disabled=true;
+  try{
+    const blob=await fotoCompress(file);
+    const path=(crypto&&crypto.randomUUID?crypto.randomUUID():String(Date.now()))+".jpg";
+    const up=await fetch(`${SB_URL}/storage/v1/object/spielerfotos/${path}`,{method:"POST",headers:{'Authorization':'Bearer '+sbToken(),'Content-Type':'image/jpeg'},body:blob});
+    if(!up.ok){toast("Foto-Upload fehlgeschlagen","err");return;}
+    const pr=await fetch(`${SB_URL}/rest/v1/kader?name=eq.${encodeURIComponent(name)}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({foto_path:path})});
+    if(sbCheck401(pr))return;
+    await loadKader();
+    toast("Foto gespeichert ✓");
+  }catch(e){toast("Foto konnte nicht verarbeitet werden","err");}
+  finally{if(btn)btn.disabled=false;}
+}
+
+let adlerCardBlob=null, adlerCardComic=false;
 async function adlerCardOpen(){
   const name=document.getElementById("psel-profil")?.value;
   if(!name){toast("Erst einen Spieler wählen","err");return;}
   const d=adlerCardData(name);
   if(!d){toast("Keine Bewertung vorhanden","err");return;}
+  adlerCardComic=false;
   const W=500,H=780;
   const canvas=document.createElement("canvas");canvas.width=W;canvas.height=H;
   const ctx=canvas.getContext("2d");
-  adlerCardDraw(ctx,W,H,d,null); // D1: ohne Foto (Initialen); D2 laedt das Foto als Blob
-  canvas.toBlob(b=>{adlerCardBlob=b;},"image/png");
+  let rawPhoto=null;
+  function render(){
+    const draw=rawPhoto?(adlerCardComic?fotoComicCanvas(rawPhoto):rawPhoto):null;
+    adlerCardDraw(ctx,W,H,d,draw);
+    canvas.toBlob(b=>{adlerCardBlob=b;},"image/png");
+  }
+  window._adlerCardRender=render; // fuer den Comic-Toggle
+  render(); // sofort (Initialen), Foto laedt asynchron nach
   const modal=document.createElement("div");
   modal.id="adler-card-modal";
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;overflow-y:auto";
@@ -2693,9 +2792,12 @@ async function adlerCardOpen(){
   const bar=document.createElement("div");
   bar.style.cssText="display:flex;gap:8px;flex-wrap:wrap;justify-content:center";
   bar.innerHTML=`<button class="btn btn-p" onclick="adlerCardShare()"><i class="ti ti-share"></i>Karte teilen</button>
+    <button class="btn" id="adler-comic-btn" onclick="adlerCardComic=!adlerCardComic;this.classList.toggle('btn-p',adlerCardComic);window._adlerCardRender&&window._adlerCardRender()"><i class="ti ti-brush"></i>Comic</button>
     <button class="btn" onclick="document.getElementById('adler-card-modal').remove()">Schließen</button>`;
   modal.appendChild(bar);
   document.body.appendChild(modal);
+  // Foto (falls vorhanden) laden und neu zeichnen
+  if(d.fotoPath){ const img=await fotoLoadImage(d.fotoPath); if(img&&document.getElementById("adler-card-modal")){ rawPhoto=img; render(); } }
 }
 async function adlerCardShare(){
   if(!adlerCardBlob){toast("Karte noch nicht bereit","err");return;}
