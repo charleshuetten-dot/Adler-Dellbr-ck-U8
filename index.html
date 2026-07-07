@@ -1341,7 +1341,8 @@ async function elternDashLoad(){
         <div style="font-size:11.5px;color:${st?EP_RSVP[st].col:"#94a3b8"};margin-bottom:8px">${st?`Aktuell: ${EP_RSVP[st].emo} ${EP_RSVP[st].lbl}`:"Bitte rückmelden"}${cur&&cur.kommentar?` · „${esc(cur.kommentar)}"`:""}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>
         <button onclick="elternCardOpen(${k.spieler_id})" style="width:100%;margin-top:8px;padding:9px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🃏 Adler-Karte ansehen</button>
-        ${st==="zugesagt"?`<button onclick="elternCarpoolOpen(${k.spieler_id},${termin.id})" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🚗 Fahrgemeinschaft</button>`:""}`);
+        ${st==="zugesagt"?`<button onclick="elternCarpoolOpen(${k.spieler_id},${termin.id})" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🚗 Fahrgemeinschaft</button>`:""}
+        <button onclick="elternFanfactsOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #64748b;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">✏️ Fan-Fakten &amp; Foto</button>`);
     }).join("");
   }
   html+=`<div style="text-align:center;font-size:10.5px;color:#94a3b8;margin:2px 0 12px">Deine Rückmeldung ist ein Hinweis für den Trainer – die endgültige Aufstellung entscheidet er.</div>`;
@@ -1375,7 +1376,7 @@ function adlerCardDataFromChild(p){
   const s=p.stats||{};
   return {name:p.name,nr:p.nr,tw:!!p.tw,geb:p.geb,fotoPath:p.foto_path,pos:cardPosLabel(pos),
     fuss:fussMap[p.starker_fuss||p.strong_foot]||"",
-    alter:p.geb?homeAlter(p.geb):(p.age||null),
+    alter:p.geb?homeAlter(p.geb):(p.age||null), spitzname:p.spitzname||null,
     badges:strengths.map(x=>CARD_BADGES[x.key]),theme,
     counts:{tore:s.tore||0,paraden:s.paraden||0,aktionen:s.aktionen||0,spiele:s.spiele||0,trainings:s.trainings||0,quizRichtig:s.quizRichtig||0,quizBloecke:s.quizBloecke||0}};
 }
@@ -1502,6 +1503,74 @@ async function elternCarpoolPatch(spielerId,terminId,fields){
   }catch(e){toast("Netzwerkfehler","err");return;}
   toast("Fahrgemeinschaft aktualisiert ✓");
   elternCarpoolRender(spielerId,terminId);
+}
+/* ═══════════════════════════════════
+   FAN-FAKTEN (Phase 11-Q) – Eltern pflegen Spitzname/Verein/Spieler + Profilbild
+   für ihr eigenes Kind (kind_fanfacts, RLS is_parent_of). kader bleibt trainer-only.
+   Foto-Upload pfad-basiert: "<spieler_id>/<uuid>.jpg".
+═══════════════════════════════════ */
+async function elternFanfactsOpen(spielerId,kindName){
+  document.getElementById("fanfacts-modal")?.remove();
+  let f={};
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_fanfacts?spieler_id=eq.${spielerId}&select=*`,{headers:sbAuthHeaders()});if(r.ok)f=(await r.json())[0]||{};}catch(e){}
+  const inp="width:100%;padding:9px;margin:4px 0 10px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font-family:inherit;font-size:13px";
+  const m=document.createElement("div");m.id="fanfacts-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:#fff;border-radius:16px;padding:18px;max-width:400px;width:100%;margin:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-weight:800;font-size:16px">✏️ ${esc(kindName||"Kind")} – Fan-Fakten</div>
+      <button onclick="document.getElementById('fanfacts-modal').remove()" style="border:none;background:none;font-size:22px;color:#64748b;cursor:pointer">×</button>
+    </div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:12px">Diese Fan-Fakten pflegst du selbst – die sportliche Bewertung bleibt beim Trainer.</div>
+    <label style="font-size:12px;color:#475569">Profilbild</label>
+    <div style="display:flex;align-items:center;gap:8px;margin:4px 0 12px">
+      <input type="file" accept="image/jpeg,image/png,image/webp" onchange="elternFotoUpload(${spielerId},this)" style="font-size:11px;flex:1">
+      ${f.foto_path?'<span style="font-size:10px;color:#059669">✓ vorhanden</span>':''}
+    </div>
+    <label style="font-size:12px;color:#475569">Spitzname</label>
+    <input id="ff-spitz" value="${esc(f.spitzname||'')}" placeholder="z. B. Mimi" style="${inp}">
+    <label style="font-size:12px;color:#475569">Lieblingsverein</label>
+    <input id="ff-verein" value="${esc(f.lieblingsverein||'')}" placeholder="z. B. 1. FC Köln" style="${inp}">
+    <label style="font-size:12px;color:#475569">Lieblingsspieler</label>
+    <input id="ff-spieler" value="${esc(f.lieblingsspieler||'')}" placeholder="z. B. Musiala" style="${inp}">
+    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#475569;margin:6px 0 14px">
+      <input id="ff-gallery" type="checkbox" ${f.gallery_optin?"checked":""}> Foto in der Team-Galerie zeigen (Opt-in)
+    </label>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="document.getElementById('fanfacts-modal').remove()" style="border:none;background:none;color:#64748b;font-size:13px;cursor:pointer">Schließen</button>
+      <button onclick="elternFanfactsSave(${spielerId})" style="border:none;border-radius:8px;background:#1e3a8a;color:#fff;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer">Speichern</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+async function elternFanfactsSave(spielerId){
+  const body={spieler_id:spielerId,
+    spitzname:(document.getElementById("ff-spitz")?.value||"").trim()||null,
+    lieblingsverein:(document.getElementById("ff-verein")?.value||"").trim()||null,
+    lieblingsspieler:(document.getElementById("ff-spieler")?.value||"").trim()||null,
+    gallery_optin:!!(document.getElementById("ff-gallery")&&document.getElementById("ff-gallery").checked),
+    updated_at:new Date().toISOString()};
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kind_fanfacts?on_conflict=spieler_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(body)});
+    if(!r.ok){toast("Speichern fehlgeschlagen","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Fan-Fakten gespeichert ✓");
+  document.getElementById("fanfacts-modal")?.remove();
+}
+async function elternFotoUpload(spielerId,input){
+  const file=input.files&&input.files[0]; if(!file)return;
+  input.disabled=true;
+  try{
+    const blob=await fotoCompress(file);
+    const path=spielerId+"/"+((crypto&&crypto.randomUUID)?crypto.randomUUID():Date.now())+".jpg";
+    const up=await fetch(`${SB_URL}/storage/v1/object/spielerfotos/${path}`,{method:"POST",headers:{'Authorization':'Bearer '+sbToken(),'Content-Type':'image/jpeg'},body:blob});
+    if(!up.ok){toast("Foto-Upload fehlgeschlagen","err");return;}
+    const r=await fetch(`${SB_URL}/rest/v1/kind_fanfacts?on_conflict=spieler_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({spieler_id:spielerId,foto_path:path,updated_at:new Date().toISOString()})});
+    if(!r.ok){toast("Foto gespeichert, Verknüpfung fehlgeschlagen","err");return;}
+    toast("Profilbild aktualisiert ✓");
+  }catch(e){toast("Foto konnte nicht verarbeitet werden","err");}
+  finally{input.disabled=false;}
 }
 function elternPortalTrainerNotice(root){
   root.innerHTML=`<div style="max-width:360px;margin:8vh auto;background:#fff;border-radius:16px;padding:24px;text-align:center">
@@ -3243,7 +3312,7 @@ function adlerCardDraw(ctx,W,H,d,photoImg){
   ctx.textAlign="center";ctx.fillStyle="#fff";ctx.font="800 33px Arial";
   ctx.fillText(d.name||"", W/2, nameY);
   ctx.font="600 15px Arial";ctx.fillStyle="rgba(255,255,255,.9)";
-  const sub=[d.alter?d.alter+" Jahre":"",d.fuss||""].filter(Boolean).join("  ·  ");
+  const sub=[d.spitzname?'„'+d.spitzname+'“':"",d.alter?d.alter+" Jahre":"",d.fuss||""].filter(Boolean).join("  ·  ");
   if(sub)ctx.fillText(sub,W/2,nameY+24);
 
   // ── Einsatz-Zähler (Fleiß statt Skill-Ranking): positionsgerecht (TW → Paraden) ──
