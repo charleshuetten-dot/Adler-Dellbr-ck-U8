@@ -9006,6 +9006,21 @@ function nomInit(){
   if(seg)seg.querySelectorAll(".seg-btn").forEach(b=>b.classList.toggle("active",b.dataset.val==="1"));
   nomLoad();
 }
+// Eltern-RSVP (Phase 10-M, Etappe 3): Rückmeldungen der Eltern zum Termin dieses Datums laden.
+let nomRsvp={}; // name -> {status,kommentar}
+async function nomLoadRsvp(){
+  nomRsvp={};
+  const datum=spieltagRawDate();
+  try{
+    const tr=await fetch(`${SB_URL}/rest/v1/termine?datum=eq.${encodeURIComponent(datum)}&select=id&limit=1`,{headers:sbAuthHeaders()});
+    if(!tr.ok)return;
+    const trows=await tr.json(); const tid=trows[0]&&trows[0].id;
+    if(!tid)return;
+    const rr=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${tid}&select=spieler_id,status,kommentar`,{headers:sbAuthHeaders()});
+    if(!rr.ok)return;
+    (await rr.json()).forEach(x=>{const k=KADER.find(kk=>kk._id===x.spieler_id); if(k)nomRsvp[k.name]={status:x.status,kommentar:x.kommentar};});
+  }catch(e){}
+}
 async function nomLoad(){
   const datum=spieltagKey();
   nomStatus={};
@@ -9014,6 +9029,7 @@ async function nomLoad(){
     if(!sbCheck401(r)&&r.ok){const rows=await r.json();if(rows.length&&rows[0].data)nomStatus={...rows[0].data};}
   }catch(e){}
   KADER.forEach(k=>{if(!nomStatus[k.name])nomStatus[k.name]="dabei";}); // Default: dabei
+  await nomLoadRsvp();
   nomRender();
   nomApplyToTools();
   if(document.getElementById("action-panel"))atInit(); // Aktionen fürs neue Datum laden
@@ -9029,14 +9045,39 @@ function nomRender(){
   const box=document.getElementById("nom-panel");
   if(!box)return;
   const stCfg={dabei:{lbl:"Dabei",col:"#15803d"},nicht:{lbl:"Nicht",col:"#64748b"},verletzt:{lbl:"Verletzt",col:"#dc2626"}};
-  box.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">${nominierteSpieler().length} von ${KADER.length} dabei</div>`+
+  const rvEmo={zugesagt:"✅",abgesagt:"❌",krank:"🤒"};
+  const hasRsvp=Object.keys(nomRsvp).length>0;
+  let sum="";
+  if(hasRsvp){
+    const c={zugesagt:0,abgesagt:0,krank:0};
+    Object.values(nomRsvp).forEach(x=>{if(c[x.status]!=null)c[x.status]++;});
+    sum=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding:8px 10px;background:var(--surface2);border-radius:var(--r);font-size:11.5px">
+      <span style="font-weight:600">Eltern-RSVP:</span><span>✅ ${c.zugesagt}</span><span>❌ ${c.abgesagt}</span><span>🤒 ${c.krank}</span><span style="color:var(--text3)">offen ${KADER.length-Object.keys(nomRsvp).length}</span>
+      <button class="btn btn-sm" onclick="nomApplyRsvp()" style="margin-left:auto"><i class="ti ti-checks"></i>Zusagen übernehmen</button>
+    </div>`;
+  }
+  box.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">${nominierteSpieler().length} von ${KADER.length} dabei</div>`+sum+
     KADER.map(k=>{
       const cur=nomStatus[k.name]||"dabei";
+      const rv=nomRsvp[k.name];
+      const badge=rv?`<span title="Eltern-Rückmeldung: ${esc(rv.status)}${rv.kommentar?' – '+esc(rv.kommentar):''}" style="font-size:13px;width:16px;text-align:center">${rvEmo[rv.status]||""}</span>`:'<span style="width:16px"></span>';
       return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
+        ${badge}
         <span style="flex:1;font-size:12.5px">${getKader(k.name)?.nr?getKader(k.name).nr+" ":""}${esc(k.name)}</span>
         ${["dabei","nicht","verletzt"].map(s=>`<button onclick="nomSet('${k.name}','${s}')" style="min-height:36px;padding:5px 9px;font-size:11px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;background:${cur===s?stCfg[s].col:"var(--surface)"};color:${cur===s?"#fff":"var(--text2)"}">${stCfg[s].lbl}</button>`).join("")}
       </div>`;
     }).join("");
+}
+// Ein-Klick: Eltern-Zusagen in die Nominierung übernehmen (zugesagt→dabei, abgesagt/krank→nicht).
+// Grundgesetz: nur ein Vorschlag – der Trainer kann jeden Spieler danach frei überstimmen.
+function nomApplyRsvp(){
+  let changed=0;
+  Object.keys(nomRsvp).forEach(name=>{
+    const target=nomRsvp[name].status==="zugesagt"?"dabei":"nicht";
+    if(nomStatus[name]!==target){nomStatus[name]=target;changed++;}
+  });
+  nomRender();nomApplyToTools();nomSave();
+  toast(changed?`${changed} Nominierung(en) aus Eltern-Zusagen übernommen ✓`:"Nominierung entspricht bereits den Zusagen");
 }
 function nomApplyToTools(){
   const squad=nominierteSpieler();
