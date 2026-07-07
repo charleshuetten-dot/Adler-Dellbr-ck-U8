@@ -8656,8 +8656,11 @@ async function tickerShareViewLink(){
 function tickerGoal(){
   if(!atSel){toast("Erst Spieler oben antippen","err");return;}
   tickerPush(atSel,"tor");
-  // Torschütze zusätzlich als Aktion sichern → Datenquelle für den automatischen Spielbericht (Phase 8-G).
+  // Torschütze zusätzlich als Aktion sichern → Datenquelle für Spielbericht (8-G) + Live-Quest (8-F).
+  if(typeof atCounts==="object"){ if(!atCounts[atSel])atCounts[atSel]={}; atCounts[atSel].tor=(atCounts[atSel].tor||0)+1; }
   sbQueuedPost("match_actions",{datum:spieltagKey(),spieler:atSel,aktion:"tor"});
+  if(typeof atRender==="function")atRender();
+  if(typeof questCheck==="function")questCheck();
 }
 function tickerCounterGoal(){ tickerPush(null,"gegentor"); }
 async function tickerShareDelegateLink(){
@@ -9453,6 +9456,108 @@ function questSeedDone(){
   const counts=questCountsLive();
   questDone=new Set(TEAM_QUESTS.filter(q=>(counts[q.key]||0)>=q.target).map(q=>q.key));
 }
+
+/* ═══════════════════════════════════
+   VOICE-TO-ACTION (Phase 8-E) – BETA, bewusst als Bonus, nie als Hauptweg.
+   Kritische Design-Entscheidungen (siehe Tech-Lead-Analyse):
+   • Manuell-first: der Tap-Tracker bleibt der Arbeitspferd; Voice ist opt-in.
+   • Nur wenn SpeechRecognition unterstützt wird (auf iOS oft wackelig) – sonst
+     sauberer Hinweis, kein toter Button.
+   • Suchraum = NUR nominierte Spieler (kleiner Namensraum) + Levenshtein-Fuzzy-Match,
+     weil Eigennamen das Schwierigste für STT sind.
+   • NIEMALS Auto-Push: jede erkannte Aktion muss vor dem Senden bestätigt werden
+     (Fehlerkennung „Tor durch X" darf nicht ungeprüft in den Eltern-Ticker).
+   • Nur positive Aktionen per Sprache (konsistent zum Pädagogik-Filter).
+═══════════════════════════════════ */
+const AT_LABEL={}; [...AT_ACTIONS,...AT_ACTIONS_TW].forEach(a=>AT_LABEL[a.key]=a.label); AT_LABEL.tor="Tor";
+const VOICE_ACTIONS={ // gesprochenes Schlüsselwort → Aktions-Key (nur positive)
+  tor:"tor",tooor:"tor",treffer:"tor",tore:"tor",
+  pass:"pass",zuspiel:"pass",abspiel:"pass",paesse:"pass",
+  dribbling:"dribbling",dribbel:"dribbling",dribbelt:"dribbling",
+  ballgewinn:"gewinn",gewinn:"gewinn",erobert:"gewinn",eroberung:"gewinn",
+  parade:"parade",gehalten:"parade",reflex:"parade",gehalt:"parade",
+  aufbau:"aufbau",abwurf:"aufbau",
+  herauslaufen:"heraus",heraus:"heraus",herausgelaufen:"heraus"
+};
+const voiceSupported=!!(typeof window!=="undefined"&&(window.SpeechRecognition||window.webkitSpeechRecognition));
+let voiceRec=null, voiceOn=false;
+function voiceNorm(s){return String(s||"").toLowerCase().replace(/[^a-zäöüß\s]/g,"").replace(/\s+/g," ").trim();}
+function levenshtein(a,b){
+  a=a||"";b=b||"";const m=a.length,n=b.length;
+  if(!m)return n;if(!n)return m;
+  let prev=Array.from({length:n+1},(_,i)=>i),cur=new Array(n+1);
+  for(let i=1;i<=m;i++){cur[0]=i;
+    for(let j=1;j<=n;j++){const cost=a[i-1]===b[j-1]?0:1;cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+cost);}
+    [prev,cur]=[cur,prev];
+  }
+  return prev[n];
+}
+// Bestes Fuzzy-Match eines Wortes gegen den (kleinen) Kader; normalisierte Distanz ≤ 0.34.
+function voiceMatchName(word,roster){
+  let best=null,bd=1;
+  roster.forEach(n=>{const nn=voiceNorm(n).split(" ")[0]; const d=levenshtein(word,nn)/Math.max(word.length,nn.length,1); if(d<bd){bd=d;best=n;}});
+  return bd<=0.34?{name:best,score:bd}:null;
+}
+function voiceParse(alts){
+  const roster=(typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():KADER.map(k=>k.name);
+  let found=null;
+  for(const raw of alts){
+    const words=voiceNorm(raw).split(" ").filter(Boolean);
+    let aktion=null;
+    for(const w of words){ if(!aktion&&VOICE_ACTIONS[w]){aktion=VOICE_ACTIONS[w];break;} }
+    let bestName=null,bestScore=1;
+    for(const w of words){ const m=voiceMatchName(w,roster); if(m&&m.score<bestScore){bestScore=m.score;bestName=m.name;} }
+    if(aktion&&bestName){found={aktion,name:bestName,transcript:raw};break;}
+  }
+  if(!found){ toast(`Nicht verstanden${alts[0]?`: „${alts[0]}"`:""} – bitte manuell tippen.`,"err"); return; }
+  voiceConfirm(found.aktion,found.name,found.transcript);
+}
+function voiceConfirm(aktion,name,transcript){
+  document.getElementById("voice-confirm")?.remove();
+  const emo=AT_EMO[aktion]||"•", lbl=AT_LABEL[aktion]||aktion;
+  const m=document.createElement("div");
+  m.id="voice-confirm";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);border-radius:16px;padding:20px;max-width:340px;width:100%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.4)">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">🎤 Verstanden${transcript?` · „${esc(transcript)}"`:""}</div>
+    <div style="font-size:22px;font-weight:800;margin-bottom:2px">${emo} ${esc(lbl)}</div>
+    <div style="font-size:15px;color:var(--text2);margin-bottom:16px">durch <strong>${esc(name)}</strong>?</div>
+    <div style="display:flex;gap:10px">
+      <button class="btn" style="flex:1" onclick="document.getElementById('voice-confirm').remove()"><i class="ti ti-x"></i>Verwerfen</button>
+      <button class="btn btn-p" style="flex:1" onclick="voiceApply('${aktion}','${name.replace(/'/g,"")}');document.getElementById('voice-confirm').remove()"><i class="ti ti-check"></i>Übernehmen</button>
+    </div></div>`;
+  document.body.appendChild(m);
+  try{navigator.vibrate&&navigator.vibrate(20);}catch(e){}
+}
+// Erst nach Bestätigung: setzt den Spieler aktiv und löst den regulären Aktions-Flow aus.
+function voiceApply(aktion,name){
+  atSel=name; atRender();
+  if(aktion==="tor")tickerGoal(); else atTap(aktion);
+}
+function voiceBtnUpdate(){
+  const b=document.getElementById("voice-btn");
+  if(!b)return;
+  b.innerHTML=voiceOn
+    ? '<i class="ti ti-microphone-2"></i>Hört zu… (tippen = Stopp)'
+    : '<i class="ti ti-microphone"></i>Voice<span style="font-size:9px;background:#f59e0b;color:#fff;padding:1px 5px;border-radius:8px;margin-left:5px">Beta</span>';
+  b.classList.toggle("btn-p",voiceOn);
+}
+function voiceStart(){
+  if(!voiceSupported){toast("Spracheingabe wird auf diesem Gerät nicht unterstützt – bitte manuell tippen.","err");return;}
+  try{
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    voiceRec=new SR();
+    voiceRec.lang="de-DE";voiceRec.interimResults=false;voiceRec.maxAlternatives=4;voiceRec.continuous=false;
+    voiceRec.onresult=e=>{ const alts=[...e.results[0]].map(a=>a.transcript); voiceParse(alts); };
+    voiceRec.onerror=ev=>{ voiceOn=false;voiceBtnUpdate(); if(ev.error==="not-allowed"||ev.error==="service-not-allowed")toast("Mikrofon-Zugriff nötig – bitte erlauben.","err"); else if(ev.error!=="no-speech"&&ev.error!=="aborted")toast("Sprachfehler – bitte manuell.","err"); };
+    voiceRec.onend=()=>{ voiceOn=false;voiceBtnUpdate(); };
+    voiceOn=true;voiceBtnUpdate();
+    voiceRec.start();
+  }catch(err){ voiceOn=false;voiceBtnUpdate(); toast("Sprachstart fehlgeschlagen – bitte manuell.","err"); }
+}
+function voiceStop(){ try{voiceRec&&voiceRec.stop();}catch(e){} voiceOn=false;voiceBtnUpdate(); }
+function voiceToggle(){ voiceOn?voiceStop():voiceStart(); }
 function atCount(sp,ak){return (atCounts[sp]&&atCounts[sp][ak])||0;}
 function atSummary(sp){ if(!atCounts[sp])return ""; return Object.keys(atCounts[sp]).map(k=>atCounts[sp][k]?(AT_EMO[k]||"•")+atCounts[sp][k]:"").filter(Boolean).join(" "); }
 async function atInit(){
@@ -9478,6 +9583,10 @@ function atRender(){
   const feed=atLog.slice(-5).reverse();
   box.innerHTML=`
     <div id="quest-strip" style="position:relative;overflow:hidden;background:var(--surface);border:var(--border-s);border-radius:12px;padding:10px 12px;margin-bottom:12px">${questStripHTML(questCountsLive())}</div>
+    ${voiceSupported?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button id="voice-btn" class="btn btn-sm" onclick="voiceToggle()"><i class="ti ti-microphone"></i>Voice<span style="font-size:9px;background:#f59e0b;color:#fff;padding:1px 5px;border-radius:8px;margin-left:5px">Beta</span></button>
+      <span style="font-size:10px;color:var(--text3);flex:1;min-width:140px">Sag z. B. „Pass Leon" – du bestätigst vor dem Senden. Braucht Netz &amp; Ruhe.</span>
+    </div>`:''}
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Spieler am Ball wählen:</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${chips}</div>
     ${isTw?'<div style="font-size:10.5px;color:#854d0e;font-weight:600;margin-bottom:6px">🥅 Torwart-Aktionen</div>':''}
