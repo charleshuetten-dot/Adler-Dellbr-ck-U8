@@ -1339,13 +1339,13 @@ async function elternDashLoad(){
       }).join("");
       return card(`<div style="font-weight:700;font-size:15px;margin-bottom:2px">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="color:#94a3b8;font-weight:600">#${kd.nr}</span>`:""}</div>
         <div style="font-size:11.5px;color:${st?EP_RSVP[st].col:"#94a3b8"};margin-bottom:8px">${st?`Aktuell: ${EP_RSVP[st].emo} ${EP_RSVP[st].lbl}`:"Bitte rückmelden"}${cur&&cur.kommentar?` · „${esc(cur.kommentar)}"`:""}</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>`);
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>
+        <button onclick="elternCardOpen(${k.spieler_id})" style="width:100%;margin-top:8px;padding:9px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🃏 Adler-Karte ansehen</button>`);
     }).join("");
   }
   html+=`<div style="text-align:center;font-size:10.5px;color:#94a3b8;margin:2px 0 12px">Deine Rückmeldung ist ein Hinweis für den Trainer – die endgültige Aufstellung entscheidet er.</div>`;
   html+=card(`<div style="font-weight:700;margin-bottom:8px">🎮 Für dein Kind</div>
-    <a href="${location.pathname}?quiz" style="display:inline-block;padding:11px 16px;background:#059669;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">Kinder-Quiz starten</a>
-    <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Die persönliche Adler-Sammelkarte deines Kindes folgt als Nächstes.</div>`);
+    <a href="${location.pathname}?quiz" style="display:inline-block;padding:11px 16px;background:#059669;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">Kinder-Quiz starten</a>`);
   body.innerHTML=html;
 }
 async function elternRsvp(terminId,spielerId,status){
@@ -1358,6 +1358,53 @@ async function elternRsvp(terminId,spielerId,status){
   }catch(e){toast("Netzwerkfehler","err");return;}
   toast("Rückmeldung gespeichert ✓");
   elternDashLoad();
+}
+// Adler-Karte des eigenen Kindes (Eltern-Sicht): Daten kommen aus der security-definer
+// RPC my_child_card (kein Direktzugriff auf geschützte Tabellen). Baut dieselbe d-Struktur
+// wie adlerCardData und rendert mit adlerCardDraw.
+function adlerCardDataFromChild(p){
+  const v=typeof p.radios==="string"?safeParse(p.radios,{}):(p.radios||{});
+  const strengths=Object.keys(CARD_BADGES).map(key=>({key,val:v[key]||0})).sort((a,b)=>b.val-a.val).slice(0,3);
+  const {dims:ds}=calcScores(v,DIMS_FELD);
+  const topDim=Object.entries(ds).sort((a,b)=>b[1]-a[1])[0]||["tech",0];
+  const theme=p.tw?CARD_THEMES.keeper:(CARD_THEMES[topDim[0]]||CARD_THEMES.tech);
+  const posMap={aufpasser:"Aufpasser",jaeger:"Jäger",flitzer_l:"Flitzer",flitzer_r:"Flitzer"};
+  const pos=p.lieblingsposition||(p.tw?"Torwart":(posMap[p.snap_position]||p.prim_rolle||"Allrounder"));
+  const fussMap={L:"Links",R:"Rechts",B:"Beidfüßig"};
+  const s=p.stats||{};
+  return {name:p.name,nr:p.nr,tw:!!p.tw,geb:p.geb,fotoPath:p.foto_path,pos,
+    fuss:fussMap[p.starker_fuss||p.strong_foot]||"",
+    alter:p.geb?homeAlter(p.geb):(p.age||null),
+    badges:strengths.map(x=>CARD_BADGES[x.key]),theme,
+    counts:{tore:s.tore||0,paraden:s.paraden||0,aktionen:s.aktionen||0,spiele:s.spiele||0,trainings:s.trainings||0,quizRichtig:s.quizRichtig||0,quizBloecke:s.quizBloecke||0}};
+}
+async function elternCardOpen(spielerId){
+  let p=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/my_child_card`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler:spielerId})});if(r.ok)p=await r.json();}catch(e){}
+  if(!p){toast("Karte konnte nicht geladen werden","err");return;}
+  if(!p.radios||(typeof p.radios==="object"&&!Object.keys(p.radios).length)||p.radios==="{}"){toast("Für dein Kind gibt es noch keine Bewertung","err");return;}
+  elternCardShow(adlerCardDataFromChild(p));
+}
+async function elternCardShow(d){
+  const W=500,H=780;
+  const canvas=document.createElement("canvas");canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext("2d");
+  let rawPhoto=null;
+  function render(){ adlerCardDraw(ctx,W,H,d,rawPhoto); canvas.toBlob(b=>{adlerCardBlob=b;},"image/png"); }
+  render();
+  const modal=document.createElement("div");
+  modal.id="adler-card-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:10001;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  canvas.style.cssText="max-width:100%;width:300px;height:auto;border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.5)";
+  modal.appendChild(canvas);
+  const bar=document.createElement("div");
+  bar.style.cssText="display:flex;gap:8px;flex-wrap:wrap;justify-content:center";
+  bar.innerHTML=`<button class="btn btn-p" onclick="adlerCardShare()"><i class="ti ti-share"></i>Karte teilen</button>
+    <button class="btn" onclick="document.getElementById('adler-card-modal').remove()">Schließen</button>`;
+  modal.appendChild(bar);
+  document.body.appendChild(modal);
+  if(d.fotoPath){ const img=await fotoLoadImage(d.fotoPath); if(img&&document.getElementById("adler-card-modal")){ rawPhoto=img; render(); } }
 }
 function elternPortalTrainerNotice(root){
   root.innerHTML=`<div style="max-width:360px;margin:8vh auto;background:#fff;border-radius:16px;padding:24px;text-align:center">
