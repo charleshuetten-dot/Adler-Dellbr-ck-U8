@@ -2554,6 +2554,114 @@ function saisonLabel(){
   const start=d.getMonth()>=6?y:y-1;
   return `${start} / ${start+1}`;
 }
+
+/* ═══════════════════════════════════
+   ADLER WRAPPED (Phase 9-H) – Saison-Rückblick im Story-Format.
+   Holt die serverseitig aggregierten Saison-Daten (RPC get_season_wrapped,
+   umgeht den PostgREST-1000-Zeilen-Cap) und zeigt sie als Vollbild-Slides
+   mit Auto-Advance, Tap-Navigation (links zurück / rechts weiter) und
+   Konfetti-Finale. Reines Vanilla-JS/CSS, confetti() recycelt.
+═══════════════════════════════════ */
+const AWRAP_MS=4800; // Anzeigedauer je Slide
+let awrapIdx=0, awrapSlides=[], awrapTimer=0;
+async function adlerWrappedOpen(){
+  const btn=document.getElementById("wrapped-btn");
+  if(btn)btn.disabled=true;
+  let d=null;
+  const call=body=>fetch(`${SB_URL}/rest/v1/rpc/get_season_wrapped`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify(body)});
+  try{ const r=await call({p_saison:saisonLabel()}); if(sbCheck401(r)){if(btn)btn.disabled=false;return;} if(r.ok)d=await r.json(); }catch(e){}
+  // Fallback: leere Saison → gesamte Historie zeigen
+  if(d&&!d.spiele&&!d.trainings&&!d.tore&&!d.aktionen){ try{ const r=await call({p_saison:null}); if(r.ok)d=await r.json(); }catch(e){} }
+  if(btn)btn.disabled=false;
+  if(!d){toast("Rückblick konnte nicht geladen werden","err");return;}
+  adlerWrappedShow(d);
+}
+function adlerWrappedSlides(d){
+  const g=(a,b)=>`linear-gradient(160deg,${a},${b})`;
+  const S=[];
+  S.push({bg:g("#0f172a","#1e3a8a"),html:`<div>
+    <div class="aw-pop" style="font-size:64px">🦅</div>
+    <div class="aw-pop d1" style="font-size:30px;font-weight:900;letter-spacing:1px;margin-top:8px">ADLER WRAPPED</div>
+    <div class="aw-pop d2" style="font-size:16px;opacity:.85;margin-top:6px">Saison ${esc(String(d.saison||""))}</div>
+    <div class="aw-pop d3" style="font-size:12px;opacity:.6;margin-top:24px">Tippe rechts → weiter · links ← zurück</div></div>`});
+  S.push({bg:g("#155e75","#06b6d4"),html:`<div>
+    <div class="aw-pop" style="font-size:14px;opacity:.85;text-transform:uppercase;letter-spacing:2px">Ihr wart fleißig</div>
+    <div class="aw-big aw-pop d1">${d.spiele||0}</div>
+    <div class="aw-pop d1" style="font-size:19px;font-weight:800">Spiele & Turniere</div>
+    <div class="aw-pop d2" style="font-size:15px;opacity:.85;margin-top:18px">und <b>${d.trainings||0}</b> Trainingseinheiten 💪</div></div>`});
+  S.push({bg:g("#9a3412","#f97316"),html:`<div>
+    <div class="aw-pop" style="font-size:14px;opacity:.85;text-transform:uppercase;letter-spacing:2px">Gemeinsam erzielt</div>
+    <div class="aw-big aw-pop d1">${d.tore||0}</div>
+    <div class="aw-pop d1" style="font-size:22px;font-weight:800">Tore ⚽</div></div>`});
+  S.push({bg:g("#5b21b6","#8b5cf6"),html:`<div>
+    <div class="aw-big aw-pop">${d.aktionen||0}</div>
+    <div class="aw-pop d1" style="font-size:20px;font-weight:800">Ballaktionen 🔥</div>
+    <div class="aw-pop d2" style="font-size:15px;opacity:.85;margin-top:16px">darunter <b>${d.paesse||0}</b> Pässe und <b>${d.paraden||0}</b> Paraden 🧤</div></div>`});
+  S.push({bg:g("#065f46","#10b981"),html:`<div>
+    <div class="aw-pop" style="font-size:14px;opacity:.85;text-transform:uppercase;letter-spacing:2px">Team-Missionen</div>
+    <div class="aw-big aw-pop d1">${d.quests_geschafft||0}</div>
+    <div class="aw-pop d1" style="font-size:20px;font-weight:800">Quests geknackt 🏆</div></div>`});
+  const awards=[];
+  if(d.top_torschuetze&&d.top_torschuetze.name)awards.push(["⚽","Torschützenkönig",d.top_torschuetze]);
+  if(d.fleissigste&&d.fleissigste.name)awards.push(["🏃","Fleißbiene (Training)",d.fleissigste]);
+  if(d.top_aktiv&&d.top_aktiv.name)awards.push(["🔥","Aktivposten",d.top_aktiv]);
+  const awardsHtml=awards.length?awards.map((a,i)=>`<div class="aw-pop d${i+1}" style="background:rgba(255,255,255,.14);border-radius:14px;padding:11px 16px;margin:8px auto;max-width:280px">
+    <div style="font-size:26px">${a[0]}</div>
+    <div style="font-size:19px;font-weight:800">${esc(a[2].name)}</div>
+    <div style="font-size:12px;opacity:.85">${a[1]} · ${a[2].wert}</div></div>`).join("")
+    :`<div class="aw-pop" style="opacity:.85;font-size:15px">Sammelt Aktionen am Spieltag – dann gibt's hier eure Helden! 🦅</div>`;
+  S.push({bg:g("#1e3a8a","#3b82f6"),confetti:true,html:`<div>
+    <div class="aw-pop" style="font-size:22px;font-weight:900;margin-bottom:14px">🏅 Eure Saison-Helden</div>${awardsHtml}</div>`});
+  S.push({bg:g("#7c2d12","#dc2626"),confetti:true,html:`<div>
+    <div class="aw-pop" style="font-size:58px">🦅❤️</div>
+    <div class="aw-pop d1" style="font-size:26px;font-weight:900;margin-top:10px">Was für eine Saison, Adler!</div>
+    <div class="aw-pop d2" style="font-size:15px;opacity:.85;margin-top:10px">${d.spieler_anzahl||0} Kinder · ein Team</div></div>`});
+  return S;
+}
+function adlerWrappedShow(d){
+  awrapSlides=adlerWrappedSlides(d); awrapIdx=0;
+  if(!document.getElementById("wrapped-style")){
+    const st=document.createElement("style");st.id="wrapped-style";
+    st.textContent=`@keyframes awrapPop{0%{opacity:0;transform:translateY(28px) scale(.9)}100%{opacity:1;transform:none}}
+      #adler-wrapped .aw-pop{animation:awrapPop .55s cubic-bezier(.2,.8,.2,1) both}
+      #adler-wrapped .aw-pop.d1{animation-delay:.16s}#adler-wrapped .aw-pop.d2{animation-delay:.34s}#adler-wrapped .aw-pop.d3{animation-delay:.52s}
+      #adler-wrapped .aw-big{font-size:88px;font-weight:900;line-height:1;letter-spacing:-2px;margin:6px 0}`;
+    document.head.appendChild(st);
+  }
+  const modal=document.createElement("div");
+  modal.id="adler-wrapped";
+  modal.style.cssText="position:fixed;inset:0;z-index:10000;overflow:hidden;color:#fff;font-family:inherit;display:flex;flex-direction:column";
+  modal.innerHTML=`
+    <div id="aw-bars" style="display:flex;gap:4px;padding:12px 12px 4px;position:relative;z-index:3"></div>
+    <button onclick="adlerWrappedClose()" aria-label="Schließen" style="position:absolute;top:30px;right:12px;z-index:4;background:rgba(0,0,0,.25);border:none;color:#fff;font-size:22px;width:36px;height:36px;border-radius:50%;cursor:pointer">×</button>
+    <div id="aw-stage" style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:28px;position:relative;z-index:1"></div>
+    <div style="position:absolute;top:32px;bottom:0;left:0;right:0;z-index:2;display:flex">
+      <div style="flex:1" onclick="adlerWrappedPrev()"></div>
+      <div style="flex:2" onclick="adlerWrappedNext()"></div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector("#aw-bars").innerHTML=awrapSlides.map((_,i)=>`<div style="flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.28);overflow:hidden"><div class="aw-barfill" data-i="${i}" style="height:100%;width:0;background:#fff"></div></div>`).join("");
+  adlerWrappedRender();
+}
+function adlerWrappedRender(){
+  const modal=document.getElementById("adler-wrapped");
+  if(!modal)return;
+  clearTimeout(awrapTimer);
+  const s=awrapSlides[awrapIdx];
+  modal.style.background=s.bg;
+  modal.querySelector("#aw-stage").innerHTML=s.html;
+  modal.querySelectorAll(".aw-barfill").forEach(f=>{
+    const i=+f.dataset.i;
+    if(i<awrapIdx){f.style.transition="none";f.style.width="100%";}
+    else if(i===awrapIdx){f.style.transition="none";f.style.width="0";void f.offsetWidth;f.style.transition=`width ${AWRAP_MS}ms linear`;f.style.width="100%";}
+    else{f.style.transition="none";f.style.width="0";}
+  });
+  if(s.confetti&&typeof confetti==="function")confetti(modal);
+  awrapTimer=setTimeout(adlerWrappedNext,AWRAP_MS);
+}
+function adlerWrappedNext(){ if(!document.getElementById("adler-wrapped"))return; if(awrapIdx>=awrapSlides.length-1){adlerWrappedClose();return;} awrapIdx++; adlerWrappedRender(); }
+function adlerWrappedPrev(){ if(!document.getElementById("adler-wrapped"))return; if(awrapIdx<=0){adlerWrappedRender();return;} awrapIdx--; adlerWrappedRender(); }
+function adlerWrappedClose(){ clearTimeout(awrapTimer); document.getElementById("adler-wrapped")?.remove(); }
 function printZertifikat(){
   const name=document.getElementById("psel-profil")?.value;
   if(!name){toast("Erst einen Spieler wählen","err");return;}
@@ -3080,7 +3188,8 @@ async function renderHome(){
       <button class="btn btn-p" style="flex:1;min-height:46px" onclick="openTab('spieltag')"><i class="ti ti-whistle"></i>Spieltag</button>
       <button class="btn" style="flex:1;min-height:46px" onclick="go('anwesenheit')"><i class="ti ti-checkbox"></i>Anwesenheit</button>
       <button class="btn" style="flex:1;min-height:46px" onclick="go('termine')"><i class="ti ti-calendar-plus"></i>Termin</button>
-    </div>`;
+    </div>
+    <button id="wrapped-btn" onclick="adlerWrappedOpen()" style="width:100%;min-height:48px;margin-top:12px;border:none;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;color:#fff;background:linear-gradient(135deg,#7c3aed,#ec4899)">🎬 Adler Wrapped – Saison-Rückblick</button>`;
 
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
   try{
