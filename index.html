@@ -1048,6 +1048,14 @@ h1.print-header{display:none}
       <span style="font-size:11px;color:var(--text2);font-weight:600">Spieltag:</span>
       <input type="date" id="spieltag-date" onchange="nomLoad()" style="min-height:40px;padding:6px 10px;border:var(--border-s);border-radius:var(--r);font-family:inherit">
     </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <span style="font-size:11px;color:var(--text2);font-weight:600">Team (Funino-Festival):</span>
+      <div class="seg-ctrl" id="spieltag-team-seg">
+        <button type="button" class="seg-btn active" data-val="1" onclick="spieltagSetTeam(1,this)">Adler 1</button>
+        <button type="button" class="seg-btn" data-val="2" onclick="spieltagSetTeam(2,this)">Adler 2</button>
+        <button type="button" class="seg-btn" data-val="3" onclick="spieltagSetTeam(3,this)">Adler 3</button>
+      </div>
+    </div>
     <div class="sl nt"><i class="ti ti-clock"></i>Match-Uhr</div>
     <div id="mc-panel"></div>
     <div class="sl nt" style="margin-top:16px"><i class="ti ti-user-check"></i>Nominierung</div>
@@ -7991,8 +7999,33 @@ function tmJump(ziel,datum,spielform){
     setTimeout(()=>{const d=document.getElementById("lineup-date");if(d)d.value=datum;kombiLoadLineup();},400);
   }else if(ziel==="blitz"){
     switchTrainSub("spieltag");
-    setTimeout(()=>{const d=document.getElementById("spieltag-date");if(d){d.value=datum;nomLoad();}toast("Spieltag "+datum);},120);
+    setTimeout(()=>{
+      spieltagTeam=1; // Sprung vom Termin: Standard-Team; Multi-Team wird am Spieltag selbst gewählt
+      const seg=document.getElementById("spieltag-team-seg");
+      if(seg){seg.querySelectorAll(".seg-btn").forEach(b=>b.classList.toggle("active",b.dataset.val==="1"));}
+      const d=document.getElementById("spieltag-date");if(d){d.value=datum;nomLoad();}toast("Spieltag "+datum);
+    },120);
   }
+}
+
+// Multi-Team-Funino: bei Festivals stellt Adler 2–3 Teams. Da die Spiele NICHT
+// zeitgleich laufen, wählt der Trainer das gerade aktive Team. Der Team-Index wird in
+// den Supabase-Schlüssel kodiert (Team 1 = reines Datum -> abwärtskompatibel,
+// Team 2/3 = "DATE__t2"/"__t3"). So sind Nominierung, Match-Uhr, Rotations-Timer,
+// Action-Tracker und Liveticker sauber pro Team getrennt; der Delegate-Link ist über
+// das team-eigene matchday-Token automatisch team-spezifisch.
+let spieltagTeam=1;
+function spieltagRawDate(){ return document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10); }
+function spieltagKey(){ const d=spieltagRawDate(); return spieltagTeam>1?`${d}__t${spieltagTeam}`:d; }
+function spieltagSetTeam(n,btn){
+  const t=parseInt(n)||1;
+  if(t===spieltagTeam)return;
+  spieltagTeam=t;
+  if(btn){btn.parentElement.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active"));btn.classList.add("active");}
+  // Laufende Uhren stoppen, damit der Team-Wechsel nicht die Uhr des anderen Teams weiterlaufen lässt.
+  if(typeof rotStop==="function")rotStop();
+  clearInterval(mcTickId);mcTickId=null;
+  nomLoad(); // kaskadiert zu Nominierung + mcLoad + Rotation + Action-Tracker + Ticker mit dem neuen Key
 }
 
 // Spieltags-Nominierung: wer ist dabei / nicht / verletzt – speist Rotations-Timer + Blitz
@@ -8000,10 +8033,13 @@ let nomStatus={};
 function nomInit(){
   const d=document.getElementById("spieltag-date");
   if(d&&!d.value)d.value=new Date().toISOString().slice(0,10);
+  spieltagTeam=1; // Tab-Eintritt: Standard-Team
+  const seg=document.getElementById("spieltag-team-seg");
+  if(seg)seg.querySelectorAll(".seg-btn").forEach(b=>b.classList.toggle("active",b.dataset.val==="1"));
   nomLoad();
 }
 async function nomLoad(){
-  const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
+  const datum=spieltagKey();
   nomStatus={};
   try{
     const r=await fetch(`${SB_URL}/rest/v1/nominierungen?datum=eq.${encodeURIComponent(datum)}&select=data`,{headers:sbAuthHeaders()});
@@ -8016,8 +8052,8 @@ async function nomLoad(){
 }
 function nomSet(name,status){nomStatus[name]=status;nomRender();nomApplyToTools();nomSave();}
 async function nomSave(){
-  const datum=document.getElementById("spieltag-date")?.value;
-  if(!datum)return;
+  if(!document.getElementById("spieltag-date")?.value)return;
+  const datum=spieltagKey();
   try{await fetch(`${SB_URL}/rest/v1/nominierungen?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({datum,data:nomStatus})});}catch(e){}
 }
 function nominierteSpieler(){return KADER.map(k=>k.name).filter(n=>nomStatus[n]==="dabei");}
@@ -8071,11 +8107,12 @@ function mcMinuteLabel(mc,dauer){
   return (offset+minIn+1)+".";
 }
 async function mcLoad(){
-  const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
+  const datum=spieltagKey();
+  const realDate=spieltagRawDate(); // Spieldauer liegt am echten Termin-Datum, nicht am Team-Key
   try{
     const [mdRes,tmRes]=await Promise.all([
       fetch(`${SB_URL}/rest/v1/matchday?datum=eq.${encodeURIComponent(datum)}&select=half,clock_status,started_at,paused_ms,ticker_open,delegate_token`,{headers:sbAuthHeaders()}),
-      fetch(`${SB_URL}/rest/v1/termine?datum=eq.${encodeURIComponent(datum)}&select=spieldauer_min&order=id.desc&limit=1`,{headers:sbAuthHeaders()})
+      fetch(`${SB_URL}/rest/v1/termine?datum=eq.${encodeURIComponent(realDate)}&select=spieldauer_min&order=id.desc&limit=1`,{headers:sbAuthHeaders()})
     ]);
     const mdRows=mdRes.ok?await mdRes.json():[];
     const tmRows=tmRes.ok?await tmRes.json():[];
@@ -8092,7 +8129,7 @@ async function mcLoad(){
   mcTickId=setInterval(()=>{ if(mcState&&mcState.clock_status==="running")mcRenderLive(); },1000);
 }
 async function mcSave(patch){
-  const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
+  const datum=spieltagKey();
   mcState=Object.assign({},mcState,patch);
   mcRenderLive();
   try{await fetch(`${SB_URL}/rest/v1/matchday?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({datum,...patch})});}catch(e){}
@@ -8162,7 +8199,7 @@ function tickerPhrase(typ,name){
 }
 async function tickerPush(name,typ){
   if(mcTickerOpen===false)return; // Wolff-Fuss aktiv – nichts senden
-  const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
+  const datum=spieltagKey();
   const minute=mcState?mcMinuteLabel(mcState,mcSpieldauer):"";
   const text=tickerPhrase(typ,name);
   try{
@@ -8184,7 +8221,7 @@ function tickerGoal(){
 function tickerCounterGoal(){ tickerPush(null,"gegentor"); }
 async function tickerShareDelegateLink(){
   if(!mcDelegateToken){
-    const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
+    const datum=spieltagKey();
     try{
       await fetch(`${SB_URL}/rest/v1/matchday?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({datum})});
       const r=await fetch(`${SB_URL}/rest/v1/matchday?datum=eq.${encodeURIComponent(datum)}&select=delegate_token`,{headers:sbAuthHeaders()});
@@ -8218,7 +8255,7 @@ function tickerRenderControls(){
 async function tickerRenderFeed(){
   const box=document.getElementById("ticker-feed");
   if(!box)return;
-  const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
+  const datum=spieltagKey();
   try{
     const r=await fetch(`${SB_URL}/rest/v1/ticker_events?datum=eq.${encodeURIComponent(datum)}&select=text,typ,minute,source,created_at&order=created_at.desc&limit=5`,{headers:sbAuthHeaders()});
     if(!r.ok){box.innerHTML="";return;}
@@ -8728,7 +8765,7 @@ function atCount(sp,ak){return (atCounts[sp]&&atCounts[sp][ak])||0;}
 function atSummary(sp){ if(!atCounts[sp])return ""; return Object.keys(atCounts[sp]).map(k=>atCounts[sp][k]?(AT_EMO[k]||"•")+atCounts[sp][k]:"").filter(Boolean).join(" "); }
 async function atInit(){
   atCounts={};atSel="";atLog=[];atUid=0;
-  const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
+  const datum=spieltagKey();
   try{
     const r=await fetch(`${SB_URL}/rest/v1/match_actions?datum=eq.${encodeURIComponent(datum)}&select=spieler,aktion`,{headers:sbAuthHeaders()});
     if(!sbCheck401(r)&&r.ok){
@@ -8777,7 +8814,7 @@ async function atTap(aktion){
   // nimmt das interne Rating zurueck, ein bereits oeffentlich gepushter Ticker-Satz bleibt
   // stehen (geringes Risiko, da nur positive Ereignisse gepusht werden).
   if(TICKER_POSITIVE_KEYS.includes(aktion))tickerPush(atSel,aktion);
-  const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
+  const datum=spieltagKey();
   try{
     const r=await fetch(`${SB_URL}/rest/v1/match_actions`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=representation'},body:JSON.stringify({datum,spieler:atSel,aktion})});
     if(!sbCheck401(r)&&r.ok){const rows=await r.json();if(rows&&rows[0]&&rows[0].id!=null)entry.id=rows[0].id;}
@@ -8865,7 +8902,7 @@ function blitzRenderCard(){
 function blitzSetCrit(key,val){blitzCrit[key]=val;blitzRenderCard();}
 async function blitzRate(){
   const name=blitzPlayers[blitzIdx];
-  const datum=document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10);
+  const datum=spieltagKey();
   const autor=document.getElementById("blitz-autor")?.value||"";
   const kriterien={...blitzCrit};
   const avg=BLITZ_CRIT.reduce((s,c)=>s+(kriterien[c.key]||2),0)/BLITZ_CRIT.length;
