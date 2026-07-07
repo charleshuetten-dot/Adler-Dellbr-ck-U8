@@ -1351,7 +1351,8 @@ async function elternDashLoad(){
   }
   html+=`<div style="text-align:center;font-size:10.5px;color:#94a3b8;margin:2px 0 12px">Deine Rückmeldung ist ein Hinweis für den Trainer – die endgültige Aufstellung entscheidet er.</div>`;
   html+=card(`<div style="font-weight:700;margin-bottom:8px">🎮 Für dein Kind</div>
-    <a href="${location.pathname}?quiz" style="display:inline-block;padding:11px 16px;background:#059669;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">Kinder-Quiz starten</a>`);
+    <button onclick="kabineOpen()" style="display:block;width:100%;padding:13px;margin-bottom:8px;border:none;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-weight:800;font-size:14px;font-family:inherit;cursor:pointer">🎮 Kabine öffnen (Kinder-Modus)</button>
+    <a href="${location.pathname}?quiz" style="display:inline-block;padding:11px 16px;background:#059669;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">Nur Quiz starten</a>`);
   body.innerHTML=html;
 }
 async function elternRsvp(terminId,spielerId,status){
@@ -1575,6 +1576,99 @@ async function elternFotoUpload(spielerId,input){
     toast("Profilbild aktualisiert ✓");
   }catch(e){toast("Foto konnte nicht verarbeitet werden","err");}
   finally{input.disabled=false;}
+}
+/* ═══════════════════════════════════
+   KIDS-MODE "DIE KABINE" (Phase 11-P) – kindersicheres Vollbild (read-only), Exit nur
+   ueber Mathe-Aufgabe. Inhalt: Team-Galerie (opt-in Fotos), Quiz, Missionen.
+   isKidsMode ist ein UX-Schloss (versteckt Editierbares) – die echte Sicherheit bleibt
+   die RLS: die Eltern-Session kann ohnehin nur das eigene Kind schreiben.
+═══════════════════════════════════ */
+let isKidsMode=false, kabineGalleryData=[], kabineIdx=0;
+async function kabineOpen(){
+  isKidsMode=true;
+  document.getElementById("kabine")?.remove();
+  const m=document.createElement("div");m.id="kabine";
+  m.style.cssText="position:fixed;inset:0;z-index:10050;background:linear-gradient(160deg,#0f172a,#1e3a8a);color:#fff;display:flex;flex-direction:column;overflow:hidden";
+  m.innerHTML='<div id="kabine-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div>';
+  document.body.appendChild(m);
+  kabineHome();
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/team_gallery`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)kabineGalleryData=await r.json();}catch(e){}
+  if(typeof loadTeamConfig==="function"){try{await loadTeamConfig();}catch(e){}}
+}
+function kabineHome(){
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  b.innerHTML=`
+    <div style="text-align:center;padding:18px 16px 6px">
+      <div style="font-size:22px;font-weight:900">🦅 Die Kabine</div>
+      <div style="font-size:12px;opacity:.8">Adler U9 · Kinder-Modus</div>
+    </div>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px;align-content:center">
+      <button onclick="kabineShowGallery()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:18px;font-weight:800;min-height:120px"><span style="font-size:44px">🖼️</span>Team-Galerie</button>
+      <button onclick="kabineQuiz()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:18px;font-weight:800;min-height:120px"><span style="font-size:44px">🧠</span>Quiz</button>
+      <button onclick="kabineShowQuests()" style="grid-column:1/-1;border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;font-size:18px;font-weight:800;min-height:84px"><span style="font-size:34px">🏆</span>Unsere Missionen</button>
+    </div>
+    <button onclick="kabineExit()" style="margin:0 16px 18px;padding:12px;border:none;border-radius:14px;background:rgba(0,0,0,.25);color:#fff;font-family:inherit;font-size:14px;cursor:pointer">🔒 Für Erwachsene: Kabine verlassen</button>`;
+}
+function kabineQuiz(){ window.location.href=location.pathname+"?quiz"; }
+function kabineShowQuests(){
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  b.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px">
+      <button onclick="kabineHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
+      <div style="font-size:18px;font-weight:800">🏆 Unsere Missionen</div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:0 16px 16px">
+      ${teamQuests.map(q=>`<div style="background:rgba(255,255,255,.1);border-radius:14px;padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:12px">
+        <span style="font-size:30px">${q.icon}</span>
+        <div><div style="font-size:16px;font-weight:800">${esc(q.label)}</div><div style="font-size:13px;opacity:.85">Ziel: ${q.target}</div></div>
+      </div>`).join("")}
+      ${teamBelohnung?`<div style="background:linear-gradient(135deg,#f59e0b,#ec4899);border-radius:14px;padding:16px;text-align:center;margin-top:6px"><div style="font-size:13px;opacity:.9">🎁 Nächste Belohnung</div><div style="font-size:18px;font-weight:900;margin-top:4px">${esc(teamBelohnung)}</div></div>`:""}
+    </div>`;
+}
+function kabineShowGallery(){ kabineIdx=0; kabineRenderGallery(); }
+function kabineRenderGallery(){
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  const head=`<div style="display:flex;align-items:center;gap:10px;padding:12px 16px">
+      <button onclick="kabineHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
+      <div style="flex:1;font-size:16px;font-weight:800">🖼️ Team-Galerie</div>
+      <div style="font-size:12px;opacity:.8">${kabineGalleryData.length?kabineIdx+1:0} / ${kabineGalleryData.length}</div></div>`;
+  if(!kabineGalleryData.length){ b.innerHTML=head+'<div style="flex:1;display:flex;align-items:center;justify-content:center;opacity:.8">Noch keine Karten.</div>'; return; }
+  const g=kabineGalleryData[kabineIdx], d=galleryCardData(g);
+  b.innerHTML=head+`
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
+      <button onclick="kabineGalleryNav(-1)" style="position:absolute;left:8px;z-index:2;background:rgba(255,255,255,.15);border:none;color:#fff;width:46px;height:46px;border-radius:50%;font-size:24px;cursor:pointer">‹</button>
+      <canvas id="kabine-card" style="max-width:100%;width:280px;height:auto;border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.5)"></canvas>
+      <button onclick="kabineGalleryNav(1)" style="position:absolute;right:8px;z-index:2;background:rgba(255,255,255,.15);border:none;color:#fff;width:46px;height:46px;border-radius:50%;font-size:24px;cursor:pointer">›</button>
+    </div>
+    <div style="text-align:center;padding:0 16px 16px;font-size:13px;opacity:.85">${esc(g.name)}${g.spitzname?` „${esc(g.spitzname)}“`:""}${g.lieblingsverein?` · Fan von ${esc(g.lieblingsverein)}`:""}</div>`;
+  const canvas=document.getElementById("kabine-card");if(!canvas)return;
+  canvas.width=500;canvas.height=780;const ctx=canvas.getContext("2d");
+  adlerCardDraw(ctx,500,780,d,null);
+  cardApplyGlow(canvas,g.trainings);
+  if(d.fotoPath){ fotoLoadImage(d.fotoPath).then(img=>{ if(img&&document.getElementById("kabine-card")===canvas){ adlerCardDraw(ctx,500,780,d,img); } }); }
+}
+function kabineGalleryNav(dir){
+  if(!kabineGalleryData.length)return;
+  kabineIdx=(kabineIdx+dir+kabineGalleryData.length)%kabineGalleryData.length;
+  kabineRenderGallery();
+}
+function galleryCardData(g){
+  const v=typeof g.radios==="string"?safeParse(g.radios,{}):(g.radios||{});
+  const strengths=Object.keys(CARD_BADGES).map(key=>({key,val:v[key]||0})).sort((a,b)=>b.val-a.val).slice(0,3);
+  const {dims:ds}=calcScores(v,DIMS_FELD);
+  const topDim=Object.entries(ds).sort((a,b)=>b[1]-a[1])[0]||["tech",0];
+  const theme=g.tw?CARD_THEMES.keeper:(CARD_THEMES[topDim[0]]||CARD_THEMES.tech);
+  return {name:g.name,nr:g.nr,tw:!!g.tw,fotoPath:g.foto_path,spitzname:g.spitzname||null,
+    pos:g.tw?"Torwart":"",fuss:"",alter:null,
+    badges:strengths.map(x=>CARD_BADGES[x.key]),theme,
+    counts:{trainings:g.trainings||0,tore:null,paraden:null,aktionen:null,spiele:null,quizRichtig:0,quizBloecke:0}};
+}
+function kabineExit(){
+  const a=2+Math.floor(Math.random()*7), b=2+Math.floor(Math.random()*7);
+  const ans=prompt(`Nur für Erwachsene 🔒\nWie viel ist ${a} × ${b}?`);
+  if(ans===null)return;
+  if(parseInt(ans)===a*b){ isKidsMode=false; document.getElementById("kabine")?.remove(); }
+  else { toast("Leider falsch – die Kabine bleibt zu.","err"); }
 }
 function elternPortalTrainerNotice(root){
   root.innerHTML=`<div style="max-width:360px;margin:8vh auto;background:#fff;border-radius:16px;padding:24px;text-align:center">
@@ -3329,7 +3423,7 @@ function adlerCardDraw(ctx,W,H,d,photoImg){
     const tx=40+tw4*i+tw4/2;
     ctx.textAlign="center";
     ctx.font="20px Arial";ctx.fillStyle="#fff";ctx.fillText(t.ic,tx,ty+28);
-    ctx.font="800 26px Arial";ctx.fillText(c?String(t.v):"–",tx,ty+58);
+    ctx.font="800 26px Arial";ctx.fillText((c&&t.v!=null)?String(t.v):"–",tx,ty+58);
     ctx.font="600 10px Arial";ctx.fillStyle="rgba(255,255,255,.85)";ctx.fillText(t.l,tx,ty+75);
     if(i<3){ctx.strokeStyle="rgba(255,255,255,.16)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(40+tw4*(i+1),ty+14);ctx.lineTo(40+tw4*(i+1),ty+tbh-14);ctx.stroke();}
   });
@@ -7453,13 +7547,26 @@ function tqRenderTrainerView(){
 
 // Vorlese-Funktion (Web Speech API, nativ – keine Bibliothek). Hilft U9-Kindern, die
 // die Szenario-Texte noch nicht flüssig lesen. Zweiter Tipp stoppt (Toggle).
+// TTS-Stimmenauswahl: getVoices() ist async (erst nach voiceschanged befüllt) -> cachen,
+// bevorzugt eine freundliche deutsche Stimme aus der Wunschliste, sonst sauberer Fallback.
+let _ttsVoices=[];
+function _loadTtsVoices(){ try{_ttsVoices=(window.speechSynthesis&&speechSynthesis.getVoices())||[];}catch(e){} }
+if("speechSynthesis" in window){ _loadTtsVoices(); try{speechSynthesis.onvoiceschanged=_loadTtsVoices;}catch(e){} }
+function ttsGermanVoice(){
+  const vs=_ttsVoices.length?_ttsVoices:(("speechSynthesis" in window)?(speechSynthesis.getVoices()||[]):[]);
+  const de=vs.filter(v=>/^de(-|_)/i.test(v.lang||""));
+  const pref=["Google Deutsch","Anna","Petra","Helena","Markus","Yannick","Microsoft Katja","Microsoft Hedda"];
+  for(const name of pref){ const m=de.find(v=>v.name&&v.name.includes(name)); if(m)return m; }
+  return de[0]||null; // sonst irgendeine deutsche, sonst Default-Stimme
+}
 function tqSpeak(btn){
   if(!("speechSynthesis" in window)){toast("Vorlesen wird auf diesem Gerät nicht unterstützt");return;}
   if(speechSynthesis.speaking){speechSynthesis.cancel();if(btn)btn.textContent="🔊";return;}
   const sc=tqScenarios[tqIdx];
   if(!sc)return;
   const u=new SpeechSynthesisUtterance(tqPersonalize(sc.desc)+". "+sc.task);
-  u.lang="de-DE";u.rate=.9;
+  u.lang="de-DE";u.rate=.9;u.pitch=1.1; // freundlicher Klang für die Kids
+  const v=ttsGermanVoice(); if(v)u.voice=v;
   u.onend=()=>{if(btn)btn.textContent="🔊";};
   if(btn)btn.textContent="⏹️";
   speechSynthesis.speak(u);
