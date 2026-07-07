@@ -1194,6 +1194,117 @@ function ensureLogin(){
   if(!sbToken())showLoginGate();
 }
 
+/* ═══════════════════════════════════
+   ELTERN-PORTAL / OTP-AUTH (Phase 10-L) – passwortloser Login per 6-stelligem Code.
+   Bewusst OTP-Code statt Magic-Link: der Code wird IN der PWA eingegeben → Session
+   bleibt im selben Kontext (kein Browser-Wechsel). Session-Format = SB_TOKEN_KEY,
+   damit Refresh/Header/401-Handling wiederverwendet werden.
+   Merksatz: Rollen-Routing = UX, die Sicherheit macht ausschließlich die RLS.
+═══════════════════════════════════ */
+async function authOtpRequest(email){
+  const r=await fetch(`${SB_URL}/auth/v1/otp`,{method:"POST",headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,create_user:true})});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(data.error_description||data.msg||data.error||"Code konnte nicht gesendet werden");
+  return true;
+}
+async function authOtpVerify(email,token){
+  const r=await fetch(`${SB_URL}/auth/v1/verify`,{method:"POST",headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,token,type:"email"})});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok||!data.access_token)throw new Error(data.error_description||data.msg||data.error||"Code ungültig oder abgelaufen");
+  const expiresAt=data.expires_at||(Math.floor(Date.now()/1000)+(data.expires_in||3600));
+  localStorage.setItem(SB_TOKEN_KEY,JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token||null,expires_at:expiresAt}));
+  return true;
+}
+async function authRole(){
+  if(!sbToken())return null;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/profiles?select=role&limit=1`,{headers:sbAuthHeaders()});
+    if(!r.ok)return null;
+    const rows=await r.json();
+    return (rows[0]&&rows[0].role)||null;
+  }catch(e){return null;}
+}
+let epEmail="";
+async function renderElternPortal(){
+  let root=document.getElementById("eltern-portal");
+  if(!root){root=document.createElement("div");root.id="eltern-portal";root.style.cssText="min-height:100vh;background:#f1f5f9;font-family:inherit;padding:16px";document.body.appendChild(root);}
+  if(sbToken()){
+    root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Lade…</div>';
+    const role=await authRole();
+    if(role==="parent")return elternPortalDashboard(root);
+    if(role==="trainer")return elternPortalTrainerNotice(root);
+    localStorage.removeItem(SB_TOKEN_KEY); // Session ohne Profil/Rolle → verwerfen
+  }
+  elternPortalLogin(root);
+}
+function elternPortalLogin(root){
+  root.innerHTML=`<div style="max-width:360px;margin:7vh auto 0;background:#fff;border-radius:16px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.1)">
+    <div style="text-align:center;font-size:40px">🦅</div>
+    <div style="text-align:center;font-size:18px;font-weight:800;margin-top:6px">Eltern-Bereich</div>
+    <div style="text-align:center;font-size:12px;color:#64748b;margin:6px 0 18px">SV Adler Dellbrück U9</div>
+    <div id="ep-step-email">
+      <label style="font-size:12px;color:#475569">E-Mail-Adresse</label>
+      <input id="ep-email" type="email" inputmode="email" autocomplete="email" placeholder="name@mail.de" style="width:100%;padding:11px;margin:6px 0 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:15px;box-sizing:border-box">
+      <button id="ep-send" onclick="elternPortalSend()" style="width:100%;padding:13px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-size:15px;font-weight:700;cursor:pointer">Code anfordern</button>
+    </div>
+    <div id="ep-step-code" style="display:none">
+      <div style="font-size:12px;color:#475569;margin-bottom:6px">6-stelliger Code an <b id="ep-email-show"></b>:</div>
+      <input id="ep-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" style="width:100%;padding:11px;margin:6px 0 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:22px;letter-spacing:6px;text-align:center;box-sizing:border-box">
+      <button id="ep-verify" onclick="elternPortalVerify()" style="width:100%;padding:13px;border:none;border-radius:10px;background:#059669;color:#fff;font-size:15px;font-weight:700;cursor:pointer">Anmelden</button>
+      <button onclick="elternPortalLogin(document.getElementById('eltern-portal'))" style="width:100%;padding:9px;margin-top:8px;border:none;background:none;color:#64748b;font-size:12px;cursor:pointer">← andere E-Mail</button>
+    </div>
+    <div id="ep-err" style="font-size:12px;color:#dc2626;min-height:16px;margin-top:10px;text-align:center"></div>
+    <div style="font-size:10.5px;color:#94a3b8;text-align:center;margin-top:14px">Nur E-Mail-Adressen, die dein Trainer hinterlegt hat, sehen die Daten ihres Kindes.</div>
+  </div>`;
+}
+async function elternPortalSend(){
+  const email=document.getElementById("ep-email")?.value.trim().toLowerCase();
+  const err=document.getElementById("ep-err");if(err)err.textContent="";
+  if(!email||!/.+@.+\..+/.test(email)){if(err)err.textContent="Bitte eine gültige E-Mail eingeben";return;}
+  const btn=document.getElementById("ep-send");if(btn){btn.disabled=true;btn.textContent="Sende…";}
+  try{
+    await authOtpRequest(email);
+    epEmail=email;
+    document.getElementById("ep-step-email").style.display="none";
+    document.getElementById("ep-step-code").style.display="";
+    document.getElementById("ep-email-show").textContent=email;
+    document.getElementById("ep-code")?.focus();
+  }catch(e){if(err)err.textContent=e.message;}
+  finally{if(btn){btn.disabled=false;btn.textContent="Code anfordern";}}
+}
+async function elternPortalVerify(){
+  const code=document.getElementById("ep-code")?.value.trim();
+  const err=document.getElementById("ep-err");if(err)err.textContent="";
+  if(!code||code.length<6){if(err)err.textContent="Bitte den 6-stelligen Code eingeben";return;}
+  const btn=document.getElementById("ep-verify");if(btn){btn.disabled=true;btn.textContent="Prüfe…";}
+  try{
+    await authOtpVerify(epEmail,code);
+    document.getElementById("eltern-portal")?.remove();
+    renderElternPortal();
+  }catch(e){if(err)err.textContent=e.message;if(btn){btn.disabled=false;btn.textContent="Anmelden";}}
+}
+function elternPortalLogout(){ localStorage.removeItem(SB_TOKEN_KEY); document.getElementById("eltern-portal")?.remove(); renderElternPortal(); }
+function elternPortalDashboard(root){
+  root.innerHTML=`<div style="max-width:420px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px 12px">
+      <div style="font-size:18px;font-weight:800">🦅 Eltern-Bereich</div>
+      <button onclick="elternPortalLogout()" style="border:none;background:none;color:#64748b;font-size:12px;cursor:pointer">Abmelden</button>
+    </div>
+    <div style="background:#fff;border-radius:14px;padding:22px;text-align:center;color:#475569;font-size:13px;line-height:1.7">
+      ✅ Du bist angemeldet.<br>Dein persönliches Dashboard – <b>nächster Termin mit Zu-/Absage</b>, die <b>Adler-Karte deines Kindes</b>, der <b>Liveticker</b> und das <b>Quiz</b> – wird als Nächstes gebaut (Feature J&amp;K).
+    </div>
+  </div>`;
+}
+function elternPortalTrainerNotice(root){
+  root.innerHTML=`<div style="max-width:360px;margin:8vh auto;background:#fff;border-radius:16px;padding:24px;text-align:center">
+    <div style="font-size:40px">🧑‍🏫</div>
+    <div style="font-size:16px;font-weight:800;margin-top:8px">Du bist als Trainer angemeldet</div>
+    <div style="font-size:13px;color:#64748b;margin:8px 0 16px">Dieser Bereich ist für Eltern. Öffne die Trainer-App ohne <code>?portal</code> in der Adresse.</div>
+    <a href="${location.origin+location.pathname}" style="display:inline-block;padding:11px 18px;background:#1e3a8a;color:#fff;border-radius:10px;text-decoration:none;font-weight:700">Zur Trainer-App</a>
+    <button onclick="elternPortalLogout()" style="display:block;width:100%;margin-top:12px;border:none;background:none;color:#64748b;font-size:12px;cursor:pointer">Abmelden</button>
+  </div>`;
+}
+
 // Kader: tw = hat TW-Option, twPrio = TW-Priorität (1=primär, 2=zweite Option)
 // nr = Trikotnummer (ohne nr = wird nicht angezeigt)
 // TODO Charles: Nummern für Kolja, Azem, Lukas, Matteo, Piet, Samu, Tom nachtragen
@@ -10744,6 +10855,16 @@ async function pinCheck(){
     document.getElementById("main-app")?.remove();
     if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
     renderDelegateView(params.get("delegate"));
+    return;
+  }
+  // Eltern-Portal (?portal): passwortloser OTP-Login → rollenbasiert (parent-Dashboard / Trainer-Hinweis)
+  if(params.has("portal")){
+    document.title="Eltern-Bereich – SV Adler Dellbrück U9";
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#1e3a8a");
+    document.getElementById("pin-gate")?.remove();
+    document.getElementById("main-app")?.remove();
+    if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+    renderElternPortal();
     return;
   }
   // Read-only-Liveticker: Nur-Ansehen fuer alle Eltern (?ticker=<key>), kein Login, keine Eingabe
