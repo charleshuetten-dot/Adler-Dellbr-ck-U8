@@ -2235,7 +2235,7 @@ function kaderEditRow(k,i){
     </div>
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
       <span style="font-size:11px;color:var(--text2)">Foto (Karte):</span>
-      <input type="file" accept="image/*" onchange="kaderRowFoto(this)" style="font-size:11px;flex:1">
+      <input type="file" accept="image/jpeg,image/png,image/webp" onchange="kaderRowFoto(this)" style="font-size:11px;flex:1">
       ${k.foto_path?'<span style="font-size:10px;color:#059669">✓ vorhanden</span>':''}
     </div>
     <input class="ke-medical" value="${esc(k.medical||'')}" placeholder="Medical-Hinweis (z. B. Asthma, Allergie…)" style="width:100%;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
