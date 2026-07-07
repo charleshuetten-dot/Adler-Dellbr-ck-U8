@@ -809,6 +809,7 @@ h1.print-header{display:none}
     <button class="btn btn-sm" style="background:#7c3aed;color:#fff;border-color:#7c3aed" onclick="tqStart()"><i class="ti ti-brain"></i>Quiz</button>
     <button class="btn btn-sm" onclick="taktikShareBild()"><i class="ti ti-share"></i>Teilen</button>
     <button class="btn btn-sm" id="dw-toggle" onclick="dwToggle()"><i class="ti ti-pencil"></i>Zeichnen</button>
+    <button class="btn btn-sm" onclick="vtbOpen()"><i class="ti ti-video"></i>Video</button>
   </div>
   <div id="dw-toolbar" style="display:none;gap:6px;margin-bottom:8px;flex-wrap:wrap">
     <button class="btn btn-sm" id="dw-pass" onclick="dwSetMode('pass',this)">╌ Pass</button>
@@ -3993,6 +3994,138 @@ function dwRedraw(){
 }
 function dwUndo(){dwStrokes.pop();dwRedraw();}
 function dwClear(){dwStrokes=[];dwRedraw();}
+
+/* ═══════════════════════════════════
+   VIDEO-TAKTIKBOARD (Phase 9-I) – Handy-Clip laden, pausieren, Laufwege einzeichnen.
+   Architektur-Kern (siehe Tech-Lead-Analyse):
+   • <video playsinline> – sonst iOS-Vollbild-Hijack; lokaler objectURL (ephemer, kein Upload)
+   • Striche in NORMALISIERTEN [0..1]-Koordinaten relativ zum echten Videoinhalt
+     (object-fit-sicher), damit Resize/Rotation/Fullscreen nichts zerschießt
+   • Zeichnen wie am Feld-Board (Pass rot gestrichelt / Laufweg blau mit Pfeil)
+═══════════════════════════════════ */
+let vtbStrokes=[], vtbCur=null, vtbMode="lauf", vtbURL=null;
+function vtbOpen(){
+  if(document.getElementById("vtb-modal"))return;
+  vtbStrokes=[];vtbCur=null;vtbMode="lauf";
+  const m=document.createElement("div");
+  m.id="vtb-modal";
+  m.style.cssText="position:fixed;inset:0;z-index:10000;background:#000;display:flex;flex-direction:column";
+  m.innerHTML=`
+    <div id="vtb-stage" style="flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden">
+      <div id="vtb-empty" style="color:#94a3b8;text-align:center;padding:24px;font-size:14px;line-height:1.6">🎥 Lade einen kurzen Clip (z. B. 10 Sek) vom Handy,<br>pausiere und zeichne Laufwege ein.</div>
+      <video id="vtb-video" playsinline webkit-playsinline style="max-width:100%;max-height:100%;display:none"></video>
+      <canvas id="vtb-canvas" style="position:absolute;touch-action:none;display:none"></canvas>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;padding:10px;background:#0f172a">
+      <button class="btn btn-sm" onclick="document.getElementById('vtb-file').click()"><i class="ti ti-upload"></i>Clip laden</button>
+      <button class="btn btn-sm" id="vtb-play" onclick="vtbPlayPause()" disabled><i class="ti ti-player-play"></i>Play</button>
+      <button class="btn btn-sm btn-p" id="vtb-lauf" onclick="vtbSetMode('lauf',this)">→ Laufweg</button>
+      <button class="btn btn-sm" id="vtb-pass" onclick="vtbSetMode('pass',this)">╌ Pass</button>
+      <button class="btn btn-sm" onclick="vtbUndo()" title="Rückgängig"><i class="ti ti-arrow-back-up"></i></button>
+      <button class="btn btn-sm" onclick="vtbClear()" title="Alles weg"><i class="ti ti-eraser"></i></button>
+      <button class="btn btn-sm" onclick="vtbShare()"><i class="ti ti-share"></i>Bild</button>
+      <button class="btn btn-sm" onclick="vtbClose()">Schließen</button>
+    </div>
+    <input type="file" id="vtb-file" accept="video/*" style="display:none" onchange="vtbLoadFile(this)">`;
+  document.body.appendChild(m);
+  const v=document.getElementById("vtb-video");
+  v.addEventListener("loadedmetadata",()=>requestAnimationFrame(vtbLayout));
+  v.addEventListener("loadeddata",()=>requestAnimationFrame(vtbLayout));
+  v.addEventListener("play",vtbSyncPlayBtn);
+  v.addEventListener("pause",vtbSyncPlayBtn);
+  window.addEventListener("resize",vtbLayout);
+  vtbBindDraw();
+}
+function vtbClose(){
+  window.removeEventListener("resize",vtbLayout);
+  if(vtbURL){URL.revokeObjectURL(vtbURL);vtbURL=null;}
+  document.getElementById("vtb-modal")?.remove();
+}
+function vtbLoadFile(input){
+  const f=input.files&&input.files[0];if(!f)return;
+  if(vtbURL)URL.revokeObjectURL(vtbURL);
+  vtbURL=URL.createObjectURL(f);
+  vtbStrokes=[];
+  const v=document.getElementById("vtb-video");
+  v.src=vtbURL;v.style.display="";
+  document.getElementById("vtb-empty").style.display="none";
+  document.getElementById("vtb-canvas").style.display="";
+  document.getElementById("vtb-play").disabled=false;
+  v.load();
+}
+// Videoinhalt-Rechteck (object-fit-sicher) relativ zur Stage berechnen.
+function vtbRect(){
+  const v=document.getElementById("vtb-video"),stage=document.getElementById("vtb-stage");
+  if(!v||!v.videoWidth||!stage)return null;
+  const sr=stage.getBoundingClientRect(), vr=v.getBoundingClientRect();
+  const scale=Math.min(vr.width/v.videoWidth, vr.height/v.videoHeight);
+  const dispW=v.videoWidth*scale, dispH=v.videoHeight*scale;
+  return {left:(vr.left-sr.left)+(vr.width-dispW)/2, top:(vr.top-sr.top)+(vr.height-dispH)/2, w:dispW, h:dispH};
+}
+function vtbLayout(){
+  const c=document.getElementById("vtb-canvas"),r=vtbRect();
+  if(!c||!r)return;
+  const dpr=window.devicePixelRatio||1;
+  c.style.left=r.left+"px";c.style.top=r.top+"px";c.style.width=r.w+"px";c.style.height=r.h+"px";
+  c.width=Math.max(1,Math.round(r.w*dpr));c.height=Math.max(1,Math.round(r.h*dpr));
+  vtbRedraw();
+}
+function vtbPos(e){
+  const c=document.getElementById("vtb-canvas"),r=c.getBoundingClientRect();
+  const pt=e.touches?e.touches[0]:e;
+  return {x:Math.max(0,Math.min(1,(pt.clientX-r.left)/r.width)), y:Math.max(0,Math.min(1,(pt.clientY-r.top)/r.height))};
+}
+function vtbBindDraw(){
+  const c=document.getElementById("vtb-canvas");
+  c.addEventListener("pointerdown",e=>{e.preventDefault();vtbCur={mode:vtbMode,points:[vtbPos(e)]};vtbStrokes.push(vtbCur);vtbRedraw();});
+  c.addEventListener("pointermove",e=>{if(!vtbCur)return;e.preventDefault();vtbCur.points.push(vtbPos(e));vtbRedraw();});
+  window.addEventListener("pointerup",()=>{vtbCur=null;});
+}
+function vtbSetMode(m,btn){vtbMode=m;["vtb-lauf","vtb-pass"].forEach(id=>document.getElementById(id)?.classList.remove("btn-p"));btn.classList.add("btn-p");}
+function vtbPlayPause(){const v=document.getElementById("vtb-video");if(!v.src)return;if(v.paused)v.play();else v.pause();}
+function vtbSyncPlayBtn(){const v=document.getElementById("vtb-video"),b=document.getElementById("vtb-play");if(!b||!v)return;b.innerHTML=v.paused?'<i class="ti ti-player-play"></i>Play':'<i class="ti ti-player-pause"></i>Pause';}
+function vtbUndo(){vtbStrokes.pop();vtbRedraw();}
+function vtbClear(){vtbStrokes=[];vtbRedraw();}
+function vtbDrawStrokes(ctx,W,H){
+  vtbStrokes.forEach(s=>{
+    const pts=s.points;if(!pts.length)return;
+    ctx.lineWidth=Math.max(2,W*0.008);ctx.lineJoin="round";ctx.lineCap="round";
+    if(s.mode==="pass"){ctx.strokeStyle="#f43f5e";ctx.setLineDash([W*0.03,W*0.022]);}
+    else{ctx.strokeStyle="#38bdf8";ctx.setLineDash([]);}
+    ctx.beginPath();ctx.moveTo(pts[0].x*W,pts[0].y*H);
+    for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x*W,pts[i].y*H);
+    ctx.stroke();
+    if(s.mode==="lauf"&&pts.length>=2){
+      const a=pts[pts.length-2],b=pts[pts.length-1];
+      const ax=a.x*W,ay=a.y*H,bx=b.x*W,by=b.y*H,ang=Math.atan2(by-ay,bx-ax),L=W*0.035;
+      ctx.setLineDash([]);ctx.beginPath();
+      ctx.moveTo(bx,by);ctx.lineTo(bx-L*Math.cos(ang-.42),by-L*Math.sin(ang-.42));
+      ctx.moveTo(bx,by);ctx.lineTo(bx-L*Math.cos(ang+.42),by-L*Math.sin(ang+.42));
+      ctx.stroke();
+    }
+  });
+  ctx.setLineDash([]);
+}
+function vtbRedraw(){
+  const c=document.getElementById("vtb-canvas");if(!c)return;
+  const ctx=c.getContext("2d");ctx.clearRect(0,0,c.width,c.height);
+  vtbDrawStrokes(ctx,c.width,c.height);
+}
+async function vtbShare(){
+  const v=document.getElementById("vtb-video");
+  if(!v||!v.videoWidth){toast("Erst einen Clip laden","err");return;}
+  const W=v.videoWidth,H=v.videoHeight;
+  const cv=document.createElement("canvas");cv.width=W;cv.height=H;
+  const ctx=cv.getContext("2d");
+  try{ctx.drawImage(v,0,0,W,H);}catch(e){toast("Frame noch nicht bereit – kurz abspielen","err");return;}
+  vtbDrawStrokes(ctx,W,H);
+  cv.toBlob(async b=>{
+    if(!b)return;
+    const file=new File([b],"taktik-video.png",{type:"image/png"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:"Taktik"});}catch(e){}}
+    else{const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="taktik-video.png";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);toast("Bild gespeichert ✓");}
+  },"image/png");
+}
 
 function tbCreateToken(name,cls,roleLabel){
   const el=document.createElement("div");
