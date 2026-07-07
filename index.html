@@ -2641,15 +2641,8 @@ function adlerCardData(name){
   const posMap={aufpasser:"Aufpasser",jaeger:"Jäger",flitzer_l:"Flitzer",flitzer_r:"Flitzer"};
   const pos=k.lieblingsposition||(k.tw?"Torwart":(posMap[lat.position]||lat.prim_rolle||"Allrounder"));
   const fussMap={L:"Links",R:"Rechts",B:"Beidfüßig"};
-  // FUT-Statblock: Dimensions-Scores als 1–4-Pips (Feldspieler 5 Dims / TW eigene Dims).
-  const dimsSet=k.tw?DIMS_TW:DIMS_FELD;
-  const dimScores=calcScores(v,dimsSet).dims;
-  const stats=dimsSet.map(dm=>({
-    label:((CARD_THEMES[dm.id]&&CARD_THEMES[dm.id].name)||dm.label.replace(/\s*&.*/,"")).toUpperCase(),
-    pips:Math.max(1,Math.min(4,Math.round((dimScores[dm.id]||0)/25)))
-  }));
   return {name,nr:k.nr,tw:!!k.tw,geb:k.geb,fotoPath:k.foto_path,pos,fuss:fussMap[k.starker_fuss||lat.strong_foot]||"",
-          alter:k.geb?homeAlter(k.geb):(lat.age||null), badges:strengths.map(s=>CARD_BADGES[s.key]), theme, stats};
+          alter:k.geb?homeAlter(k.geb):(lat.age||null), badges:strengths.map(s=>CARD_BADGES[s.key]), theme};
 }
 function adlerCardDraw(ctx,W,H,d,photoImg){
   const th=d.theme;
@@ -2701,23 +2694,22 @@ function adlerCardDraw(ctx,W,H,d,photoImg){
   const sub=[d.alter?d.alter+" Jahre":"",d.fuss?d.fuss+"er Fuß":""].filter(Boolean).join("  ·  ");
   if(sub)ctx.fillText(sub,W/2,nameY+24);
 
-  // ── FUT-Statblock: Dimensionen als 1–4-Pips ──
-  const stats=(d.stats||[]).slice(0,5);
-  let ry=nameY+56;
-  const pipW=20,pipH=9,pipGap=6,pipCount=4,pipsTotal=pipCount*pipW+(pipCount-1)*pipGap;
-  stats.forEach(s=>{
-    ctx.textAlign="left";ctx.font="700 13px Arial";ctx.fillStyle="rgba(255,255,255,.92)";
-    ctx.fillText(s.label,44,ry+9);
-    const startX=W-44-pipsTotal;
-    for(let p=0;p<pipCount;p++){
-      tbRoundRect(ctx,startX+p*(pipW+pipGap),ry,pipW,pipH,4);
-      ctx.fillStyle=p<s.pips?"#fff":"rgba(255,255,255,.22)";ctx.fill();
-    }
-    ry+=27;
+  // ── Einsatz-Zähler (Fleiß statt Skill-Ranking): Tore · Spiele · Trainings ──
+  const c=d.counts||null;
+  const trio=[{ic:"⚽",v:c&&c.tore,l:"TORE"},{ic:"👟",v:c&&c.spiele,l:"SPIELE"},{ic:"🏃",v:c&&c.trainings,l:"TRAININGS"}];
+  const ty=nameY+50, tbh=90, tw3=(W-80)/3;
+  ctx.save();tbRoundRect(ctx,40,ty,W-80,tbh,16);ctx.fillStyle="rgba(0,0,0,.20)";ctx.fill();ctx.restore();
+  trio.forEach((t,i)=>{
+    const tx=40+tw3*i+tw3/2;
+    ctx.textAlign="center";
+    ctx.font="23px Arial";ctx.fillStyle="#fff";ctx.fillText(t.ic,tx,ty+30);
+    ctx.font="800 30px Arial";ctx.fillText(c?String(t.v):"–",tx,ty+62);
+    ctx.font="600 11px Arial";ctx.fillStyle="rgba(255,255,255,.85)";ctx.fillText(t.l,tx,ty+80);
+    if(i<2){ctx.strokeStyle="rgba(255,255,255,.18)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(40+tw3*(i+1),ty+16);ctx.lineTo(40+tw3*(i+1),ty+tbh-16);ctx.stroke();}
   });
 
   // ── Badges (immer 3) ──
-  const by=ry+8, bh=118;
+  const by=ty+tbh+16, bh=118;
   ctx.save();tbRoundRect(ctx,30,by,W-60,bh,18);ctx.fillStyle="rgba(0,0,0,.24)";ctx.fill();ctx.restore();
   const bw=(W-60)/3;
   (d.badges||[]).slice(0,3).forEach((b,i)=>{
@@ -2735,7 +2727,9 @@ function adlerCardDraw(ctx,W,H,d,photoImg){
 }
 /* Foto-Pipeline (D2): Kompression nativ (Canvas+toBlob), Upload in den privaten
    Bucket, Laden per authentifiziertem GET -> Blob -> Object-URL (kein CORS/tainted
-   canvas), optionaler Comic-Filter (Posterize) rein lokal. */
+   canvas). Comic-Filter bewusst entfernt: clientseitig nicht überzeugend, echte
+   Cartoonisierung bräuchte ein KI-Modell (Foto müsste extern verarbeitet werden –
+   widerspricht dem Datenschutz-Konzept "Foto verlässt das Gerät nie ungebrannt"). */
 function fotoLoadFromFile(file){
   // EXIF-Orientierung beruecksichtigen, wo verfuegbar (createImageBitmap), sonst Fallback.
   if(window.createImageBitmap){
@@ -2754,37 +2748,24 @@ async function fotoCompress(file,size=400){
   cv.getContext("2d").drawImage(img,sx,sy,s,s,0,0,size,size);
   return await new Promise(r=>cv.toBlob(r,"image/jpeg",0.82)); // JPEG-Default (iOS-sicher), spart Traffic
 }
-function fotoComicCanvas(img,size=400){
-  const cv=document.createElement("canvas");cv.width=size;cv.height=size;
-  const ctx=cv.getContext("2d");
-  ctx.drawImage(img,0,0,size,size);
-  const id=ctx.getImageData(0,0,size,size), d=id.data, N=size*size;
-  // 1) Luminanz-Puffer für die Kantenerkennung (vor dem Umfärben sichern)
-  const lum=new Float32Array(N);
-  for(let i=0;i<N;i++){const o=i*4;lum[i]=0.299*d[o]+0.587*d[o+1]+0.114*d[o+2];}
-  // 2) Kräftige Posterisierung (wenige Farbstufen) + Sättigungs-Boost = flache Comic-Flächen
-  const levels=4, step=255/(levels-1);
-  for(let i=0;i<N;i++){
-    const o=i*4, avg=(d[o]+d[o+1]+d[o+2])/3;
-    for(let c=0;c<3;c++){
-      let val=Math.round(d[o+c]/step)*step;
-      val=avg+(val-avg)*1.55; // Sättigung anheben
-      d[o+c]=val<0?0:val>255?255:val;
-    }
-  }
-  // 3) Sobel-Kantenerkennung → dunkle Konturlinien (das eigentliche "Comic"-Merkmal)
-  const TH=40;
-  for(let y=1;y<size-1;y++){
-    for(let x=1;x<size-1;x++){
-      const i=y*size+x;
-      const gx=-lum[i-size-1]-2*lum[i-1]-lum[i+size-1]+lum[i-size+1]+2*lum[i+1]+lum[i+size+1];
-      const gy=-lum[i-size-1]-2*lum[i-size]-lum[i-size+1]+lum[i+size-1]+2*lum[i+size]+lum[i+size+1];
-      const mag=Math.sqrt(gx*gx+gy*gy);
-      if(mag>TH){ const o=i*4, k=mag>TH*2.2?0.12:0.42; d[o]*=k;d[o+1]*=k;d[o+2]*=k; }
-    }
-  }
-  ctx.putImageData(id,0,0);
-  return cv;
+// Einsatz-Zähler für die Karte: Fleiß-/Dabeisein-Metriken (kein Skill-Ranking, damit
+// sich die Kinder nicht in ihren Fähigkeiten vergleichen). Tore = match_actions-Zeilen,
+// Spiele = Nominierungen "dabei", Trainings = Anwesenheit "da". Läuft nur mit Trainer-Token.
+async function adlerCardStats(name){
+  const enc=encodeURIComponent(name), out={tore:0,spiele:0,trainings:0};
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/match_actions?spieler=eq.${enc}&aktion=eq.tor&select=id`,{headers:sbAuthHeaders()});
+    if(!sbCheck401(r)&&r.ok){out.tore=(await r.json()).length;}
+  }catch(e){}
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data`,{headers:sbAuthHeaders()});
+    if(r.ok){out.spiele=(await r.json()).filter(x=>x.data&&x.data[name]==="dabei").length;}
+  }catch(e){}
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/anwesenheit?select=data`,{headers:sbAuthHeaders()});
+    if(r.ok){out.trainings=(await r.json()).filter(x=>x.data&&x.data[name]&&x.data[name].da===true).length;}
+  }catch(e){}
+  return out;
 }
 async function fotoLoadImage(path){
   if(!path||!sbToken())return null;
@@ -2812,24 +2793,22 @@ async function fotoUpload(name,file,btn){
   finally{if(btn)btn.disabled=false;}
 }
 
-let adlerCardBlob=null, adlerCardComic=false;
+let adlerCardBlob=null;
 async function adlerCardOpen(){
   const name=document.getElementById("psel-profil")?.value;
   if(!name){toast("Erst einen Spieler wählen","err");return;}
   const d=adlerCardData(name);
   if(!d){toast("Keine Bewertung vorhanden","err");return;}
-  adlerCardComic=false;
+  d.counts=null; // Einsatz-Zähler laden asynchron nach
   const W=500,H=780;
   const canvas=document.createElement("canvas");canvas.width=W;canvas.height=H;
   const ctx=canvas.getContext("2d");
   let rawPhoto=null;
   function render(){
-    const draw=rawPhoto?(adlerCardComic?fotoComicCanvas(rawPhoto):rawPhoto):null;
-    adlerCardDraw(ctx,W,H,d,draw);
+    adlerCardDraw(ctx,W,H,d,rawPhoto);
     canvas.toBlob(b=>{adlerCardBlob=b;},"image/png");
   }
-  window._adlerCardRender=render; // fuer den Comic-Toggle
-  render(); // sofort (Initialen), Foto laedt asynchron nach
+  render(); // sofort (Initialen + "–"), Foto und Zähler laden asynchron nach
   const modal=document.createElement("div");
   modal.id="adler-card-modal";
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;overflow-y:auto";
@@ -2839,10 +2818,11 @@ async function adlerCardOpen(){
   const bar=document.createElement("div");
   bar.style.cssText="display:flex;gap:8px;flex-wrap:wrap;justify-content:center";
   bar.innerHTML=`<button class="btn btn-p" onclick="adlerCardShare()"><i class="ti ti-share"></i>Karte teilen</button>
-    <button class="btn" id="adler-comic-btn" onclick="adlerCardComic=!adlerCardComic;this.classList.toggle('btn-p',adlerCardComic);window._adlerCardRender&&window._adlerCardRender()"><i class="ti ti-brush"></i>Comic</button>
     <button class="btn" onclick="document.getElementById('adler-card-modal').remove()">Schließen</button>`;
   modal.appendChild(bar);
   document.body.appendChild(modal);
+  // Einsatz-Zähler laden und neu zeichnen (Modal-Guard gegen Race, falls schon geschlossen)
+  adlerCardStats(name).then(c=>{ if(document.getElementById("adler-card-modal")){ d.counts=c; render(); } });
   // Foto (falls vorhanden) laden und neu zeichnen
   if(d.fotoPath){ const img=await fotoLoadImage(d.fotoPath); if(img&&document.getElementById("adler-card-modal")){ rawPhoto=img; render(); } }
 }
