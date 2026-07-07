@@ -1,0 +1,316 @@
+LABELS: 20
+
+RADIEN:
+#2 Flitzer L r→12
+#2 Jäger r→12
+#2 Flitzer L r→10
+#2 Jäger r→10
+#18 Flitzer L r→12
+#18 Jäger r→12
+#18 Flitzer L r→10
+#18 Jäger r→10
+#19 Flitzer R r→12
+#19 Jäger r→12
+#19 Flitzer R r→10
+#19 Jäger r→10
+#20 Flitzer L r→12
+#20 Jäger r→12
+#20 Aufpasser r→10
+#20 Jäger r→10
+#21 Flitzer L r→12
+#21 Flitzer R r→12
+#21 Jäger r→12
+#21 Flitzer R r→10
+#21 Aufpasser r→10
+#21 Jäger r→10
+#21 Flitzer L r→10
+#25 Flitzer L r→14
+#25 Flitzer R r→14
+#25 Jäger r→12
+#25 Flitzer R r→12
+#25 Aufpasser r→10
+#25 Flitzer R r→10
+#25 Jäger r→10
+#26 Flitzer L r→14
+#26 Flitzer L r→12
+#26 Jäger r→12
+#28 Flitzer R r→14
+#28 Aufpasser r→12
+#28 Flitzer R r→12
+#28 Aufpasser r→10
+#28 Flitzer R r→10
+#29 Flitzer L r→14
+#29 Flitzer R r→14
+#30 Aufpasser r→12
+#30 Flitzer L r→12
+#39 Flitzer R r→12
+#39 Flitzer R r→10
+#50 Aufpasser r→12
+#50 Flitzer R r→12
+#50 Aufpasser r→10
+#50 Flitzer R r→10
+#56 Flitzer L r→12
+#56 Flitzer R r→12
+#56 Jäger r→12
+
+SPREIZUNGEN:
+#18 Flitzer L/Jäger gespreizt
+#21 Flitzer R/Jäger gespreizt
+#21 Aufpasser/Jäger gespreizt
+#21 Aufpasser/Flitzer L gespreizt
+
+START-VERSCHIEBUNGEN:
+#1 "Ball zum rechten Flitzer" Aufpasser: (50,72) → (45,83)
+#1 "Ball zum rechten Flitzer" Flitzer L: (20,48) → (15,59)
+#1 "Ball zum rechten Flitzer" Jäger: (50,35) → (46,40)
+#2 "Gegner spielt nach rechts" Aufpasser: (50,72) → (59,75)
+#2 "Gegner spielt nach rechts" Flitzer L: (20,48) → (10,54)
+#4 "1gg1 auf links" Aufpasser: (50,72) → (53,74)
+#5 "Abstoß vom Torwart" Aufpasser: (50,72) → (47,58)
+#5 "Abstoß vom Torwart" Flitzer L: (35,55) → (38,56)
+#5 "Abstoß vom Torwart" Flitzer R: (65,55) → (62,56)
+#5 "Abstoß vom Torwart" Jäger: (50,40) → (50,48)
+#6 "Pressing-Falle" Flitzer L: (25,48) → (24,51)
+#6 "Pressing-Falle" Flitzer R: (75,48) → (76,51)
+#6 "Pressing-Falle" Jäger: (50,30) → (50,38)
+#7 "Grundstellung der Raute" Flitzer R: (60,40) → (55,37)
+#8 "Raute nach links verschieben" Aufpasser: (50,70) → (57,71)
+#8 "Raute nach links verschieben" Flitzer L: (25,48) → (38,54)
+#8 "Raute nach links verschieben" Flitzer R: (75,48) → (79,48)
+#8 "Raute nach links verschieben" Jäger: (50,30) → (54,30)
+#9 "Raute nach rechts verschieben" Aufpasser: (50,70) → (43,71)
+#9 "Raute nach rechts verschieben" Flitzer L: (25,48) → (21,48)
+#9 "Raute nach rechts verschieben" Flitzer R: (75,48) → (62,54)
+#9 "Raute nach rechts verschieben" Jäger: (50,30) → (46,30)
+#10 "Raute kompakt nach vorne" Jäger: (50,30) → (50,35)
+#11 "Raute kompakt nach hinten" Aufpasser: (50,70) → (50,58)
+#11 "Raute kompakt nach hinten" Flitzer L: (25,48) → (23,40)
+#11 "Raute kompakt nach hinten" Flitzer R: (75,48) → (77,40)
+#13 "ADLER – Aufpasser spielt auf Flitzer L" Aufpasser: (50,65) → (56,71)
+#13 "ADLER – Aufpasser spielt auf Flitzer L" Jäger: (50,20) → (59,31)
+#14 "ADLER – Flitzer L dribbelt nach vorne" Aufpasser: (40,55) → (43,63)
+#14 "ADLER – Flitzer L dribbelt nach vorne" Flitzer R: (65,30) → (65,36)
+#14 "ADLER – Flitzer L dribbelt nach vorne" Jäger: (45,14) → (54,25)
+#15 "ADLER – Spielverlagerung" Flitzer L: (15,38) → (12,30)
+#15 "ADLER – Spielverlagerung" Flitzer R: (65,35) → (61,35)
+#15 "ADLER – Spielverlagerung" Jäger: (45,18) → (33,16)
+#16 "ADLER – Konter über rechts" Aufpasser: (50,60) → (46,65)
+#16 "ADLER – Konter über rechts" Jäger: (55,20) → (50,30)
+#17 "IGEL aktivieren – eng zusammen!" Aufpasser: (50,70) → (45,88)
+#18 "IGEL – Gegner greift links an" Aufpasser: (50,68) → (59,70)
+#18 "IGEL – Gegner greift links an" Flitzer R: (65,52) → (72,52)
+#20 "IGEL – Durchbruch verhindern" Aufpasser: (50,68) → (56,56)
+#20 "IGEL – Durchbruch verhindern" Flitzer L: (35,52) → (36,48)
+#20 "IGEL – Durchbruch verhindern" Flitzer R: (65,52) → (64,46)
+#21 "IGEL – Eckstoß gegen uns" Aufpasser: (50,70) → (51,66)
+#22 "Umschalten: Ballgewinn links!" Aufpasser: (38,65) → (34,79)
+#24 "Umschalten: Ballverlust vorne!" Aufpasser: (50,55) → (50,46)
+#24 "Umschalten: Ballverlust vorne!" Jäger: (50,22) → (50,16)
+#25 "Umschalten: Ballverlust Mitte" Aufpasser: (50,60) → (45,72)
+#26 "Umschalten: Doppel-Wechsel" Aufpasser: (50,58) → (50,46)
+#27 "Pressing: Jäger leitet ein" Flitzer L: (25,45) → (24,50)
+#27 "Pressing: Jäger leitet ein" Flitzer R: (75,45) → (76,50)
+#27 "Pressing: Jäger leitet ein" Jäger: (50,28) → (50,32)
+#28 "Pressing: Jäger lenkt nach links" Aufpasser: (50,45) → (53,51)
+#28 "Pressing: Jäger lenkt nach links" Flitzer L: (28,28) → (31,39)
+#30 "Pressing: Seitliches Pressing" Aufpasser: (50,65) → (46,69)
+#30 "Pressing: Seitliches Pressing" Flitzer L: (30,48) → (25,48)
+#30 "Pressing: Seitliches Pressing" Flitzer R: (75,42) → (68,49)
+#30 "Pressing: Seitliches Pressing" Jäger: (55,30) → (47,33)
+#31 "Pressing: Pressing-Auslöser erkennen" Aufpasser: (50,50) → (50,60)
+#31 "Pressing: Pressing-Auslöser erkennen" Flitzer L: (30,30) → (22,38)
+#31 "Pressing: Pressing-Auslöser erkennen" Flitzer R: (70,30) → (70,42)
+#32 "Spielaufbau: TW kurz auf Aufpasser" Aufpasser: (50,72) → (54,59)
+#32 "Spielaufbau: TW kurz auf Aufpasser" Jäger: (50,40) → (50,47)
+#33 "Spielaufbau: Aufpasser dreht auf" Flitzer L: (15,48) → (19,61)
+#33 "Spielaufbau: Aufpasser dreht auf" Flitzer R: (85,48) → (81,61)
+#33 "Spielaufbau: Aufpasser dreht auf" Jäger: (50,25) → (50,40)
+#34 "Spielaufbau: Aufpasser spielt lang" Aufpasser: (50,68) → (50,72)
+#35 "Spielaufbau: Aufpasser unter Druck" Flitzer L: (15,48) → (13,44)
+#35 "Spielaufbau: Aufpasser unter Druck" Flitzer R: (85,48) → (87,44)
+#35 "Spielaufbau: Aufpasser unter Druck" Jäger: (50,25) → (50,16)
+#36 "Spielaufbau: Verlagerung über den TW" Aufpasser: (40,60) → (38,54)
+#36 "Spielaufbau: Verlagerung über den TW" Flitzer R: (70,45) → (64,46)
+#36 "Spielaufbau: Verlagerung über den TW" Jäger: (45,22) → (33,22)
+#37 "Flügelspiel: Flitzer L am Ball – Breite halten" Aufpasser: (50,65) → (53,67)
+#37 "Flügelspiel: Flitzer L am Ball – Breite halten" Flitzer R: (75,42) → (66,55)
+#37 "Flügelspiel: Flitzer L am Ball – Breite halten" Jäger: (50,22) → (59,29)
+#38 "Flügelspiel: Flitzer L gewinnt das 1gg1" Jäger: (42,15) → (45,27)
+#39 "Flügelspiel: Flanke kommt!" Flitzer R: (68,10) → (73,11)
+#39 "Flügelspiel: Flanke kommt!" Jäger: (40,8) → (26,15)
+#40 "Flügelspiel: Flitzer R zieht nach innen" Aufpasser: (55,60) → (48,66)
+#40 "Flügelspiel: Flitzer R zieht nach innen" Flitzer L: (18,40) → (16,50)
+#40 "Flügelspiel: Flitzer R zieht nach innen" Jäger: (50,18) → (59,29)
+#41 "Flügelspiel: Seitenüberladung" Flitzer R: (80,42) → (91,50)
+#43 "Konter: 2 gegen 1" Flitzer R: (70,30) → (72,34)
+#44 "Konter: 3 gegen 2" Jäger: (50,30) → (50,34)
+#45 "Konter: Konter absichern" Aufpasser: (50,55) → (50,64)
+#47 "Standard: Einwurf eigene Hälfte" Flitzer R: (75,50) → (84,51)
+#47 "Standard: Einwurf eigene Hälfte" Jäger: (50,35) → (55,33)
+#48 "Standard: Einwurf gegnerische Hälfte" Aufpasser: (55,50) → (50,60)
+#48 "Standard: Einwurf gegnerische Hälfte" Flitzer L: (25,35) → (20,41)
+#48 "Standard: Einwurf gegnerische Hälfte" Jäger: (55,18) → (46,23)
+#50 "Standard: Eckstoß für uns" Aufpasser: (50,35) → (50,40)
+#50 "Standard: Eckstoß für uns" Jäger: (50,18) → (54,24)
+#51 "Standard: Abstoß gegen uns" Aufpasser: (50,68) → (50,80)
+#51 "Standard: Abstoß gegen uns" Flitzer L: (25,48) → (13,48)
+#51 "Standard: Abstoß gegen uns" Flitzer R: (75,48) → (87,48)
+#51 "Standard: Abstoß gegen uns" Jäger: (50,30) → (50,16)
+#52 "Spiel: Rückstand – offensiver werden!" Jäger: (50,30) → (50,34)
+#54 "Spiel: Gegner mit schnellem Stürmer" Aufpasser: (50,65) → (59,63)
+#54 "Spiel: Gegner mit schnellem Stürmer" Flitzer L: (25,48) → (28,59)
+#54 "Spiel: Gegner mit schnellem Stürmer" Flitzer R: (75,48) → (87,46)
+#54 "Spiel: Gegner mit schnellem Stürmer" Jäger: (50,30) → (61,23)
+#55 "Spiel: Überzahl nutzen – 5 gegen 4" Jäger: (50,32) → (50,37)
+#56 "Spiel: Unterzahl – 4 gegen 5" Aufpasser: (50,68) → (50,55)
+#56 "Spiel: Unterzahl – 4 gegen 5" Flitzer L: (30,52) → (26,46)
+#56 "Spiel: Unterzahl – 4 gegen 5" Flitzer R: (70,52) → (74,46)
+#56 "Spiel: Unterzahl – 4 gegen 5" Jäger: (50,38) → (50,30)
+#57 "TW kurz anbieten" Aufpasser: (50,75) → (56,73)
+#58 "TW – Ball flach rausspielen" Aufpasser: (50,68) → (53,65)
+#59 "TW kommt heraus!" TW: (50,92) → (53,95)
+#60 "TW bleibt in der Mitte" TW: (65,92) → (68,92)
+#61 "TW – Anweisungen geben" Aufpasser: (50,72) → (55,74)
+#62 "TW – Sicheres Fangen" TW: (50,92) → (69,95)
+#63 "TW – Abwurf zum Aufpasser" Aufpasser: (50,75) → (57,74)
+#64 "TW – Flanke klären" TW: (50,92) → (54,95)
+#65 "TW – Nach Parade aufbauen" Aufpasser: (50,75) → (56,73)
+#65 "TW – Nach Parade aufbauen" Flitzer R: (78,55) → (77,45)
+#66 "TW – Kurz oder weit spielen?" Aufpasser: (50,72) → (50,58)
+#67 "Ball halten – sicherer Pass" Flitzer L: (25,55) → (38,61)
+#68 "Dreieck bilden" Jäger: (50,30) → (47,28)
+#69 "Spiel verlagern" Flitzer R: (65,48) → (60,49)
+#70 "Rückpass zum TW" Aufpasser: (45,65) → (43,60)
+#71 "Geduld – nicht hetzen!" Flitzer L: (30,55) → (38,58)
+#71 "Geduld – nicht hetzen!" Flitzer R: (68,55) → (62,57)
+#71 "Geduld – nicht hetzen!" Jäger: (50,38) → (50,51)
+#72 "Überzahl schaffen" Jäger: (50,30) → (46,29)
+#73 "Tempo rausnehmen" Aufpasser: (50,65) → (50,52)
+#73 "Tempo rausnehmen" Flitzer L: (22,48) → (20,40)
+#73 "Tempo rausnehmen" Flitzer R: (78,48) → (80,40)
+#74 "Ball in die Tiefe" Jäger: (50,40) → (50,44)
+#75 "Kurzpass-Kombinationen" Aufpasser: (50,72) → (59,65)
+#75 "Kurzpass-Kombinationen" Flitzer L: (25,55) → (20,45)
+#76 "Ballbesitz nach Einwurf" Flitzer L: (22,45) → (40,45)
+#79 "Rückzugslauf" Aufpasser: (50,58) → (50,51)
+#79 "Rückzugslauf" Flitzer L: (18,38) → (16,34)
+#79 "Rückzugslauf" Flitzer R: (82,38) → (84,34)
+#79 "Rückzugslauf" Jäger: (50,22) → (50,17)
+#81 "Absichern hinter dem Zweikampf" Aufpasser: (50,70) → (46,72)
+#82 "Herausschieben aus der Defensive" Aufpasser: (50,80) → (45,86)
+#83 "Flügel abschneiden" Flitzer L: (28,40) → (30,48)
+#84 "Kompakt verteidigen" Aufpasser: (50,72) → (50,85)
+#84 "Kompakt verteidigen" Flitzer R: (88,50) → (92,50)
+#84 "Kompakt verteidigen" Jäger: (50,28) → (50,21)
+#85 "Konter verhindern" Aufpasser: (50,42) → (50,34)
+#86 "Zweikampf gewinnen" Flitzer R: (60,45) → (55,51)
+#87 "Freien Mitspieler sehen" Jäger: (52,42) → (41,47)
+#88 "Wann dribbeln, wann passen?" Jäger: (50,32) → (42,28)
+#89 "Ball sichern – Körper einsetzen" Flitzer L: (22,52) → (22,70)
+#91 "Kommunizieren – laut rufen!" Jäger: (72,38) → (78,44)
+#92 "Spielaufbau lesen" Aufpasser: (38,72) → (33,68)
+#93 "Freilaufen für den Pass" Jäger: (50,28) → (50,16)
+#97 "Tor vor Augen – Abschluss!" Jäger: (52,25) → (54,34)
+#98 "Vorausdenken – nach dem Pass" Aufpasser: (50,68) → (47,70)
+
+=== v2: THEMATISCHE NEUORDNUNG (neue Pos <- alte Pos) ===
+#1 <- alt #7  Grundstellung der Raute
+#2 <- alt #8  Raute nach links verschieben
+#3 <- alt #9  Raute nach rechts verschieben
+#4 <- alt #1  Ball zum rechten Flitzer
+#5 <- alt #2  Gegner spielt nach rechts
+#6 <- alt #10  Raute kompakt nach vorne
+#7 <- alt #11  Raute kompakt nach hinten
+#8 <- alt #68  Dreieck bilden
+#9 <- alt #93  Freilaufen für den Pass
+#10 <- alt #99  Positionswechsel
+#11 <- alt #12  ADLER aktivieren – Feld groß machen
+#12 <- alt #13  ADLER – Aufpasser spielt auf Flitzer L
+#13 <- alt #14  ADLER – Flitzer L dribbelt nach vorne
+#14 <- alt #15  ADLER – Spielverlagerung
+#15 <- alt #16  ADLER – Konter über rechts
+#16 <- alt #17  IGEL aktivieren – eng zusammen!
+#17 <- alt #18  IGEL – Gegner greift links an
+#18 <- alt #19  IGEL – Gegner wechselt die Seite
+#19 <- alt #20  IGEL – Durchbruch verhindern
+#20 <- alt #21  IGEL – Eckstoß gegen uns
+#21 <- alt #3  Ballgewinn! Umschalten
+#22 <- alt #22  Umschalten: Ballgewinn links!
+#23 <- alt #23  Umschalten: Ballgewinn Mitte
+#24 <- alt #24  Umschalten: Ballverlust vorne!
+#25 <- alt #25  Umschalten: Ballverlust Mitte
+#26 <- alt #26  Umschalten: Doppel-Wechsel
+#27 <- alt #6  Pressing-Falle
+#28 <- alt #27  Pressing: Jäger leitet ein
+#29 <- alt #28  Pressing: Jäger lenkt nach links
+#30 <- alt #29  Pressing: Gegner spielt sich raus
+#31 <- alt #5  Abstoß vom Torwart
+#32 <- alt #32  Spielaufbau: TW kurz auf Aufpasser
+#33 <- alt #33  Spielaufbau: Aufpasser dreht auf
+#34 <- alt #34  Spielaufbau: Aufpasser spielt lang
+#35 <- alt #35  Spielaufbau: Aufpasser unter Druck
+#36 <- alt #36  Spielaufbau: Verlagerung über den TW
+#37 <- alt #92  Spielaufbau lesen
+#38 <- alt #70  Rückpass zum TW
+#39 <- alt #67  Ball halten – sicherer Pass
+#40 <- alt #75  Kurzpass-Kombinationen
+#41 <- alt #37  Flügelspiel: Flitzer L am Ball – Breite halten
+#42 <- alt #38  Flügelspiel: Flitzer L gewinnt das 1gg1
+#43 <- alt #39  Flügelspiel: Flanke kommt!
+#44 <- alt #40  Flügelspiel: Flitzer R zieht nach innen
+#45 <- alt #41  Flügelspiel: Seitenüberladung
+#46 <- alt #42  Konter: Schneller Gegenstoß!
+#47 <- alt #43  Konter: 2 gegen 1
+#48 <- alt #44  Konter: 3 gegen 2
+#49 <- alt #45  Konter: Konter absichern
+#50 <- alt #46  Konter: Konter gescheitert – zurück!
+#51 <- alt #47  Standard: Einwurf eigene Hälfte
+#52 <- alt #48  Standard: Einwurf gegnerische Hälfte
+#53 <- alt #49  Standard: Freistoß Mittelfeld
+#54 <- alt #50  Standard: Eckstoß für uns
+#55 <- alt #51  Standard: Abstoß gegen uns
+#56 <- alt #52  Spiel: Rückstand – offensiver werden!
+#57 <- alt #53  Spiel: Führung verteidigen
+#58 <- alt #54  Spiel: Gegner mit schnellem Stürmer
+#59 <- alt #55  Spiel: Überzahl nutzen – 5 gegen 4
+#60 <- alt #56  Spiel: Unterzahl – 4 gegen 5
+#61 <- alt #57  TW kurz anbieten
+#62 <- alt #58  TW – Ball flach rausspielen
+#63 <- alt #59  TW kommt heraus!
+#64 <- alt #60  TW bleibt in der Mitte
+#65 <- alt #61  TW – Anweisungen geben
+#66 <- alt #62  TW – Sicheres Fangen
+#67 <- alt #63  TW – Abwurf zum Aufpasser
+#68 <- alt #64  TW – Flanke klären
+#69 <- alt #65  TW – Nach Parade aufbauen
+#70 <- alt #66  TW – Kurz oder weit spielen?
+#71 <- alt #71  Geduld – nicht hetzen!
+#72 <- alt #73  Tempo rausnehmen
+#73 <- alt #94  Tempo des Spiels lesen
+#74 <- alt #72  Überzahl schaffen
+#75 <- alt #69  Spiel verlagern
+#76 <- alt #74  Ball in die Tiefe
+#77 <- alt #76  Ballbesitz nach Einwurf
+#78 <- alt #88  Wann dribbeln, wann passen?
+#79 <- alt #89  Ball sichern – Körper einsetzen
+#80 <- alt #98  Vorausdenken – nach dem Pass
+#81 <- alt #77  Helfen im Zweikampf
+#82 <- alt #4  1gg1 auf links
+#83 <- alt #81  Absichern hinter dem Zweikampf
+#84 <- alt #78  Passweg zustellen
+#85 <- alt #83  Flügel abschneiden
+#86 <- alt #80  Innenraum schützen
+#87 <- alt #84  Kompakt verteidigen
+#88 <- alt #79  Rückzugslauf
+#89 <- alt #82  Herausschieben aus der Defensive
+#90 <- alt #85  Konter verhindern
+#91 <- alt #91  Kommunizieren – laut rufen!
+#92 <- alt #87  Freien Mitspieler sehen
+#93 <- alt #90  Räume erkennen
+#94 <- alt #96  Gegner-Wechsel lesen
+#95 <- alt #31  Pressing: Pressing-Auslöser erkennen
+#96 <- alt #30  Pressing: Seitliches Pressing
+#97 <- alt #86  Zweikampf gewinnen
+#98 <- alt #97  Tor vor Augen – Abschluss!
+#99 <- alt #95  Anführer auf dem Platz
+#100 <- alt #100  Endspurt – alles geben!

@@ -8651,6 +8651,8 @@ async function tickerShareViewLink(){
 function tickerGoal(){
   if(!atSel){toast("Erst Spieler oben antippen","err");return;}
   tickerPush(atSel,"tor");
+  // Torschütze zusätzlich als Aktion sichern → Datenquelle für den automatischen Spielbericht (Phase 8-G).
+  sbQueuedPost("match_actions",{datum:spieltagKey(),spieler:atSel,aktion:"tor"});
 }
 function tickerCounterGoal(){ tickerPush(null,"gegentor"); }
 async function tickerShareDelegateLink(){
@@ -8683,6 +8685,7 @@ function tickerRenderControls(){
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
       <button class="btn btn-p" onclick="tickerGoal()" ${open?"":"disabled"}><i class="ti ti-ball-football"></i>Tor!</button>
       <button class="btn" onclick="tickerCounterGoal()" ${open?"":"disabled"}><i class="ti ti-shield-x"></i>Gegentor</button>
+      <button class="btn btn-sm" onclick="matchReport()"><i class="ti ti-news"></i>Spielbericht</button>
     </div>
     <div id="ticker-feed" style="font-size:11.5px;color:var(--text2)"></div>`;
   tickerRenderFeed();
@@ -8706,6 +8709,106 @@ async function tickerRenderFeed(){
 async function tickerDelete(id){
   try{const r=await fetch(`${SB_URL}/rest/v1/ticker_events?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
   tickerRenderFeed();
+}
+
+/* ═══════════════════════════════════
+   AUTOMATISCHER SPIELBERICHT (Phase 8-G)
+   Baut aus den live erfassten Aktionen (match_actions) + Tor/Gegentor (ticker_events)
+   einen warmen, positiven Fließtext für die Eltern-Gruppe. Kernprinzip: JEDES
+   nominierte Kind bekommt mindestens einen positiven Satz – niemand fällt raus.
+   Zufalls-Bausteine sorgen dafür, dass sich zwei Berichte nie identisch lesen.
+   Rein clientseitig, positiv-only (kein Ballverlust/Fehler), Copy/Share.
+═══════════════════════════════════ */
+const REPORT_INTRO={
+  torfest:["Was für ein Nachmittag! Die jungen Adler drehten mächtig auf.","Ein echtes Torfestival – die Adler waren heute nicht zu bremsen."],
+  sieg:["Die Adler zeigten heute eine richtig reife Mannschaftsleistung.","Ein starker, souveräner Auftritt der jungen Adler."],
+  knapp:["Ein spannendes Spiel, das bis zur letzten Minute auf Messers Schneide stand.","Ein ausgeglichenes, umkämpftes Match der Adler."],
+  kampf:["Ein hart umkämpftes Spiel, in dem die Adler nie aufsteckten.","Die Adler kämpften bis zum Schlusspfiff – Kopf hoch, Jungs, das war stark!"],
+  neutral:["Wieder ein Nachmittag, an dem die jungen Adler eine Menge dazugelernt haben.","Die Adler sammelten heute wertvolle Spielerfahrung und jede Menge Spaß."]
+};
+const REPORT_PRAISE={
+  tor:["{name} war eiskalt vor dem Tor","{name} zeigte echte Torjäger-Qualitäten","{name} ließ dem gegnerischen Keeper keine Chance"],
+  pass:["{name} glänzte als kluger Vorbereiter","{name} verteilte die Bälle mit toller Übersicht","{name} war das Herz im Aufbauspiel"],
+  dribbling:["{name} tanzte durch die gegnerische Abwehr","{name} überzeugte im Eins-gegen-Eins","{name} zeigte mutige, freche Dribblings"],
+  gewinn:["{name} eroberte einen Ball nach dem anderen","{name} war ein echter Ballräuber","{name} kämpfte um jeden einzelnen Ball"],
+  parade:["{name} hielt im Tor den Kasten sauber","{name} zeigte zwischen den Pfosten starke Paraden","{name} war ein sicherer Rückhalt im Tor"],
+  aufbau:["{name} eröffnete das Spiel stark von hinten","{name} brachte den ersten Pass immer sauber"],
+  heraus:["{name} beherrschte souverän den Strafraum","{name} klärte mutig vor dem eigenen Tor"],
+  einsatz:["{name} war mit vollem Einsatz dabei","{name} rackerte unermüdlich für das Team","{name} zeigte einen tollen Teamgeist","{name} gab keinen Ball verloren"]
+};
+const REPORT_CONN=["Außerdem","Dazu","Ebenso","Auch","Nicht zu vergessen:","Besonders auffällig:"];
+const REPORT_CLOSE=["Am Ende zählt: Jedes Kind hat gekämpft und Spaß gehabt – und genau darum geht es. 🦅","Alle Adler haben heute alles gegeben – wir sind mächtig stolz auf euch! 🦅","Weiter so, Adler – auf geht's zum nächsten Spiel! 🦅"];
+const REPORT_POS_ORDER=["parade","tor","dribbling","gewinn","pass","heraus","aufbau"]; // bei Gleichstand bevorzugte Highlight-Aktion
+function rPick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+function matchReportBuild(per,roster,tore,gegentore){
+  const d=spieltagRawDate(),p=d.split("-");
+  const dateStr=p.length===3?`${p[2]}.${p[1]}.${p[0]}`:d;
+  const teamTxt=spieltagTeam>1?` – Adler ${spieltagTeam}`:"";
+  const totalActions=Object.values(per).reduce((s,pl)=>s+Object.values(pl).reduce((a,b)=>a+b,0),0);
+  let scenario="neutral";
+  if(tore>=5)scenario="torfest";
+  else if(tore>gegentore&&tore>0)scenario="sieg";
+  else if(tore===gegentore&&(tore>0||gegentore>0))scenario="knapp";
+  else if(gegentore>tore)scenario="kampf";
+  else if(totalActions>0)scenario="sieg"; // Aktionen erfasst, aber keine Tore getippt → positiv
+  let intro=rPick(REPORT_INTRO[scenario]);
+  if(tore>0)intro+=` Die Adler erzielten ${tore===1?"einen Treffer":tore+" Treffer"}.`;
+  // Pro Kind ein positiver Satz – Highlight = die am häufigsten getippte positive Aktion.
+  const lines=roster.map((name,i)=>{
+    const c=per[name]||{};
+    let best=null,bestN=0;
+    REPORT_POS_ORDER.forEach(k=>{const n=c[k]||0;if(n>bestN){bestN=n;best=k;}});
+    const bank=best?REPORT_PRAISE[best]:REPORT_PRAISE.einsatz;
+    let s=rPick(bank).replace("{name}",name);
+    // Konnektor nur voranstellen, NICHT klein schreiben (Satz beginnt mit dem Spielernamen).
+    if(i>0&&Math.random()<0.5)s=rPick(REPORT_CONN)+" "+s;
+    return s+".";
+  });
+  const paras=[];for(let i=0;i<lines.length;i+=3)paras.push(lines.slice(i,i+3).join(" "));
+  return `🦅 Spielbericht${teamTxt} – ${dateStr}\n\n${intro}\n\n${paras.join("\n\n")}\n\n${rPick(REPORT_CLOSE)}`;
+}
+async function matchReport(){
+  const datum=spieltagKey();
+  let acts=[],trows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/match_actions?datum=eq.${encodeURIComponent(datum)}&select=spieler,aktion`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)acts=await r.json();}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/ticker_events?datum=eq.${encodeURIComponent(datum)}&select=typ`,{headers:sbAuthHeaders()});if(r.ok)trows=await r.json();}catch(e){}
+  const per={};
+  acts.forEach(a=>{if(!per[a.spieler])per[a.spieler]={};per[a.spieler][a.aktion]=(per[a.spieler][a.aktion]||0)+1;});
+  const roster=(typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():Object.keys(per);
+  if(!roster.length){toast("Noch keine Spieldaten für einen Bericht","err");return;}
+  const tore=trows.filter(t=>t.typ==="tor").length||Object.values(per).reduce((s,pl)=>s+(pl.tor||0),0);
+  const gegentore=trows.filter(t=>t.typ==="gegentor").length;
+  matchReportShow(matchReportBuild(per,roster,tore,gegentore));
+}
+function matchReportShow(text){
+  const old=document.getElementById("report-modal");if(old)old.remove();
+  const modal=document.createElement("div");
+  modal.id="report-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const card=document.createElement("div");
+  card.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  card.innerHTML=`<div style="font-weight:700;font-size:15px;margin-bottom:4px">📰 Automatischer Spielbericht</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Vorschlag zum Kopieren in die Eltern-Gruppe – frei anpassbar. „Neu würfeln" erzeugt eine andere Formulierung.</div>`;
+  const ta=document.createElement("textarea");
+  ta.id="report-text";ta.value=text;
+  ta.style.cssText="width:100%;min-height:280px;font-family:inherit;font-size:13px;line-height:1.5;border:var(--border-s);border-radius:10px;padding:12px;resize:vertical;background:var(--surface2);color:var(--text);box-sizing:border-box";
+  const bar=document.createElement("div");
+  bar.style.cssText="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:12px";
+  bar.innerHTML=`<button class="btn btn-sm" onclick="matchReport()"><i class="ti ti-dice-5"></i>Neu würfeln</button>
+    <button class="btn btn-p" onclick="matchReportCopy()"><i class="ti ti-copy"></i>Kopieren</button>
+    <button class="btn btn-sm" onclick="document.getElementById('report-modal').remove()">Schließen</button>`;
+  card.appendChild(ta);card.appendChild(bar);
+  modal.appendChild(card);
+  document.body.appendChild(modal);
+}
+function matchReportCopy(){
+  const ta=document.getElementById("report-text");if(!ta)return;
+  const text=ta.value;
+  const done=()=>toast("Spielbericht kopiert ✓");
+  if(navigator.share){navigator.share({title:"Spielbericht U9",text}).then(done).catch(()=>{});return;}
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(done,()=>{ta.select();try{document.execCommand("copy");done();}catch(e){}});}
+  else{ta.select();try{document.execCommand("copy");done();}catch(e){}}
 }
 
 /* ═══════════════════════════════════
@@ -9288,7 +9391,7 @@ const AT_ACTIONS_TW=[
   {key:"heraus",label:"Herauslaufen",col:"#ca8a04",emo:"🟡"},
   {key:"fehler",label:"Torwart-Fehler",col:"#dc2626",emo:"🔴"}
 ];
-const AT_EMO={}; [...AT_ACTIONS,...AT_ACTIONS_TW].forEach(a=>AT_EMO[a.key]=a.emo);
+const AT_EMO={}; [...AT_ACTIONS,...AT_ACTIONS_TW].forEach(a=>AT_EMO[a.key]=a.emo); AT_EMO.tor="⚽"; // Tore werden über tickerGoal erfasst
 function atActionsFor(name){ return getKader(name)?.tw ? AT_ACTIONS_TW : AT_ACTIONS; }
 let atSel="", atCounts={}, atLog=[], atUid=0; // atCounts[spieler][aktion]=n ; atLog = Undo-Feed
 function atCount(sp,ak){return (atCounts[sp]&&atCounts[sp][ak])||0;}
