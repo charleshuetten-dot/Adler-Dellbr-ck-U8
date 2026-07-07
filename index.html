@@ -45,7 +45,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .logo-t2{font-size:11px;color:var(--text2);margin-top:1px}
 .cloud-row{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
 .cdot{width:7px;height:7px;border-radius:50%;background:#94a3b8;transition:background .4s;flex-shrink:0}
-.cdot.ok{background:#16a34a}.cdot.err{background:#dc2626}
+.cdot.ok{background:#16a34a}.cdot.err{background:#dc2626}.cdot.warn{background:#f59e0b}
 
 .nb{padding:8px 2px;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#64748b;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:inherit;font-size:inherit}
 .nb i{font-size:17px}
@@ -1944,7 +1944,62 @@ async function flushPendingSaves(){
   if(remaining.length<q.length)toast(`${q.length-remaining.length} offline gespeicherte Bewertung(en) synchronisiert ✓`);
 }
 
+/* ═══════════════════════════════════
+   PHASE 7-B: OFFLINE-QUEUE (Dorfplatz-Schutz)
+   Generische Sync-Queue fuer APPEND-ONLY-Aktionen am Spieltag (Ticker, Match-
+   Actions, Blitz-Ratings). Da es reine Inserts sind, koennen sie konfliktfrei
+   nachgespielt werden – kein Overwrite neuerer Online-Daten moeglich. Reihenfolge
+   wird gewahrt (matchday-Upsert vor abhaengigem ticker-Insert). Zustands-Daten
+   (Nominierung/Match-Uhr) laufen weiter local-first bzw. ueber Timestamp-Merge.
+═══════════════════════════════════ */
+const SYNC_QUEUE_KEY="adler_sync_queue";
+function syncQueueGet(){return safeParse(localStorage.getItem(SYNC_QUEUE_KEY),[])||[];}
+function syncQueueSave(a){localStorage.setItem(SYNC_QUEUE_KEY,JSON.stringify(a));}
+function enqueueSync(item){
+  const q=syncQueueGet();
+  q.push({id:(crypto&&crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random()),ts:Date.now(),...item});
+  syncQueueSave(q);
+  updateSyncBadge();
+}
+function updateSyncBadge(){
+  const n=syncQueueGet().length;
+  const dot=document.getElementById("cdot"),lbl=document.getElementById("clbl");
+  if(n>0){ if(dot)dot.className="cdot warn"; if(lbl){lbl.textContent=`🟡 ${n} offline – wird synchronisiert`;lbl.title="Aktionen werden gesendet, sobald wieder Netz da ist";} }
+}
+// POST mit Offline-Fallback: bei Netz-/Serverfehler landet die Aktion in der Queue.
+async function sbQueuedPost(path,body,prefer){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/${path}`,{method:"POST",headers:sbAuthHeaders(prefer?{'Prefer':prefer}:undefined),body:JSON.stringify(body)});
+    if(r.status===401){sbCheck401(r);return {ok:false,res:r};}
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    return {ok:true,res:r};
+  }catch(e){
+    enqueueSync({path,body,prefer:prefer||null});
+    return {ok:false,queued:true};
+  }
+}
+async function flushSyncQueue(){
+  const q=syncQueueGet();
+  if(!q.length)return;
+  if(!navigator.onLine){updateSyncBadge();return;}
+  const remaining=[]; let flushed=0, stop=false;
+  for(const item of q){
+    if(stop){remaining.push(item);continue;} // nach erstem Fehler Reihenfolge bewahren (FK-Abhaengigkeiten)
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/${item.path}`,{method:"POST",headers:sbAuthHeaders(item.prefer?{'Prefer':item.prefer}:undefined),body:JSON.stringify(item.body)});
+      if(!r.ok)throw new Error("HTTP "+r.status);
+      flushed++;
+    }catch(e){remaining.push(item);stop=true;}
+  }
+  syncQueueSave(remaining);
+  if(remaining.length){updateSyncBadge();}
+  else if(flushed){const lbl=document.getElementById("clbl");if(lbl){lbl.textContent="Live";}const dot=document.getElementById("cdot");if(dot)dot.className="cdot ok";}
+  if(flushed)toast(`${flushed} offline gespeicherte Aktion(en) synchronisiert ✓`);
+}
+window.addEventListener("online",flushSyncQueue);
+
 async function loadDB(){
+  flushSyncQueue(); // Spieltag-Aktionen zuerst nachspielen (best effort, nicht blockierend)
   await flushPendingSaves(); // vor dem Laden pushen, damit die frischen Daten gleich mit reinkommen
   try{
     const r=await fetch(`${SB_URL}/rest/v1/spielerprofile?select=*`,{headers:sbAuthHeaders()});
@@ -8334,12 +8389,11 @@ async function tickerPush(name,typ){
   const datum=spieltagKey();
   const minute=mcState?mcMinuteLabel(mcState,mcSpieldauer):"";
   const text=tickerPhrase(typ,name);
-  try{
-    // matchday-Zeile sicherstellen (ticker_events.datum hat FK darauf) – ueberschreibt bestehende Felder nicht
-    await fetch(`${SB_URL}/rest/v1/matchday?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({datum})});
-    await fetch(`${SB_URL}/rest/v1/ticker_events`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({datum,text,typ,minute,source:"trainer"})});
-    tickerRenderFeed();
-  }catch(e){}
+  // Offline-fest: matchday-Upsert (FK-Ziel) zuerst, dann ticker_events – bei Netzausfall
+  // landen beide in Reihenfolge in der Sync-Queue und werden bei Netz nachgespielt.
+  await sbQueuedPost("matchday?on_conflict=datum",{datum},"resolution=merge-duplicates");
+  await sbQueuedPost("ticker_events",{datum,text,typ,minute,source:"trainer"});
+  tickerRenderFeed();
 }
 function tickerToggle(){
   mcTickerOpen=mcTickerOpen===false?true:false;
@@ -9053,10 +9107,8 @@ async function atTap(aktion){
   // stehen (geringes Risiko, da nur positive Ereignisse gepusht werden).
   if(TICKER_POSITIVE_KEYS.includes(aktion))tickerPush(atSel,aktion);
   const datum=spieltagKey();
-  try{
-    const r=await fetch(`${SB_URL}/rest/v1/match_actions`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=representation'},body:JSON.stringify({datum,spieler:atSel,aktion})});
-    if(!sbCheck401(r)&&r.ok){const rows=await r.json();if(rows&&rows[0]&&rows[0].id!=null)entry.id=rows[0].id;}
-  }catch(e){}
+  const res=await sbQueuedPost("match_actions",{datum,spieler:atSel,aktion},"return=representation"); // offline -> Queue
+  if(res.ok&&res.res){try{const rows=await res.res.json();if(rows&&rows[0]&&rows[0].id!=null)entry.id=rows[0].id;}catch(e){}}
 }
 // Undo (Korrektur 2): letzte Aktion am Spielfeldrand zurücknehmen – In-Memory-Zähler
 // runter + die frisch angelegte Supabase-Zeile entfernen (gerade erst erstellt -> Hard-Delete ok).
@@ -9170,10 +9222,8 @@ async function blitzRate(){
   const wertung=avg>=2.5?"top":avg>=1.7?"solide":"blass"; // Gesamt für Rückwärtskompatibilität
   try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
   blitzIdx++;blitzCritPlayer=null;blitzRenderCard(); // optimistisch weiter
-  try{
-    const r=await fetch(`${SB_URL}/rest/v1/blitz_ratings`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({datum,spieler:name,wertung,autor,kriterien})});
-    if(!sbCheck401(r))blitzLoadSaved(); // gespeicherte Liste aktualisieren
-  }catch(e){/* offline – Wertung geht verloren, Flow bleibt flüssig */}
+  const res=await sbQueuedPost("blitz_ratings",{datum,spieler:name,wertung,autor,kriterien}); // offline -> Queue
+  if(res.ok)blitzLoadSaved(); // bei Online: gespeicherte Liste aktualisieren
 }
 function blitzSkip(){blitzIdx++;blitzCritPlayer=null;blitzRenderCard();}
 
