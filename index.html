@@ -9007,7 +9007,7 @@ function nomInit(){
   nomLoad();
 }
 // Eltern-RSVP (Phase 10-M, Etappe 3): Rückmeldungen der Eltern zum Termin dieses Datums laden.
-let nomRsvp={}; // name -> {status,kommentar}
+let nomRsvp={}, nomOvr=new Set(); // nomRsvp: name->{status,kommentar}; nomOvr: vom Trainer manuell überstimmte Namen
 async function nomLoadRsvp(){
   nomRsvp={};
   const datum=spieltagRawDate();
@@ -9023,22 +9023,24 @@ async function nomLoadRsvp(){
 }
 async function nomLoad(){
   const datum=spieltagKey();
-  nomStatus={};
+  nomStatus={}; nomOvr=new Set();
   try{
     const r=await fetch(`${SB_URL}/rest/v1/nominierungen?datum=eq.${encodeURIComponent(datum)}&select=data`,{headers:sbAuthHeaders()});
-    if(!sbCheck401(r)&&r.ok){const rows=await r.json();if(rows.length&&rows[0].data)nomStatus={...rows[0].data};}
+    if(!sbCheck401(r)&&r.ok){const rows=await r.json();if(rows.length&&rows[0].data){const d={...rows[0].data};if(Array.isArray(d._ovr))nomOvr=new Set(d._ovr);delete d._ovr;nomStatus=d;}}
   }catch(e){}
   KADER.forEach(k=>{if(!nomStatus[k.name])nomStatus[k.name]="dabei";}); // Default: dabei
   await nomLoadRsvp();
+  // Eltern-Zusagen automatisch übernehmen – außer wo der Trainer manuell überstimmt hat (nomOvr).
+  Object.keys(nomRsvp).forEach(name=>{ if(!nomOvr.has(name)) nomStatus[name]=nomRsvp[name].status==="zugesagt"?"dabei":"nicht"; });
   nomRender();
   nomApplyToTools();
   if(document.getElementById("action-panel"))atInit(); // Aktionen fürs neue Datum laden
 }
-function nomSet(name,status){nomStatus[name]=status;nomRender();nomApplyToTools();nomSave();}
+function nomSet(name,status){nomStatus[name]=status;nomOvr.add(name);nomRender();nomApplyToTools();nomSave();}
 async function nomSave(){
   if(!document.getElementById("spieltag-date")?.value)return;
   const datum=spieltagKey();
-  try{await fetch(`${SB_URL}/rest/v1/nominierungen?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({datum,data:nomStatus})});}catch(e){}
+  try{await fetch(`${SB_URL}/rest/v1/nominierungen?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({datum,data:{...nomStatus,_ovr:[...nomOvr]}})});}catch(e){}
 }
 function nominierteSpieler(){return KADER.map(k=>k.name).filter(n=>nomStatus[n]==="dabei");}
 function nomRender(){
@@ -9052,8 +9054,8 @@ function nomRender(){
     const c={zugesagt:0,abgesagt:0,krank:0};
     Object.values(nomRsvp).forEach(x=>{if(c[x.status]!=null)c[x.status]++;});
     sum=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding:8px 10px;background:var(--surface2);border-radius:var(--r);font-size:11.5px">
-      <span style="font-weight:600">Eltern-RSVP:</span><span>✅ ${c.zugesagt}</span><span>❌ ${c.abgesagt}</span><span>🤒 ${c.krank}</span><span style="color:var(--text3)">offen ${KADER.length-Object.keys(nomRsvp).length}</span>
-      <button class="btn btn-sm" onclick="nomApplyRsvp()" style="margin-left:auto"><i class="ti ti-checks"></i>Zusagen übernehmen</button>
+      <span style="font-weight:600">Eltern-RSVP</span><span style="color:var(--text3)">(auto übernommen)</span><span>✅ ${c.zugesagt}</span><span>❌ ${c.abgesagt}</span><span>🤒 ${c.krank}</span><span style="color:var(--text3)">offen ${KADER.length-Object.keys(nomRsvp).length}</span>
+      <button class="btn btn-sm" onclick="nomApplyRsvp()" style="margin-left:auto" title="Verwirft manuelle Trainer-Änderungen und koppelt wieder komplett an die Eltern-Zusagen"><i class="ti ti-refresh"></i>Auf RSVP zurücksetzen</button>
     </div>`;
   }
   box.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">${nominierteSpieler().length} von ${KADER.length} dabei</div>`+sum+
@@ -9068,16 +9070,13 @@ function nomRender(){
       </div>`;
     }).join("");
 }
-// Ein-Klick: Eltern-Zusagen in die Nominierung übernehmen (zugesagt→dabei, abgesagt/krank→nicht).
-// Grundgesetz: nur ein Vorschlag – der Trainer kann jeden Spieler danach frei überstimmen.
+// Eltern-Zusagen werden automatisch übernommen (in nomLoad). Dieser Button verwirft die
+// Trainer-Overrides und koppelt die Nominierung wieder komplett an den aktuellen RSVP-Stand.
 function nomApplyRsvp(){
-  let changed=0;
-  Object.keys(nomRsvp).forEach(name=>{
-    const target=nomRsvp[name].status==="zugesagt"?"dabei":"nicht";
-    if(nomStatus[name]!==target){nomStatus[name]=target;changed++;}
-  });
+  nomOvr.clear();
+  Object.keys(nomRsvp).forEach(name=>{ nomStatus[name]=nomRsvp[name].status==="zugesagt"?"dabei":"nicht"; });
   nomRender();nomApplyToTools();nomSave();
-  toast(changed?`${changed} Nominierung(en) aus Eltern-Zusagen übernommen ✓`:"Nominierung entspricht bereits den Zusagen");
+  toast("Nominierung auf Eltern-RSVP zurückgesetzt ✓");
 }
 function nomApplyToTools(){
   const squad=nominierteSpieler();
