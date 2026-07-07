@@ -2722,6 +2722,12 @@ function adlerCardDraw(ctx,W,H,d,photoImg){
     if(words[1])ctx.fillText(words.slice(1).join(" "),bx,by+94);
   });
 
+  // ── Quiz-Wissen (Fleiß-Wert, nur wenn gequizzt) ──
+  if(c&&c.quizBloecke>0){
+    ctx.textAlign="center";ctx.font="600 13px Arial";ctx.fillStyle="rgba(255,255,255,.92)";
+    ctx.fillText(`🧠 Quiz: ${c.quizRichtig} richtige · ${c.quizBloecke} ${c.quizBloecke===1?"Block":"Blöcke"}`, W/2, by+bh+30);
+  }
+
   // ── Fußzeile ──
   ctx.textAlign="center";ctx.font="600 12px Arial";ctx.fillStyle="rgba(255,255,255,.8)";
   ctx.fillText("SV Adler Dellbrück · U9 · Saison "+saisonLabel(), W/2, H-22);
@@ -2754,7 +2760,7 @@ async function fotoCompress(file,size=400){
 // Spiele = Nominierungen "dabei", Trainings = Anwesenheit "da". Läuft nur mit Trainer-Token.
 const CARD_POS_AKTIONEN=["pass","dribbling","gewinn","parade","aufbau","heraus","tor"]; // positiv (verlust/fehler bewusst raus)
 async function adlerCardStats(name){
-  const enc=encodeURIComponent(name), out={tore:0,paraden:0,aktionen:0,spiele:0,trainings:0};
+  const enc=encodeURIComponent(name), out={tore:0,paraden:0,aktionen:0,spiele:0,trainings:0,quizRichtig:0,quizBloecke:0};
   try{ // ein Query für alle Ballaktionen des Kindes → Tore/Paraden/Aktionen daraus ableiten
     const r=await fetch(`${SB_URL}/rest/v1/match_actions?spieler=eq.${enc}&select=aktion&limit=10000`,{headers:sbAuthHeaders()});
     if(!sbCheck401(r)&&r.ok){
@@ -2772,6 +2778,10 @@ async function adlerCardStats(name){
   try{
     const r=await fetch(`${SB_URL}/rest/v1/anwesenheit?select=data`,{headers:sbAuthHeaders()});
     if(r.ok){out.trainings=(await r.json()).filter(x=>x.data&&x.data[name]&&x.data[name].da===true).length;}
+  }catch(e){}
+  try{ // Quiz läuft anonym über den Anon-Key – hier auch damit lesen (garantiert erlaubt)
+    const r=await fetch(`${SB_URL}/rest/v1/quiz_progress?player=eq.${enc}&select=score,block`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    if(r.ok){const rows=await r.json();out.quizBloecke=rows.length;out.quizRichtig=rows.reduce((s,x)=>s+(x.score||0),0);}
   }catch(e){}
   return out;
 }
