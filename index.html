@@ -8257,11 +8257,20 @@ async function tickerRenderFeed(){
   if(!box)return;
   const datum=spieltagKey();
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/ticker_events?datum=eq.${encodeURIComponent(datum)}&select=text,typ,minute,source,created_at&order=created_at.desc&limit=5`,{headers:sbAuthHeaders()});
+    const r=await fetch(`${SB_URL}/rest/v1/ticker_events?datum=eq.${encodeURIComponent(datum)}&select=id,text,typ,minute,source,created_at&order=created_at.desc&limit=8`,{headers:sbAuthHeaders()});
     if(!r.ok){box.innerHTML="";return;}
     const rows=await r.json();
-    box.innerHTML=rows.length?rows.map(e=>`<div style="padding:4px 0;border-bottom:1px solid var(--surface2)">${e.minute?`<strong>${esc(e.minute)}</strong> `:""}${esc(e.text)}${e.source==="delegate"?' <span style="opacity:.6">(Eltern-Helfer)</span>':""}</div>`).join(""):'<div style="color:var(--text3)">Noch keine Ticker-Einträge.</div>';
+    box.innerHTML=rows.length?rows.map(e=>`<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--surface2)">
+      <span style="flex:1">${e.minute?`<strong>${esc(e.minute)}</strong> `:""}${esc(e.text)}${e.source==="delegate"?' <span style="opacity:.6">(Eltern-Helfer)</span>':""}</span>
+      <button onclick="tickerDelete(${Number(e.id)})" title="Ticker-Eintrag löschen" aria-label="Löschen" style="border:none;background:transparent;cursor:pointer;color:#dc2626;font-size:13px;line-height:1;padding:2px 4px"><i class="ti ti-trash"></i></button>
+    </div>`).join(""):'<div style="color:var(--text3)">Noch keine Ticker-Einträge.</div>';
   }catch(e){}
+}
+// Ticker-Eintrag korrigieren = löschen (auch von Eltern-Helfern gesendete); der Eltern-Feed
+// zeigt danach beim nächsten Poll den bereinigten Stand.
+async function tickerDelete(id){
+  try{const r=await fetch(`${SB_URL}/rest/v1/ticker_events?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
+  tickerRenderFeed();
 }
 
 /* ═══════════════════════════════════
@@ -8859,8 +8868,31 @@ function blitzInit(){
       <span style="font-size:11px;color:var(--text2)">Bewertet von:</span>
       <select id="blitz-autor" style="min-height:40px;padding:6px 10px;border:var(--border-s);border-radius:var(--r);font-family:inherit">${TRAINER.map(t=>`<option>${t}</option>`).join("")}</select>
     </div>
-    <div id="blitz-card"></div>`;
+    <div id="blitz-card"></div>
+    <div id="blitz-saved" style="margin-top:12px"></div>`;
   blitzRenderCard();
+  blitzLoadSaved();
+}
+// Gespeicherte Blitz-Bewertungen dieses Spieltags als Chips – ✕ loescht die Eintragung
+// (Korrektur = loeschen + ueber "Von vorne" neu bewerten).
+async function blitzLoadSaved(){
+  const box=document.getElementById("blitz-saved");
+  if(!box)return;
+  const datum=spieltagKey();
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/blitz_ratings?datum=eq.${encodeURIComponent(datum)}&select=id,spieler,wertung&order=created_at.asc`,{headers:sbAuthHeaders()});
+    if(!r.ok){box.innerHTML="";return;}
+    const rows=await r.json();
+    if(!rows.length){box.innerHTML="";return;}
+    const wCol={top:"#15803d",solide:"#64748b",blass:"#dc2626"};
+    box.innerHTML=`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:5px">Gespeicherte Bewertungen (${rows.length}) · ✕ zum Löschen/Korrigieren</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${rows.map(x=>`<span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:4px 9px;border-radius:14px;background:var(--surface2);border:var(--border-s)"><span style="width:8px;height:8px;border-radius:50%;background:${wCol[x.wertung]||"#64748b"}"></span>${esc(x.spieler)}<button onclick="blitzDelete(${Number(x.id)})" title="Bewertung löschen" aria-label="Löschen" style="border:none;background:transparent;cursor:pointer;color:#dc2626;font-size:13px;line-height:1;padding:0 2px">✕</button></span>`).join("")}</div>`;
+  }catch(e){}
+}
+async function blitzDelete(id){
+  try{const r=await fetch(`${SB_URL}/rest/v1/blitz_ratings?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
+  blitzLoadSaved();
+  toast("Blitz-Bewertung gelöscht");
 }
 function blitzRenderCard(){
   const card=document.getElementById("blitz-card");
@@ -8911,7 +8943,7 @@ async function blitzRate(){
   blitzIdx++;blitzCritPlayer=null;blitzRenderCard(); // optimistisch weiter
   try{
     const r=await fetch(`${SB_URL}/rest/v1/blitz_ratings`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({datum,spieler:name,wertung,autor,kriterien})});
-    sbCheck401(r);
+    if(!sbCheck401(r))blitzLoadSaved(); // gespeicherte Liste aktualisieren
   }catch(e){/* offline – Wertung geht verloren, Flow bleibt flüssig */}
 }
 function blitzSkip(){blitzIdx++;blitzCritPlayer=null;blitzRenderCard();}
