@@ -2923,8 +2923,9 @@ function generateInsights(tw, aufpasser, fl_l, fl_r, jaeger, score){
   return insights;
 }
 
-function calcBestCombos(){
-  const names=Object.keys(DB);
+function calcBestCombos(restrictNames){
+  // restrictNames (optional): nur diese Spieler betrachten (z. B. die nominierten am Spieltag).
+  const names=(restrictNames&&restrictNames.length)?restrictNames:Object.keys(DB);
   if(names.length<4)return null;
 
   const players=names.map(n=>getPlayerData(n)).filter(Boolean);
@@ -8782,8 +8783,41 @@ function rotRenderControls(){
       </select>
       <button class="btn btn-p" id="rot-startbtn" onclick="rotToggle()" style="min-height:44px">${running?'<i class="ti ti-player-pause"></i>Pause':'<i class="ti ti-player-play"></i>Start'}</button>
       <button class="btn" onclick="rotReset()" style="min-height:44px"><i class="ti ti-refresh"></i>Reset</button>
+      <button class="btn" onclick="magicLineup()" title="Nominierte Spieler optimal aufs Feld verteilen" style="min-height:44px">🪄 Auto-Aufstellung</button>
     </div>
     <div id="rot-live"></div>`;
+}
+/* Phase 7-A: Magic Button – nominierte Spieler optimal aufs Feld der aktuellen
+   Spielform verteilen. 4+1 nutzt den echten Kombinator (calcBestCombos, gedeckelt),
+   Funino/5+1 nutzen eine Greedy-Verteilung nach Gesamtscore (kein Brute-Force ->
+   kein Einfrieren). Torwart separat. Ergebnis ist frei nachjustierbar. */
+function magicLineup(){
+  const squad=(typeof nominierteSpieler==="function"?nominierteSpieler():[]);
+  const form=(typeof FORMATIONS!=="undefined"&&FORMATIONS[tbFormation])||{tw:true,fieldCount:5};
+  const need=form.fieldCount+(form.tw?1:0);
+  if(squad.length<need){toast(`Zu wenige nominierte Spieler (${squad.length}/${need}) für ${tbFormation}`,"err");return;}
+  const keeper=form.tw?(squad.find(n=>getKader(n)?.tw)||null):null;
+  const outfieldPool=squad.filter(n=>n!==keeper);
+  let ordered=null;
+  if(tbFormation==='4+1'&&outfieldPool.length>=4){
+    const combo=calcBestCombos(outfieldPool); // nur nominierte Feldspieler, Kombinator liefert beste Raute
+    if(combo&&combo[0]){
+      const b=combo[0];
+      const used=[b.aufpasser.name,b.flitzer_l.name,b.flitzer_r.name,b.jaeger.name];
+      const rest=outfieldPool.filter(n=>!used.includes(n));
+      ordered=[...used,...rest];
+    }
+  }
+  if(!ordered){
+    // Greedy nach Gesamtscore (Funino/5+1 oder 4+1-Fallback)
+    ordered=outfieldPool.map(n=>{const pd=getPlayerData(n);return {n,s:pd?pd.total:0};}).sort((a,b)=>b.s-a.s).map(x=>x.n);
+  }
+  rotTW=keeper;
+  rotField=ordered.slice(0,form.fieldCount);
+  rotBench=ordered.slice(form.fieldCount);
+  rotBenchSec={};squad.forEach(n=>rotBenchSec[n]=0);rotElapsed=0;
+  rotRenderControls();rotRenderLive();
+  toast("Auto-Aufstellung erstellt ✓ – frei anpassbar");
 }
 function fmtSec(s){const m=Math.floor(s/60),ss=s%60;return m+":"+(ss<10?"0":"")+ss;}
 function rotRenderLive(){
