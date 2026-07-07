@@ -617,8 +617,9 @@ h1.print-header{display:none}
   <div class="cloud-row"><span class="cdot" id="cdot"></span><span id="clbl">Verbinde...</span></div>
 </div>
 
-<div id="main-nav" style="position:fixed;left:0;right:0;bottom:0;z-index:50;display:grid;grid-template-columns:repeat(5,1fr);gap:2px;background:#fff;padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-top:1px solid #e2e8f0;box-shadow:0 -2px 12px rgba(0,0,0,.08)">
-  <button class="nb active" id="nb-team" onclick="openTab('team')"><i class="ti ti-users"></i><span>Team</span></button>
+<div id="main-nav" style="position:fixed;left:0;right:0;bottom:0;z-index:50;display:grid;grid-template-columns:repeat(6,1fr);gap:2px;background:#fff;padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-top:1px solid #e2e8f0;box-shadow:0 -2px 12px rgba(0,0,0,.08)">
+  <button class="nb active" id="nb-home" onclick="openTab('home')"><i class="ti ti-home"></i><span>Home</span></button>
+  <button class="nb" id="nb-team" onclick="openTab('team')"><i class="ti ti-users"></i><span>Team</span></button>
   <button class="nb" id="nb-training" onclick="openTab('training')"><i class="ti ti-run"></i><span>Training</span></button>
   <button class="nb" id="nb-spieltag" onclick="openTab('spieltag')"><i class="ti ti-whistle"></i><span>Spieltag</span></button>
   <button class="nb" id="nb-taktik" onclick="openTab('taktik')"><i class="ti ti-arrows-move"></i><span>Taktik</span></button>
@@ -627,6 +628,11 @@ h1.print-header{display:none}
 
 <!-- Dynamische Sub-Tab-Leiste (vom Router pro Tab befüllt) -->
 <div id="tab-subbar" style="display:none;gap:4px;margin-bottom:14px;background:var(--surface2);padding:3px;border-radius:var(--r);border:var(--border)"></div>
+
+<!-- HOME: Trainer-Dashboard -->
+<div id="view-home" class="view">
+  <div id="home-content"></div>
+</div>
 
 <!-- BEWERTUNG -->
 <div id="view-bew" class="view active">
@@ -2429,6 +2435,9 @@ function renderVerlauf(){
    sv()/switchTrainSub() bleiben als Kompatibilitäts-Shims für Altaufrufe erhalten.
 ═══════════════════════════════════ */
 const TABS={
+  home:    {sections:[
+    {key:"home",    label:"Dashboard", icon:"ti-home"},
+  ]},
   team:    {sections:[
     {key:"bew",     label:"Bewerten", icon:"ti-clipboard-list"},
     {key:"kader",   label:"Kader",    icon:"ti-users"},
@@ -2455,6 +2464,7 @@ const TABS={
   ]},
 };
 const SECS={
+  home:       {cid:"view-home",            init:()=>renderHome()},
   bew:        {cid:"view-bew"},
   kader:      {cid:"view-kader",           init:()=>renderKader()},
   profil:     {cid:"view-profil",          init:()=>renderProfil()},
@@ -2508,6 +2518,106 @@ function openTab(tabId){ if(!TABS[tabId])return; go(tabState[tabId]||TABS[tabId]
 // Kompatibilitäts-Shims: bestehende sv()/switchTrainSub()-Aufrufe im Code bleiben gültig
 function sv(name){ if(name==="training"){openTab("training");return;} go(name); }
 function switchTrainSub(sub){ go(sub); }
+
+/* ═══════════════════════════════════
+   HOME – Trainer-Dashboard
+   Next-Event (aus termine), Geburtstags-Alerts (KADER.geb, optional gepflegt),
+   Quick-Stats aus DB/KADER. Reine Lesesicht mit Schnellsprüngen.
+═══════════════════════════════════ */
+function homeAlter(geb){ // Alter in Jahren aus YYYY-MM-DD
+  const g=new Date(geb+"T00:00:00"),h=new Date();
+  let a=h.getFullYear()-g.getFullYear();
+  if(h.getMonth()<g.getMonth()||(h.getMonth()===g.getMonth()&&h.getDate()<g.getDate()))a--;
+  return a;
+}
+function homeGebTage(geb){ // Tage bis zum nächsten Geburtstag (0 = heute)
+  const h=new Date();h.setHours(0,0,0,0);
+  const g=new Date(geb+"T00:00:00");
+  const next=new Date(h.getFullYear(),g.getMonth(),g.getDate());
+  if(next<h)next.setFullYear(h.getFullYear()+1);
+  return Math.round((next-h)/86400000);
+}
+async function renderHome(){
+  const box=document.getElementById("home-content");
+  if(!box)return;
+  const heute=new Date().toISOString().slice(0,10);
+  const card=(inner,accent)=>`<div style="background:var(--surface);border:var(--border-s);${accent?`border-left:3px solid ${accent};`:""}border-radius:var(--rl);padding:12px 14px;margin-bottom:10px">${inner}</div>`;
+
+  // ── Quick-Stats (sofort, aus lokalen Daten) ──
+  const names=Object.keys(DB||{});
+  const bewertet=names.filter(n=>DB[n]&&DB[n].length).length;
+  const cutoff=new Date(Date.now()-56*86400000).toISOString().slice(0,10); // 8 Wochen
+  const stale=KADER.filter(k=>{
+    const s=DB[k.name];
+    if(!s||!s.length)return true;
+    return (s[s.length-1].datum||"0000")<cutoff;
+  }).length;
+  const statTile=(val,lbl,col,jump)=>`<div onclick="${jump}" style="flex:1;min-width:90px;background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:10px;text-align:center;cursor:pointer">
+    <div style="font-size:22px;font-weight:800;color:${col}">${val}</div>
+    <div style="font-size:10px;color:var(--text2)">${lbl}</div></div>`;
+
+  // ── Geburtstage (nur wenn geb im KADER gepflegt) ──
+  const mitGeb=KADER.filter(k=>k.geb);
+  let gebHtml="";
+  if(!mitGeb.length){
+    gebHtml=card(`<div style="font-size:12px;color:var(--text2)">🎂 Geburtstage: noch keine Daten im Kader gepflegt (Feld <code>geb:"JJJJ-MM-TT"</code> je Spieler ergänzen).</div>`);
+  }else{
+    const soon=mitGeb.map(k=>({k,d:homeGebTage(k.geb)})).filter(x=>x.d<=14).sort((a,b)=>a.d-b.d);
+    if(soon.length){
+      gebHtml=card(soon.map(x=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0">
+        <span style="font-size:16px">${x.d===0?"🎉":"🎂"}</span>
+        <strong>${esc(x.k.name)}</strong>
+        <span style="color:var(--text2);font-size:11.5px">${x.d===0?`wird HEUTE ${homeAlter(x.k.geb)+1}!`:`wird in ${x.d} Tag${x.d===1?"":"en"} ${homeAlter(x.k.geb)+1}`}</span>
+      </div>`).join(""),"#d97706");
+    }
+  }
+
+  box.innerHTML=`
+    <div class="sl nt"><i class="ti ti-home"></i>Trainer-Dashboard</div>
+    <div id="home-next">${card('<div style="font-size:12px;color:var(--text3)">Lade nächsten Termin...</div>')}</div>
+    ${gebHtml}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      ${statTile(KADER.length,"Kader","var(--blue)","go('kader')")}
+      ${statTile(bewertet+"/"+KADER.length,"bewertet (v2)","#059669","go('bew')")}
+      ${statTile(stale,"überfällig >8 Wo","#dc2626","go('bew')")}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-p" style="flex:1;min-height:46px" onclick="openTab('spieltag')"><i class="ti ti-whistle"></i>Spieltag</button>
+      <button class="btn" style="flex:1;min-height:46px" onclick="go('anwesenheit')"><i class="ti ti-checkbox"></i>Anwesenheit</button>
+      <button class="btn" style="flex:1;min-height:46px" onclick="go('termine')"><i class="ti ti-calendar-plus"></i>Termin</button>
+    </div>`;
+
+  // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc&limit=2`,{headers:sbAuthHeaders()});
+    const slot=document.getElementById("home-next");
+    if(!slot)return; // Nutzer hat den Tab schon verlassen
+    if(!r.ok){slot.innerHTML=card('<div style="font-size:12px;color:var(--text3)">Termine offline nicht verfügbar.</div>');return;}
+    const rows=await r.json();
+    if(!rows.length){slot.innerHTML=card(`<div style="font-size:12.5px">📅 Kein Termin geplant. <a href="#" onclick="go('termine');return false" style="color:var(--blue)">Jetzt anlegen</a></div>`);return;}
+    const t=rows[0];
+    const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"#1a56db"};
+    const d=new Date(t.datum+"T00:00:00");
+    const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+    const inTagen=Math.round((d-new Date(heute+"T00:00:00"))/86400000);
+    const wann=inTagen===0?"HEUTE":inTagen===1?"morgen":`in ${inTagen} Tagen`;
+    const zeit=t.uhrzeit?String(t.uhrzeit).slice(0,5)+" Uhr":"";
+    const istSpiel=t.typ==="spiel"||t.typ==="turnier";
+    slot.innerHTML=card(`
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">Nächster Termin · ${wann}</div>
+          <div style="font-size:15px;font-weight:800;margin-top:2px">${m.icon} ${esc(t.titel||t.gegner||m.label)}${t.spielform?` <span style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;background:${m.col}22;color:${m.col}">${esc(t.spielform)}</span>`:""}</div>
+          <div style="font-size:11.5px;color:var(--text2);margin-top:2px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""}${t.ort?" · "+esc(t.ort):""}</div>
+        </div>
+        ${istSpiel?`<button class="btn btn-p btn-sm" onclick="tmJump('blitz','${t.datum}','${t.spielform||''}')" style="white-space:nowrap"><i class="ti ti-whistle"></i>Matchday</button>`
+                  :`<button class="btn btn-sm" onclick="tmJump('planung','${t.datum}')" style="white-space:nowrap"><i class="ti ti-clipboard-list"></i>Plan</button>`}
+      </div>`,m.col);
+  }catch(e){
+    const slot=document.getElementById("home-next");
+    if(slot)slot.innerHTML=card('<div style="font-size:12px;color:var(--text3)">Offline – kein Terminabruf.</div>');
+  }
+}
 
 // Wake Lock API (nativ) – verhindert, dass das Display während der Nutzung ausgeht
 let wakeLock=null;
@@ -7573,9 +7683,9 @@ function toggleTF(id){
 document.getElementById("p-date").value=new Date().toISOString().slice(0,10);
 document.getElementById("tp-date").value=new Date().toISOString().slice(0,10);
 document.getElementById("aw-date").value=new Date().toISOString().slice(0,10);
-loadDB().then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500)); // G1 + KI-Light-Meilenstein-Hinweis
+loadDB().then(()=>{if(curSection==="home")renderHome();}).then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500)); // G1 + KI-Light + Home-Stats aktualisieren
 loadCustomForms();
-openTab("team"); // Start-Tab normalisieren + Sub-Tab-Leiste initial rendern
+openTab("home"); // Start auf dem Trainer-Dashboard + Sub-Tab-Leiste initial rendern
 
 /* Pull-to-Refresh (Schritt 6): am Listenanfang nach unten wischen -> Daten still neu laden. */
 async function appRefresh(){
