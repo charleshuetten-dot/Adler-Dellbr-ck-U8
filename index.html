@@ -1185,7 +1185,7 @@ async function doLogin(){
     await sbLogin(email,pw);
     document.getElementById("login-gate")?.remove();
     toast("Angemeldet ✓");
-    loadKader().then(()=>loadDB()).then(()=>{if(curSection==="home")renderHome();}).then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500));
+    loadKader().then(()=>loadDB()).then(()=>loadTeamConfig()).then(()=>{if(curSection==="home")renderHome();}).then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500));
   }catch(e){if(err)err.textContent=e.message;}
 }
 // Nach dem PIN-Gate aufrufen (nicht im Quiz-Modus)
@@ -3483,7 +3483,8 @@ async function renderHome(){
   }
 
   const questTeaser=card(`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">🏆 Team-Quests fürs nächste Spiel</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px">${TEAM_QUESTS.map(q=>`<span style="font-size:11.5px;background:var(--surface2);border-radius:12px;padding:3px 9px">${q.icon} ${esc(q.label)} · ${q.target}</span>`).join("")}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${teamQuests.map(q=>`<span style="font-size:11.5px;background:var(--surface2);border-radius:12px;padding:3px 9px">${q.icon} ${esc(q.label)} · ${q.target}</span>`).join("")}</div>
+    ${teamBelohnung?`<div style="font-size:11px;color:var(--text2);margin-top:6px">🎁 Belohnung: <strong>${esc(teamBelohnung)}</strong></div>`:""}
     <div style="font-size:10.5px;color:var(--text3);margin-top:6px">Live-Fortschritt + Konfetti während des Spiels im Action-Tracker.</div>`,"#7c3aed");
 
   box.innerHTML=`
@@ -8735,6 +8736,7 @@ document.getElementById("aw-date").value=new Date().toISOString().slice(0,10);
 loadKader().then(()=>loadDB()).then(()=>{if(curSection==="home")renderHome();}).then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500)); // Kader (Supabase) zuerst, dann G1 + KI-Light + Home-Stats
 loadCustomForms();
 openTab("home"); // Start auf dem Trainer-Dashboard + Sub-Tab-Leiste initial rendern
+if(sbToken())loadTeamConfig().then(()=>{if(typeof curSection!=="undefined"&&curSection==="home")renderHome();}); // editierbare Quests früh laden
 
 /* Pull-to-Refresh (Schritt 6): am Listenanfang nach unten wischen -> Daten still neu laden. */
 async function appRefresh(){
@@ -10055,6 +10057,21 @@ const TEAM_QUESTS=[
   {key:"parade",icon:"🧤",label:"Fels im Tor",target:5},
   {key:"tor",icon:"⚽",label:"Torfabrik",target:5}
 ];
+// Editierbare Laufzeit-Kopie aus team_config (TEAM_QUESTS bleibt der Default) + Freitext-Belohnung.
+let teamQuests=TEAM_QUESTS.map(q=>({...q})), teamBelohnung="";
+async function loadTeamConfig(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/team_config?id=eq.1&select=quests,belohnung`,{headers:sbAuthHeaders()});
+    if(!r.ok)return;
+    const c=(await r.json())[0];
+    if(c){
+      if(Array.isArray(c.quests)&&c.quests.length){
+        teamQuests=TEAM_QUESTS.map(def=>{const s=c.quests.find(x=>x.key===def.key);return s?{...def,label:s.label||def.label,target:Number(s.target)||def.target}:{...def};});
+      }
+      teamBelohnung=c.belohnung||"";
+    }
+  }catch(e){}
+}
 let questDone=new Set();
 function questCountsLive(){
   const c={};
@@ -10062,25 +10079,29 @@ function questCountsLive(){
   return c;
 }
 function questStripHTML(counts){
-  const items=TEAM_QUESTS.map(q=>{
+  const items=teamQuests.map(q=>{
     const n=counts[q.key]||0,done=n>=q.target,pct=Math.min(100,Math.round(n/q.target*100));
     return `<div style="flex:1;min-width:86px">
       <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:2px">
-        <span>${q.icon} ${q.label}</span><span style="font-weight:700;color:${done?"#059669":"var(--text)"}">${n}/${q.target}${done?" ✓":""}</span>
+        <span>${q.icon} ${esc(q.label)}</span><span style="font-weight:700;color:${done?"#059669":"var(--text)"}">${n}/${q.target}${done?" ✓":""}</span>
       </div>
       <div style="height:6px;background:var(--surface2);border-radius:4px;overflow:hidden">
         <div style="height:100%;width:${pct}%;background:${done?"#059669":"var(--blue)"};transition:width .3s"></div>
       </div>
     </div>`;
   }).join("");
-  return `<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">🏆 Team-Quests heute</div>
-    <div style="display:flex;flex-wrap:wrap;gap:10px">${items}</div>`;
+  return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);flex:1">🏆 Team-Quests heute</span>
+      <button onclick="questEditorOpen()" style="border:none;background:transparent;color:var(--blue);font-size:11px;cursor:pointer;font-family:inherit">anpassen</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">${items}</div>
+    ${teamBelohnung?`<div style="margin-top:8px;font-size:11px;color:var(--text2)">🎁 Belohnung: <strong>${esc(teamBelohnung)}</strong></div>`:""}`;
 }
 // Erst prüfen ob eine Quest NEU geschafft wurde – dann feiern (einmalig pro Spieltag).
 function questCheck(counts){
   counts=counts||questCountsLive();
   const cont=document.getElementById("quest-strip");
-  TEAM_QUESTS.forEach(q=>{
+  teamQuests.forEach(q=>{
     if((counts[q.key]||0)>=q.target&&!questDone.has(q.key)){
       questDone.add(q.key);
       if(cont)confetti(cont);
@@ -10092,7 +10113,47 @@ function questCheck(counts){
 // Beim Laden bereits erfüllte Quests still als „erledigt" markieren (kein Confetti beim Öffnen).
 function questSeedDone(){
   const counts=questCountsLive();
-  questDone=new Set(TEAM_QUESTS.filter(q=>(counts[q.key]||0)>=q.target).map(q=>q.key));
+  questDone=new Set(teamQuests.filter(q=>(counts[q.key]||0)>=q.target).map(q=>q.key));
+}
+// Trainer-Editor: Ziel & Name je Quest anpassen + Freitext-Belohnung für die Kids.
+function questEditorOpen(){
+  document.getElementById("quest-editor")?.remove();
+  const m=document.createElement("div");
+  m.id="quest-editor";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:420px;width:100%;margin:auto">
+    <div style="font-weight:700;margin-bottom:2px">🏆 Team-Quests anpassen</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Name & Ziel je Quest änderbar. Die Belohnung ist Freitext für die Kids.</div>
+    <div id="qe-list">${teamQuests.map((q,i)=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <span style="font-size:18px;width:24px;text-align:center">${q.icon}</span>
+      <input class="qe-label" data-i="${i}" value="${esc(q.label)}" style="flex:1;min-width:80px;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
+      <input class="qe-target" data-i="${i}" type="number" min="1" value="${q.target}" title="Ziel" style="width:64px;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
+    </div>`).join("")}</div>
+    <label style="font-size:11px;color:var(--text2)">🎁 Nächste Belohnung für die Kids</label>
+    <textarea id="qe-belohnung" rows="2" placeholder="z. B. Eis für alle beim nächsten Training!" style="width:100%;padding:8px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px;margin:4px 0 12px;box-sizing:border-box">${esc(teamBelohnung)}</textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="document.getElementById('quest-editor').remove()">Abbrechen</button>
+      <button class="btn btn-p" onclick="questSave(this)"><i class="ti ti-device-floppy"></i>Speichern</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+async function questSave(btn){
+  const labels=[...document.querySelectorAll(".qe-label")], targets=[...document.querySelectorAll(".qe-target")];
+  teamQuests=teamQuests.map((q,i)=>({...q,label:(labels[i]&&labels[i].value.trim())||q.label,target:Math.max(1,parseInt(targets[i]&&targets[i].value)||q.target)}));
+  teamBelohnung=(document.getElementById("qe-belohnung")?.value||"").trim();
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/team_config?on_conflict=id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({id:1,quests:teamQuests.map(q=>({key:q.key,label:q.label,target:q.target})),belohnung:teamBelohnung,updated_at:new Date().toISOString()})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast("Speichern fehlgeschlagen","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  document.getElementById("quest-editor")?.remove();
+  toast("Team-Quests gespeichert ✓");
+  questSeedDone(); if(document.getElementById("action-panel"))atRender();
+  if(typeof curSection!=="undefined"&&curSection==="home"&&typeof renderHome==="function")renderHome();
 }
 
 /* ═══════════════════════════════════
@@ -10208,6 +10269,7 @@ async function atInit(){
       rows.forEach(a=>{if(!atCounts[a.spieler])atCounts[a.spieler]={};atCounts[a.spieler][a.aktion]=(atCounts[a.spieler][a.aktion]||0)+1;});
     }
   }catch(e){}
+  await loadTeamConfig(); // editierbare Quests + Belohnung laden
   questSeedDone(); // bereits erfüllte Quests still markieren, bevor gerendert wird
   atRender();
 }
@@ -10221,6 +10283,7 @@ function atRender(){
   const feed=atLog.slice(-5).reverse();
   box.innerHTML=`
     <div id="quest-strip" style="position:relative;overflow:hidden;background:var(--surface);border:var(--border-s);border-radius:12px;padding:10px 12px;margin-bottom:12px">${questStripHTML(questCountsLive())}</div>
+    <button onclick="atLiveOpen()" style="width:100%;min-height:52px;margin-bottom:12px;border:none;border-radius:14px;background:linear-gradient(135deg,#0ea5e9,#2563eb);color:#fff;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer">⚡ Live-Aktion (Vollbild)</button>
     ${voiceSupported?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <button id="voice-btn" class="btn btn-sm" onclick="voiceToggle()"><i class="ti ti-microphone"></i>Voice<span style="font-size:9px;background:#f59e0b;color:#fff;padding:1px 5px;border-radius:8px;margin-left:5px">Beta</span></button>
       <span style="font-size:10px;color:var(--text3);flex:1;min-width:140px">Sag z. B. „Pass Leon" – du bestätigst vor dem Senden. Braucht Netz &amp; Ruhe.</span>
@@ -10242,6 +10305,78 @@ function atRender(){
     </div>`:""}`;
 }
 function atPick(n){atSel=n;atRender();}
+
+/* ═══════════════════════════════════
+   LIVE-AKTION VOLLBILD (schneller Modus) – Aktion zuerst, dann Feld-Spieler.
+   Ziel: minimale Taps am Spielfeldrand. Große Kacheln, nur die aktuell auf dem
+   Feld stehenden Spieler (rotTW + rotField), sofortige Aufzeichnung + Haptik.
+═══════════════════════════════════ */
+let atLiveAction=null;
+const AT_LIVE_ACTS=[...AT_ACTIONS,{key:"tor",label:"Tor",col:"#7c3aed",emo:"⚽"}];
+function atOnFieldPlayers(){
+  const onField=[];
+  if(typeof rotTW!=="undefined"&&rotTW)onField.push(rotTW);
+  if(typeof rotField!=="undefined"&&rotField.length)onField.push(...rotField);
+  if(onField.length)return onField;
+  return (typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():KADER.map(k=>k.name);
+}
+function atLiveOpen(){
+  document.getElementById("at-live")?.remove();
+  atLiveAction=null;
+  if(!document.getElementById("at-live-style")){
+    const st=document.createElement("style");st.id="at-live-style";
+    st.textContent="@keyframes atFlash{0%{opacity:0;transform:scale(.6)}25%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.15)}}";
+    document.head.appendChild(st);
+  }
+  const m=document.createElement("div");m.id="at-live";
+  m.style.cssText="position:fixed;inset:0;z-index:9500;background:#0f172a;display:flex;flex-direction:column;color:#fff;overflow:hidden";
+  document.body.appendChild(m);
+  atLiveRender();
+}
+function atLiveClose(){ document.getElementById("at-live")?.remove(); atLiveAction=null; if(document.getElementById("action-panel"))atRender(); }
+function atLiveRender(){
+  const m=document.getElementById("at-live"); if(!m)return;
+  const counts=questCountsLive();
+  const done=teamQuests.filter(q=>(counts[q.key]||0)>=q.target).length;
+  const top=`<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#1e293b">
+    <div style="flex:1;font-size:13px;font-weight:800">⚡ Live-Aktion${atLiveAction?"":" · Aktion wählen"}</div>
+    <div style="font-size:11px;color:#94a3b8">🏆 ${done}/${teamQuests.length}</div>
+    <button onclick="atLiveClose()" aria-label="Schließen" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:22px;cursor:pointer">×</button></div>`;
+  let body;
+  if(!atLiveAction){
+    body=`<div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px">
+      ${AT_LIVE_ACTS.map(a=>`<button onclick="atLivePick('${a.key}')" style="border:none;border-radius:20px;background:${a.col};color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:19px;font-weight:800">
+        <span style="font-size:40px">${a.emo}</span>${a.label}</button>`).join("")}
+    </div>`;
+  }else{
+    const a=AT_LIVE_ACTS.find(x=>x.key===atLiveAction)||{label:atLiveAction,emo:"",col:"#1e293b"};
+    const players=atOnFieldPlayers();
+    body=`<div style="padding:12px 14px;font-size:16px;font-weight:800;background:${a.col}"> ${a.emo} ${a.label} – wer war's?</div>
+      <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px;overflow-y:auto;align-content:start">
+        ${players.map(n=>`<button onclick="atLiveRecord('${n.replace(/'/g,"")}')" style="min-height:66px;border:none;border-radius:16px;background:#1e293b;color:#fff;font-size:18px;font-weight:700;font-family:inherit;cursor:pointer">${getKader(n)?.tw?"🥅 ":(getKader(n)?.nr?getKader(n).nr+" ":"")}${esc(n)}</button>`).join("")||'<div style="color:#94a3b8;font-size:13px">Keine Feldspieler gesetzt – erst die Aufstellung/Rotation einrichten.</div>'}
+      </div>
+      <button onclick="atLiveAction=null;atLiveRender()" style="margin:0 14px 14px;padding:14px;border:none;border-radius:14px;background:rgba(255,255,255,.12);color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">← andere Aktion</button>`;
+  }
+  m.innerHTML=top+body;
+}
+function atLivePick(aktion){ atLiveAction=aktion; atLiveRender(); }
+async function atLiveRecord(player){
+  const aktion=atLiveAction;
+  if(!aktion)return;
+  atSel=player;
+  try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
+  const a=AT_LIVE_ACTS.find(x=>x.key===aktion);
+  atLiveAction=null; atLiveRender(); atLiveFlash(`${a?a.emo:""} ${player}`);
+  if(aktion==="tor")tickerGoal(); else await atTap(aktion);
+}
+function atLiveFlash(txt){
+  const m=document.getElementById("at-live"); if(!m)return;
+  const f=document.createElement("div");
+  f.style.cssText="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5;font-size:34px;font-weight:900;color:#22c55e;background:rgba(0,0,0,.3);animation:atFlash .6s ease-out forwards";
+  f.textContent=txt+" ✓";
+  m.appendChild(f);
+  setTimeout(()=>f.remove(),600);
+}
 async function atTap(aktion){
   if(!atSel)return;
   const act=atActionsFor(atSel).find(a=>a.key===aktion)||{label:aktion};
