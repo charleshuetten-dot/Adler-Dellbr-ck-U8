@@ -1297,15 +1297,64 @@ async function elternPortalVerify(){
 }
 function elternPortalLogout(){ localStorage.removeItem(SB_TOKEN_KEY); document.getElementById("eltern-portal")?.remove(); renderElternPortal(); }
 function elternPortalDashboard(root){
-  root.innerHTML=`<div style="max-width:420px;margin:0 auto">
+  root.innerHTML=`<div style="max-width:440px;margin:0 auto">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px 12px">
       <div style="font-size:18px;font-weight:800">🦅 Eltern-Bereich</div>
       <button onclick="elternPortalLogout()" style="border:none;background:none;color:#64748b;font-size:12px;cursor:pointer">Abmelden</button>
     </div>
-    <div style="background:#fff;border-radius:14px;padding:22px;text-align:center;color:#475569;font-size:13px;line-height:1.7">
-      ✅ Du bist angemeldet.<br>Dein persönliches Dashboard – <b>nächster Termin mit Zu-/Absage</b>, die <b>Adler-Karte deines Kindes</b>, der <b>Liveticker</b> und das <b>Quiz</b> – wird als Nächstes gebaut (Feature J&amp;K).
-    </div>
+    <div id="ep-dash-body"><div style="text-align:center;padding:40px;color:#64748b">Lade…</div></div>
   </div>`;
+  elternDashLoad();
+}
+const EP_RSVP={zugesagt:{lbl:"Zusage",emo:"👍",col:"#059669"},abgesagt:{lbl:"Absage",emo:"👎",col:"#dc2626"},krank:{lbl:"Krank",emo:"🤒",col:"#d97706"}};
+async function elternDashLoad(){
+  const body=document.getElementById("ep-dash-body");
+  if(!body)return;
+  const card=(inner)=>`<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">${inner}</div>`;
+  const heute=new Date().toISOString().slice(0,10);
+  let kids=[], termin=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?select=spieler_id,label,kader(id,name,nr)`,{headers:sbAuthHeaders()});if(r.ok)kids=await r.json();}catch(e){}
+  if(!kids.length){ body.innerHTML=card('<div style="color:#475569;font-size:13px;line-height:1.6">Dein Trainer hat diese E-Mail noch <b>keinem Kind</b> zugeordnet.<br>Bitte gib ihm die E-Mail-Adresse, mit der du dich hier angemeldet hast.</div>'); return; }
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc&limit=1`,{headers:sbAuthHeaders()});if(r.ok){const rows=await r.json();termin=rows[0]||null;}}catch(e){}
+  let rsvp={};
+  if(termin){
+    try{const ids=kids.map(k=>k.spieler_id).join(",");const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${termin.id}&spieler_id=in.(${ids})&select=spieler_id,status,kommentar`,{headers:sbAuthHeaders()});if(r.ok){(await r.json()).forEach(x=>rsvp[x.spieler_id]=x);}}catch(e){}
+  }
+  let html="";
+  if(!termin){
+    html+=card('<div style="font-weight:700;margin-bottom:2px">📅 Nächster Termin</div><div style="color:#64748b;font-size:13px">Aktuell ist kein Termin geplant.</div>');
+  }else{
+    const m=(typeof TM_META!=="undefined"&&TM_META[termin.typ])||{icon:"📅",label:termin.typ,col:"#1e3a8a"};
+    const d=new Date(termin.datum+"T00:00:00");
+    const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+    const zeit=termin.uhrzeit?String(termin.uhrzeit).slice(0,5)+" Uhr":"";
+    html+=card(`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Nächster Termin</div>
+      <div style="font-size:16px;font-weight:800;margin-top:2px">${m.icon} ${esc(termin.titel||termin.gegner||m.label)}</div>
+      <div style="font-size:12.5px;color:#64748b;margin-top:3px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})}${zeit?" · "+zeit:""}${termin.ort?" · "+esc(termin.ort):""}</div>`);
+    html+=kids.map(k=>{
+      const kd=k.kader||{}, cur=rsvp[k.spieler_id], st=cur?cur.status:null;
+      const btns=Object.keys(EP_RSVP).map(s=>{
+        const on=st===s, c=EP_RSVP[s];
+        return `<button onclick="elternRsvp(${termin.id},${k.spieler_id},'${s}')" style="flex:1;min-width:92px;padding:11px 6px;border-radius:10px;border:1.5px solid ${on?c.col:"#e2e8f0"};background:${on?c.col:"#fff"};color:${on?"#fff":"#334155"};font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">${c.emo} ${c.lbl}</button>`;
+      }).join("");
+      return card(`<div style="font-weight:700;font-size:15px;margin-bottom:2px">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="color:#94a3b8;font-weight:600">#${kd.nr}</span>`:""}</div>
+        <div style="font-size:11.5px;color:${st?EP_RSVP[st].col:"#94a3b8"};margin-bottom:8px">${st?`Aktuell: ${EP_RSVP[st].emo} ${EP_RSVP[st].lbl}`:"Bitte rückmelden"}${cur&&cur.kommentar?` · „${esc(cur.kommentar)}"`:""}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>`);
+    }).join("");
+  }
+  html+=`<div style="text-align:center;font-size:10.5px;color:#94a3b8;margin-top:4px">Deine Rückmeldung ist ein Hinweis für den Trainer – die endgültige Aufstellung entscheidet er.</div>`;
+  body.innerHTML=html;
+}
+async function elternRsvp(terminId,spielerId,status){
+  let kommentar=null;
+  if(status==="abgesagt")kommentar=(prompt("Grund der Absage (optional):","")||"").trim()||null;
+  else if(status==="krank")kommentar=(prompt("Kurzer Hinweis (optional):","")||"").trim()||null;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?on_conflict=termin_id,spieler_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({termin_id:terminId,spieler_id:spielerId,status,kommentar,updated_at:new Date().toISOString()})});
+    if(!r.ok){toast("Konnte nicht speichern","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Rückmeldung gespeichert ✓");
+  elternDashLoad();
 }
 function elternPortalTrainerNotice(root){
   root.innerHTML=`<div style="max-width:360px;margin:8vh auto;background:#fff;border-radius:16px;padding:24px;text-align:center">
