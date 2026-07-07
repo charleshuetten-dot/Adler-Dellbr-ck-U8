@@ -2694,18 +2694,19 @@ function adlerCardDraw(ctx,W,H,d,photoImg){
   const sub=[d.alter?d.alter+" Jahre":"",d.fuss?d.fuss+"er Fuß":""].filter(Boolean).join("  ·  ");
   if(sub)ctx.fillText(sub,W/2,nameY+24);
 
-  // ── Einsatz-Zähler (Fleiß statt Skill-Ranking): Tore · Spiele · Trainings ──
+  // ── Einsatz-Zähler (Fleiß statt Skill-Ranking): positionsgerecht (TW → Paraden) ──
   const c=d.counts||null;
-  const trio=[{ic:"⚽",v:c&&c.tore,l:"TORE"},{ic:"👟",v:c&&c.spiele,l:"SPIELE"},{ic:"🏃",v:c&&c.trainings,l:"TRAININGS"}];
-  const ty=nameY+50, tbh=90, tw3=(W-80)/3;
+  const first=d.tw?{ic:"🧤",v:c&&c.paraden,l:"PARADEN"}:{ic:"⚽",v:c&&c.tore,l:"TORE"};
+  const quad=[first,{ic:"🎯",v:c&&c.aktionen,l:"AKTIONEN"},{ic:"👟",v:c&&c.spiele,l:"SPIELE"},{ic:"🏃",v:c&&c.trainings,l:"TRAININGS"}];
+  const ty=nameY+50, tbh=88, tw4=(W-80)/4;
   ctx.save();tbRoundRect(ctx,40,ty,W-80,tbh,16);ctx.fillStyle="rgba(0,0,0,.20)";ctx.fill();ctx.restore();
-  trio.forEach((t,i)=>{
-    const tx=40+tw3*i+tw3/2;
+  quad.forEach((t,i)=>{
+    const tx=40+tw4*i+tw4/2;
     ctx.textAlign="center";
-    ctx.font="23px Arial";ctx.fillStyle="#fff";ctx.fillText(t.ic,tx,ty+30);
-    ctx.font="800 30px Arial";ctx.fillText(c?String(t.v):"–",tx,ty+62);
-    ctx.font="600 11px Arial";ctx.fillStyle="rgba(255,255,255,.85)";ctx.fillText(t.l,tx,ty+80);
-    if(i<2){ctx.strokeStyle="rgba(255,255,255,.18)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(40+tw3*(i+1),ty+16);ctx.lineTo(40+tw3*(i+1),ty+tbh-16);ctx.stroke();}
+    ctx.font="20px Arial";ctx.fillStyle="#fff";ctx.fillText(t.ic,tx,ty+28);
+    ctx.font="800 26px Arial";ctx.fillText(c?String(t.v):"–",tx,ty+58);
+    ctx.font="600 10px Arial";ctx.fillStyle="rgba(255,255,255,.85)";ctx.fillText(t.l,tx,ty+75);
+    if(i<3){ctx.strokeStyle="rgba(255,255,255,.16)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(40+tw4*(i+1),ty+14);ctx.lineTo(40+tw4*(i+1),ty+tbh-14);ctx.stroke();}
   });
 
   // ── Badges (immer 3) ──
@@ -2751,11 +2752,18 @@ async function fotoCompress(file,size=400){
 // Einsatz-Zähler für die Karte: Fleiß-/Dabeisein-Metriken (kein Skill-Ranking, damit
 // sich die Kinder nicht in ihren Fähigkeiten vergleichen). Tore = match_actions-Zeilen,
 // Spiele = Nominierungen "dabei", Trainings = Anwesenheit "da". Läuft nur mit Trainer-Token.
+const CARD_POS_AKTIONEN=["pass","dribbling","gewinn","parade","aufbau","heraus","tor"]; // positiv (verlust/fehler bewusst raus)
 async function adlerCardStats(name){
-  const enc=encodeURIComponent(name), out={tore:0,spiele:0,trainings:0};
-  try{
-    const r=await fetch(`${SB_URL}/rest/v1/match_actions?spieler=eq.${enc}&aktion=eq.tor&select=id`,{headers:sbAuthHeaders()});
-    if(!sbCheck401(r)&&r.ok){out.tore=(await r.json()).length;}
+  const enc=encodeURIComponent(name), out={tore:0,paraden:0,aktionen:0,spiele:0,trainings:0};
+  try{ // ein Query für alle Ballaktionen des Kindes → Tore/Paraden/Aktionen daraus ableiten
+    const r=await fetch(`${SB_URL}/rest/v1/match_actions?spieler=eq.${enc}&select=aktion&limit=10000`,{headers:sbAuthHeaders()});
+    if(!sbCheck401(r)&&r.ok){
+      (await r.json()).forEach(a=>{
+        if(a.aktion==="tor")out.tore++;
+        if(a.aktion==="parade")out.paraden++;
+        if(CARD_POS_AKTIONEN.includes(a.aktion))out.aktionen++;
+      });
+    }
   }catch(e){}
   try{
     const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data`,{headers:sbAuthHeaders()});
