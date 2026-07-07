@@ -969,6 +969,7 @@ h1.print-header{display:none}
         <option value="90">90 Min.</option>
       </select>
     </div>
+    <div id="tp-diagnose"></div>
     <div id="tp-timeline"></div>
     <button class="btn btn-p btn-sm" style="margin-top:10px" onclick="tpAddSlot()"><i class="ti ti-plus"></i>Phase hinzufügen</button>
     <button class="btn btn-sm" style="margin-top:10px" onclick="tpGenerate()"><i class="ti ti-wand"></i>Auto-Plan</button>
@@ -9599,6 +9600,7 @@ function tpCoachSelect(stationId){
 function tpRenderTimeline(){
   const wrap=document.getElementById("tp-timeline");
   if(!wrap)return;
+  if(typeof renderTeamDiagnose==="function")renderTeamDiagnose(); // Phase 7-C: Team-Diagnose oben
   const trainerCount=tpGetTrainerCount();
   const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
   let time=0;
@@ -9903,6 +9905,62 @@ async function pinCheck(){
 const EVAL_KEY="adler_training_eval";
 let EVAL_DATA={};
 try{EVAL_DATA=JSON.parse(localStorage.getItem(EVAL_KEY)||"{}");}catch(e){EVAL_DATA={};}
+
+/* ═══════════════════════════════════
+   PHASE 7-C: TEAM-DIAGNOSE (Data-Driven Trainingsplanung)
+   Aggregiert die 14 trainierbaren f_-Kriterien ueber alle bewerteten Spieler,
+   findet die schwaechste Team-Metrik und schlaegt passende Uebungen vor
+   (deficit-Tags). Wiederverwendung derselben Logik wie die Einzel-Empfehlung.
+═══════════════════════════════════ */
+const DIAG_LABELS={f_ballkontrolle:"Ballkontrolle & Dribbling",f_pass:"Passspiel",f_abschluss:"Torabschluss",f_raum:"Raumverständnis",f_umschalt:"Umschalten & Pressing",f_laufweg:"Laufwege",f_defense:"Zweikampf & Verteidigen",f_tempo:"Tempo",f_koord:"Koordination",f_einsatz:"Laufbereitschaft",f_selbst:"Selbstvertrauen",f_team:"Kommunikation",f_resil:"Resilienz",f_coach:"Fokus"};
+function teamDiagnose(){
+  const keys=Object.keys(DIAG_LABELS);
+  const sum={},cnt={};
+  let players=0;
+  Object.keys(DB).forEach(name=>{
+    const snaps=DB[name]; if(!snaps||!snaps.length)return;
+    const lat=snaps[snaps.length-1];
+    const v=typeof lat.radios==="string"?safeParse(lat.radios,{}):(lat.radios||{});
+    let counted=false;
+    keys.forEach(k=>{const val=v[k];if(val){sum[k]=(sum[k]||0)+((val-1)/3)*100;cnt[k]=(cnt[k]||0)+1;counted=true;}});
+    if(counted)players++;
+  });
+  const means=keys.filter(k=>cnt[k]).map(k=>({key:k,label:DIAG_LABELS[k],mean:Math.round(sum[k]/cnt[k]),n:cnt[k]}));
+  means.sort((a,b)=>a.mean-b.mean);
+  return {players,weakest:means};
+}
+function renderTeamDiagnose(){
+  const box=document.getElementById("tp-diagnose");
+  if(!box)return;
+  const {players,weakest}=teamDiagnose();
+  if(players<2){box.innerHTML="";return;} // erst ab 2 bewerteten Spielern aussagekräftig
+  const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+  const top=weakest[0];
+  const reco=allForms.map((f,i)=>({i,f})).filter(x=>x.f.deficit===top.key);
+  const chip=(m)=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;background:var(--surface);border:var(--border-s);border-radius:var(--r);margin-top:6px">
+    <div style="font-size:12px"><strong>${esc(m.f.name)}</strong> <span style="font-size:10px;color:var(--text3)">${m.f.dauer||""}</span></div>
+    <button class="btn btn-sm" onclick="tpAddRecoExercise(${m.i})"><i class="ti ti-plus"></i>In Plan</button>
+  </div>`;
+  box.innerHTML=`<div style="background:linear-gradient(135deg,#eff6ff,#f0fdfa);border:1px solid #bfdbfe;border-radius:var(--rl);padding:12px 14px;margin-bottom:12px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#1e40af"><i class="ti ti-target-arrow" style="font-size:13px"></i> Team-Diagnose <span style="font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0">· ${players} bewertete Spieler</span></div>
+    <div style="font-size:14px;font-weight:700;margin:6px 0 2px">Schwerpunkt heute: ${esc(top.label)} <span style="font-size:12px;color:#dc2626">Ø ${top.mean}%</span></div>
+    <div style="font-size:11px;color:var(--text2)">Danach: ${weakest.slice(1,3).map(w=>`${esc(w.label)} (${w.mean}%)`).join(" · ")||"–"}</div>
+    ${reco.length?`<div style="margin-top:8px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:2px">Passende Übungen</div>${reco.slice(0,4).map(chip).join("")}</div>`
+      :`<div style="font-size:11px;color:var(--text3);margin-top:8px">Keine getaggte Übung für „${esc(top.label)}" – im Formen-Tab passende Form wählen.</div>`}
+  </div>`;
+}
+// Empfohlene Uebung in eine kompatible Planer-Station uebernehmen (nur wo sie als Option existiert).
+function tpAddRecoExercise(formIdx){
+  const sels=[...document.querySelectorAll(".tp-form-sel")];
+  // bevorzugt eine leere Station, in deren Dropdown die Uebung vorkommt
+  let target=sels.find(s=>!s.value&&[...s.options].some(o=>o.value===String(formIdx)))
+          ||sels.find(s=>[...s.options].some(o=>o.value===String(formIdx)));
+  if(!target){toast("Erst eine passende Phase (z. B. Individual/Hauptteil) hinzufügen","err");return;}
+  target.value=String(formIdx);
+  tpOnSelectChange(target);
+  target.scrollIntoView({behavior:"smooth",block:"center"});
+  toast("Übung in den Plan übernommen ✓");
+}
 
 function addEvalSection(){
   const sub=document.getElementById("train-sub-planung");
