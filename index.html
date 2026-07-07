@@ -2641,11 +2641,19 @@ function adlerCardData(name){
   const posMap={aufpasser:"Aufpasser",jaeger:"Jäger",flitzer_l:"Flitzer",flitzer_r:"Flitzer"};
   const pos=k.lieblingsposition||(k.tw?"Torwart":(posMap[lat.position]||lat.prim_rolle||"Allrounder"));
   const fussMap={L:"Links",R:"Rechts",B:"Beidfüßig"};
+  // FUT-Statblock: Dimensions-Scores als 1–4-Pips (Feldspieler 5 Dims / TW eigene Dims).
+  const dimsSet=k.tw?DIMS_TW:DIMS_FELD;
+  const dimScores=calcScores(v,dimsSet).dims;
+  const stats=dimsSet.map(dm=>({
+    label:((CARD_THEMES[dm.id]&&CARD_THEMES[dm.id].name)||dm.label.replace(/\s*&.*/,"")).toUpperCase(),
+    pips:Math.max(1,Math.min(4,Math.round((dimScores[dm.id]||0)/25)))
+  }));
   return {name,nr:k.nr,tw:!!k.tw,geb:k.geb,fotoPath:k.foto_path,pos,fuss:fussMap[k.starker_fuss||lat.strong_foot]||"",
-          alter:k.geb?homeAlter(k.geb):(lat.age||null), badges:strengths.map(s=>CARD_BADGES[s.key]), theme};
+          alter:k.geb?homeAlter(k.geb):(lat.age||null), badges:strengths.map(s=>CARD_BADGES[s.key]), theme, stats};
 }
 function adlerCardDraw(ctx,W,H,d,photoImg){
   const th=d.theme;
+  ctx.clearRect(0,0,W,H);
   // Hintergrund-Verlauf
   const g=ctx.createLinearGradient(0,0,0,H);
   g.addColorStop(0,th.a);g.addColorStop(1,th.b);
@@ -2656,50 +2664,74 @@ function adlerCardDraw(ctx,W,H,d,photoImg){
   ctx.restore();
   // Rahmen
   ctx.lineWidth=3;ctx.strokeStyle="rgba(255,255,255,.85)";tbRoundRect(ctx,10,10,W-20,H-20,28);ctx.stroke();
+
+  // ── Kopf: Trikotnummer (statt Overall) + Positions-Pill + Theme ──
   ctx.textAlign="left";ctx.fillStyle="#fff";
-  // Trikotnummer (statt Overall) oben links
-  ctx.font="800 46px Arial";ctx.fillText(d.nr!=null?String(d.nr):"–",40,80);
-  ctx.font="700 15px Arial";ctx.fillText((d.pos||"").toUpperCase(),40,102);
-  ctx.font="600 13px Arial";ctx.fillText(th.name,40,124);
-  // Wappen oben rechts (Emoji als Fallback)
-  ctx.textAlign="right";ctx.font="34px Arial";ctx.fillText(d.tw?"🧤":"🦅",W-36,84);
-  // Foto/Initialen mittig
-  const cx=W/2, cy=H*0.40, rad=W*0.24;
+  ctx.font="800 48px Arial";ctx.fillText(d.nr!=null?String(d.nr):"–",38,80);
+  const pos=(d.pos||"").toUpperCase();
+  if(pos){
+    ctx.font="700 14px Arial";const pw=ctx.measureText(pos).width;
+    ctx.save();tbRoundRect(ctx,38,92,pw+22,26,13);ctx.fillStyle="rgba(255,255,255,.20)";ctx.fill();ctx.restore();
+    ctx.fillStyle="#fff";ctx.fillText(pos,49,110);
+  }
+  ctx.font="600 12px Arial";ctx.fillStyle="rgba(255,255,255,.8)";ctx.fillText(th.name,40,134);
+  // Wappen oben rechts
+  ctx.textAlign="right";ctx.font="34px Arial";ctx.fillText(d.tw?"🧤":"🦅",W-34,84);
+
+  // ── Foto / Initialen (mit Glow) ──
+  const cx=W/2, cy=H*0.315, rad=W*0.225;
+  const rg=ctx.createRadialGradient(cx,cy,rad*0.6,cx,cy,rad*1.5);
+  rg.addColorStop(0,"rgba(255,255,255,.28)");rg.addColorStop(1,"rgba(255,255,255,0)");
+  ctx.fillStyle=rg;ctx.beginPath();ctx.arc(cx,cy,rad*1.5,0,Math.PI*2);ctx.fill();
   ctx.save();ctx.beginPath();ctx.arc(cx,cy,rad,0,Math.PI*2);ctx.closePath();ctx.clip();
-  if(photoImg){
-    // center-crop das (quadratische) Foto in den Kreis
-    ctx.drawImage(photoImg,cx-rad,cy-rad,rad*2,rad*2);
-  }else{
+  if(photoImg){ ctx.drawImage(photoImg,cx-rad,cy-rad,rad*2,rad*2); }
+  else{
     ctx.fillStyle="rgba(255,255,255,.18)";ctx.fillRect(cx-rad,cy-rad,rad*2,rad*2);
     ctx.fillStyle="#fff";ctx.textAlign="center";ctx.font="800 "+Math.round(rad)+"px Arial";
     ctx.fillText((d.name||"?").slice(0,2).toUpperCase(),cx,cy+rad*0.35);
   }
   ctx.restore();
   ctx.beginPath();ctx.arc(cx,cy,rad,0,Math.PI*2);ctx.lineWidth=3;ctx.strokeStyle="rgba(255,255,255,.9)";ctx.stroke();
-  // Name
-  ctx.textAlign="center";ctx.fillStyle="#fff";ctx.font="800 34px Arial";
-  ctx.fillText(d.name||"", W/2, cy+rad+52);
-  // Alter/Fuss
+
+  // ── Name + Alter/Fuß ──
+  const nameY=cy+rad+44;
+  ctx.textAlign="center";ctx.fillStyle="#fff";ctx.font="800 33px Arial";
+  ctx.fillText(d.name||"", W/2, nameY);
   ctx.font="600 15px Arial";ctx.fillStyle="rgba(255,255,255,.9)";
-  const sub=[d.alter?d.alter+" Jahre":"",d.fuss?d.fuss+"er Fuß":""].filter(Boolean).join(" · ");
-  if(sub)ctx.fillText(sub,W/2,cy+rad+78);
-  // Badges (immer 3)
-  const by=H-150;
-  ctx.save();tbRoundRect(ctx,30,by,W-60,120,18);ctx.fillStyle="rgba(0,0,0,.22)";ctx.fill();ctx.restore();
+  const sub=[d.alter?d.alter+" Jahre":"",d.fuss?d.fuss+"er Fuß":""].filter(Boolean).join("  ·  ");
+  if(sub)ctx.fillText(sub,W/2,nameY+24);
+
+  // ── FUT-Statblock: Dimensionen als 1–4-Pips ──
+  const stats=(d.stats||[]).slice(0,5);
+  let ry=nameY+56;
+  const pipW=20,pipH=9,pipGap=6,pipCount=4,pipsTotal=pipCount*pipW+(pipCount-1)*pipGap;
+  stats.forEach(s=>{
+    ctx.textAlign="left";ctx.font="700 13px Arial";ctx.fillStyle="rgba(255,255,255,.92)";
+    ctx.fillText(s.label,44,ry+9);
+    const startX=W-44-pipsTotal;
+    for(let p=0;p<pipCount;p++){
+      tbRoundRect(ctx,startX+p*(pipW+pipGap),ry,pipW,pipH,4);
+      ctx.fillStyle=p<s.pips?"#fff":"rgba(255,255,255,.22)";ctx.fill();
+    }
+    ry+=27;
+  });
+
+  // ── Badges (immer 3) ──
+  const by=ry+8, bh=118;
+  ctx.save();tbRoundRect(ctx,30,by,W-60,bh,18);ctx.fillStyle="rgba(0,0,0,.24)";ctx.fill();ctx.restore();
   const bw=(W-60)/3;
   (d.badges||[]).slice(0,3).forEach((b,i)=>{
     const bx=30+bw*i+bw/2;
-    ctx.textAlign="center";ctx.font="30px Arial";ctx.fillStyle="#fff";
-    ctx.fillText(b.icon, bx, by+52);
+    ctx.textAlign="center";ctx.font="30px Arial";ctx.fillStyle="#fff";ctx.fillText(b.icon,bx,by+50);
     ctx.font="700 12px Arial";
-    // Label ggf. umbrechen
     const words=(b.label||"").split(" ");
-    ctx.fillText(words[0]||"", bx, by+80);
-    if(words[1])ctx.fillText(words.slice(1).join(" "), bx, by+96);
+    ctx.fillText(words[0]||"",bx,by+78);
+    if(words[1])ctx.fillText(words.slice(1).join(" "),bx,by+94);
   });
-  // Fusszeile
-  ctx.textAlign="center";ctx.font="600 12px Arial";ctx.fillStyle="rgba(255,255,255,.75)";
-  ctx.fillText("SV Adler Dellbrück · U9 · Saison "+saisonLabel(), W/2, H-24);
+
+  // ── Fußzeile ──
+  ctx.textAlign="center";ctx.font="600 12px Arial";ctx.fillStyle="rgba(255,255,255,.8)";
+  ctx.fillText("SV Adler Dellbrück · U9 · Saison "+saisonLabel(), W/2, H-22);
 }
 /* Foto-Pipeline (D2): Kompression nativ (Canvas+toBlob), Upload in den privaten
    Bucket, Laden per authentifiziertem GET -> Blob -> Object-URL (kein CORS/tainted
@@ -2726,14 +2758,29 @@ function fotoComicCanvas(img,size=400){
   const cv=document.createElement("canvas");cv.width=size;cv.height=size;
   const ctx=cv.getContext("2d");
   ctx.drawImage(img,0,0,size,size);
-  // Posterize (Farbstufen reduzieren) + leichte Saettigung = "Comic"-Look, kein KI noetig
-  const id=ctx.getImageData(0,0,size,size),d=id.data,levels=5,step=255/(levels-1);
-  for(let i=0;i<d.length;i+=4){
+  const id=ctx.getImageData(0,0,size,size), d=id.data, N=size*size;
+  // 1) Luminanz-Puffer für die Kantenerkennung (vor dem Umfärben sichern)
+  const lum=new Float32Array(N);
+  for(let i=0;i<N;i++){const o=i*4;lum[i]=0.299*d[o]+0.587*d[o+1]+0.114*d[o+2];}
+  // 2) Kräftige Posterisierung (wenige Farbstufen) + Sättigungs-Boost = flache Comic-Flächen
+  const levels=4, step=255/(levels-1);
+  for(let i=0;i<N;i++){
+    const o=i*4, avg=(d[o]+d[o+1]+d[o+2])/3;
     for(let c=0;c<3;c++){
-      let val=Math.round(d[i+c]/step)*step;
-      const avg=(d[i]+d[i+1]+d[i+2])/3;
-      val=Math.max(0,Math.min(255,avg+(val-avg)*1.35)); // Saettigung anheben
-      d[i+c]=val;
+      let val=Math.round(d[o+c]/step)*step;
+      val=avg+(val-avg)*1.55; // Sättigung anheben
+      d[o+c]=val<0?0:val>255?255:val;
+    }
+  }
+  // 3) Sobel-Kantenerkennung → dunkle Konturlinien (das eigentliche "Comic"-Merkmal)
+  const TH=40;
+  for(let y=1;y<size-1;y++){
+    for(let x=1;x<size-1;x++){
+      const i=y*size+x;
+      const gx=-lum[i-size-1]-2*lum[i-1]-lum[i+size-1]+lum[i-size+1]+2*lum[i+1]+lum[i+size+1];
+      const gy=-lum[i-size-1]-2*lum[i-size]-lum[i-size+1]+lum[i+size-1]+2*lum[i+size]+lum[i+size+1];
+      const mag=Math.sqrt(gx*gx+gy*gy);
+      if(mag>TH){ const o=i*4, k=mag>TH*2.2?0.12:0.42; d[o]*=k;d[o+1]*=k;d[o+2]*=k; }
     }
   }
   ctx.putImageData(id,0,0);
