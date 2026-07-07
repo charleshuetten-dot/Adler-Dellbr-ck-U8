@@ -1246,6 +1246,7 @@ function elternPortalLogin(root){
       <label style="font-size:12px;color:#475569">E-Mail-Adresse</label>
       <input id="ep-email" type="email" inputmode="email" autocomplete="email" placeholder="name@mail.de" style="width:100%;padding:11px;margin:6px 0 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:15px;box-sizing:border-box">
       <button id="ep-send" onclick="elternPortalSend()" style="width:100%;padding:13px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-size:15px;font-weight:700;cursor:pointer">Code anfordern</button>
+      <button onclick="elternPortalHaveCode()" style="width:100%;padding:9px;margin-top:8px;border:none;background:none;color:#64748b;font-size:12px;cursor:pointer">Code schon erhalten? → eingeben</button>
     </div>
     <div id="ep-step-code" style="display:none">
       <div style="font-size:12px;color:#475569;margin-bottom:6px">Code aus der E-Mail an <b id="ep-email-show"></b>:</div>
@@ -1271,6 +1272,17 @@ async function elternPortalSend(){
     document.getElementById("ep-code")?.focus();
   }catch(e){if(err)err.textContent=e.message;}
   finally{if(btn){btn.disabled=false;btn.textContent="Code anfordern";}}
+}
+// Direkt zur Code-Eingabe, ohne neu anzufordern (z. B. bei Rate-Limit oder Code schon in der Inbox).
+function elternPortalHaveCode(){
+  const email=document.getElementById("ep-email")?.value.trim().toLowerCase();
+  const err=document.getElementById("ep-err");if(err)err.textContent="";
+  if(!email||!/.+@.+\..+/.test(email)){if(err)err.textContent="Bitte zuerst deine E-Mail eingeben";return;}
+  epEmail=email;
+  document.getElementById("ep-step-email").style.display="none";
+  document.getElementById("ep-step-code").style.display="";
+  document.getElementById("ep-email-show").textContent=email;
+  document.getElementById("ep-code")?.focus();
 }
 async function elternPortalVerify(){
   const code=(document.getElementById("ep-code")?.value||"").replace(/\D/g,""); // nur Ziffern, Leerzeichen raus
