@@ -10313,7 +10313,7 @@ function atPick(n){atSel=n;atRender();}
    Feld stehenden Spieler (rotTW + rotField), sofortige Aufzeichnung + Haptik.
 ═══════════════════════════════════ */
 let atLiveAction=null, atGegentore=0;
-const AT_LIVE_ACTS=[...AT_ACTIONS,{key:"tor",label:"Tor",col:"#7c3aed",emo:"⚽"},{key:"gegentor",label:"Gegentor",col:"#475569",emo:"🛡️",direct:true}];
+const AT_LIVE_ACTS=[AT_ACTIONS[0],AT_ACTIONS[1],AT_ACTIONS[2],{key:"parade",label:"Parade",col:"#0d9488",emo:"🧤"},AT_ACTIONS[3],{key:"tor",label:"Tor",col:"#7c3aed",emo:"⚽"},{key:"gegentor",label:"Gegentor",col:"#475569",emo:"🛡️",direct:true,wide:true}];
 function atTore(){ return Object.values(atCounts).reduce((s,pl)=>s+(pl.tor||0),0); }
 async function atLoadGegentore(){
   atGegentore=0;
@@ -10352,9 +10352,9 @@ function atLiveRender(){
     <button onclick="atLiveClose()" aria-label="Schließen" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:22px;cursor:pointer">×</button></div>`;
   let body;
   if(!atLiveAction){
-    body=`<div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px">
-      ${AT_LIVE_ACTS.map(a=>`<button onclick="atLivePick('${a.key}')" style="border:none;border-radius:20px;background:${a.col};color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:19px;font-weight:800">
-        <span style="font-size:40px">${a.emo}</span>${a.label}</button>`).join("")}
+    body=`<div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px">
+      ${AT_LIVE_ACTS.map(a=>`<button onclick="atLivePick('${a.key}')" style="${a.wide?'grid-column:1/-1;':''}border:none;border-radius:18px;background:${a.col};color:#fff;font-family:inherit;cursor:pointer;display:flex;${a.wide?'flex-direction:row':'flex-direction:column'};align-items:center;justify-content:center;gap:8px;font-size:18px;font-weight:800">
+        <span style="font-size:${a.wide?28:34}px">${a.emo}</span>${a.label}</button>`).join("")}
     </div>`;
   }else{
     const a=AT_LIVE_ACTS.find(x=>x.key===atLiveAction)||{label:atLiveAction,emo:"",col:"#1e293b"};
