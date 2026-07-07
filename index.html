@@ -1353,6 +1353,19 @@ async function elternDashLoad(){
   html+=card(`<div style="font-weight:700;margin-bottom:8px">🎮 Für dein Kind</div>
     <button onclick="kabineOpen()" style="display:block;width:100%;padding:13px;margin-bottom:8px;border:none;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-weight:800;font-size:14px;font-family:inherit;cursor:pointer">🎮 Kabine öffnen (Kinder-Modus)</button>
     <a href="${location.pathname}?quiz" style="display:inline-block;padding:11px 16px;background:#059669;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">Nur Quiz starten</a>`);
+  // Teamkasse (read-only): Saldo + offene Umlagen über RPC, PayPal nur als Link
+  let kasse=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kasse_summary`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)kasse=await r.json();}catch(e){}
+  if(kasse&&(Number(kasse.saldo)!==0||(kasse.umlagen&&kasse.umlagen.length))){
+    const eur=n=>Number(n||0).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+    html+=card(`<div style="font-weight:700;margin-bottom:6px">💰 Teamkasse</div>
+      <div style="font-size:12.5px;color:#475569">Kassenstand: <b>${eur(kasse.saldo)}</b></div>
+      ${(kasse.umlagen||[]).map(u=>`<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px">
+        <div style="flex:1"><div style="font-weight:700;font-size:13px">${esc(u.titel)} · ${eur(u.betrag)}</div>${u.faellig?`<div style="font-size:11px;color:#64748b">fällig bis ${u.faellig}</div>`:""}</div>
+        ${u.paypal_link?`<a href="${esc(u.paypal_link)}" target="_blank" rel="noopener noreferrer" style="background:#0070ba;color:#fff;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;text-decoration:none">PayPal</a>`:""}
+      </div>`).join("")}
+      <div style="font-size:10px;color:#94a3b8;margin-top:8px">Informativ. Zahlungen laufen extern über PayPal.</div>`);
+  }
   body.innerHTML=html;
 }
 async function elternRsvp(terminId,spielerId,status){
@@ -1577,6 +1590,89 @@ async function elternFotoUpload(spielerId,input){
   }catch(e){toast("Foto konnte nicht verarbeitet werden","err");}
   finally{input.disabled=false;}
 }
+/* ═══════════════════════════════════
+   TEAMKASSE (Phase 11-O) – rein informativ. App fasst KEIN Geld an; PayPal nur als Link.
+   Trainer verwaltet Buchungen + Umlagen; Eltern sehen nur Saldo + Umlagen (RPC).
+═══════════════════════════════════ */
+const kEur=n=>Number(n||0).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+async function kasseOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("kasse-modal")?.remove();
+  const m=document.createElement("div");m.id="kasse-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:460px;width:100%;margin:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-weight:800;font-size:16px">💰 Teamkasse</div>
+      <button onclick="document.getElementById('kasse-modal').remove()" style="border:none;background:none;font-size:22px;color:var(--text2);cursor:pointer">×</button>
+    </div>
+    <div id="kasse-body"><div style="text-align:center;padding:24px;color:var(--text3)">Lade…</div></div>
+  </div>`;
+  document.body.appendChild(m);
+  kasseRender();
+}
+async function kasseRender(){
+  const body=document.getElementById("kasse-body"); if(!body)return;
+  let ledger=[],umlagen=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/teamkasse?select=*&order=datum.desc,id.desc`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)ledger=await r.json();}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/kasse_umlagen?select=*&order=aktiv.desc,faellig.asc`,{headers:sbAuthHeaders()});if(r.ok)umlagen=await r.json();}catch(e){}
+  const saldo=ledger.reduce((s,x)=>s+Number(x.betrag),0);
+  const inp="padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px";
+  body.innerHTML=`
+    <div style="text-align:center;background:var(--surface2);border-radius:12px;padding:12px;margin-bottom:12px">
+      <div style="font-size:11px;color:var(--text2)">Kassenstand</div>
+      <div style="font-size:26px;font-weight:900;color:${saldo<0?'#dc2626':'#059669'}">${kEur(saldo)}</div>
+    </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Buchungen</div>
+    <div style="max-height:150px;overflow-y:auto;margin-bottom:8px">
+    ${ledger.length?ledger.map(x=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:4px 0;border-bottom:1px solid var(--surface2)">
+      <span style="flex:1">${esc(x.zweck||'—')} <span style="color:var(--text3);font-size:10.5px">${x.datum||''}</span></span>
+      <span style="font-weight:700;color:${x.betrag<0?'#dc2626':'#059669'}">${x.betrag<0?'':'+'}${kEur(x.betrag)}</span>
+      <button onclick="kasseDelEntry(${x.id})" title="Löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer"><i class="ti ti-trash"></i></button>
+    </div>`).join(""):'<div style="font-size:12px;color:var(--text3)">Noch keine Buchungen.</div>'}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+      <select id="k-typ" style="${inp}"><option value="1">Einnahme</option><option value="-1">Ausgabe</option></select>
+      <input id="k-betrag" type="number" step="0.01" min="0" placeholder="Betrag" style="width:82px;${inp}">
+      <input id="k-zweck" placeholder="Zweck" style="flex:1;min-width:100px;${inp}">
+      <button class="btn btn-sm" onclick="kasseAddEntry()"><i class="ti ti-plus"></i></button>
+    </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Umlagen (für Eltern sichtbar)</div>
+    ${umlagen.length?umlagen.map(u=>`<div style="display:flex;align-items:center;gap:6px;font-size:12.5px;padding:5px 0;border-bottom:1px solid var(--surface2);${u.aktiv?'':'opacity:.5'}">
+      <span style="flex:1">${esc(u.titel)} · <b>${kEur(u.betrag)}</b>${u.faellig?` · bis ${u.faellig}`:''}</span>
+      <button onclick="kasseToggleUmlage(${u.id},${!u.aktiv})" title="${u.aktiv?'deaktivieren':'aktivieren'}" style="border:none;background:transparent;cursor:pointer;color:var(--text2)"><i class="ti ti-eye${u.aktiv?'':'-off'}"></i></button>
+      <button onclick="kasseDelUmlage(${u.id})" title="Löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer"><i class="ti ti-trash"></i></button>
+    </div>`).join(""):'<div style="font-size:12px;color:var(--text3)">Keine Umlagen.</div>'}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+      <input id="u-titel" placeholder="Titel (z. B. Sommerfest)" style="flex:1;min-width:110px;${inp}">
+      <input id="u-betrag" type="number" step="0.01" min="0" placeholder="€" style="width:66px;${inp}">
+      <input id="u-faellig" type="date" title="fällig bis" style="${inp}">
+      <input id="u-paypal" placeholder="PayPal.Me-Link (optional)" style="flex:1;min-width:130px;${inp}">
+      <button class="btn btn-sm" onclick="kasseAddUmlage()"><i class="ti ti-plus"></i>Umlage</button>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-top:12px">Rein informativ – die App verwaltet kein Geld. Zahlungen laufen extern über PayPal.</div>`;
+}
+async function kasseAddEntry(){
+  const sign=parseInt(document.getElementById("k-typ")?.value)||1;
+  const val=Math.abs(parseFloat(document.getElementById("k-betrag")?.value)||0);
+  if(!val){toast("Betrag eingeben","err");return;}
+  const zweck=(document.getElementById("k-zweck")?.value||"").trim()||null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/teamkasse`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({betrag:sign*val,zweck})});if(sbCheck401(r))return;if(!r.ok){toast("Fehler","err");return;}}catch(e){return;}
+  kasseRender();
+}
+async function kasseDelEntry(id){ try{const r=await fetch(`${SB_URL}/rest/v1/teamkasse?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){} kasseRender(); }
+async function kasseAddUmlage(){
+  const titel=(document.getElementById("u-titel")?.value||"").trim();
+  const betrag=parseFloat(document.getElementById("u-betrag")?.value)||0;
+  if(!titel||!betrag){toast("Titel und Betrag eingeben","err");return;}
+  const faellig=document.getElementById("u-faellig")?.value||null;
+  const paypal=(document.getElementById("u-paypal")?.value||"").trim()||null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/kasse_umlagen`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({titel,betrag,faellig,paypal_link:paypal})});if(sbCheck401(r))return;if(!r.ok){toast("Fehler","err");return;}}catch(e){return;}
+  kasseRender();
+}
+async function kasseToggleUmlage(id,aktiv){ try{const r=await fetch(`${SB_URL}/rest/v1/kasse_umlagen?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({aktiv})});if(sbCheck401(r))return;}catch(e){} kasseRender(); }
+async function kasseDelUmlage(id){ try{const r=await fetch(`${SB_URL}/rest/v1/kasse_umlagen?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){} kasseRender(); }
+
 /* ═══════════════════════════════════
    KIDS-MODE "DIE KABINE" (Phase 11-P) – kindersicheres Vollbild (read-only), Exit nur
    ueber Mathe-Aufgabe. Inhalt: Team-Galerie (opt-in Fotos), Quiz, Missionen.
@@ -3802,7 +3898,8 @@ async function renderHome(){
       <button class="btn" style="flex:1;min-height:46px" onclick="go('anwesenheit')"><i class="ti ti-checkbox"></i>Anwesenheit</button>
       <button class="btn" style="flex:1;min-height:46px" onclick="go('termine')"><i class="ti ti-calendar-plus"></i>Termin</button>
     </div>
-    <button id="wrapped-btn" onclick="adlerWrappedOpen()" style="width:100%;min-height:48px;margin-top:12px;border:none;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;color:#fff;background:linear-gradient(135deg,#7c3aed,#ec4899)">🎬 Adler Wrapped – Saison-Rückblick</button>`;
+    <button id="wrapped-btn" onclick="adlerWrappedOpen()" style="width:100%;min-height:48px;margin-top:12px;border:none;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;color:#fff;background:linear-gradient(135deg,#7c3aed,#ec4899)">🎬 Adler Wrapped – Saison-Rückblick</button>
+    <button onclick="kasseOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">💰 Teamkasse</button>`;
 
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
   try{
