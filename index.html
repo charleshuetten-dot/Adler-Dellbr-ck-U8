@@ -10270,6 +10270,7 @@ async function atInit(){
     }
   }catch(e){}
   await loadTeamConfig(); // editierbare Quests + Belohnung laden
+  await atLoadGegentore(); // Gegentor-Stand fürs Live-Ergebnis
   questSeedDone(); // bereits erfüllte Quests still markieren, bevor gerendert wird
   atRender();
 }
@@ -10311,8 +10312,13 @@ function atPick(n){atSel=n;atRender();}
    Ziel: minimale Taps am Spielfeldrand. Große Kacheln, nur die aktuell auf dem
    Feld stehenden Spieler (rotTW + rotField), sofortige Aufzeichnung + Haptik.
 ═══════════════════════════════════ */
-let atLiveAction=null;
-const AT_LIVE_ACTS=[...AT_ACTIONS,{key:"tor",label:"Tor",col:"#7c3aed",emo:"⚽"}];
+let atLiveAction=null, atGegentore=0;
+const AT_LIVE_ACTS=[...AT_ACTIONS,{key:"tor",label:"Tor",col:"#7c3aed",emo:"⚽"},{key:"gegentor",label:"Gegentor",col:"#475569",emo:"🛡️",direct:true}];
+function atTore(){ return Object.values(atCounts).reduce((s,pl)=>s+(pl.tor||0),0); }
+async function atLoadGegentore(){
+  atGegentore=0;
+  try{ const r=await fetch(`${SB_URL}/rest/v1/ticker_events?datum=eq.${encodeURIComponent(spieltagKey())}&typ=eq.gegentor&select=id`,{headers:sbAuthHeaders()}); if(r.ok)atGegentore=(await r.json()).length; }catch(e){}
+}
 function atOnFieldPlayers(){
   const onField=[];
   if(typeof rotTW!=="undefined"&&rotTW)onField.push(rotTW);
@@ -10332,6 +10338,7 @@ function atLiveOpen(){
   m.style.cssText="position:fixed;inset:0;z-index:9500;background:#0f172a;display:flex;flex-direction:column;color:#fff;overflow:hidden";
   document.body.appendChild(m);
   atLiveRender();
+  atLoadGegentore().then(()=>atLiveRender()); // aktuellen Gegentor-Stand fürs Live-Ergebnis nachladen
 }
 function atLiveClose(){ document.getElementById("at-live")?.remove(); atLiveAction=null; if(document.getElementById("action-panel"))atRender(); }
 function atLiveRender(){
@@ -10340,6 +10347,7 @@ function atLiveRender(){
   const done=teamQuests.filter(q=>(counts[q.key]||0)>=q.target).length;
   const top=`<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#1e293b">
     <div style="flex:1;font-size:13px;font-weight:800">⚡ Live-Aktion${atLiveAction?"":" · Aktion wählen"}</div>
+    <div title="Ergebnis (Tore:Gegentore)" style="font-size:17px;font-weight:900;padding:3px 12px;background:rgba(255,255,255,.14);border-radius:10px">${atTore()}:${atGegentore}</div>
     <div style="font-size:11px;color:#94a3b8">🏆 ${done}/${teamQuests.length}</div>
     <button onclick="atLiveClose()" aria-label="Schließen" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:22px;cursor:pointer">×</button></div>`;
   let body;
@@ -10359,20 +10367,32 @@ function atLiveRender(){
   }
   m.innerHTML=top+body;
 }
-function atLivePick(aktion){ atLiveAction=aktion; atLiveRender(); }
-async function atLiveRecord(player){
+function atLivePick(aktion){
+  const a=AT_LIVE_ACTS.find(x=>x.key===aktion);
+  if(a&&a.direct){ atLiveDirect(aktion); return; } // Gegentor: kein Spieler nötig → 1 Tap
+  atLiveAction=aktion; atLiveRender();
+}
+function atLiveDirect(aktion){
+  try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
+  if(aktion==="gegentor"){ atGegentore++; if(typeof tickerCounterGoal==="function")tickerCounterGoal(); }
+  atLiveFlash("Gegentor","#f59e0b");
+  atLiveRender();
+}
+function atLiveRecord(player){
   const aktion=atLiveAction;
   if(!aktion)return;
   atSel=player;
   try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
   const a=AT_LIVE_ACTS.find(x=>x.key===aktion);
-  atLiveAction=null; atLiveRender(); atLiveFlash(`${a?a.emo:""} ${player}`);
-  if(aktion==="tor")tickerGoal(); else await atTap(aktion);
+  atLiveAction=null;
+  if(aktion==="tor")tickerGoal(); else atTap(aktion); // synchroner Teil bumpt atCounts sofort; Netz läuft im Hintergrund
+  atLiveRender();  // Ergebnis + Zähler frisch
+  atLiveFlash(`${a?a.emo:""} ${player}`);
 }
-function atLiveFlash(txt){
+function atLiveFlash(txt,color){
   const m=document.getElementById("at-live"); if(!m)return;
   const f=document.createElement("div");
-  f.style.cssText="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5;font-size:34px;font-weight:900;color:#22c55e;background:rgba(0,0,0,.3);animation:atFlash .6s ease-out forwards";
+  f.style.cssText="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5;font-size:34px;font-weight:900;color:"+(color||"#22c55e")+";background:rgba(0,0,0,.3);animation:atFlash .6s ease-out forwards";
   f.textContent=txt+" ✓";
   m.appendChild(f);
   setTimeout(()=>f.remove(),600);
