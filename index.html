@@ -752,7 +752,11 @@ h1.print-header{display:none}
 <!-- KADER -->
 <div id="view-kader" class="view">
   <div class="sl nt"><i class="ti ti-users"></i>Kader – U9 I SV Adler Dellbrück</div>
-  <button class="print-btn" onclick="printView('kader')"><i class="ti ti-printer"></i>Kader drucken / als PDF</button>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+    <button class="print-btn" style="margin-bottom:0" onclick="printView('kader')"><i class="ti ti-printer"></i>Drucken / PDF</button>
+    <button class="print-btn" style="margin-bottom:0" onclick="kaderEditOpen()"><i class="ti ti-edit"></i>Kader verwalten</button>
+    <button class="print-btn" style="margin-bottom:0" onclick="backupExport()"><i class="ti ti-download"></i>Saison-Backup</button>
+  </div>
   <div class="frow">
     <button class="ftag active" onclick="setF('all',this)">Alle</button>
     <button class="ftag" onclick="setF('tw',this)">🥅 TW-Option</button>
@@ -1178,7 +1182,7 @@ async function doLogin(){
     await sbLogin(email,pw);
     document.getElementById("login-gate")?.remove();
     toast("Angemeldet ✓");
-    loadDB().then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500));
+    loadKader().then(()=>loadDB()).then(()=>{if(curSection==="home")renderHome();}).then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500));
   }catch(e){if(err)err.textContent=e.message;}
 }
 // Nach dem PIN-Gate aufrufen (nicht im Quiz-Modus)
@@ -2119,6 +2123,132 @@ document.addEventListener("click",e=>{
   const delSnapBtn=e.target.closest("[data-del-snap]");
   if(delSnapBtn){delSnapshot(delSnapBtn.dataset.name,delSnapBtn.dataset.datum,delSnapBtn.dataset.id);return;}
 });
+
+/* ═══════════════════════════════════
+   KADER aus Supabase (nur Trainer). Mutiert das bestehende KADER-Array in-place,
+   damit die const-Bindung + alle getKader()/KADER.map()-Aufrufe unveraendert bleiben.
+   Anon-Modi (Eltern/Delegate/Quiz) rufen loadKader NIE auf und sehen nie geb/medical.
+═══════════════════════════════════ */
+async function loadKader(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kader?select=*&order=sort_order.asc,name.asc`,{headers:sbAuthHeaders()});
+    // Bewusst KEIN sbCheck401: laeuft auch im Eltern-/Delegate-Modus (Top-Level-Init).
+    // Ohne Trainer-Token liefert die RLS 401 -> hartkodierter KADER bleibt (name/nr/tw only).
+    if(!r.ok)return;
+    const rows=await r.json();
+    if(rows.length){
+      KADER.splice(0,KADER.length,...rows.map(x=>{
+        const o={name:x.name,tw:!!x.tw,twPrio:x.tw_prio||0,_id:x.id,sort_order:x.sort_order};
+        if(x.nr!=null)o.nr=x.nr;
+        if(x.geb)o.geb=x.geb;
+        if(x.medical)o.medical=x.medical;
+        return o;
+      }));
+    }
+  }catch(e){}
+}
+// Kader-Verwaltung: Modal mit editierbaren Zeilen (name/nr/tw/twPrio/geb/medical).
+function kaderEditRow(k,i){
+  return `<div class="kader-edit-row" data-id="${k._id||''}" style="border:var(--border-s);border-radius:var(--r);padding:8px;margin-bottom:8px">
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      <input class="ke-name" value="${esc(k.name||'')}" placeholder="Name" style="flex:1;min-width:80px;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit">
+      <input class="ke-nr" type="number" value="${k.nr!=null?k.nr:''}" placeholder="Nr" style="width:56px;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit">
+      <button onclick="kaderEditDelete(this,'${esc(k.name||'')}','${k._id||''}')" title="Spieler löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:15px"><i class="ti ti-trash"></i></button>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+      <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input class="ke-tw" type="checkbox" ${k.tw?"checked":""}>🥅 TW</label>
+      <select class="ke-prio" style="padding:6px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
+        <option value="0"${(k.twPrio||0)===0?" selected":""}>kein TW</option>
+        <option value="1"${k.twPrio===1?" selected":""}>TW primär</option>
+        <option value="2"${k.twPrio===2?" selected":""}>TW Option</option>
+      </select>
+      <input class="ke-geb" type="date" value="${esc(k.geb||'')}" title="Geburtstag" style="padding:6px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
+    </div>
+    <input class="ke-medical" value="${esc(k.medical||'')}" placeholder="Medical-Hinweis (z. B. Asthma, Allergie…)" style="width:100%;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
+  </div>`;
+}
+function kaderEditOpen(){
+  if(!sbToken()){toast("Bitte zuerst als Trainer anmelden","err");return;}
+  const modal=document.createElement("div");
+  modal.id="kader-edit-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  modal.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:440px;width:100%;margin:auto">
+    <div style="font-weight:700;margin-bottom:4px">Kader verwalten</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Geburtstag & Medical-Hinweise sind nur für Trainer sichtbar (nicht für Eltern).</div>
+    <div id="kader-edit-list">${KADER.map((k,i)=>kaderEditRow(k,i)).join("")}</div>
+    <button class="btn btn-sm" onclick="kaderEditAdd()" style="margin-bottom:12px"><i class="ti ti-plus"></i>Spieler hinzufügen</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-p" onclick="kaderSaveAll(this)"><i class="ti ti-device-floppy"></i>Speichern</button>
+      <button class="btn" onclick="document.getElementById('kader-edit-modal').remove()">Schließen</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+function kaderEditAdd(){
+  const list=document.getElementById("kader-edit-list");
+  if(list)list.insertAdjacentHTML("beforeend",kaderEditRow({name:"",tw:false,twPrio:0},KADER.length));
+}
+async function kaderEditDelete(btn,name,id){
+  if(!confirm(`${name||"Spieler"} aus dem Kader entfernen?`))return;
+  if(id){
+    try{const r=await fetch(`${SB_URL}/rest/v1/kader?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
+  }
+  btn.closest(".kader-edit-row")?.remove();
+}
+async function kaderSaveAll(btn){
+  const rows=[...document.querySelectorAll(".kader-edit-row")];
+  const payload=[];
+  rows.forEach((row,i)=>{
+    const name=row.querySelector(".ke-name").value.trim();
+    if(!name)return;
+    const nrV=row.querySelector(".ke-nr").value;
+    const geb=row.querySelector(".ke-geb").value;
+    const medical=row.querySelector(".ke-medical").value.trim();
+    payload.push({
+      name, nr:nrV!==""?parseInt(nrV):null,
+      tw:row.querySelector(".ke-tw").checked,
+      tw_prio:parseInt(row.querySelector(".ke-prio").value)||0,
+      geb:geb||null, medical:medical||null, sort_order:i+1
+    });
+  });
+  if(!payload.length){toast("Kein Spieler eingetragen","err");return;}
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kader?on_conflict=name`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(payload)});
+    if(sbCheck401(r)){return;}
+    if(r.ok||r.status===201){
+      await loadKader();
+      renderKader();
+      if(typeof refreshSelects==="function")refreshSelects();
+      document.getElementById("kader-edit-modal")?.remove();
+      toast("Kader gespeichert ✓");
+    }else toast("Fehler beim Speichern","err");
+  }catch(e){toast("Netzwerkfehler","err");}
+  finally{if(btn)btn.disabled=false;}
+}
+// Saison-Backup: alle relevanten Tabellen als JSON-Download sichern.
+async function backupExport(){
+  if(!sbToken()){toast("Bitte zuerst als Trainer anmelden","err");return;}
+  toast("Backup wird erstellt…");
+  const tables=["kader","spielerprofile","termine","matchday","blitz_ratings","match_actions","ticker_events","nominierungen","anwesenheit","trainings_eval"];
+  const dump={_meta:{app:"U9 Adler Dellbrück",exported_at:new Date().toISOString(),tables}};
+  try{
+    for(const t of tables){
+      try{
+        const r=await fetch(`${SB_URL}/rest/v1/${t}?select=*`,{headers:sbAuthHeaders()});
+        dump[t]=r.ok?await r.json():{error:r.status};
+      }catch(e){dump[t]={error:"fetch"};}
+    }
+    const blob=new Blob([JSON.stringify(dump,null,2)],{type:"application/json"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=`adler-u9-backup-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    toast("Backup heruntergeladen ✓");
+  }catch(e){toast("Backup fehlgeschlagen","err");}
+}
 
 function renderKader(){
   const names=Object.keys(DB).sort();const wrap=document.getElementById("kader-content");
@@ -7704,7 +7834,7 @@ function toggleTF(id){
 document.getElementById("p-date").value=new Date().toISOString().slice(0,10);
 document.getElementById("tp-date").value=new Date().toISOString().slice(0,10);
 document.getElementById("aw-date").value=new Date().toISOString().slice(0,10);
-loadDB().then(()=>{if(curSection==="home")renderHome();}).then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500)); // G1 + KI-Light + Home-Stats aktualisieren
+loadKader().then(()=>loadDB()).then(()=>{if(curSection==="home")renderHome();}).then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500)); // Kader (Supabase) zuerst, dann G1 + KI-Light + Home-Stats
 loadCustomForms();
 openTab("home"); // Start auf dem Trainer-Dashboard + Sub-Tab-Leiste initial rendern
 
