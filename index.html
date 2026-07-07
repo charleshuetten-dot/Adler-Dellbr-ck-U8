@@ -1398,6 +1398,7 @@ async function elternCardShow(d){
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   canvas.style.cssText="max-width:100%;width:300px;height:auto;border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.5)";
   modal.appendChild(canvas);
+  cardApplyGlow(canvas, d.counts&&d.counts.trainings); // Meilenstein-Glanz (Zähler kommen aus der RPC)
   const bar=document.createElement("div");
   bar.style.cssText="display:flex;gap:8px;flex-wrap:wrap;justify-content:center";
   bar.innerHTML=`<button class="btn btn-p" onclick="adlerCardShare()"><i class="ti ti-share"></i>Karte teilen</button>
@@ -3036,6 +3037,26 @@ const CARD_THEMES={
   phys:{a:"#9a3412",b:"#f97316",name:"DYNAMIK"}, mental:{a:"#065f46",b:"#10b981",name:"CHARAKTER"},
   entw:{a:"#155e75",b:"#06b6d4",name:"TALENT"}, keeper:{a:"#854d0e",b:"#eab308",name:"TORWART"}
 };
+/* Meilenstein-Karten (Phase 11-R): Design nach TEILNAHME, nicht Leistung.
+   ≥10 Trainings → Gold, ≥20 → Hero. Überschreibt das Dim-Theme. Metallischer Verlauf,
+   Doppelrahmen, Glanz + Siegel werden in adlerCardDraw gebacken (bleiben im PNG-Export). */
+const CARD_MILESTONES=[
+  {min:20, a:"#2a0e57", b:"#f59e0b", name:"HERO", medal:"hero", border:"#fcd34d"},
+  {min:10, a:"#5c4300", b:"#e9c94a", name:"GOLD", medal:"gold", border:"#ffe08a"}
+];
+function cardMilestoneTheme(trainings){ const t=Number(trainings)||0; return CARD_MILESTONES.find(m=>t>=m.min)||null; }
+// On-Screen-Glanz (nur im Modal, nicht im Export): sanftes Gold-/Hero-Pulsieren um die Karte.
+function cardApplyGlow(canvas,trainings){
+  if(!canvas)return;
+  const ms=cardMilestoneTheme(trainings);
+  if(!ms){canvas.style.animation="";return;}
+  if(!document.getElementById("card-glow-style")){
+    const st=document.createElement("style");st.id="card-glow-style";
+    st.textContent="@keyframes cardGlowGold{0%,100%{box-shadow:0 12px 40px rgba(0,0,0,.5)}50%{box-shadow:0 0 34px rgba(255,215,0,.6),0 12px 40px rgba(0,0,0,.5)}}@keyframes cardGlowHero{0%,100%{box-shadow:0 0 22px rgba(245,158,11,.5),0 12px 40px rgba(0,0,0,.5)}50%{box-shadow:0 0 48px rgba(236,72,153,.75),0 12px 40px rgba(0,0,0,.5)}}";
+    document.head.appendChild(st);
+  }
+  canvas.style.animation=(ms.medal==="hero"?"cardGlowHero 1.8s":"cardGlowGold 2.4s")+" ease-in-out infinite";
+}
 // Position ausschreiben: "Flitzer R" -> "Rechter Flitzer", Codes -> Klartext.
 function cardPosLabel(pos){
   if(!pos)return pos;
@@ -3065,18 +3086,33 @@ function adlerCardData(name){
           alter:k.geb?homeAlter(k.geb):(lat.age||null), badges:strengths.map(s=>CARD_BADGES[s.key]), theme};
 }
 function adlerCardDraw(ctx,W,H,d,photoImg){
-  const th=d.theme;
+  // Meilenstein-Theme (Teilnahme, nicht Leistung) überschreibt das Dim-Theme.
+  const ms=(d.counts&&cardMilestoneTheme(d.counts.trainings))||null;
+  const th=ms||d.theme;
+  const medal=ms?ms.medal:null;
   ctx.clearRect(0,0,W,H);
-  // Hintergrund-Verlauf
-  const g=ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,th.a);g.addColorStop(1,th.b);
+  // Hintergrund-Verlauf – Meilenstein: diagonal + dreistufig (metallischer Schimmer)
+  const g=medal?ctx.createLinearGradient(0,0,W,H):ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,th.a); if(medal){g.addColorStop(.5,th.b);g.addColorStop(1,th.a);} else {g.addColorStop(1,th.b);}
   tbRoundRect(ctx,10,10,W-20,H-20,28);ctx.fillStyle=g;ctx.fill();
   ctx.save();tbRoundRect(ctx,10,10,W-20,H-20,28);ctx.clip();
-  // dezente Glanz-Diagonale
-  ctx.globalAlpha=.08;ctx.fillStyle="#fff";ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(W*.6,0);ctx.lineTo(0,H*.5);ctx.closePath();ctx.fill();ctx.globalAlpha=1;
-  ctx.restore();
-  // Rahmen
-  ctx.lineWidth=3;ctx.strokeStyle="rgba(255,255,255,.85)";tbRoundRect(ctx,10,10,W-20,H-20,28);ctx.stroke();
+  // Glanz-Diagonale (Meilenstein deutlich stärker)
+  ctx.globalAlpha=medal?.22:.08;ctx.fillStyle="#fff";ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(W*.6,0);ctx.lineTo(0,H*.5);ctx.closePath();ctx.fill();
+  if(medal){ctx.globalAlpha=.13;ctx.beginPath();ctx.moveTo(W,H*.22);ctx.lineTo(W,H*.44);ctx.lineTo(0,H*.92);ctx.lineTo(0,H*.7);ctx.closePath();ctx.fill();}
+  ctx.globalAlpha=1;ctx.restore();
+  // Rahmen – Meilenstein: metallischer Doppelrahmen + Siegel oben mittig
+  if(medal){
+    ctx.lineWidth=6;ctx.strokeStyle=ms.border;tbRoundRect(ctx,11,11,W-22,H-22,27);ctx.stroke();
+    ctx.lineWidth=2;ctx.strokeStyle="rgba(255,255,255,.5)";tbRoundRect(ctx,17,17,W-34,H-34,22);ctx.stroke();
+    ctx.font="800 12px Arial";
+    const seal=(medal==="hero"?"🦸 HERO":"🏅 GOLD")+" · "+(d.counts.trainings||0)+" Trainings";
+    const sw=ctx.measureText(seal).width, pw=sw+22;
+    ctx.save();tbRoundRect(ctx,(W-pw)/2,20,pw,24,12);ctx.fillStyle=ms.border;ctx.fill();ctx.restore();
+    ctx.fillStyle="#3a2a00";ctx.textAlign="center";ctx.fillText(seal,W/2,36);
+    ctx.shadowColor="rgba(0,0,0,.32)";ctx.shadowBlur=3;ctx.shadowOffsetY=1; // Lesbarkeit auf Gold/Hero
+  }else{
+    ctx.lineWidth=3;ctx.strokeStyle="rgba(255,255,255,.85)";tbRoundRect(ctx,10,10,W-20,H-20,28);ctx.stroke();
+  }
 
   // ── Kopf: Trikotnummer (statt Overall) + Positions-Pill + Theme ──
   ctx.textAlign="left";ctx.fillStyle="#fff";
@@ -3151,6 +3187,7 @@ function adlerCardDraw(ctx,W,H,d,photoImg){
   // ── Fußzeile ──
   ctx.textAlign="center";ctx.font="600 12px Arial";ctx.fillStyle="rgba(255,255,255,.8)";
   ctx.fillText("SV Adler Dellbrück · U9 · Saison "+saisonLabel(), W/2, H-22);
+  ctx.shadowColor="transparent";ctx.shadowBlur=0;ctx.shadowOffsetY=0;
 }
 /* Foto-Pipeline (D2): Kompression nativ (Canvas+toBlob), Upload in den privaten
    Bucket, Laden per authentifiziertem GET -> Blob -> Object-URL (kein CORS/tainted
@@ -3260,7 +3297,7 @@ async function adlerCardOpen(){
   modal.appendChild(bar);
   document.body.appendChild(modal);
   // Einsatz-Zähler laden und neu zeichnen (Modal-Guard gegen Race, falls schon geschlossen)
-  adlerCardStats(name).then(c=>{ if(document.getElementById("adler-card-modal")){ d.counts=c; render(); } });
+  adlerCardStats(name).then(c=>{ if(document.getElementById("adler-card-modal")){ d.counts=c; render(); cardApplyGlow(canvas,c.trainings); } });
   // Foto (falls vorhanden) laden und neu zeichnen
   if(d.fotoPath){ const img=await fotoLoadImage(d.fotoPath); if(img&&document.getElementById("adler-card-modal")){ rawPhoto=img; render(); } }
 }
