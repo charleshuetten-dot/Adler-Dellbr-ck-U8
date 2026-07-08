@@ -1774,6 +1774,19 @@ function gegnerRenderList(){
     <button class="btn btn-sm" onclick="gegnerEdit(${g.id})"><i class="ti ti-edit"></i></button>
   </div>`).join("");
 }
+// Bisherige Spiele gegen diesen Gegner (aus den geladenen Terminen + termine.ergebnis).
+function gegnerHistoryHtml(name){
+  if(!name)return "";
+  const n=name.trim().toLowerCase();
+  const games=(TM_TERMINE||[]).filter(t=>(t.typ==="spiel"||t.typ==="turnier")&&((t.gegner||"").toLowerCase().includes(n)||(t.titel||"").toLowerCase().includes(n)))
+    .sort((a,b)=>String(b.datum).localeCompare(String(a.datum))).slice(0,6);
+  if(!games.length)return "";
+  return `<div style="margin-top:12px;border-top:var(--border-s);padding-top:10px">
+    <div style="font-size:11px;font-weight:800;color:var(--text2);margin-bottom:4px">📊 Bisherige Spiele</div>
+    ${games.map(t=>{const d=new Date(t.datum+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit"});
+      return `<div style="font-size:11px;color:var(--text2);padding:2px 0">${d} · ${esc(t.titel||t.gegner||"Spiel")}${t.ergebnis?` · <b style="color:var(--text)">${esc(t.ergebnis)}</b>`:` · <span style="color:var(--text3)">kein Ergebnis</span>`}</div>`;}).join("")}
+  </div>`;
+}
 function gegnerFormRender(g){
   const box=document.getElementById("gegner-form"); if(!box)return;
   g=g||{};
@@ -1793,6 +1806,7 @@ function gegnerFormRender(g){
       <button class="btn btn-p btn-sm" onclick="gegnerSave()"><i class="ti ti-device-floppy"></i>Speichern</button>
       ${g.id?`<button class="btn btn-sm" onclick="gegnerFormRender(null)">Neu</button><button class="btn btn-sm" style="margin-left:auto;color:#dc2626" onclick="gegnerDelete(${g.id})"><i class="ti ti-trash"></i>Löschen</button>`:""}
     </div>
+    ${g.id?gegnerHistoryHtml(g.name):""}
   </div>`;
 }
 function gegnerEdit(id){ const g=(GEGNER_CACHE||[]).find(x=>x.id===id); gegnerFormRender(g||null); }
@@ -1818,6 +1832,7 @@ async function gegnerDelete(id){
     toast("Gegner gelöscht"); await gegnerLoad(true); gegnerRenderList(); gegnerFormRender(null);
   }catch(e){toast("Netzwerkfehler","err");}
 }
+let TM_TERMINE=[]; // zuletzt geladene Termine (für .ics-Lookup + Gegner-Historie)
 async function tmLoad(){
   const up=document.getElementById("tm-upcoming"),pa=document.getElementById("tm-past");
   if(!up||!pa)return;
@@ -1828,12 +1843,67 @@ async function tmLoad(){
     if(sbCheck401(r))return;
     if(!r.ok){up.innerHTML='<div style="font-size:11px;color:var(--text3)">Keine Verbindung</div>';return;}
     const rows=await r.json();
+    TM_TERMINE=rows;
     const heute=new Date().toISOString().slice(0,10);
     const kommend=rows.filter(t=>t.datum>=heute);
     const vergangen=rows.filter(t=>t.datum<heute).reverse();
     up.innerHTML=kommend.length?kommend.map(tmCard).join(""):'<div style="font-size:11px;color:var(--text3);padding:6px">Keine kommenden Termine.</div>';
     pa.innerHTML=vergangen.length?vergangen.slice(0,20).map(tmCard).join(""):'<div style="font-size:11px;color:var(--text3);padding:6px">Noch keine vergangenen Termine.</div>';
+    kommend.forEach(t=>wetterInto("wx-tm-"+t.id,t.datum,t.ort)); // Wetter je Termin (self-limitiert auf Reichweite)
   }catch(e){up.innerHTML='<div style="font-size:11px;color:var(--text3)">Offline</div>';}
+}
+// Einzel-Termin als .ics (Kalender-Datei) – nutzt die vorhandenen ics-Helfer.
+function tmIcsOne(id){
+  const t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(id)); if(!t){toast("Termin nicht gefunden","err");return;}
+  const m=TM_META[t.typ]||TM_META.training;
+  const time=(t.uhrzeit?String(t.uhrzeit).slice(0,5):"")||"17:00";
+  const dtStamp=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");
+  const lines=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//SV Adler Dellbrück//U9//DE","CALSCALE:GREGORIAN","METHOD:PUBLISH",
+    "BEGIN:VEVENT","UID:adler-"+t.id+"-"+t.datum+"@adler-u9","DTSTAMP:"+dtStamp,
+    "DTSTART:"+icsLocalStart(t.datum,time),"DTEND:"+icsLocalPlus(t.datum,time,90),
+    "SUMMARY:"+icsEscape((m.label||"Termin")+": "+(t.titel||m.label||""))];
+  if(t.ort)lines.push("LOCATION:"+icsEscape(t.ort));
+  lines.push("END:VEVENT","END:VCALENDAR");
+  const blob=new Blob([lines.join("\r\n")],{type:"text/calendar"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="adler-termin.ics";
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast("Kalenderdatei erstellt ✓");
+}
+// Offene RSVPs auf einen Blick + WhatsApp-Sammelerinnerung (nur die Nachricht wird vorbefüllt).
+async function rsvpOverviewOpen(terminId){
+  const t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(terminId))||{};
+  const m=TM_META[t.typ]||TM_META.training;
+  let rm=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${terminId}&select=spieler_id,status`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)rm=await r.json();}catch(e){}
+  const byId={}; rm.forEach(x=>byId[x.spieler_id]=x.status);
+  const kids=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
+  const groups={offen:[],zugesagt:[],abgesagt:[],krank:[]};
+  kids.forEach(k=>{const s=byId[k.id]||"offen"; (groups[s]||groups.offen).push(k.name);});
+  const d=new Date(t.datum+"T00:00:00"), wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+  const datumStr=wtag+" "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+  const zeitStr=t.uhrzeit?String(t.uhrzeit).slice(0,5):"";
+  const deepLink=location.origin+location.pathname+"?portal&rsvp="+terminId;
+  const waText=`🦅 SV Adler U9 – bitte kurz rückmelden fürs nächste ${m.label}:\n${t.titel||m.label} am ${datumStr}${zeitStr?" um "+zeitStr+" Uhr":""}\nNoch offen: ${groups.offen.length} Kind(er)\n👉 Zu-/absagen: ${deepLink}`;
+  document.getElementById("rsvp-ov-modal")?.remove();
+  const modal=document.createElement("div");
+  modal.id="rsvp-ov-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Rückmeldungen");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const sec=(title,arr,col,emo)=>arr.length?`<div style="margin-top:8px"><div style="font-size:11px;font-weight:800;color:${col}">${emo} ${title} (${arr.length})</div><div style="font-size:12px;color:var(--text2);line-height:1.5">${arr.map(esc).join(", ")}</div></div>`:"";
+  const card=document.createElement("div");
+  card.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  card.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">📋 Rückmeldungen</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${m.icon} ${esc(t.titel||m.label)} · ${datumStr}${zeitStr?" · "+zeitStr:""}</div>
+    <div style="font-size:13px;font-weight:800;color:${groups.offen.length?"#b45309":"#16a34a"}">${groups.offen.length?groups.offen.length+" noch offen":"Alle haben geantwortet 🎉"}</div>
+    ${sec("Offen",groups.offen,"#b45309","❓")}
+    ${sec("Zusagen",groups.zugesagt,"#059669","👍")}
+    ${sec("Absagen",groups.abgesagt,"#dc2626","👎")}
+    ${sec("Krank",groups.krank,"#d97706","🤒")}
+    <div style="display:flex;gap:8px;margin-top:14px">
+      ${groups.offen.length?`<a class="btn btn-p btn-sm" href="https://wa.me/?text=${encodeURIComponent(waText)}" target="_blank" rel="noopener"><i class="ti ti-brand-whatsapp"></i>Erinnerung senden</a>`:""}
+      <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('rsvp-ov-modal').remove()">Schließen</button>
+    </div>`;
+  modal.appendChild(card);document.body.appendChild(modal);
 }
 function tmCard(t){
   const m=TM_META[t.typ]||TM_META.training;
@@ -1851,6 +1921,8 @@ function tmCard(t){
       <button class="btn btn-sm" onclick="tmJump('blitz','${t.datum}','${t.spielform||''}')"><i class="ti ti-bolt"></i>Auswertung</button>
       <button class="btn btn-sm" onclick="mdOpen('${t.datum}','${t.typ}')"><i class="ti ti-users"></i>Eltern-Info</button>`;
   }
+  actions+=`<button class="btn btn-sm" onclick="tmIcsOne(${Number(t.id)})" title="In den Kalender"><i class="ti ti-calendar-plus"></i>Kalender</button>`;
+  if(t.datum>=new Date().toISOString().slice(0,10)) actions+=`<button class="btn btn-sm" onclick="rsvpOverviewOpen(${Number(t.id)})" title="Wer hat schon geantwortet?"><i class="ti ti-list-check"></i>Rückmeldungen</button>`;
   const zeitStr=t.uhrzeit?String(t.uhrzeit).slice(0,5):((/Uhrzeit:\s*(\d{1,2}:\d{2})/.exec(t.notiz||"")||[])[1]||"");
   const sfBadge=(istSpiel&&t.spielform)?`<span style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;background:${m.col}22;color:${m.col}">${esc(t.spielform)}</span>`:"";
   const notizClean=(t.notiz&&!/^Uhrzeit:/.test(t.notiz))?t.notiz:"";
@@ -1867,7 +1939,8 @@ function tmCard(t){
       <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px">${m.icon} ${esc(t.titel||m.label)}${sfBadge}</div>
       <div style="font-size:11px;color:var(--text2);white-space:nowrap">${datumStr}${zeitStr?" · "+zeitStr:""}</div>
     </div>
-    ${t.ort?`<div style="font-size:11px;color:var(--text2)"><i class="ti ti-map-pin" style="font-size:11px"></i> ${esc(t.ort)}</div>`:""}
+    ${t.ort?`<div style="font-size:11px;color:var(--text2)"><i class="ti ti-map-pin" style="font-size:11px"></i> ${mapsAnchor(t.ort)}</div>`:""}
+    <div id="wx-tm-${t.id}"></div>
     ${notizClean?`<div style="font-size:11px;color:var(--text3)">${esc(notizClean)}</div>`:""}
     ${istSpiel?`<div style="display:flex;align-items:center;gap:6px;margin:6px 0"><span style="font-size:11px;color:var(--text2)">Ergebnis:</span><input type="text" value="${esc(t.ergebnis||"")}" placeholder="z. B. 3:2" onchange="tmSetResult(${Number(t.id)},this.value)" style="width:90px;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:12px;font-family:inherit"></div>`:""}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
