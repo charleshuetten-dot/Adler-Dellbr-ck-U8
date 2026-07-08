@@ -343,9 +343,11 @@ function kaderEditRow(k,i){
       <span>📰 Foto fürs <b>digitale Eltern-Stadionheft</b> freigegeben <span style="color:var(--text3)">(Eltern-Einwilligung eingeholt)</span></span>
     </label>
     <input class="ke-medical" value="${esc(k.medical||'')}" placeholder="Medical-Hinweis (z. B. Asthma, Allergie…)" style="width:100%;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
-    ${k._id?`<button type="button" class="btn btn-sm" onclick="kontakteEditOpen(${k._id})" style="margin-top:6px;width:100%"><i class="ti ti-address-book"></i>Kontakte & Eltern-Login</button>
-    <button type="button" class="btn btn-sm" onclick="kindLinkShare(${k._id})" style="margin-top:6px;width:100%" title="Persönlicher 1-Tap Zu-/Absage-Link ohne Login"><i class="ti ti-calendar-check"></i>Zu-/Absage-Link teilen</button>
-    <button type="button" class="btn btn-sm" onclick="childWrappedShare(${k._id})" style="margin-top:6px;width:100%" title="Persönliche Saison-Rückblick-Karte zum Teilen mit der Familie"><i class="ti ti-movie"></i>Saison-Karte (Wrapped)</button>`:'<div style="font-size:10px;color:var(--text3);margin-top:6px">Erst speichern – dann sind Kontakte & Eltern-Login hinterlegbar.</div>'}
+    ${k._id?`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px">
+      <button type="button" class="btn btn-sm" onclick="kontakteEditOpen(${k._id})" title="Kontakte & Eltern-Login" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;font-size:10px;line-height:1.2"><i class="ti ti-address-book" style="font-size:17px"></i>Kontakte</button>
+      <button type="button" class="btn btn-sm" onclick="kindLinkShare(${k._id})" title="Persönlicher 1-Tap Zu-/Absage-Link ohne Login" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;font-size:10px;line-height:1.2"><i class="ti ti-calendar-check" style="font-size:17px"></i>Zu-/Absage</button>
+      <button type="button" class="btn btn-sm" onclick="childWrappedShare(${k._id})" title="Persönliche Saison-Rückblick-Karte zum Teilen mit der Familie" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;font-size:10px;line-height:1.2"><i class="ti ti-movie" style="font-size:17px"></i>Saison</button>
+    </div>`:'<div style="font-size:10px;color:var(--text3);margin-top:6px">Erst speichern – dann sind Kontakte, Links & Saison-Karte verfügbar.</div>'}
   </div>`;
 }
 // Foto aus einer Kader-Zeile hochladen (nutzt den aktuellen Namen der Zeile).
