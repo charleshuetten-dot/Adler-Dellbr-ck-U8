@@ -275,6 +275,15 @@ function getPlayerData(name){
   return{name,v,ds,total,rolle,tw,lat};
 }
 
+// Mini-Sparkline (Inline-SVG) aus einer Zahlenreihe – z. B. total_score-Verlauf eines Kindes.
+function sparklineSVG(vals,w,h,col){
+  w=w||58;h=h||16;col=col||"var(--teal)";
+  if(!vals||vals.length<2)return "";
+  const min=Math.min(...vals),max=Math.max(...vals),range=(max-min)||1;
+  const pts=vals.map((v,i)=>{const x=(i/(vals.length-1))*(w-2)+1;const y=h-1-((v-min)/range)*(h-2);return x.toFixed(1)+","+y.toFixed(1);}).join(" ");
+  const lx=((w-2)+1).toFixed(1), ly=(h-1-((vals[vals.length-1]-min)/range)*(h-2)).toFixed(1);
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;margin-top:2px" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${lx}" cy="${ly}" r="1.8" fill="${col}"/></svg>`;
+}
 // Bewertungs-Trend: Vergleich der letzten beiden Snapshots (total_score). conf = Anzahl Bewertungen.
 function playerTrend(name){
   const snaps=DB[name]; if(!snaps||snaps.length<2)return {delta:0,conf:snaps?snaps.length:0};
