@@ -1675,7 +1675,7 @@ function tmJump(ziel,datum,spielform){
       spieltagTeam=1; // Sprung vom Termin: Standard-Team; Multi-Team wird am Spieltag selbst gewählt
       const seg=document.getElementById("spieltag-team-seg");
       if(seg){seg.querySelectorAll(".seg-btn").forEach(b=>b.classList.toggle("active",b.dataset.val==="1"));}
-      const d=document.getElementById("spieltag-date");if(d){d.value=datum;nomLoad();}toast("Spieltag "+datum);
+      spieltagDatesLoad(datum);toast("Spieltag "+datum);
     },120);
   }
 }
@@ -1704,13 +1704,25 @@ function spieltagSetTeam(n,btn){
 
 // Spieltags-Nominierung: wer ist dabei / nicht / verletzt – speist Rotations-Timer + Blitz
 let nomStatus={};
+// Match-Datum nur aus hinterlegten Spieltagen (termine typ spiel/turnier) wählbar – kein Freitext.
+async function spieltagDatesLoad(preferDatum){
+  const sel=document.getElementById("spieltag-date"); if(!sel)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?typ=in.(spiel,turnier)&select=datum,gegner,typ&order=datum.asc`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)rows=await r.json();}catch(e){}
+  const seen=new Set(), items=[];
+  rows.forEach(t=>{if(t.datum&&!seen.has(t.datum)){seen.add(t.datum);items.push(t);}});
+  if(!items.length){ sel.innerHTML='<option value="">— kein Spieltag angelegt (unter Orga anlegen) —</option>'; nomLoad(); return; }
+  const heute=new Date().toISOString().slice(0,10);
+  const def=(preferDatum&&seen.has(preferDatum))?preferDatum:((items.find(t=>t.datum>=heute)||{}).datum||items[items.length-1].datum);
+  const fmt=(t)=>{const d=new Date(t.datum+"T00:00:00");const wd=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];const ds=d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit"});const g=t.typ==="turnier"?"🏆 Turnier":(t.gegner?"vs "+t.gegner:"Spiel");return `${wd} ${ds} · ${g}`;};
+  sel.innerHTML=items.map(t=>`<option value="${esc(t.datum)}"${t.datum===def?" selected":""}>${esc(fmt(t))}</option>`).join("");
+  nomLoad();
+}
 function nomInit(){
-  const d=document.getElementById("spieltag-date");
-  if(d&&!d.value)d.value=new Date().toISOString().slice(0,10);
   spieltagTeam=1; // Tab-Eintritt: Standard-Team
   const seg=document.getElementById("spieltag-team-seg");
   if(seg)seg.querySelectorAll(".seg-btn").forEach(b=>b.classList.toggle("active",b.dataset.val==="1"));
-  nomLoad();
+  spieltagDatesLoad(); // Spieltag-Dropdown aus hinterlegten Terminen befüllen (ruft dann nomLoad)
 }
 // Eltern-RSVP (Phase 10-M, Etappe 3): Rückmeldungen der Eltern zum Termin dieses Datums laden.
 let nomRsvp={}, nomOvr=new Set(); // nomRsvp: name->{status,kommentar}; nomOvr: vom Trainer manuell überstimmte Namen
