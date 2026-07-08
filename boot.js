@@ -446,7 +446,7 @@ function awRenderTrainerStats(){
   const wrap=document.getElementById("aw-trainer-stats");
   if(!wrap)return;
   const dates=Object.keys(AW_DATA).sort();
-  const allTrainers=["Sandy","Charles","Kenneth","Peter"];
+  const allTrainers=(typeof TRAINER!=="undefined"?TRAINER:["Sandy","Charles","Finn","Kenneth","Peter"]); // HOTFIX 1: Single Source, kein hartes Limit (Finn war raus)
   if(!dates.length){wrap.innerHTML='<div style="color:var(--text2);font-size:12px;padding:8px">Noch keine Daten erfasst</div>';return;}
   const stats={};
   allTrainers.forEach(t=>{stats[t]={da:0,total:dates.length};});

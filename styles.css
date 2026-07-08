@@ -589,3 +589,8 @@ h1.print-header{display:none}
 .heft-spitz{font-size:11px;color:#64748b;font-style:italic}
 .heft-pos{font-size:11px;color:#1a56db;font-weight:700;margin-top:2px}
 .heft-foot{text-align:center;font-size:11px;color:#64748b;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:8px}
+
+/* ── HOTFIX 16: Fat-Finger / Outdoor-UX (Klick-Targets, Kontrast) ── */
+.btn{min-height:48px}                 /* Haupt-Aktionen dick genug für den Platz */
+.nb{min-height:52px}                  /* Bottom-Nav = Thumb-Zone */
+button{touch-action:manipulation}     /* kein 300ms-Delay / Doppeltipp-Zoom */

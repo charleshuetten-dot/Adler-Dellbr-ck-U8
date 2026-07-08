@@ -451,3 +451,10 @@ function pwaBannerShow(kind){
   }
   document.body.appendChild(el);
 }
+
+/* ═══════════════════════════════════
+   HOTFIX 16: Haptisches Feedback (Outdoor-UX). Zentraler Wrapper +
+   dezenter Tap bei jedem Button/Nav-Klick (delegiert, ein Listener).
+═══════════════════════════════════ */
+function hapticTap(pattern){ try{ if(navigator.vibrate)navigator.vibrate(pattern||12); }catch(e){} }
+document.addEventListener("click",e=>{ if(e.target&&e.target.closest&&e.target.closest("button,.btn,.nb,.seg-btn"))hapticTap(12); },{passive:true});

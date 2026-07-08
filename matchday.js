@@ -718,6 +718,9 @@ function renderTrainerUI(){
   if(tn)tn.innerHTML=TRAINER.map(t=>`<option value="${t}">${t}</option>`).join("");
   const tv=document.getElementById("tv-autor");
   if(tv)tv.innerHTML=TRAINER.map(t=>`<option value="${t}">${t}</option>`).join("");
+  // HOTFIX 1: Header-Zeile dynamisch aus TRAINER (statisches HTML liess Finn weg)
+  const lt=document.querySelector(".logo-t2");
+  if(lt)lt.textContent="SV Adler Dellbrück · 4+1 Raute · "+TRAINER.join(", ");
 }
 renderTrainerUI();
 
@@ -936,7 +939,7 @@ function printView(viewName){
     h.textContent="Spielerprofil U9 I – SV Adler Dellbrück"+subtitle;
     const meta=document.createElement("div");
     meta.className="print-meta";
-    meta.textContent="Stand: "+now+" · Sandy, Charles, Kenneth, Peter · 4+1 Raute";
+    meta.textContent="Stand: "+now+" · "+TRAINER.join(", ")+" · 4+1 Raute";
     target.insertBefore(meta,target.firstChild);
     target.insertBefore(h,target.firstChild);
   }

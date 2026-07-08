@@ -755,6 +755,11 @@ async function wrappedLoadFotos(saison){
   awrapFotoUrls=urls.filter(Boolean);
   return awrapFotoUrls;
 }
+// HOTFIX 7: Wrapped ist standardmäßig gesperrt (Teaser). Trainer kann trotzdem eine Vorschau öffnen.
+function adlerWrappedTeaser(){
+  try{navigator.vibrate&&navigator.vibrate(20);}catch(e){}
+  if(confirm("🎬 Adler Wrapped ist der große Saison-Rückblick – die volle Story gibt's am Saisonende.\n\nMöchtest du jetzt schon eine Vorschau mit dem aktuellen Stand ansehen?"))adlerWrappedOpen();
+}
 async function adlerWrappedOpen(){
   const btn=document.getElementById("wrapped-btn");
   if(btn)btn.disabled=true;
@@ -902,7 +907,7 @@ function printZertifikat(){
         <div class="zb">Potenzial<b>~${pot}%</b></div>
       </div>
       <div class="zert-sign">
-        <div>Trainerteam<br>Sandy · Charles · Kenneth · Peter</div>
+        <div>Trainerteam<br>${(typeof TRAINER!=="undefined"?TRAINER:["Sandy","Charles","Finn","Kenneth","Peter"]).join(" · ")}</div>
         <div>Dellbrück, ${new Date().toLocaleDateString("de-DE",{day:"2-digit",month:"long",year:"numeric"})}</div>
       </div>
     </div>`;
@@ -1438,11 +1443,11 @@ async function renderHome(){
       <button class="btn" style="flex:1;min-height:46px" onclick="go('anwesenheit')"><i class="ti ti-checkbox"></i>Anwesenheit</button>
       <button class="btn" style="flex:1;min-height:46px" onclick="go('termine')"><i class="ti ti-calendar-plus"></i>Termin</button>
     </div>
-    <button id="wrapped-btn" onclick="adlerWrappedOpen()" style="width:100%;min-height:48px;margin-top:12px;border:none;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;color:#fff;background:linear-gradient(135deg,#7c3aed,#ec4899)">🎬 Adler Wrapped – Saison-Rückblick</button>
     <button onclick="kasseOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">💰 Teamkasse</button>
     <button onclick="fundbueroOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🧦 Fundbüro</button>
     <button onclick="ausruestungExport()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">👕 Ausrüstung als CSV</button>
-    <button onclick="printStadionheft()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🖨️ Stadionheft drucken</button>`;
+    <button onclick="printStadionheft()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🖨️ Stadionheft drucken</button>
+    <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;margin-top:12px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>`;
 
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
   try{
@@ -1540,7 +1545,7 @@ async function printStadionheft(){
     </div>
     ${spielHtml}
     <div class="heft-grid">${cards}</div>
-    <div class="heft-foot">Auf geht's, Adler! 🦅 · Trainerteam Sandy · Charles · Kenneth · Peter</div>
+    <div class="heft-foot">Auf geht's, Adler! 🦅 · Trainerteam ${(typeof TRAINER!=="undefined"?TRAINER:["Sandy","Charles","Finn","Kenneth","Peter"]).join(" · ")}</div>
   </div>`;
   document.body.classList.add("printing-heft");
   const cleanup=()=>{document.body.classList.remove("printing-heft");window.removeEventListener("afterprint",cleanup);};
