@@ -785,7 +785,24 @@ function renderLineupEditor(){
       <button class="btn" onclick="kombiFromSuggestion()"><i class="ti ti-wand"></i>Vorschlag</button>
       <button class="btn" onclick="kombiShareLineup()"><i class="ti ti-share"></i>Teilen</button>
       <button class="btn" onclick="kombiShareLineupBild()"><i class="ti ti-photo"></i>Als Bild</button>
+      <button class="btn btn-p" onclick="kombiToMatch()" title="Diese Aufstellung als Startelf ins Live-Match (Rotations-Timer) laden"><i class="ti ti-arrow-right"></i>In Match übernehmen</button>
     </div>`;
+}
+// HOTFIX 15: geplante Aufstellung (kombiLineup) als Startelf ins Live-Match (Rotations-Timer) laden.
+function kombiToMatch(){
+  const feld=[kombiLineup.auf,kombiLineup.fll,kombiLineup.flr,kombiLineup.jaeg].filter(Boolean);
+  if(!feld.length){toast("Erst die Aufstellung festlegen","err");return;}
+  tbFormation="4+1"; // die Raute-Aufstellung ist eine 4+1-Formation
+  rotTW=kombiLineup.tw||null;
+  rotField=[...feld];
+  const squad=(typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():Object.keys(DB);
+  const inLineup=new Set([rotTW,...feld].filter(Boolean));
+  rotBench=squad.filter(n=>!inLineup.has(n));
+  rotBenchSec={};rotFieldSec={};[...squad,...inLineup].forEach(n=>{rotBenchSec[n]=0;rotFieldSec[n]=0;});
+  rotElapsed=0;
+  toast("✅ Aufstellung ins Match übernommen");
+  if(typeof go==="function")go("spieltag");
+  setTimeout(()=>{ if(typeof rotRenderControls==="function")rotRenderControls(); if(typeof rotRenderLive==="function")rotRenderLive(); },120);
 }
 // Die festgelegte Aufstellung als 4+1-Raute + Bank aufs Canvas zeichnen und teilen
 function kombiShareLineupBild(){
@@ -2428,6 +2445,25 @@ function rotFieldSize(){ return ((typeof FORMATIONS!=="undefined"&&FORMATIONS[tb
 // HOTFIX 11: Torwart (Fest) bewusst setzen/entfernen – aus Feld & Bank raus, rotiert getrennt.
 function rotSetTW(name){ if(!name)return; rotField=rotField.filter(n=>n!==name); rotBench=rotBench.filter(n=>n!==name); rotTW=name; rotRenderLive(); }
 function rotClearTW(){ if(rotTW&&!rotBench.includes(rotTW)&&!rotField.includes(rotTW))rotBench.push(rotTW); rotTW=null; rotRenderLive(); }
+// HOTFIX 13: räumliches Mini-Feld – Feldspieler an den echten Formations-Positionen,
+// TW im Tor, Spielzeit (grün) auf jedem Chip. Antippen = auf die Bank (rotMove).
+function rotFieldSpatialHtml(){
+  const form=(typeof FORMATIONS!=="undefined"&&FORMATIONS[tbFormation])||{slots:[]};
+  const slots=form.slots||[];
+  const fieldSlots=slots.filter(s=>s.rk!=="tw");
+  const twSlot=slots.find(s=>s.rk==="tw");
+  const chipF=(n,x,y,tw)=>`<button onclick="${tw?'rotClearTW()':`rotMove('${n.replace(/'/g,"")}')`}" title="${tw?'Torwart entfernen':'Auf die Bank'}" style="position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;border:2px solid #fff;background:${tw?'#f59e0b':'#1e3a8a'};color:#fff;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;padding:0;font-family:inherit">
+    <span style="font-size:11px">${getKader(n)?.nr!=null?getKader(n).nr:(tw?"🥅":"")}</span>
+    <span style="max-width:42px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px">${esc((n||"").split(" ").slice(-1)[0])}</span>
+    <span style="font-size:7px;color:#bbf7d0">${fmtSec(rotFieldSec[n]||0)}</span></button>`;
+  let h='<div style="position:relative;width:100%;max-width:300px;margin:0 auto 4px;aspect-ratio:3/4;background:linear-gradient(#2d7d2d,#256b25);border-radius:12px;border:2px solid rgba(255,255,255,.35);overflow:hidden">';
+  h+='<div style="position:absolute;left:6%;right:6%;top:50%;height:1px;background:rgba(255,255,255,.3)"></div>';
+  h+='<div style="position:absolute;left:50%;top:50%;width:46px;height:46px;border:1px solid rgba(255,255,255,.25);border-radius:50%;transform:translate(-50%,-50%)"></div>';
+  rotField.forEach((n,i)=>{const s=fieldSlots[i]||{x:50,y:40+i*8};h+=chipF(n,s.x,s.y,false);});
+  if(rotTW&&twSlot)h+=chipF(rotTW,twSlot.x,twSlot.y,true);
+  h+='</div>';
+  return h;
+}
 // Korrektur 3: Der Torwart wird separat gehalten – er steht im Tor und rotiert NICHT
 // mit den Feldspielern. Nur die Feldspieler wechseln zwischen Feld und Bank.
 function rotSeedFromSquad(squad){
@@ -2527,17 +2563,11 @@ function rotRenderLive(){
     <div style="text-align:center;font-size:30px;font-weight:800;color:${rest<=10?"#dc2626":"var(--text)"};margin-bottom:8px">${fmtSec(Math.max(0,rest))}</div>
     ${twRow}
     ${sugg}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div>
-        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Feld (${rotField.length}/${rotFieldSize()})</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">${rotField.map(n=>chip(n,true)).join("")||'<span style="font-size:11px;color:var(--text3)">leer</span>'}</div>
-      </div>
-      <div>
-        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Bank (${rotBench.length})</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">${rotBench.map(n=>chip(n,false)).join("")||'<span style="font-size:11px;color:var(--text3)">leer</span>'}</div>
-      </div>
-    </div>
-    <div style="font-size:10px;color:var(--text3);margin-top:8px">Tipp: Spieler antippen = zwischen Feld und Bank wechseln.</div>`;
+    <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--text2);margin-bottom:4px">Feld (${rotField.length}/${rotFieldSize()})</div>
+    ${rotFieldSpatialHtml()}
+    <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--text2);margin:10px 0 6px">Bank (${rotBench.length})</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${rotBench.map(n=>chip(n,false)).join("")||'<span style="font-size:11px;color:var(--text3)">Bank leer</span>'}</div>
+    <div style="font-size:10px;color:var(--text3);margin-top:8px">Feld-Spieler antippen = auf die Bank · Bank-Spieler antippen = aufs Feld · 🟢 Spielzeit / 🔴 Bankzeit.</div>`;
 }
 function rotMove(name){
   let richtung=null;
