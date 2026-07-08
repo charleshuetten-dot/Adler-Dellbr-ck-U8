@@ -158,6 +158,7 @@ async function elternDashLoad(){
         return `<button onclick="elternRsvp(${termin.id},${k.spieler_id},'${s}')" style="flex:1;min-width:92px;padding:11px 6px;border-radius:10px;border:1.5px solid ${on?c.col:"#e2e8f0"};background:${on?c.col:"#fff"};color:${on?"#fff":"#334155"};font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">${c.emo} ${c.lbl}</button>`;
       }).join("");
       return card(`<div style="font-weight:700;font-size:15px;margin-bottom:2px">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="color:#94a3b8;font-weight:600">#${kd.nr}</span>`:""}</div>
+        <div id="xp-chip-${k.spieler_id}" style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:4px"></div>
         <div style="font-size:11.5px;color:${st?EP_RSVP[st].col:"#94a3b8"};margin-bottom:8px">${st?`Aktuell: ${EP_RSVP[st].emo} ${EP_RSVP[st].lbl}`:"Bitte rückmelden"}${cur&&cur.kommentar?` · „${esc(cur.kommentar)}"`:""}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>
         <button onclick="elternCardOpen(${k.spieler_id})" style="width:100%;margin-top:8px;padding:9px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🃏 Adler-Karte ansehen</button>
@@ -183,6 +184,8 @@ async function elternDashLoad(){
       <div style="font-size:10px;color:#94a3b8;margin-top:8px">Informativ. Zahlungen laufen extern über PayPal.</div>`);
   }
   body.innerHTML=html;
+  // FEAT S: XP-Chips async füllen (RPC xp_total – Eltern sehen nur das eigene Kind)
+  kids.forEach(k=>{xpTotal(k.spieler_id).then(t=>{const el=document.getElementById("xp-chip-"+k.spieler_id);if(el){const b=xpBadge(t);el.textContent=`⚡ ${t} XP · ${b.emo} ${b.t}`;}}).catch(()=>{});});
 }
 async function elternRsvp(terminId,spielerId,status){
   let kommentar=null;
@@ -193,6 +196,8 @@ async function elternRsvp(terminId,spielerId,status){
     if(!r.ok){toast("Konnte nicht speichern","err");return;}
   }catch(e){toast("Netzwerkfehler","err");return;}
   toast("Rückmeldung gespeichert ✓");
+  // FEAT S: XP für Zusagen (idempotent pro Termin via quelle_id, Punktwert bestimmt der Server)
+  if(status==="zugesagt"){const d=await xpAward(spielerId,"rsvp","t"+terminId);if(d>0)setTimeout(()=>toast(`⚡ +${d} XP gesammelt!`),1100);}
   elternDashLoad();
 }
 // Adler-Karte des eigenen Kindes (Eltern-Sicht): Daten kommen aus der security-definer
@@ -2577,10 +2582,10 @@ const TEAM_QUESTS=[
   {key:"tor",icon:"⚽",label:"Torfabrik",target:5}
 ];
 // Editierbare Laufzeit-Kopie aus team_config (TEAM_QUESTS bleibt der Default) + Freitext-Belohnung.
-let teamQuests=TEAM_QUESTS.map(q=>({...q})), teamBelohnung="";
+let teamQuests=TEAM_QUESTS.map(q=>({...q})), teamBelohnung="", teamDoubleXpUntil=null;
 async function loadTeamConfig(){
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/team_config?id=eq.1&select=quests,belohnung`,{headers:sbAuthHeaders()});
+    const r=await fetch(`${SB_URL}/rest/v1/team_config?id=eq.1&select=quests,belohnung,double_xp_until`,{headers:sbAuthHeaders()});
     if(!r.ok)return;
     const c=(await r.json())[0];
     if(c){
@@ -2588,8 +2593,25 @@ async function loadTeamConfig(){
         teamQuests=TEAM_QUESTS.map(def=>{const s=c.quests.find(x=>x.key===def.key);return s?{...def,label:s.label||def.label,target:Number(s.target)||def.target}:{...def};});
       }
       teamBelohnung=c.belohnung||"";
+      teamDoubleXpUntil=c.double_xp_until||null;
     }
   }catch(e){}
+}
+/* FEAT T: Double-XP-Booster – der Trainer schaltet nur das Zeitfenster in team_config.
+   Den Multiplikator wendet ausschließlich die Server-RPC xp_award_event an. */
+function xpBoostActive(){return !!(teamDoubleXpUntil&&new Date(teamDoubleXpUntil)>new Date());}
+async function xpBoosterToggle(btn){
+  const neu=xpBoostActive()?null:new Date(Date.now()+72*3600*1000).toISOString();
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/team_config?id=eq.1`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({double_xp_until:neu,updated_at:new Date().toISOString()})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast("Konnte Booster nicht schalten","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  teamDoubleXpUntil=neu;
+  toast(neu?"⚡ Double-XP aktiv – 72 Stunden!":"Booster beendet");
+  questEditorOpen(); // Editor mit aktualisiertem Status neu zeichnen
 }
 let questDone=new Set();
 function questCountsLive(){
@@ -2651,6 +2673,11 @@ function questEditorOpen(){
     </div>`).join("")}</div>
     <label style="font-size:11px;color:var(--text2)">🎁 Nächste Belohnung für die Kids</label>
     <textarea id="qe-belohnung" rows="2" placeholder="z. B. Eis für alle beim nächsten Training!" style="width:100%;padding:8px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px;margin:4px 0 12px;box-sizing:border-box">${esc(teamBelohnung)}</textarea>
+    <div style="margin:0 0 12px;padding:10px;border:1.5px dashed #f59e0b;border-radius:10px;background:#fffbeb">
+      <div style="font-weight:700;font-size:12.5px;color:#92400e;margin-bottom:2px">⚡ Double-XP-Booster</div>
+      <div style="font-size:11px;color:#78716c;margin-bottom:8px">${xpBoostActive()?`Aktiv bis ${new Date(teamDoubleXpUntil).toLocaleString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})} Uhr – alle XP zählen doppelt!`:"72-Stunden-Fenster (z. B. übers Wochenende). Den 2x-Multiplikator rechnet der Server."}</div>
+      <button class="btn btn-sm ${xpBoostActive()?"":"btn-p"}" onclick="xpBoosterToggle(this)">${xpBoostActive()?"Booster beenden":"⚡ 72h aktivieren"}</button>
+    </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn" onclick="document.getElementById('quest-editor').remove()">Abbrechen</button>
       <button class="btn btn-p" onclick="questSave(this)"><i class="ti ti-device-floppy"></i>Speichern</button>

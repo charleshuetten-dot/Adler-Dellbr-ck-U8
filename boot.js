@@ -375,6 +375,9 @@ function awSave(){
   localStorage.setItem(AW_KEY,JSON.stringify(AW_DATA));
   teamTsSet(AW_TS_KEY,datum); // G1
   teamSyncUpsertDebounced("anwesenheit",datum,data); // G1 local-first + Schritt-6-Debounce
+  // FEAT S: Trainings-XP für anwesende Kinder – idempotent pro Datum (quelle_id),
+  // Mehrfach-Speichern vergibt also nie doppelt. Un-Toggle nimmt bewusst nichts weg.
+  KADER.forEach(k=>{if(data[k.name]&&data[k.name].da)xpAwardByName(k.name,"training",datum).catch(()=>{});});
   awRenderStats();
   awRenderTrainerStats();
   try{navigator.vibrate&&navigator.vibrate(50);}catch(e){} // 1C: haptische Bestätigung

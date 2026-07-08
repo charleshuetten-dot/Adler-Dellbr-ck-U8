@@ -628,5 +628,8 @@ function tqShowResult(){
   tqVibrate([30,50,30,50,120]); // K2: Blockabschluss
   if(pct>=70)confetti(document.getElementById("tq-result-panel")); // K3
   tqChipRemove(); // K6
+  // FEAT S: Quiz-XP – greift nur, wenn auf dem Gerät eine Eltern-/Trainer-Session liegt
+  // (anon = stiller No-Op). Server kappt auf 1 Gutschrift pro Kind und Tag.
+  if(tqPlayer)xpAwardByName(tqPlayer,"quiz").then(d=>{if(d>0)setTimeout(()=>toast(`⚡ +${d} XP für ${tqPlayer}!`),1400);}).catch(()=>{});
   if(!document.body.classList.contains("quiz-extern"))taktikReset("adler");
 }

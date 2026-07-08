@@ -358,3 +358,47 @@ function refreshSelects(){
     if(cur&&dbNames.includes(cur))sel.value=cur;
   });
 }
+
+/* ═══════════════════════════════════
+   ADLER-XP (Welle 1, FEAT S+T)
+   Punkte vergibt AUSSCHLIESSLICH die security-definer-RPC xp_award_event
+   (fixe Punktwerte, Idempotenz via quelle_id, Eltern-nur-eigenes-Kind,
+   Double-XP-Booster serverseitig). Der Client ruft nur auf und zeigt an.
+   Fehler laufen still ins Leere – XP dürfen nie einen Kern-Flow blockieren.
+   KEIN öffentliches Leaderboard (bewusste Produktentscheidung).
+═══════════════════════════════════ */
+const XP_BADGES=[
+  {min:400,t:"Adler-Legende",emo:"👑"},
+  {min:150,t:"Adler",emo:"🦅"},
+  {min:50,t:"Adler-Nachwuchs",emo:"⭐"},
+  {min:0,t:"Küken",emo:"🐣"}
+];
+function xpBadge(total){return XP_BADGES.find(b=>(total||0)>=b.min)||XP_BADGES[XP_BADGES.length-1];}
+
+async function xpAward(spielerId,quelle,quelleId){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/xp_award_event`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({p_spieler_id:spielerId,p_quelle:quelle,p_quelle_id:quelleId==null?null:String(quelleId)})});
+    if(!r.ok)return 0;               // anon/fremd/unbekannt -> Server lehnt ab, UI läuft weiter
+    return (await r.json())||0;      // 0 = schon vergeben (idempotent), >0 = gutgeschrieben
+  }catch(e){return 0;}
+}
+
+// Quiz & Anwesenheit kennen nur den Namen: ID RLS-konform auflösen.
+// Eltern-Session sieht im kader nur das eigene Kind -> eingebauter Cheat-Schutz.
+async function xpAwardByName(name,quelle,quelleId){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kader?select=id&name=eq.${encodeURIComponent(name)}&limit=1`,{headers:sbAuthHeaders()});
+    if(!r.ok)return 0;
+    const rows=await r.json();
+    if(!rows.length)return 0;
+    return xpAward(rows[0].id,quelle,quelleId);
+  }catch(e){return 0;}
+}
+
+async function xpTotal(spielerId){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/xp_total`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({p_spieler_id:spielerId})});
+    if(!r.ok)return 0;
+    return (await r.json())||0;
+  }catch(e){return 0;}
+}
