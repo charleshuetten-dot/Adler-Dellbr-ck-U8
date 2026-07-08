@@ -78,9 +78,74 @@ function setTF(f,btn){
   renderTraining();
 }
 
+// Trainings-Periodisierung: Saison-Themenplan (ein Schwerpunkt je Monat) – zeigt oben im Trainings-Tab.
+const PERIOD_CATS={aufwaermen:'Aufwärmen',raute:'Raute & Grundordnung',passspiel:'Passspiel',wahrnehmung:'Wahrnehmung & IQ',technik:'Technik & Ball',pressing:'Pressing & Umschalten',spass:'Spass & Wettbewerb',torwart:'Torwart',individual:'Individual',mindset:'Mindset'};
+async function periodLoad(){
+  const box=document.getElementById("period-banner"); if(!box)return;
+  const monat=new Date().toISOString().slice(0,7);
+  let cur=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/periodisierung?monat=eq.${monat}&select=*`,{headers:sbAuthHeaders()});if(r.ok)cur=(await r.json())[0];}catch(e){}
+  const monName=new Date().toLocaleDateString("de-DE",{month:"long",year:"numeric"});
+  if(cur){
+    box.innerHTML=`<div style="display:flex;align-items:flex-start;gap:8px"><div style="flex:1"><strong>🎯 Schwerpunkt ${esc(monName)}: ${esc(cur.thema)}</strong>${cur.kategorie?`<div style="font-size:11px;margin-top:2px">Passende Übungen: <b>${esc(PERIOD_CATS[cur.kategorie]||cur.kategorie)}</b> – über die Kategorien unten filtern.</div>`:""}</div><button onclick="periodOpen()" class="btn btn-sm" style="flex:none">📅 Plan</button></div>`;
+  }else{
+    box.innerHTML=`<div style="display:flex;align-items:center;gap:8px"><span style="flex:1">Plane die Saison in <b>Themenblöcken</b> (ein Schwerpunkt je Monat).</span><button onclick="periodOpen()" class="btn btn-sm" style="flex:none">📅 Themenplan</button></div>`;
+  }
+}
+async function periodOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("period-modal")?.remove();
+  const modal=document.createElement("div");modal.id="period-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Saison-Themenplan");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const fld="width:100%;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
+  const opts=Object.entries(PERIOD_CATS).map(([k,v])=>`<option value="${k}">${v}</option>`).join("");
+  const card=document.createElement("div");
+  card.style.cssText="background:var(--surface);color:var(--text);max-width:480px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  card.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">📅 Saison-Themenplan</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Ein Schwerpunkt je Monat. Der aktuelle Monat erscheint oben im Trainings-Tab.</div>
+    <div id="period-list" style="margin-bottom:12px"><div style="color:var(--text3);font-size:12px">Lade…</div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <label style="font-size:11px;color:var(--text2)">Monat<input type="month" id="period-monat" value="${new Date().toISOString().slice(0,7)}" style="${fld}"></label>
+      <label style="font-size:11px;color:var(--text2)">Kategorie<select id="period-kat" style="${fld}"><option value="">—</option>${opts}</select></label>
+    </div>
+    <label style="font-size:11px;color:var(--text2)">Thema<input id="period-thema" placeholder="z. B. Dribbling & 1-gegen-1" style="${fld}"></label>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="btn btn-p" onclick="periodSave()"><i class="ti ti-plus"></i>Speichern</button>
+      <button class="btn btn-sm" onclick="document.getElementById('period-modal').remove()">Schließen</button>
+    </div>`;
+  modal.appendChild(card);document.body.appendChild(modal);
+  periodListRender();
+}
+async function periodListRender(){
+  const box=document.getElementById("period-list"); if(!box)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/periodisierung?select=*&order=monat.asc`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)rows=await r.json();}catch(e){}
+  if(!rows.length){box.innerHTML='<div style="color:var(--text3);font-size:12.5px;padding:6px 0">Noch keine Monate geplant.</div>';return;}
+  const fmtM=m=>{const p=String(m).split("-");return p.length===2?new Date(p[0],p[1]-1,1).toLocaleDateString("de-DE",{month:"short",year:"2-digit"}):m;};
+  box.innerHTML=rows.map(x=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--surface2)">
+    <span style="font-weight:700;font-size:11px;color:var(--blue);width:58px">${esc(fmtM(x.monat))}</span>
+    <span style="flex:1;font-size:13px">${esc(x.thema)}${x.kategorie?` <span style="font-size:10px;color:var(--text3)">(${esc(PERIOD_CATS[x.kategorie]||x.kategorie)})</span>`:""}</span>
+    <button onclick="periodDelete('${esc(x.monat)}')" title="löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:13px;padding:2px 4px"><i class="ti ti-trash"></i></button>
+  </div>`).join("");
+}
+async function periodSave(){
+  const monat=document.getElementById("period-monat")?.value;
+  const thema=(document.getElementById("period-thema")?.value||"").trim();
+  const kategorie=document.getElementById("period-kat")?.value||null;
+  if(!monat||!thema){toast("Monat und Thema angeben","err");return;}
+  try{const r=await fetch(`${SB_URL}/rest/v1/periodisierung?on_conflict=monat`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({monat,thema,kategorie,updated_at:new Date().toISOString()})});if(sbCheck401(r))return;if(!r.ok&&r.status!==201){toast("Speichern fehlgeschlagen","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  const t=document.getElementById("period-thema");if(t)t.value="";
+  toast("Themenplan gespeichert ✓");periodListRender();periodLoad();
+}
+async function periodDelete(monat){
+  try{await fetch(`${SB_URL}/rest/v1/periodisierung?monat=eq.${encodeURIComponent(monat)}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}
+  periodListRender();periodLoad();
+}
 function renderTraining(){
   var wrap=document.getElementById('training-content');
   if(!wrap)return;
+  if(!window._periodLoaded){window._periodLoaded=true;periodLoad();} // Saison-Schwerpunkt einmal laden
   var search=(document.getElementById('training-search')||{value:''}).value.toLowerCase();
   var catLabels={aufwaermen:'Aufwärmen & Aktivierung',raute:'Raute & Grundordnung',passspiel:'Passspiel & Freilaufen',wahrnehmung:'Wahrnehmung & IQ',technik:'Technik & Ball',pressing:'Pressing & Umschalten',spass:'Spass & Wettbewerb',torwart:'Torwart-Training',individual:'Individual-Training',mindset:'Mindset & Selbstvertrauen',custom:'Eigene Formen'};
   var catCls={aufwaermen:'tf-cat-aufwaermen',raute:'tf-cat-raute',passspiel:'tf-cat-passspiel',wahrnehmung:'tf-cat-wahrnehmung',technik:'tf-cat-technik',pressing:'tf-cat-pressing',spass:'tf-cat-spass',torwart:'tf-cat-torwart',individual:'tf-cat-individual',mindset:'tf-cat-mindset',custom:'tf-cat-custom'};
