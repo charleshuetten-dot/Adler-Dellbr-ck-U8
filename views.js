@@ -1728,8 +1728,10 @@ async function renderHome(){
         ${istSpiel?`<button class="btn btn-p btn-sm" onclick="tmJump('blitz','${t.datum}','${t.spielform||''}')" style="white-space:nowrap"><i class="ti ti-whistle"></i>Matchday</button>`
                   :`<button class="btn btn-sm" onclick="tmJump('planung','${t.datum}')" style="white-space:nowrap"><i class="ti ti-clipboard-list"></i>Plan</button>`}
       </div>
-      <div id="wetter-home"></div>`,m.col);
+      <div id="wetter-home"></div>
+      <div id="gegner-contact-home"></div>`,m.col);
     wetterInto("wetter-home",t.datum,t.ort); // Wetter am Termin-Ort (Geocoding), nur in Reichweite
+    if(istSpiel)gegnerContactInto("gegner-contact-home",t.titel||t.gegner); // Ansprechpartner aus Gegner-DB
   }catch(e){
     const slot=document.getElementById("home-next");
     if(slot)slot.innerHTML=card('<div style="font-size:12px;color:var(--text3)">Offline – kein Terminabruf.</div>');

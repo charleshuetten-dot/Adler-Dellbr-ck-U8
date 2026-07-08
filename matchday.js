@@ -1678,11 +1678,141 @@ async function gegnerAddrSearch(){
 function gegnerAddrPick(btn){
   const addr=btn.getAttribute("data-addr")||"";
   const inp=document.getElementById("tm-ort"); if(inp)inp.value=addr;
-  const box=document.getElementById("tm-addr-results"); if(box)box.innerHTML=`<div style="font-size:11px;color:#16a34a;padding:4px 2px">✓ Adresse übernommen – Wetter nutzt jetzt diesen Ort.</div>`;
+  const name=(document.getElementById("tm-titel")?.value||"").trim();
+  const box=document.getElementById("tm-addr-results");
+  if(box)box.innerHTML=`<div style="font-size:11px;color:#16a34a;padding:4px 2px">✓ Adresse übernommen – Wetter nutzt jetzt diesen Ort.</div>`+
+    (name?`<button type="button" class="btn btn-sm" style="margin-top:4px" onclick="gegnerQuickSave()"><i class="ti ti-address-book"></i>„${esc(name)}" als Gegner merken</button>`:"");
+}
+
+/* ═══════════════════════════════════
+   GEGNER-DATENBANK – Adresse + Ansprechpartner/Kontakt pro Gegner.
+   Enthält Kontaktdaten Dritter → Tabelle `gegner` ist RLS-strikt trainer-only.
+   Bei der Termin-Anlage füllt ein bekannter Gegner die Adresse automatisch; der
+   Ansprechpartner erscheint (klickbar) am nächsten Spiel im Trainer-Dashboard.
+═══════════════════════════════════ */
+let GEGNER_CACHE=null;
+async function gegnerLoad(force){
+  if(GEGNER_CACHE&&!force){gegnerDatalistFill();return GEGNER_CACHE;}
+  try{const r=await fetch(`${SB_URL}/rest/v1/gegner?select=*&order=name.asc`,{headers:sbAuthHeaders()});if(r.ok)GEGNER_CACHE=await r.json();}catch(e){}
+  GEGNER_CACHE=GEGNER_CACHE||[];
+  gegnerDatalistFill();
+  return GEGNER_CACHE;
+}
+function gegnerDatalistFill(){
+  const dl=document.getElementById("gegner-datalist"); if(!dl||!GEGNER_CACHE)return;
+  dl.innerHTML=GEGNER_CACHE.map(g=>`<option value="${esc(g.name)}">`).join("");
+}
+async function gegnerFind(name){
+  if(!name)return null;
+  const list=await gegnerLoad(), n=name.trim().toLowerCase();
+  return list.find(g=>g.name.toLowerCase()===n) || list.find(g=>n.includes(g.name.toLowerCase())) || null;
+}
+async function gegnerAutofill(){
+  const name=(document.getElementById("tm-titel")?.value||"").trim();
+  if(!name)return;
+  const g=await gegnerFind(name); if(!g)return;
+  const ort=document.getElementById("tm-ort");
+  if(ort&&!ort.value.trim()&&g.adresse)ort.value=g.adresse;
+  const box=document.getElementById("tm-addr-results");
+  if(box)box.innerHTML=`<div style="font-size:11px;color:#16a34a;padding:4px 2px">✓ Gegner erkannt – Adresse${(g.ansprechpartner||g.telefon)?" & Kontakt":""} aus der Datenbank.</div>`;
+}
+async function gegnerContactInto(elId,name){
+  const g=await gegnerFind(name);
+  const el=document.getElementById(elId);
+  if(!el||!g||!(g.ansprechpartner||g.telefon))return;
+  const tel=g.telefon?String(g.telefon).replace(/\s/g,""):"";
+  el.innerHTML=`<div style="font-size:11.5px;color:var(--text2);margin-top:6px">📇 ${esc(g.ansprechpartner||"Ansprechpartner")}${g.telefon?` · <a href="tel:${esc(tel)}" style="color:var(--blue);font-weight:700;text-decoration:none">☎ ${esc(g.telefon)}</a>`:""}</div>`;
+}
+async function gegnerQuickSave(){
+  const name=(document.getElementById("tm-titel")?.value||"").trim();
+  const adresse=(document.getElementById("tm-ort")?.value||"").trim();
+  if(!name){toast("Kein Gegnername","err");return;}
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/gegner?on_conflict=name`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({name,adresse:adresse||null})});
+    if(sbCheck401(r))return;
+    if(r.ok||r.status===201){toast("Als Gegner gemerkt ✓ – Kontakt in der Gegner-Datenbank ergänzen");await gegnerLoad(true);}
+    else toast("Speichern fehlgeschlagen","err");
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+async function gegnerManageOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("gegner-modal")?.remove();
+  const modal=document.createElement("div");
+  modal.id="gegner-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Gegner-Datenbank");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const card=document.createElement("div");
+  card.style.cssText="background:var(--surface);color:var(--text);max-width:520px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  card.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🗂️ Gegner-Datenbank</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Adresse & Ansprechpartner pro Gegner – nur für Trainer sichtbar. Bei der Termin-Anlage füllt sich die Adresse dann automatisch.</div>
+    <div id="gegner-list" style="margin-bottom:8px"><div style="color:var(--text3);font-size:12px">Lade…</div></div>
+    <div id="gegner-form"></div>
+    <button class="btn btn-sm" style="margin-top:12px;width:100%" onclick="document.getElementById('gegner-modal').remove()">Schließen</button>`;
+  modal.appendChild(card);document.body.appendChild(modal);
+  await gegnerLoad(true);
+  gegnerRenderList(); gegnerFormRender(null);
+}
+function gegnerRenderList(){
+  const box=document.getElementById("gegner-list"); if(!box)return;
+  const list=GEGNER_CACHE||[];
+  if(!list.length){box.innerHTML=`<div style="font-size:12px;color:var(--text3)">Noch keine Gegner gespeichert.</div>`;return;}
+  box.innerHTML=list.map(g=>`<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:var(--border)">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:700">${esc(g.name)}</div>
+      ${g.adresse?`<div style="font-size:11px;color:var(--text2)">📍 ${esc(g.adresse)}</div>`:""}
+      ${(g.ansprechpartner||g.telefon)?`<div style="font-size:11px;color:var(--text2)">📇 ${esc(g.ansprechpartner||"")}${g.telefon?` · ☎ ${esc(g.telefon)}`:""}</div>`:""}
+    </div>
+    <button class="btn btn-sm" onclick="gegnerEdit(${g.id})"><i class="ti ti-edit"></i></button>
+  </div>`).join("");
+}
+function gegnerFormRender(g){
+  const box=document.getElementById("gegner-form"); if(!box)return;
+  g=g||{};
+  const fld="width:100%;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
+  box.innerHTML=`<div style="border-top:var(--border-s);padding-top:10px">
+    <div style="font-size:11px;font-weight:800;color:var(--text2);margin-bottom:6px">${g.id?"✏️ Gegner bearbeiten":"➕ Neuer Gegner"}</div>
+    <input type="hidden" id="gg-id" value="${g.id||""}">
+    <label style="font-size:11px;color:var(--text2)">Name*<input id="gg-name" value="${esc(g.name||"")}" style="${fld}"></label>
+    <label style="font-size:11px;color:var(--text2)">Adresse<input id="gg-adresse" value="${esc(g.adresse||"")}" placeholder="Straße, PLZ Ort" style="${fld}"></label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <label style="font-size:11px;color:var(--text2)">Ansprechpartner<input id="gg-ap" value="${esc(g.ansprechpartner||"")}" style="${fld}"></label>
+      <label style="font-size:11px;color:var(--text2)">Telefon<input id="gg-tel" value="${esc(g.telefon||"")}" style="${fld}"></label>
+    </div>
+    <label style="font-size:11px;color:var(--text2)">E-Mail<input id="gg-email" value="${esc(g.email||"")}" style="${fld}"></label>
+    <label style="font-size:11px;color:var(--text2)">Notiz<input id="gg-notiz" value="${esc(g.notiz||"")}" style="${fld}"></label>
+    <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+      <button class="btn btn-p btn-sm" onclick="gegnerSave()"><i class="ti ti-device-floppy"></i>Speichern</button>
+      ${g.id?`<button class="btn btn-sm" onclick="gegnerFormRender(null)">Neu</button><button class="btn btn-sm" style="margin-left:auto;color:#dc2626" onclick="gegnerDelete(${g.id})"><i class="ti ti-trash"></i>Löschen</button>`:""}
+    </div>
+  </div>`;
+}
+function gegnerEdit(id){ const g=(GEGNER_CACHE||[]).find(x=>x.id===id); gegnerFormRender(g||null); }
+async function gegnerSave(){
+  const name=(document.getElementById("gg-name")?.value||"").trim();
+  if(!name){toast("Name fehlt","err");return;}
+  const id=document.getElementById("gg-id")?.value;
+  const v=i=>(document.getElementById(i)?.value||"").trim()||null;
+  const body={name, adresse:v("gg-adresse"), ansprechpartner:v("gg-ap"), telefon:v("gg-tel"), email:v("gg-email"), notiz:v("gg-notiz")};
+  try{
+    let r;
+    if(id) r=await fetch(`${SB_URL}/rest/v1/gegner?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify(body)});
+    else   r=await fetch(`${SB_URL}/rest/v1/gegner?on_conflict=name`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(body)});
+    if(sbCheck401(r))return;
+    if(r.ok||r.status===201){ toast("Gegner gespeichert ✓"); await gegnerLoad(true); gegnerRenderList(); gegnerFormRender(null); }
+    else toast("Speichern fehlgeschlagen","err");
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+async function gegnerDelete(id){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/gegner?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(sbCheck401(r))return;
+    toast("Gegner gelöscht"); await gegnerLoad(true); gegnerRenderList(); gegnerFormRender(null);
+  }catch(e){toast("Netzwerkfehler","err");}
 }
 async function tmLoad(){
   const up=document.getElementById("tm-upcoming"),pa=document.getElementById("tm-past");
   if(!up||!pa)return;
+  gegnerLoad(); // Gegner-Datenbank → Datalist für Auto-Fill
   up.innerHTML='<div style="font-size:11px;color:var(--text3)">Lade...</div>';pa.innerHTML="";
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&order=datum.asc`,{headers:sbAuthHeaders()});
