@@ -566,3 +566,26 @@ h1.print-header{display:none}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:10px;font-size:13px;font-weight:500;color:#fff;z-index:10001;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.2);font-family:inherit}
 .toast.show{opacity:1}.toast-ok{background:#15803d}.toast-err{background:#b91c1c}.toast-info{background:#1a56db}
 
+
+/* ── STADIONHEFT (FEAT X, Print) ── */
+#heft-print{display:none}
+@media print{
+  body.printing-heft>*{display:none!important}
+  body.printing-heft #heft-print{display:block!important}
+  #heft-print{-webkit-print-color-adjust:exact;print-color-adjust:exact;font-family:Inter,system-ui,sans-serif}
+}
+.heft-wrap{max-width:190mm;margin:0 auto;color:#0f172a}
+.heft-head{text-align:center;border-bottom:3px solid #1a56db;padding-bottom:10px;margin-bottom:12px}
+.heft-head img{width:54px;height:54px}
+.heft-club{font-size:12px;color:#64748b;font-weight:600;letter-spacing:.5px}
+.heft-title{font-size:26px;font-weight:900;color:#1a56db;margin:2px 0}
+.heft-match{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;color:#1e3a8a;text-align:center;margin-bottom:14px}
+.heft-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.heft-card{border:1px solid #e2e8f0;border-radius:12px;padding:10px;text-align:center;break-inside:avoid}
+.heft-foto{position:relative;width:74px;height:74px;margin:0 auto 6px;border-radius:50%;overflow:hidden;background:linear-gradient(135deg,#1a56db,#3b82f6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;font-weight:800}
+.heft-foto img{width:100%;height:100%;object-fit:cover}
+.heft-nr{position:absolute;bottom:-2px;right:-2px;min-width:22px;height:22px;background:#facc15;color:#1e293b;border-radius:11px;border:2px solid #fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px}
+.heft-name{font-size:15px;font-weight:800}
+.heft-spitz{font-size:11px;color:#64748b;font-style:italic}
+.heft-pos{font-size:11px;color:#1a56db;font-weight:700;margin-top:2px}
+.heft-foot{text-align:center;font-size:11px;color:#64748b;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:8px}

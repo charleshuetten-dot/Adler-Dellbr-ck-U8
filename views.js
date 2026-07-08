@@ -1417,7 +1417,8 @@ async function renderHome(){
     <button id="wrapped-btn" onclick="adlerWrappedOpen()" style="width:100%;min-height:48px;margin-top:12px;border:none;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;color:#fff;background:linear-gradient(135deg,#7c3aed,#ec4899)">🎬 Adler Wrapped – Saison-Rückblick</button>
     <button onclick="kasseOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">💰 Teamkasse</button>
     <button onclick="fundbueroOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🧦 Fundbüro</button>
-    <button onclick="ausruestungExport()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">👕 Ausrüstung als CSV</button>`;
+    <button onclick="ausruestungExport()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">👕 Ausrüstung als CSV</button>
+    <button onclick="printStadionheft()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🖨️ Stadionheft drucken</button>`;
 
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
   try{
@@ -1462,3 +1463,64 @@ document.addEventListener("visibilitychange",()=>{
   if(document.visibilityState==="visible"&&document.getElementById("view-taktik")?.classList.contains("active"))requestWakeLock();
 });
 
+
+/* ═══════════════════════════════════
+   STADIONHEFT (FEAT X, Print) – druckbares Programmheft mit Mannschafts-
+   vorstellung. Fotos werden als Data-URL EINGEBETTET (Auth-Download ->
+   Blob -> FileReader), damit sie im Druck garantiert da sind – keine
+   ablaufenden Signed-URLs, kein CORS-Problem. Muster wie printZertifikat.
+═══════════════════════════════════ */
+async function heftFotoDataUrl(path){
+  if(!path)return null;
+  try{
+    const r=await fetch(`${SB_URL}/storage/v1/object/authenticated/spielerfotos/${path}`,{headers:{'Authorization':'Bearer '+sbToken()}});
+    if(!r.ok)return null;
+    const blob=await r.blob();
+    return await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=()=>res(null);fr.readAsDataURL(blob);});
+  }catch(e){return null;}
+}
+async function printStadionheft(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  toast("🖨️ Stadionheft wird vorbereitet…");
+  let kader=[],fanfacts={},termin=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/kader?select=id,name,nr,foto_path,lieblingsposition,tw,aktiv&order=nr.asc.nullslast`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)kader=(await r.json()).filter(k=>k.aktiv!==false);}catch(e){}
+  if(!kader.length){toast("Kein Kader gefunden","err");return;}
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_fanfacts?select=spieler_id,spitzname`,{headers:sbAuthHeaders()});if(r.ok)(await r.json()).forEach(f=>{if(f.spitzname)fanfacts[f.spieler_id]=f.spitzname;});}catch(e){}
+  const heute=new Date().toISOString().slice(0,10);
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&typ=in.(spiel,turnier)&datum=gte.${heute}&order=datum.asc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)termin=(await r.json())[0]||null;}catch(e){}
+  const fotos=await Promise.all(kader.map(k=>heftFotoDataUrl(k.foto_path)));
+  const cards=kader.map((k,i)=>{
+    const foto=fotos[i];
+    const initialen=(k.name||"?").trim().slice(0,1).toUpperCase();
+    const spitz=fanfacts[k.id];
+    const pos=k.lieblingsposition?cardPosLabel(k.lieblingsposition):(k.tw?"Torwart":"");
+    return `<div class="heft-card">
+      <div class="heft-foto">${foto?`<img src="${foto}" alt="">`:`<span>${esc(initialen)}</span>`}${k.nr!=null?`<div class="heft-nr">${esc(k.nr)}</div>`:""}</div>
+      <div class="heft-name">${esc(k.name)}${k.tw?" 🥅":""}</div>
+      ${spitz?`<div class="heft-spitz">„${esc(spitz)}"</div>`:""}
+      ${pos?`<div class="heft-pos">${esc(pos)}</div>`:""}
+    </div>`;
+  }).join("");
+  let spielHtml="";
+  if(termin){
+    const tm=(typeof TM_META!=="undefined"&&TM_META[termin.typ])||{icon:"⚽"};
+    const d=new Date(termin.datum+"T00:00:00");
+    spielHtml=`<div class="heft-match">${tm.icon} Nächstes Spiel: ${esc(termin.titel||termin.gegner||"")} · ${d.toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})}${termin.uhrzeit?" · "+String(termin.uhrzeit).slice(0,5)+" Uhr":""}${termin.ort?" · "+esc(termin.ort):""}</div>`;
+  }
+  document.getElementById("heft-print").innerHTML=`<div class="heft-wrap">
+    <div class="heft-head">
+      <img src="logo.png" alt="SV Adler Dellbrück">
+      <div class="heft-club">SV ADLER DELLBRÜCK e.V.</div>
+      <div class="heft-title">Stadionheft U9 I</div>
+      <div class="heft-club">Saison ${typeof saisonLabel==="function"?saisonLabel():""} · unsere Mannschaft</div>
+    </div>
+    ${spielHtml}
+    <div class="heft-grid">${cards}</div>
+    <div class="heft-foot">Auf geht's, Adler! 🦅 · Trainerteam Sandy · Charles · Kenneth · Peter</div>
+  </div>`;
+  document.body.classList.add("printing-heft");
+  const cleanup=()=>{document.body.classList.remove("printing-heft");window.removeEventListener("afterprint",cleanup);};
+  window.addEventListener("afterprint",cleanup);
+  setTimeout(cleanup,4000);
+  window.print();
+}
