@@ -233,7 +233,9 @@ async function elternDashLoad(){
       </div>`).join("")}
       <div style="font-size:10px;color:#94a3b8;margin-top:8px">Informativ. Zahlungen laufen extern über PayPal.</div>`);
   }
+  html+=`<div id="ak-slot"></div>`; // FEAT Z: Adler-Kasse (async, nur wenn Link gesetzt)
   body.innerHTML=html;
+  adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(el)el.innerHTML=adlerkasseCardHtml(l);}).catch(()=>{});
   // FEAT S: XP-Chips async füllen (RPC xp_total – Eltern sehen nur das eigene Kind)
   kids.forEach(k=>{xpTotal(k.spieler_id).then(t=>{const el=document.getElementById("xp-chip-"+k.spieler_id);if(el){const b=xpBadge(t);el.textContent=`⚡ ${t} XP · ${b.emo} ${b.t}`;}}).catch(()=>{});});
   // UX 3: Deep-Link-Intent genau einmal abarbeiten – zum Nudge scrollen + kurz pulsen lassen
@@ -505,6 +507,7 @@ async function kasseRender(){
   let ledger=[],umlagen=[];
   try{const r=await fetch(`${SB_URL}/rest/v1/teamkasse?select=*&order=datum.desc,id.desc`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)ledger=await r.json();}catch(e){}
   try{const r=await fetch(`${SB_URL}/rest/v1/kasse_umlagen?select=*&order=aktiv.desc,faellig.asc`,{headers:sbAuthHeaders()});if(r.ok)umlagen=await r.json();}catch(e){}
+  let spendenLink=""; try{const r=await fetch(`${SB_URL}/rest/v1/team_config?id=eq.1&select=spenden_link`,{headers:sbAuthHeaders()});if(r.ok)spendenLink=(((await r.json())[0])||{}).spenden_link||"";}catch(e){}
   const saldo=ledger.reduce((s,x)=>s+Number(x.betrag),0);
   const inp="padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px";
   body.innerHTML=`
@@ -539,7 +542,23 @@ async function kasseRender(){
       <input id="u-paypal" placeholder="PayPal.Me-Link (optional)" style="flex:1;min-width:130px;${inp}">
       <button class="btn btn-sm" onclick="kasseAddUmlage()"><i class="ti ti-plus"></i>Umlage</button>
     </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin:16px 0 6px">🦅 Adler-Kasse (Fan-Spenden-Link)</div>
+    <div style="display:flex;gap:6px">
+      <input id="ak-link" value="${esc(spendenLink)}" placeholder="https://paypal.me/deinLink" style="flex:1;min-width:130px;${inp}">
+      <button class="btn btn-sm" onclick="adlerkasseSave()"><i class="ti ti-device-floppy"></i>Speichern</button>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-top:4px">Dauerhafter Spenden-Button für Fans (Liveticker) &amp; Eltern-Portal. Leer lassen = kein Button.</div>
     <div style="font-size:10px;color:var(--text3);margin-top:12px">Rein informativ – die App verwaltet kein Geld. Zahlungen laufen extern über PayPal.</div>`;
+}
+async function adlerkasseSave(){
+  const link=(document.getElementById("ak-link")?.value||"").trim()||null;
+  if(link&&!/^https?:\/\//i.test(link)){toast("Bitte einen vollständigen Link mit https:// eingeben","err");return;}
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/team_config?on_conflict=id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({id:1,spenden_link:link,updated_at:new Date().toISOString()})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast("Speichern fehlgeschlagen","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  toast(link?"🦅 Adler-Kasse-Link gespeichert ✓":"Link entfernt");
 }
 async function kasseAddEntry(){
   const sign=parseInt(document.getElementById("k-typ")?.value)||1;
@@ -2208,6 +2227,7 @@ async function renderTickerView(key){
   root.style.cssText="max-width:440px;margin:0 auto;padding:16px;font-family:inherit;min-height:100vh;background:#f1f5f9";
   document.body.appendChild(root);
   root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Lade Liveticker...</div>';
+  let adlerkasseHtml=""; // FEAT Z: Spenden-Button, einmal geladen (draw() laeuft alle 15s)
   async function loadClock(){
     try{
       const r=await fetch(`${SB_URL}/rest/v1/matchday?datum=eq.${encodeURIComponent(key)}&select=gegner,half,clock_status,started_at,paused_ms,ticker_open,spieldauer_min`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
@@ -2240,9 +2260,11 @@ async function renderTickerView(key){
         : `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px">
             ${events.length?events.map(e=>`<div style="padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13.5px"><strong style="color:#1e3a8a">${e.minute?elternEsc(e.minute):""}</strong> ${elternEsc(e.text)}</div>`).join(""):'<div style="font-size:12.5px;color:#94a3b8">Noch keine Ereignisse. Der Ticker startet mit dem Anpfiff – bleib dran!</div>'}
           </div>`}
+      ${adlerkasseHtml}
       <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:14px">Nur-Ansehen · aktualisiert automatisch · SV Adler Dellbrück e.V.</div>`;
   }
   await loadClock();
+  adlerkasseHtml=adlerkasseCardHtml(await adlerkasseLinkGet()); // FEAT Z
   await draw();
   // Minute jede Sekunde lokal aktualisieren (nur DOM-Textknoten), Ereignisse+Uhr alle 15s frisch ziehen.
   clearInterval(tickerViewMinuteTimer);
@@ -3681,4 +3703,30 @@ async function galerieDelete(id,path,terminId){
     try{await fetch(`${SB_URL}/storage/v1/object/termin_media/${path}`,{method:"DELETE",headers:{'Authorization':'Bearer '+sbToken()}});}catch(e){}
     galerieRender(terminId);
   }catch(e){}
+}
+
+/* ═══════════════════════════════════
+   ADLER-KASSE (Welle 2, FEAT Z-light) – dauerhafter Spenden-Button.
+   Link kommt aus der Minimal-RPC adlerkasse_link (anon + auth callable).
+   NUR statischer Redirect zu PayPal – die App fasst KEIN Geld an, kein
+   Login noetig. Button erscheint nur, wenn ein echter http(s)-Link gesetzt ist.
+═══════════════════════════════════ */
+async function adlerkasseLinkGet(){
+  try{
+    const h=sbToken()?sbAuthHeaders():{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/adlerkasse_link`,{method:"POST",headers:h,body:"{}"});
+    if(!r.ok)return null;
+    const v=await r.json();
+    const s=(v==null?"":String(v)).trim();
+    return s||null;
+  }catch(e){return null;}
+}
+function adlerkasseCardHtml(link){
+  if(!link||!/^https?:\/\//i.test(link))return ""; // nur echte http(s)-Links (kein javascript: o.ä.)
+  return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;margin-top:12px;text-align:center">
+    <div style="font-size:15px;font-weight:800;color:#1e3a8a">🦅 Adler-Kasse</div>
+    <div style="font-size:12px;color:#64748b;margin:4px 0 10px">Danke, dass du unsere Jungs anfeuerst! Jeder Euro fließt direkt in die Mannschaft – fürs Eis nach dem Sieg 🍦, den Ausflug, die nächste Belohnung.</div>
+    <a href="${esc(link)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#0070ba;color:#fff;border-radius:10px;padding:11px 22px;font-weight:800;font-size:14px;text-decoration:none">☕ Kleinigkeit spenden</a>
+    <div style="font-size:9.5px;color:#cbd5e1;margin-top:8px">Zahlung läuft extern über PayPal. Die App fasst kein Geld an.</div>
+  </div>`;
 }
