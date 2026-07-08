@@ -44,6 +44,9 @@ let epEmail="";
 async function renderElternPortal(){
   let root=document.getElementById("eltern-portal");
   if(!root){root=document.createElement("div");root.id="eltern-portal";root.style.cssText="min-height:100vh;background:#f1f5f9;font-family:inherit;padding:16px";document.body.appendChild(root);}
+  // UX 5 (Forever-Login): access_token abgelaufen, aber refresh_token noch gültig? Still erneuern,
+  // bevor wir zum OTP-Login zurückfallen – Eltern bleiben praktisch dauerhaft eingeloggt.
+  if(!sbToken()){const s=sbSession();if(s&&s.refresh_token){root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Lade…</div>';await sbRefreshToken();}}
   if(sbToken()){
     root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Lade…</div>';
     const role=await authRole();

@@ -32,7 +32,12 @@ function sbAuthHeaders(extra){
 function sbCheck401(res){
   if(res&&res.status===401&&!document.body.classList.contains("quiz-extern")){
     localStorage.removeItem(SB_TOKEN_KEY);
-    showLoginGate();
+    // UX 5: im Eltern-Portal den passwortlosen Portal-Login zeigen, NICHT das Trainer-Passwort-Gate
+    if(new URLSearchParams(location.search).has("portal")){
+      if(typeof renderElternPortal==="function")renderElternPortal();
+    }else{
+      showLoginGate();
+    }
     return true;
   }
   return false;
