@@ -485,7 +485,7 @@ async function wetterInto(elId,dateStr,place){
   const el=document.getElementById(elId);
   if(!el||!w)return; // außer Reichweite / offline: nichts anzeigen
   const rain=(w.rain!=null)?` · 💧 ${w.rain}%`:"";
-  el.innerHTML=`<span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text2);background:var(--surface2);border:var(--border);border-radius:20px;padding:3px 10px;margin-top:6px">${w.emoji} ${w.text} · ${w.tmax}°/${w.tmin}°${rain}</span>`;
+  el.innerHTML=`<span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text2);background:var(--surface2);border:var(--border);border-radius:20px;padding:3px 10px;margin-top:6px">${w.emoji} ${w.text} · ${w.tmin}–${w.tmax} °C${rain}</span>`;
 }
 
 async function xpAward(spielerId,quelle,quelleId){

@@ -1689,7 +1689,7 @@ async function renderHome(){
     ${questTeaser}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       ${statTile(KADER.length,"Kader","var(--blue)","go('kader')")}
-      ${statTile(bewertet+"/"+KADER.length,"bewertet (v2)","#059669","go('bew')")}
+      ${statTile(bewertet+"/"+KADER.length,"bewertet","#059669","go('bew')")}
       ${statTile(stale,"überfällig >8 Wo","#dc2626","go('bew')")}
     </div>
     <div id="home-radar"></div>
