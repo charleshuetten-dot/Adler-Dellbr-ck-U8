@@ -2146,6 +2146,45 @@ function matchReportCopy(){
   else{ta.select();try{document.execCommand("copy");done();}catch(e){}}
 }
 
+/* Kalender-Sync (.ics): kommende veröffentlichte Termine als Kalenderdatei –
+   landen mit Erinnerung nativ im Handy-Kalender der Eltern. Rein clientseitig. */
+function icsEscape(s){ return String(s||"").replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\n/g,"\\n"); }
+function icsLocalStart(datum,time){ const m=time.match(/^(\d{1,2}):(\d{2})/); return datum.replace(/-/g,"")+"T"+m[1].padStart(2,"0")+m[2]+"00"; }
+function icsLocalPlus(datum,time,addMin){ const m=time.match(/^(\d{1,2}):(\d{2})/); const dt=new Date(datum+"T"+m[1].padStart(2,"0")+":"+m[2]+":00"); dt.setMinutes(dt.getMinutes()+addMin); const p=n=>String(n).padStart(2,"0"); return `${dt.getFullYear()}${p(dt.getMonth()+1)}${p(dt.getDate())}T${p(dt.getHours())}${p(dt.getMinutes())}00`; }
+async function elternKalenderIcs(){
+  toast("🗓️ Kalender wird erstellt…");
+  const heute=new Date().toISOString().slice(0,10);
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/matchday?datum=gte.${heute}&published=eq.true&select=datum,gegner,ort,treffpunkt,anpfiff,typ&order=datum.asc`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});if(r.ok)rows=await r.json();}catch(e){}
+  if(!rows.length){toast("Keine kommenden Termine","err");return;}
+  const stamp=new Date().toISOString().replace(/[-:]/g,"").split(".")[0]+"Z";
+  const lines=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//SV Adler Dellbrück//U9//DE","CALSCALE:GREGORIAN","METHOD:PUBLISH","X-WR-CALNAME:Adler U9 Termine"];
+  rows.forEach((m,i)=>{
+    const istTr=m.typ==="training";
+    const titel=istTr?"Training U9":("Spiel U9"+(m.gegner?" gegen "+m.gegner:""));
+    const hasTime=m.anpfiff&&/^\d{1,2}:\d{2}/.test(m.anpfiff);
+    lines.push("BEGIN:VEVENT","UID:adler-u9-"+m.datum+"-"+i+"@adler-dellbrueck","DTSTAMP:"+stamp);
+    if(hasTime){ lines.push("DTSTART:"+icsLocalStart(m.datum,m.anpfiff)); lines.push("DTEND:"+icsLocalPlus(m.datum,m.anpfiff,istTr?75:120)); }
+    else{ lines.push("DTSTART;VALUE=DATE:"+m.datum.replace(/-/g,"")); }
+    lines.push("SUMMARY:"+icsEscape(titel));
+    if(m.ort)lines.push("LOCATION:"+icsEscape(m.ort));
+    // Jeden Teil einzeln escapen, dann mit iCal-Zeilenumbruch (\n) verbinden – sonst würde der Umbruch doppelt escaped.
+    const descParts=[m.treffpunkt?"Treffpunkt: "+m.treffpunkt:"",m.anpfiff?((istTr?"Beginn: ":"Anpfiff: ")+m.anpfiff):""].filter(Boolean).map(icsEscape);
+    if(descParts.length)lines.push("DESCRIPTION:"+descParts.join("\\n"));
+    lines.push("BEGIN:VALARM","TRIGGER:-P1D","ACTION:DISPLAY","DESCRIPTION:"+icsEscape(titel+" morgen"),"END:VALARM");
+    lines.push("END:VEVENT");
+  });
+  lines.push("END:VCALENDAR");
+  const ics=lines.join("\r\n");
+  const blob=new Blob([ics],{type:"text/calendar;charset=utf-8"});
+  try{
+    const file=new File([blob],"adler-u9-termine.ics",{type:"text/calendar"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:"Adler U9 Termine"}); return; }
+  }catch(e){ if(e&&e.name==="AbortError")return; }
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="adler-u9-termine.ics";
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast("Kalenderdatei erstellt ✓");
+}
 /* ═══════════════════════════════════
    ELTERN-MATCHDAY-CARD – öffentlicher Read-Only-Link (?eltern / ?match=datum)
    Bewusst nur Logistik, keine Bewertungsdaten. Läuft ohne Login über den Anon-Key.
@@ -2193,6 +2232,7 @@ async function renderElternView(datum){
       </div>
       ${istTraining?`<div id="ev-dabei" style="margin-top:14px"></div><div id="ev-fahrt" style="margin-top:14px"></div>`:`<div id="ev-ticker" style="margin-top:14px"></div>`}
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin:16px 0 8px;text-align:center">Für Eltern</div>
+      <button onclick="elternKalenderIcs()" style="width:100%;margin-bottom:10px;background:#1e3a8a;color:#fff;border:none;padding:14px;border-radius:12px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer">🗓️ Termine in meinen Kalender</button>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <a href="${location.origin+location.pathname}?heft" style="text-align:center;background:#fff;border:1.5px solid #1e3a8a;color:#1e3a8a;padding:13px 8px;border-radius:12px;text-decoration:none;font-weight:700;font-size:13px">📰 Stadionheft</a>
         <a href="${location.origin+location.pathname}?portal" style="text-align:center;background:#fff;border:1.5px solid #1e3a8a;color:#1e3a8a;padding:13px 8px;border-radius:12px;text-decoration:none;font-weight:700;font-size:13px">👨‍👩‍👧 Mein Kind</a>
