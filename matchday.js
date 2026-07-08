@@ -2425,11 +2425,14 @@ function mdShareLink(datum){
 let rotField=[], rotBench=[], rotBenchSec={}, rotTimerId=null, rotElapsed=0, rotIntervalMin=5, rotTW=null;
 // Feldgröße folgt der aktuellen Spielform (FORMATIONS): Funino 3, 4+1 = 4, 5+1 = 5.
 function rotFieldSize(){ return ((typeof FORMATIONS!=="undefined"&&FORMATIONS[tbFormation])||{fieldCount:5}).fieldCount; }
+// HOTFIX 11: Torwart (Fest) bewusst setzen/entfernen – aus Feld & Bank raus, rotiert getrennt.
+function rotSetTW(name){ if(!name)return; rotField=rotField.filter(n=>n!==name); rotBench=rotBench.filter(n=>n!==name); rotTW=name; rotRenderLive(); }
+function rotClearTW(){ if(rotTW&&!rotBench.includes(rotTW)&&!rotField.includes(rotTW))rotBench.push(rotTW); rotTW=null; rotRenderLive(); }
 // Korrektur 3: Der Torwart wird separat gehalten – er steht im Tor und rotiert NICHT
 // mit den Feldspielern. Nur die Feldspieler wechseln zwischen Feld und Bank.
 function rotSeedFromSquad(squad){
   const form=(typeof FORMATIONS!=="undefined"&&FORMATIONS[tbFormation])||{tw:true,fieldCount:5};
-  rotTW=form.tw?(squad.find(n=>getKader(n)?.tw)||null):null;
+  rotTW=null; // HOTFIX 11: Torwart-Slot startet LEER – der Trainer setzt ihn bewusst (rotSetTW)
   const outfield=squad.filter(n=>n!==rotTW);
   rotField=outfield.slice(0,form.fieldCount);
   rotBench=outfield.slice(form.fieldCount);
@@ -2504,7 +2507,17 @@ function rotRenderLive(){
     sugg=`<div style="padding:8px 10px;background:#fef9c3;border:1px solid #fde047;border-radius:var(--r);font-size:12.5px;color:#854d0e;margin-bottom:10px">🔁 Vorschlag: <strong>${esc(benchTop)}</strong> (Bank ${fmtSec(rotBenchSec[benchTop])}) rein für <strong>${esc(fieldTired)}</strong></div>`;
   }
   const chip=(n,onField)=>`<button onclick="rotMove('${n.replace(/'/g,"")}')" style="font-size:12.5px;padding:8px 10px;min-height:44px;border:var(--border-s);border-radius:16px;background:${onField?"var(--blue-bg)":"var(--surface2)"};cursor:pointer;font-family:inherit">${getKader(n)?.nr?getKader(n).nr+" ":""}${esc(n)}${onField?"":' <span style="color:var(--text3);font-size:10px">'+fmtSec(rotBenchSec[n])+'</span>'}</button>`;
-  const twRow=rotTW?`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:var(--r);font-size:12.5px;color:#854d0e;margin-bottom:10px">🥅 <strong>Tor: ${esc(rotTW)}</strong><span style="font-size:10px;color:#a16207;margin-left:auto">rotiert getrennt</span></div>`:"";
+  // HOTFIX 11: "Torwart (Fest)" – nur bei Spielformen mit TW; leer = Auswahl, gesetzt = Anzeige + Entfernen.
+  const rotForm=(typeof FORMATIONS!=="undefined"&&FORMATIONS[tbFormation])||{tw:true};
+  let twRow="";
+  if(rotForm.tw){
+    if(rotTW){
+      twRow=`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:var(--r);font-size:12.5px;color:#854d0e;margin-bottom:10px">🥅 <strong>Torwart (Fest): ${esc(rotTW)}</strong><button onclick="rotClearTW()" title="Torwart entfernen" style="border:none;background:transparent;color:#a16207;cursor:pointer;font-size:16px;line-height:1;padding:0 2px">×</button><span style="font-size:10px;color:#a16207;margin-left:auto">rotiert nicht mit</span></div>`;
+    }else{
+      const opts=[...rotField,...rotBench].map(n=>`<option value="${esc(n)}">${getKader(n)?.nr?getKader(n).nr+" ":""}${esc(n)}</option>`).join("");
+      twRow=`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fffbeb;border:1px dashed #fcd34d;border-radius:var(--r);font-size:12.5px;color:#854d0e;margin-bottom:10px">🥅 <strong>Torwart (Fest):</strong><select onchange="rotSetTW(this.value)" style="flex:1;padding:6px 8px;border:var(--border-s);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--surface)"><option value="">— Torwart wählen —</option>${opts}</select></div>`;
+    }
+  }
   live.innerHTML=`
     <div style="text-align:center;font-size:30px;font-weight:800;color:${rest<=10?"#dc2626":"var(--text)"};margin-bottom:8px">${fmtSec(Math.max(0,rest))}</div>
     ${twRow}
