@@ -3373,6 +3373,7 @@ function atOnFieldPlayers(){
   if(onField.length)return onField;
   return (typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():KADER.map(k=>k.name);
 }
+let atLiveClockId=null;
 function atLiveOpen(){
   document.getElementById("at-live")?.remove();
   atLiveAction=null;
@@ -3386,8 +3387,10 @@ function atLiveOpen(){
   document.body.appendChild(m);
   atLiveRender();
   atLoadGegentore().then(()=>atLiveRender()); // aktuellen Gegentor-Stand fürs Live-Ergebnis nachladen
+  clearInterval(atLiveClockId);
+  atLiveClockId=setInterval(()=>{const el=document.getElementById("at-live-min");if(el&&typeof mcState!=="undefined"&&mcState)el.textContent=mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:20);},1000);
 }
-function atLiveClose(){ document.getElementById("at-live")?.remove(); atLiveAction=null; if(document.getElementById("action-panel"))atRender(); }
+function atLiveClose(){ clearInterval(atLiveClockId); document.getElementById("at-live")?.remove(); atLiveAction=null; if(document.getElementById("action-panel"))atRender(); }
 function atLiveRender(){
   const m=document.getElementById("at-live"); if(!m)return;
   const counts=questCountsLive();
@@ -3397,6 +3400,18 @@ function atLiveRender(){
     <div title="Ergebnis (Tore:Gegentore)" style="font-size:17px;font-weight:900;padding:3px 12px;background:rgba(255,255,255,.14);border-radius:10px">${atTore()}:${atGegentore}</div>
     <div style="font-size:11px;color:#94a3b8">🏆 ${done}/${teamQuests.length}</div>
     <button onclick="atLiveClose()" aria-label="Schließen" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:22px;cursor:pointer">×</button></div>`;
+  // Fokus-Modus: Uhr (live) + Wechsel-Vorschlag direkt im Vollbild
+  const minute=(typeof mcState!=="undefined"&&mcState)?mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:20):"";
+  let subHint="";
+  if(typeof rotBench!=="undefined"&&rotBench&&rotBench.length&&rotField&&rotField.length){
+    const benchTop=[...rotBench].sort((a,b)=>(rotBenchSec[b]||0)-(rotBenchSec[a]||0))[0];
+    const fieldTired=[...rotField].sort((a,b)=>(rotBenchSec[a]||0)-(rotBenchSec[b]||0))[0];
+    if(benchTop&&fieldTired)subHint=`🔁 ${esc(benchTop)} → ${esc(fieldTired)}`;
+  }
+  const info=(minute||subHint)?`<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:#172033;font-size:12.5px;border-top:1px solid rgba(255,255,255,.06)">
+    <span style="font-weight:800">⏱ <span id="at-live-min">${esc(minute)}</span></span>
+    ${subHint?`<span style="color:#fbbf24;font-weight:700;margin-left:auto">${subHint}</span>`:""}
+  </div>`:'<span id="at-live-min" style="display:none"></span>';
   let body;
   if(!atLiveAction){
     body=`<div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px">
@@ -3412,7 +3427,7 @@ function atLiveRender(){
       </div>
       <button onclick="atLiveAction=null;atLiveRender()" style="margin:0 14px 14px;padding:14px;border:none;border-radius:14px;background:rgba(255,255,255,.12);color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">← andere Aktion</button>`;
   }
-  m.innerHTML=top+body;
+  m.innerHTML=top+info+body;
 }
 function atLivePick(aktion){
   const a=AT_LIVE_ACTS.find(x=>x.key===aktion);
