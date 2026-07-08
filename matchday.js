@@ -2422,7 +2422,7 @@ function mdShareLink(datum){
 
 // Rotations-Timer: faire Einsatzzeiten am Spieltag. Feld/Bank, Timer mit Piepton,
 // Wechselvorschlag nach längster Bankzeit.
-let rotField=[], rotBench=[], rotBenchSec={}, rotTimerId=null, rotElapsed=0, rotIntervalMin=5, rotTW=null;
+let rotField=[], rotBench=[], rotBenchSec={}, rotFieldSec={}, rotTimerId=null, rotElapsed=0, rotIntervalMin=5, rotTW=null; // HOTFIX 12: rotFieldSec = Spielzeit
 // Feldgröße folgt der aktuellen Spielform (FORMATIONS): Funino 3, 4+1 = 4, 5+1 = 5.
 function rotFieldSize(){ return ((typeof FORMATIONS!=="undefined"&&FORMATIONS[tbFormation])||{fieldCount:5}).fieldCount; }
 // HOTFIX 11: Torwart (Fest) bewusst setzen/entfernen – aus Feld & Bank raus, rotiert getrennt.
@@ -2436,7 +2436,7 @@ function rotSeedFromSquad(squad){
   const outfield=squad.filter(n=>n!==rotTW);
   rotField=outfield.slice(0,form.fieldCount);
   rotBench=outfield.slice(form.fieldCount);
-  rotBenchSec={};squad.forEach(n=>rotBenchSec[n]=0);
+  rotBenchSec={};rotFieldSec={};squad.forEach(n=>{rotBenchSec[n]=0;rotFieldSec[n]=0;}); // HOTFIX 12
   rotElapsed=0;
 }
 function rotInit(){
@@ -2506,7 +2506,12 @@ function rotRenderLive(){
     const fieldTired=[...rotField].sort((a,b)=>rotBenchSec[a]-rotBenchSec[b])[0];
     sugg=`<div style="padding:8px 10px;background:#fef9c3;border:1px solid #fde047;border-radius:var(--r);font-size:12.5px;color:#854d0e;margin-bottom:10px">🔁 Vorschlag: <strong>${esc(benchTop)}</strong> (Bank ${fmtSec(rotBenchSec[benchTop])}) rein für <strong>${esc(fieldTired)}</strong></div>`;
   }
-  const chip=(n,onField)=>`<button onclick="rotMove('${n.replace(/'/g,"")}')" style="font-size:12.5px;padding:8px 10px;min-height:44px;border:var(--border-s);border-radius:16px;background:${onField?"var(--blue-bg)":"var(--surface2)"};cursor:pointer;font-family:inherit">${getKader(n)?.nr?getKader(n).nr+" ":""}${esc(n)}${onField?"":' <span style="color:var(--text3);font-size:10px">'+fmtSec(rotBenchSec[n])+'</span>'}</button>`;
+  // HOTFIX 12: jeder Chip zeigt seine Zeit – grün = Spielzeit (Feld), rot = Bankzeit
+  const chip=(n,onField)=>{
+    const sek=onField?(rotFieldSec[n]||0):(rotBenchSec[n]||0);
+    const tcol=onField?"#15803d":"#dc2626";
+    return `<button onclick="rotMove('${n.replace(/'/g,"")}')" style="font-size:12.5px;padding:8px 10px;min-height:44px;border:var(--border-s);border-radius:16px;background:${onField?"var(--blue-bg)":"var(--surface2)"};cursor:pointer;font-family:inherit">${getKader(n)?.nr?getKader(n).nr+" ":""}${esc(n)} <span style="color:${tcol};font-size:10px;font-weight:700">${fmtSec(sek)}</span></button>`;
+  };
   // HOTFIX 11: "Torwart (Fest)" – nur bei Spielformen mit TW; leer = Auswahl, gesetzt = Anzeige + Entfernen.
   const rotForm=(typeof FORMATIONS!=="undefined"&&FORMATIONS[tbFormation])||{tw:true};
   let twRow="";
@@ -2535,12 +2540,21 @@ function rotRenderLive(){
     <div style="font-size:10px;color:var(--text3);margin-top:8px">Tipp: Spieler antippen = zwischen Feld und Bank wechseln.</div>`;
 }
 function rotMove(name){
-  if(rotField.includes(name)){rotField=rotField.filter(n=>n!==name);rotBench.push(name);}
+  let richtung=null;
+  if(rotField.includes(name)){rotField=rotField.filter(n=>n!==name);rotBench.push(name);richtung="aus";}
   else if(rotBench.includes(name)){
     if(rotField.length>=rotFieldSize()){toast("Feld ist voll ("+rotFieldSize()+") – erst jemanden rausnehmen","err");return;}
-    rotBench=rotBench.filter(n=>n!==name);rotField.push(name);
+    rotBench=rotBench.filter(n=>n!==name);rotField.push(name);richtung="ein";
   }
+  if(richtung&&rotTimerId)rotLogSub(name,richtung); // HOTFIX 12: nur echte Wechsel im laufenden Spiel loggen
   rotRenderLive();
+}
+// HOTFIX 12: Ein-/Auswechslung in match_substitutions loggen (Fairness-Beweis). Best-effort.
+async function rotLogSub(spieler,richtung){
+  const datum=spieltagKey();
+  const minute=(typeof mcState!=="undefined"&&mcState)?mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:20):"";
+  let tid=null; try{tid=await terminIdForDatum(datum);}catch(e){}
+  sbQueuedPost("match_substitutions",{datum,termin_id:tid,spieler,richtung,minute,feld_sek:rotFieldSec[spieler]||0,bank_sek:rotBenchSec[spieler]||0});
 }
 function rotBeep(){
   try{
@@ -2554,6 +2568,8 @@ function rotBeep(){
 function rotTick(){
   rotElapsed++;
   rotBench.forEach(n=>{rotBenchSec[n]=(rotBenchSec[n]||0)+1;});
+  rotField.forEach(n=>{rotFieldSec[n]=(rotFieldSec[n]||0)+1;}); // HOTFIX 12: Spielzeit der Feldspieler
+  if(rotTW)rotFieldSec[rotTW]=(rotFieldSec[rotTW]||0)+1; // Torwart spielt auch (feste Position)
   if(rotElapsed>=rotIntervalMin*60){
     rotElapsed=0;rotBeep();try{navigator.vibrate&&navigator.vibrate([100,60,100]);}catch(e){}
   }
