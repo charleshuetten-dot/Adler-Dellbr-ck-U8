@@ -1445,7 +1445,7 @@ async function renderHome(){
     </div>
     <button onclick="kasseOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">💰 Teamkasse</button>
     <button onclick="fundbueroOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🧦 Fundbüro</button>
-    <button onclick="ausruestungExport()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">👕 Ausrüstung als CSV</button>
+    <button onclick="ausruestungGrid()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">👕 Team-Ausrüstung</button>
     <button onclick="printStadionheft()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🖨️ Stadionheft drucken</button>
     <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;margin-top:12px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>`;
 
