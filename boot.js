@@ -932,7 +932,7 @@ async function pinCheck(){
   }
   // Digitales Stadionheft: Nur-Ansehen fuer alle Eltern (?heft), kein Login. Namen maskiert, Fotos nur bei Einwilligung.
   if(params.has("heft")){
-    document.title="Stadionheft – SV Adler Dellbrück U9";
+    document.title="Adler Horst – SV Adler Dellbrück U9";
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#1e3a8a");
     document.getElementById("pin-gate")?.remove();
     document.getElementById("main-app")?.remove();
