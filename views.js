@@ -1542,22 +1542,36 @@ async function homeRadarLoad(){
   let ez=[], ma=[];
   try{const r=await fetch(`${SB_URL}/rest/v1/einsatzzeiten?select=spieler,feld_sek`,{headers:sbAuthHeaders()});if(sbCheck401&&sbCheck401(r))return;if(r.ok)ez=await r.json();}catch(e){}
   try{const r=await fetch(`${SB_URL}/rest/v1/match_actions?select=spieler`,{headers:sbAuthHeaders()});if(r.ok)ma=await r.json();}catch(e){}
-  if((ez.length+ma.length)<4){box.innerHTML="";return;} // zu wenig Daten -> Radar ausblenden
-  const min={}, act={};
-  ez.forEach(x=>{if(x.spieler)min[x.spieler]=(min[x.spieler]||0)+(x.feld_sek||0);});
-  ma.forEach(x=>{if(x.spieler)act[x.spieler]=(act[x.spieler]||0)+1;});
-  const maxMin=Math.max(1,...active.map(k=>min[k.name]||0));
-  const scored=active.map(k=>{const m=min[k.name]||0,a=act[k.name]||0; const score=(1-m/maxMin)*2+(a===0?1.5:0); return {name:k.name,nr:k.nr,min:Math.round(m/60),act:a,score};});
-  scored.sort((x,y)=>y.score-x.score);
-  const top=scored.slice(0,3).filter(s=>s.score>0.5);
-  if(!top.length){box.innerHTML="";return;}
-  box.innerHTML=`<div class="card" style="padding:14px;margin-bottom:10px;border-left:3px solid #dc2626">
-    <div style="font-weight:700;margin-bottom:2px">🎯 Kein Kind übersehen</div>
-    <div style="font-size:10.5px;color:var(--text2);margin-bottom:10px">Diese Kinder hatten zuletzt am wenigsten Spielzeit &amp; Aktionen – gib ihnen bewusst mehr Bühne.</div>
-    ${top.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--surface2)">
-      <span style="flex:1;font-weight:600">${s.nr!=null?esc(s.nr)+" ":""}${esc(s.name)}</span>
-      <span style="font-size:11px;color:var(--text2)">${s.min} Min · ${s.act} Aktionen</span></div>`).join("")}
-  </div>`;
+  // Spielzeit/Aktionen-Signal – nur wenn genug Matchdaten
+  let top=[];
+  if((ez.length+ma.length)>=4){
+    const min={}, act={};
+    ez.forEach(x=>{if(x.spieler)min[x.spieler]=(min[x.spieler]||0)+(x.feld_sek||0);});
+    ma.forEach(x=>{if(x.spieler)act[x.spieler]=(act[x.spieler]||0)+1;});
+    const maxMin=Math.max(1,...active.map(k=>min[k.name]||0));
+    const scored=active.map(k=>{const m=min[k.name]||0,a=act[k.name]||0; const score=(1-m/maxMin)*2+(a===0?1.5:0); return {name:k.name,nr:k.nr,min:Math.round(m/60),act:a,score};});
+    scored.sort((x,y)=>y.score-x.score);
+    top=scored.slice(0,3).filter(s=>s.score>0.5);
+  }
+  // Anwesenheits-Muster: aufeinanderfolgende jüngste Fehltage (aus lokalem AW_DATA)
+  const absent=[];
+  try{
+    if(typeof AW_DATA==="object"&&AW_DATA){
+      const dates=Object.keys(AW_DATA).sort().reverse();
+      active.forEach(k=>{ let streak=0; for(const d of dates){ const e=AW_DATA[d]&&AW_DATA[d][k.name]; if(!e)continue; if(e.da===false)streak++; else break; } if(streak>=2)absent.push({name:k.name,nr:k.nr,streak}); });
+      absent.sort((a,b)=>b.streak-a.streak);
+    }
+  }catch(e){}
+  if(!top.length&&!absent.length){box.innerHTML="";return;}
+  const line=(nr,name,right,col)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--surface2)">
+    <span style="flex:1;font-weight:600">${nr!=null?esc(nr)+" ":""}${esc(name)}</span>
+    <span style="font-size:11px;color:${col||'var(--text2)'};font-weight:${col?700:400}">${right}</span></div>`;
+  const playHtml=top.length?`<div style="font-weight:700;margin-bottom:2px">🎯 Kein Kind übersehen</div>
+    <div style="font-size:10.5px;color:var(--text2);margin-bottom:8px">Zuletzt am wenigsten Spielzeit &amp; Aktionen – gib ihnen bewusst mehr Bühne.</div>
+    ${top.map(s=>line(s.nr,s.name,`${s.min} Min · ${s.act} Aktionen`)).join("")}`:"";
+  const absHtml=absent.length?`<div style="font-weight:700;margin:${top.length?"14px":"0"} 0 6px">📅 Zuletzt öfter gefehlt</div>
+    ${absent.slice(0,3).map(a=>line(a.nr,a.name,`${a.streak}× nicht da`,"#dc2626")).join("")}`:"";
+  box.innerHTML=`<div class="card" style="padding:14px;margin-bottom:10px;border-left:3px solid #dc2626">${playHtml}${absHtml}</div>`;
 }
 function onboardingDismiss(){ try{localStorage.setItem("adler_onboarded","1");}catch(e){} document.getElementById("onboard-card")?.remove(); }
 async function renderHome(){
