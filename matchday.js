@@ -1716,12 +1716,21 @@ async function gegnerAutofill(){
   const box=document.getElementById("tm-addr-results");
   if(box)box.innerHTML=`<div style="font-size:11px;color:#16a34a;padding:4px 2px">✓ Gegner erkannt – Adresse${(g.ansprechpartner||g.telefon)?" & Kontakt":""} aus der Datenbank.</div>`;
 }
+// Telefonnummer → wa.me-Format (nur Ziffern, deutscher Ländercode 49). 0170… → 49170…
+function waNumber(tel){
+  if(!tel)return "";
+  let d=String(tel).replace(/[^\d+]/g,"");
+  if(d.charAt(0)==="+")d=d.slice(1);
+  else if(d.slice(0,2)==="00")d=d.slice(2);
+  else if(d.charAt(0)==="0")d="49"+d.slice(1); // deutsche Nummer
+  return d.replace(/\D/g,"");
+}
 async function gegnerContactInto(elId,name){
   const g=await gegnerFind(name);
   const el=document.getElementById(elId);
   if(!el||!g||!(g.ansprechpartner||g.telefon))return;
-  const tel=g.telefon?String(g.telefon).replace(/\s/g,""):"";
-  el.innerHTML=`<div style="font-size:11.5px;color:var(--text2);margin-top:6px">📇 ${esc(g.ansprechpartner||"Ansprechpartner")}${g.telefon?` · <a href="tel:${esc(tel)}" style="color:var(--blue);font-weight:700;text-decoration:none">☎ ${esc(g.telefon)}</a>`:""}</div>`;
+  const tel=g.telefon?String(g.telefon).replace(/\s/g,""):"", wa=waNumber(g.telefon);
+  el.innerHTML=`<div style="font-size:11.5px;color:var(--text2);margin-top:6px">📇 ${esc(g.ansprechpartner||"Ansprechpartner")}${g.telefon?` · <a href="tel:${esc(tel)}" style="color:var(--blue);font-weight:700;text-decoration:none">☎ ${esc(g.telefon)}</a>${wa?` · <a href="https://wa.me/${wa}" target="_blank" rel="noopener" style="color:#25D366;font-weight:700;text-decoration:none">💬 WhatsApp</a>`:""}`:""}</div>`;
 }
 async function gegnerQuickSave(){
   const name=(document.getElementById("tm-titel")?.value||"").trim();
@@ -1760,7 +1769,7 @@ function gegnerRenderList(){
     <div style="flex:1;min-width:0">
       <div style="font-size:13px;font-weight:700">${esc(g.name)}</div>
       ${g.adresse?`<div style="font-size:11px;color:var(--text2)">📍 ${esc(g.adresse)}</div>`:""}
-      ${(g.ansprechpartner||g.telefon)?`<div style="font-size:11px;color:var(--text2)">📇 ${esc(g.ansprechpartner||"")}${g.telefon?` · ☎ ${esc(g.telefon)}`:""}</div>`:""}
+      ${(g.ansprechpartner||g.telefon)?`<div style="font-size:11px;color:var(--text2)">📇 ${esc(g.ansprechpartner||"")}${g.telefon?` · <a href="tel:${esc(String(g.telefon).replace(/\s/g,""))}" style="color:var(--blue);text-decoration:none">☎ ${esc(g.telefon)}</a> · <a href="https://wa.me/${waNumber(g.telefon)}" target="_blank" rel="noopener" style="color:#25D366;text-decoration:none">💬 WhatsApp</a>`:""}</div>`:""}
     </div>
     <button class="btn btn-sm" onclick="gegnerEdit(${g.id})"><i class="ti ti-edit"></i></button>
   </div>`).join("");
