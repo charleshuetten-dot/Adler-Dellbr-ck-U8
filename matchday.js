@@ -2271,14 +2271,14 @@ async function kindLoad(){
       <div style="display:flex;gap:8px">${btn('zugesagt','👍','Dabei','#16a34a')}${btn('abgesagt','👎','Kann nicht','#dc2626')}</div>
     </div>`;
   };
-  kindRoot.innerHTML=`
+  kindRoot.innerHTML=`<div class="elt-fade">
     <div style="text-align:center;margin:8px 0 16px">
       <img src="logo.png" style="width:60px;height:60px" alt="">
       <div style="font-size:18px;font-weight:800;color:#1e3a8a;margin-top:6px">Hallo! 👋</div>
       <div style="font-size:14px;color:#334155">Sag <b>${elternEsc(d.name)}</b> mit einem Tipp zu oder ab.</div>
     </div>
     ${d.termine&&d.termine.length?d.termine.map(evCard).join(""):'<div style="text-align:center;color:#64748b;background:#fff;border-radius:16px;padding:24px">Aktuell keine anstehenden Termine. 🎉</div>'}
-    <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:8px">SV Adler Dellbrück e.V. · persönlicher Link für ${elternEsc(d.name)}</div>`;
+    <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:8px">SV Adler Dellbrück e.V. · persönlicher Link für ${elternEsc(d.name)}</div></div>`;
 }
 async function kindRsvp(terminId,status){
   if(!kindToken)return;
@@ -2318,7 +2318,7 @@ async function renderElternView(datum){
     const routeUrl=routeQuery?"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(routeQuery):"";
     // Hub: prominenter Live-Hinweis, wenn die Match-Uhr gerade läuft – der Grund, JETZT reinzuschauen.
     const liveBanner=(!istTraining&&m.clock_status==="running")?`<a href="#ev-ticker" style="display:block;text-decoration:none;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border-radius:14px;padding:14px 16px;margin-bottom:14px;text-align:center;box-shadow:0 4px 16px rgba(220,38,38,.35)"><div style="font-size:15px;font-weight:800">🔴 Wir spielen gerade LIVE!</div><div style="font-size:12px;opacity:.9;margin-top:2px">Zum Liveticker ↓</div></a>`:"";
-    root.innerHTML=`
+    root.innerHTML=`<div class="elt-fade">
       <div style="text-align:center;margin:8px 0 16px">
         <img src="logo.png" style="width:64px;height:64px" alt="SV Adler Dellbrück">
         <div style="font-size:18px;font-weight:800;color:#1e3a8a;margin-top:6px">${istTraining?"Training":"Spieltag"} U9</div>
@@ -2341,7 +2341,7 @@ async function renderElternView(datum){
         <a href="${location.origin+location.pathname}?heft" style="text-align:center;background:#fff;border:1.5px solid #1e3a8a;color:#1e3a8a;padding:13px 8px;border-radius:12px;text-decoration:none;font-weight:700;font-size:13px">📰 Stadionheft</a>
         <a href="${location.origin+location.pathname}?portal" style="text-align:center;background:#fff;border:1.5px solid #1e3a8a;color:#1e3a8a;padding:13px 8px;border-radius:12px;text-decoration:none;font-weight:700;font-size:13px">👨‍👩‍👧 Mein Kind</a>
       </div>
-      <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:16px">SV Adler Dellbrück e.V. · Angaben ohne Gewähr</div>`;
+      <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:16px">SV Adler Dellbrück e.V. · Angaben ohne Gewähr</div></div>`;
     if(istTraining){edLoad(m.datum);fgLoad(m.datum);}
     else{
       elTickerLoad(m.datum,m.spieldauer_min||20);
@@ -2351,6 +2351,8 @@ async function renderElternView(datum){
     }
   }catch(e){root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Konnte nicht laden. Bitte später erneut versuchen.</div>';}
 }
+// Ticker-Ereignis-Icon je Typ – macht den Feed lebendiger & auf einen Blick lesbar.
+function elTickerIcon(typ){return {tor:"⚽",gegentor:"🥅",parade:"🧤",aktion:"👏",info:"📣",wechsel:"🔄"}[typ]||"•";}
 // Faire Einsatzzeiten für Eltern: transparente Balken je Kind (Vorname + Minuten), aus der
 // security-definer-RPC (nur veröffentlichte Spieltage, minimale Daten). U9-Vertrauenssignal.
 async function elternEinsatzLoad(datum){
@@ -2387,7 +2389,7 @@ async function elTickerLoad(datum,dauer){
     const rows=evRes.ok?await evRes.json():[];
     box.innerHTML=`<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px">
       <div style="font-weight:700;margin-bottom:8px">📣 Liveticker</div>
-      ${rows.length?rows.map(e=>`<div style="padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:13px"><strong style="color:#1e3a8a">${e.minute?elternEsc(e.minute):""}</strong> ${elternEsc(e.text)}</div>`).join(""):'<div style="font-size:12px;color:#94a3b8">Noch keine Ereignisse. Bleib dran!</div>'}
+      ${rows.length?rows.map(e=>`<div style="display:flex;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:13px"><span style="font-size:15px;flex:0 0 auto">${elTickerIcon(e.typ)}</span><span><strong style="color:#1e3a8a">${e.minute?elternEsc(e.minute):""}</strong> ${elternEsc(e.text)}</span></div>`).join(""):'<div style="font-size:12px;color:#94a3b8">Noch keine Ereignisse. Bleib dran!</div>'}
     </div>`;
   }catch(e){}
 }
@@ -2493,7 +2495,7 @@ async function renderTickerView(key){
       ${wolffFuss
         ? '<div style="text-align:center;font-size:12.5px;color:#64748b;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px">🤫 Trainer fokussieren sich zu 100% auf die Kids – kein Ticker heute.</div>'
         : `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px">
-            ${events.length?events.map(e=>`<div style="padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13.5px"><strong style="color:#1e3a8a">${e.minute?elternEsc(e.minute):""}</strong> ${elternEsc(e.text)}</div>`).join(""):'<div style="font-size:12.5px;color:#94a3b8">Noch keine Ereignisse. Der Ticker startet mit dem Anpfiff – bleib dran!</div>'}
+            ${events.length?events.map(e=>`<div style="display:flex;gap:8px;align-items:baseline;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13.5px"><span style="font-size:16px;flex:0 0 auto">${elTickerIcon(e.typ)}</span><span><strong style="color:#1e3a8a">${e.minute?elternEsc(e.minute):""}</strong> ${elternEsc(e.text)}</span></div>`).join(""):'<div style="font-size:12.5px;color:#94a3b8">Noch keine Ereignisse. Der Ticker startet mit dem Anpfiff – bleib dran!</div>'}
           </div>`}
       ${adlerkasseHtml}
       <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:14px">Nur-Ansehen · aktualisiert automatisch · SV Adler Dellbrück e.V.</div>`;

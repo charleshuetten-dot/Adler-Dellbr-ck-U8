@@ -1763,7 +1763,7 @@ async function renderStadionheftView(){
     <div><div style="font-size:10.5px;font-weight:800;color:#a16207;text-transform:uppercase;letter-spacing:.5px">⭐ Spieler im Fokus</div>
       <div style="font-size:16px;font-weight:900;color:#1e293b">${elternEsc(fk.name)}${fk.nr!=null?" · #"+elternEsc(fk.nr):""}</div>
       ${fk.text?`<div style="font-size:12px;color:#475569;margin-top:2px;line-height:1.4">${elternEsc(fk.text).replace(/\n/g,"<br>")}</div>`:""}</div></div>`:"";
-  root.innerHTML=`
+  root.innerHTML=`<div class="elt-fade">
     <div style="text-align:center;margin:8px 0 14px">
       <img src="logo.png" style="width:56px;height:56px" alt="SV Adler Dellbrück">
       <div style="font-size:12px;color:#64748b;font-weight:600;letter-spacing:.5px">SV ADLER DELLBRÜCK e.V.</div>
@@ -1773,5 +1773,5 @@ async function renderStadionheftView(){
     ${fokusHtml}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
     ${h.kommentar?`<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:11px 13px;margin-top:12px;font-size:12.5px;color:#1e3a8a;line-height:1.5"><div style="font-weight:800;margin-bottom:3px">📣 Ein Wort vom Trainerteam</div>${elternEsc(h.kommentar).replace(/\n/g,"<br>")}</div>`:""}
-    <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:16px">Auf geht's, Adler! 🦅 · SV Adler Dellbrück e.V.</div>`;
+    <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:16px">Auf geht's, Adler! 🦅 · SV Adler Dellbrück e.V.</div></div>`;
 }
