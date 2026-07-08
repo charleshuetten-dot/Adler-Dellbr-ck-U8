@@ -898,6 +898,7 @@ async function pinCheck(){
     }
     if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
     renderElternPortal();
+    setTimeout(pwaInstallNudge,1800); // UX 1: Soft-Install-Nudge für Eltern
     return;
   }
   // Read-only-Liveticker: Nur-Ansehen fuer alle Eltern (?ticker=<key>), kein Login, keine Eingabe
@@ -927,6 +928,7 @@ async function pinCheck(){
     document.getElementById("view-taktik").style.display="";
     window.savePlayer=()=>{};window.delPlayer=()=>{};window.delSnapshot=()=>{};
     setTimeout(()=>tqStart(),100);
+    setTimeout(pwaInstallNudge,1800); // UX 1: Soft-Install-Nudge für die Kids
     return;
   }
   if(pinSessionValid()){

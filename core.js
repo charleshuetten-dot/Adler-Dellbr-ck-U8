@@ -402,3 +402,47 @@ async function xpTotal(spielerId){
     return (await r.json())||0;
   }catch(e){return 0;}
 }
+
+/* ═══════════════════════════════════
+   PWA-INSTALL-NUDGE (Welle 2, UX 1) – Soft-Nudge, NIE Hard-Block.
+   Android/Chrome: nativer Prompt via beforeinstallprompt.
+   iOS/Safari: bebilderte "Zum Home-Bildschirm"-Anleitung (kein API-Prompt).
+   Wegklickbar; nach Dismiss 14 Tage Ruhe. Erscheint nie in der installierten App.
+═══════════════════════════════════ */
+let _pwaPrompt=null, _pwaWant=false;
+function _pwaStandalone(){return (window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches)||navigator.standalone===true;}
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();_pwaPrompt=e;if(_pwaWant)pwaBannerShow("android");});
+function pwaInstallNudge(){
+  if(_pwaStandalone())return;                                   // läuft schon als App
+  let dismissed=0; try{dismissed=+localStorage.getItem("adler_pwa_nudge")||0;}catch(e){}
+  if(Date.now()-dismissed < 14*864e5)return;                    // 14 Tage Ruhe nach Wegklicken
+  const ua=navigator.userAgent||"";
+  const iOS=/iphone|ipad|ipod/i.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1); // iPadOS meldet sich als Mac
+  const safari=/^((?!chrome|android|crios|fxios|edg).)*safari/i.test(ua);
+  if(iOS&&safari){pwaBannerShow("ios");return;}
+  if(_pwaPrompt){pwaBannerShow("android");return;}
+  _pwaWant=true;                                                // Android: warten bis beforeinstallprompt feuert
+}
+function pwaBannerDismiss(){try{localStorage.setItem("adler_pwa_nudge",String(Date.now()));}catch(e){}document.getElementById("pwa-nudge")?.remove();}
+async function pwaBannerInstall(){
+  if(!_pwaPrompt){document.getElementById("pwa-nudge")?.remove();return;}
+  const p=_pwaPrompt;_pwaPrompt=null;
+  try{p.prompt();await p.userChoice;}catch(e){}
+  document.getElementById("pwa-nudge")?.remove();
+}
+function pwaBannerShow(kind){
+  if(document.getElementById("pwa-nudge")||_pwaStandalone())return;
+  const el=document.createElement("div");
+  el.id="pwa-nudge";
+  el.style.cssText="position:fixed;left:12px;right:12px;bottom:12px;z-index:10050;background:#1e3a8a;color:#fff;border-radius:14px;padding:14px 34px 14px 16px;box-shadow:0 8px 28px rgba(0,0,0,.35);font-family:inherit;max-width:460px;margin:0 auto";
+  const close=`<button onclick="pwaBannerDismiss()" aria-label="Schließen" style="position:absolute;top:8px;right:10px;background:none;border:none;color:rgba(255,255,255,.7);font-size:22px;line-height:1;cursor:pointer">×</button>`;
+  if(kind==="ios"){
+    el.innerHTML=`${close}<div style="font-weight:800;font-size:15px;margin-bottom:4px">📱 Adler-App aufs Handy</div>
+      <div style="font-size:12.5px;line-height:1.55;opacity:.96">Tippe unten in Safari auf <b>Teilen</b> <span style="display:inline-block;border:1px solid rgba(255,255,255,.6);border-radius:5px;padding:0 5px">↑</span> und dann auf <b>„Zum Home-Bildschirm"</b> – danach startet die App wie eine echte App.</div>`;
+  }else{
+    el.innerHTML=`${close}<div style="font-weight:800;font-size:15px;margin-bottom:8px">📱 Adler-App installieren</div>
+      <div style="font-size:12.5px;opacity:.96;margin-bottom:10px">Auf den Startbildschirm – schneller Zugriff, funktioniert auch offline.</div>
+      <button onclick="pwaBannerInstall()" style="background:#fff;color:#1e3a8a;border:none;border-radius:10px;padding:9px 16px;font-family:inherit;font-weight:800;font-size:13.5px;cursor:pointer">Installieren</button>`;
+  }
+  document.body.appendChild(el);
+}
