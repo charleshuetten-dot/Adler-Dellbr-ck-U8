@@ -1957,10 +1957,9 @@ function tickerRenderControls(){
       <button class="btn btn-sm" onclick="tickerShareDelegateLink()"><i class="ti ti-user-share"></i>Helfer-Link</button>
       <span style="font-size:10.5px;color:var(--text2)">${open?"Eltern sehen positive Highlights live.":"Eltern sehen: „Trainer fokussieren sich zu 100% auf die Kids – kein Ticker heute.“"}</span>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-      <button class="btn btn-p" onclick="tickerGoal()" ${open?"":"disabled"}><i class="ti ti-ball-football"></i>Tor!</button>
-      <button class="btn" onclick="tickerCounterGoal()" ${open?"":"disabled"}><i class="ti ti-shield-x"></i>Gegentor</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center">
       <button class="btn btn-sm" onclick="matchReport()"><i class="ti ti-news"></i>Spielbericht</button>
+      <span style="font-size:10px;color:var(--text3)">Tore &amp; Gegentore kommen automatisch aus der Live-Aktion.</span>
     </div>
     <div id="ticker-feed" style="font-size:11.5px;color:var(--text2)"></div>`;
   tickerRenderFeed();
@@ -2970,33 +2969,14 @@ async function atInit(){
 function atRender(){
   const box=document.getElementById("action-panel");
   if(!box)return;
-  const squad=(typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():KADER.map(k=>k.name);
-  const chips=squad.map(n=>`<button onclick="atPick('${n.replace(/'/g,"")}')" ${getKader(n)?.tw?'data-role="tw"':''} style="font-size:12px;padding:7px 10px;min-height:40px;border:var(--border-s);border-radius:16px;cursor:pointer;font-family:inherit;background:${atSel===n?"var(--blue)":"var(--surface2)"};color:${atSel===n?"#fff":"var(--text)"}">${getKader(n)?.tw?"🥅 ":(getKader(n)?.nr?getKader(n).nr+" ":"")}${esc(n)}${atSummary(n)?' <span style="font-size:9px">'+atSummary(n)+'</span>':''}</button>`).join("");
-  const acts=atSel?atActionsFor(atSel):AT_ACTIONS;
-  const isTw=atSel&&getKader(atSel)?.tw;
-  const feed=atLog.slice(-5).reverse();
   box.innerHTML=`
     <div id="quest-strip" style="position:relative;overflow:hidden;background:var(--surface);border:var(--border-s);border-radius:12px;padding:10px 12px;margin-bottom:12px">${questStripHTML(questCountsLive())}</div>
-    <button onclick="atLiveOpen()" style="width:100%;min-height:52px;margin-bottom:12px;border:none;border-radius:14px;background:linear-gradient(135deg,#0ea5e9,#2563eb);color:#fff;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer">⚡ Live-Aktion (Vollbild)</button>
+    <button onclick="atLiveOpen()" style="width:100%;min-height:64px;margin-bottom:10px;border:none;border-radius:14px;background:linear-gradient(135deg,#0ea5e9,#2563eb);color:#fff;font-size:17px;font-weight:800;font-family:inherit;cursor:pointer">⚡ Live-Aktion starten (Vollbild)</button>
     ${voiceSupported?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <button id="voice-btn" class="btn btn-sm" onclick="voiceToggle()"><i class="ti ti-microphone"></i>Voice<span style="font-size:9px;background:#f59e0b;color:#fff;padding:1px 5px;border-radius:8px;margin-left:5px">Beta</span></button>
       <span style="font-size:10px;color:var(--text3);flex:1;min-width:140px">Sag z. B. „Pass Leon" – du bestätigst vor dem Senden. Braucht Netz &amp; Ruhe.</span>
     </div>`:''}
-    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Spieler am Ball wählen:</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${chips}</div>
-    ${isTw?'<div style="font-size:10.5px;color:#854d0e;font-weight:600;margin-bottom:6px">🥅 Torwart-Aktionen</div>':''}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      ${acts.map(a=>`<button onclick="atTap('${a.key}')" ${atSel?"":"disabled"} style="min-height:56px;font-size:14px;font-weight:600;border:none;border-radius:var(--rl);cursor:pointer;font-family:inherit;background:${a.col};color:#fff;opacity:${atSel?1:.4}">${a.emo} ${a.label}</button>`).join("")}
-    </div>
-    ${atSel?`<div style="font-size:11px;color:var(--text2);margin-top:8px;text-align:center">Aktiv: <strong>${esc(atSel)}</strong> · ${atSummary(atSel)||"noch keine Aktion"}</div>`:'<div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center">Erst Spieler antippen, dann Aktion.</div>'}
-    ${feed.length?`<div style="margin-top:12px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px">Letzte Aktionen – antippen zum Rückgängigmachen</div>
-      ${feed.map(e=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:5px 9px;background:var(--surface2);border-radius:8px;margin-bottom:3px">
-        <span>${AT_EMO[e.aktion]||"•"}</span>
-        <span style="flex:1">${esc(e.spieler)} · ${esc(e.label)}</span>
-        <button onclick="atUndo(${e.uid})" title="Rückgängig" aria-label="Rückgängig" style="border:none;background:transparent;cursor:pointer;color:#dc2626;font-size:15px;line-height:1;padding:2px 4px"><i class="ti ti-arrow-back-up"></i></button>
-      </div>`).join("")}
-    </div>`:""}`;
+    <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:2px">Alle Aktionen – Pässe, Dribblings, Ballgewinne, Paraden, Tore &amp; Gegentore – erfasst du im Vollbild. Ein Elternteil kann per <b>Helfer-Link</b> übernehmen.</div>`;
 }
 function atPick(n){atSel=n;atRender();}
 
