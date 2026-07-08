@@ -1333,6 +1333,57 @@ function tpRenderTeamFokus(){
   </div>`;
 }
 
+// Auto-Trainingsplan: aus Monats-Schwerpunkt (Periodisierung) + schwächstem Team-Wert +
+// Bibliothek einen kompletten Ablauf bauen (Aufwärmen → Schwerpunkt → Team-Schwäche → Abschluss).
+// Reiner Vorschlag – keine Persistenz, „neu würfeln" mischt neu. Läuft im Trainer-Tab.
+const AUTOPLAN_DIMKAT={tech:["technik","passspiel"],raute:["raute","pressing","wahrnehmung"],phys:["aufwaermen","individual","spass"],mental:["mindset"],entw:["wahrnehmung","mindset"]};
+const AUTOPLAN_DIMLABEL={tech:"Technik & Ball",raute:"Rauten-IQ & Taktik",phys:"Physis & Motorik",mental:"Mentalität & Charakter",entw:"Entwicklung"};
+function autoPlanPick(kats,used){
+  const forms=tpAllForms().map((f,i)=>({i,f})).filter(x=>x.f&&kats.includes(x.f.kat)&&!used.has(x.i));
+  if(!forms.length)return null;
+  const focus=forms.filter(x=>x.f.focus), pool=focus.length?focus:forms;
+  const pick=pool[Math.floor(Math.random()*pool.length)];
+  used.add(pick.i);
+  return pick;
+}
+async function autoPlanBuild(){
+  const box=document.getElementById("autoplan-box"); if(!box)return;
+  box.innerHTML=`<div style="padding:10px;color:var(--text3);font-size:12px">🪄 Baue Trainings-Ablauf…</div>`;
+  // Monats-Schwerpunkt aus der Periodisierung
+  const monat=new Date().toISOString().slice(0,7); let period=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/periodisierung?monat=eq.${monat}&select=*`,{headers:sbAuthHeaders()});if(r.ok)period=(await r.json())[0];}catch(e){}
+  const periodKat=period&&period.kategorie?period.kategorie:null;
+  // schwächster Team-Wert
+  let weakKats=[], weakLabel=null;
+  try{
+    const agg=teamAggregate()||{}, avg=agg.avg||{};
+    const sorted=Object.entries(avg).filter(([,v])=>v!=null).sort((a,b)=>a[1]-b[1]);
+    if(sorted.length){ weakLabel=AUTOPLAN_DIMLABEL[sorted[0][0]]||null; weakKats=AUTOPLAN_DIMKAT[sorted[0][0]]||[]; }
+  }catch(e){}
+  const used=new Set(), blocks=[];
+  const warm=autoPlanPick(["aufwaermen"],used); if(warm)blocks.push({label:"Aufwärmen & Aktivierung",min:10,pick:warm,tag:"🔥"});
+  if(periodKat){ const sp=autoPlanPick([periodKat],used); if(sp)blocks.push({label:"Monats-Schwerpunkt"+(period.thema?": "+period.thema:""),min:20,pick:sp,tag:"🎯"}); }
+  if(weakKats.length){ const wk=autoPlanPick(weakKats,used); if(wk)blocks.push({label:"Team-Schwäche"+(weakLabel?": "+weakLabel:""),min:15,pick:wk,tag:"📊"}); }
+  if(blocks.length<3){ const fill=autoPlanPick(["technik","passspiel","wahrnehmung"],used); if(fill)blocks.push({label:"Haupt-Block",min:20,pick:fill,tag:"⚽"}); }
+  const fin=autoPlanPick(["spass"],used); if(fin)blocks.push({label:"Abschlussspiel",min:15,pick:fin,tag:"🏆"});
+  if(!blocks.length){ box.innerHTML=`<div style="padding:10px;color:var(--text3);font-size:12px">Keine passenden Übungen gefunden.</div>`; return; }
+  const total=blocks.reduce((s,b)=>s+b.min,0);
+  box.innerHTML=`<div class="card" style="padding:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:800;color:var(--text)">🪄 Auto-Trainingsplan <span style="font-weight:600;color:var(--text3)">· ~${total} Min</span></div>
+      <button class="btn btn-sm" onclick="autoPlanBuild()"><i class="ti ti-refresh"></i>Neu würfeln</button>
+    </div>
+    ${blocks.map((b,n)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${n<blocks.length-1?"border-bottom:var(--border)":""}">
+      <div style="font-size:18px;width:24px;text-align:center">${b.tag}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3)">${esc(b.label)} · ${b.min} Min</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(b.pick.f.name)}</div>
+      </div>
+      <button class="btn btn-sm" onclick="tpShowExercise(${b.pick.i})"><i class="ti ti-eye"></i></button>
+    </div>`).join("")}
+    <div style="font-size:10px;color:var(--text3);margin-top:8px">Vorschlag aus Monats-Schwerpunkt + Team-Daten. Alles anpassbar – „neu würfeln\" für Alternativen.</div>
+  </div>`;
+}
 function tpRenderMindsetTip(){
   const allForms=tpAllForms();
   const rituale=["Die Kraft des NOCH","Reset-Knopf","Drei-gute-Dinge-Kreis"];
