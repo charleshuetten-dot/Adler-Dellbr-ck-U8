@@ -1702,6 +1702,70 @@ function spieltagSetTeam(n,btn){
   nomLoad(); // kaskadiert zu Nominierung + mcLoad + Rotation + Action-Tracker + Ticker mit dem neuen Key
 }
 
+// Turnier-Modus: mehrere Kurzspiele je Turniertag schnell erfassen (Ergebnis-Log + Bilanz).
+// Einsatzzeiten laufen über den Rotations-Timer am selben Datum ohnehin kumulativ weiter.
+async function turnierOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("turnier-modal")?.remove();
+  const modal=document.createElement("div");modal.id="turnier-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const p=(spieltagRawDate()||"").split("-"); const ds=p.length===3?`${p[2]}.${p[1]}.${p[0]}`:spieltagRawDate();
+  const card=document.createElement("div");
+  card.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  card.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🏆 Turnier-Modus</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${esc(ds)}${spieltagTeam>1?" · Adler "+spieltagTeam:""} · Kurzspiele erfassen. Einsatzzeiten laufen über den Rotations-Timer weiter.</div>
+    <div id="turnier-tally" style="margin-bottom:10px"></div>
+    <div id="turnier-list" style="margin-bottom:12px"><div style="color:var(--text3);font-size:12px">Lade…</div></div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <input id="turnier-gegner" type="text" placeholder="Gegner" style="flex:1;min-width:110px;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text)">
+      <input id="turnier-tore" type="number" min="0" value="0" title="eigene Tore" style="width:52px;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text);text-align:center">
+      <span style="font-weight:800">:</span>
+      <input id="turnier-geg" type="number" min="0" value="0" title="Gegentore" style="width:52px;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text);text-align:center">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+      <button class="btn btn-p" onclick="turnierAdd()"><i class="ti ti-plus"></i>Spiel eintragen</button>
+      <button class="btn btn-sm" onclick="document.getElementById('turnier-modal').remove()">Schließen</button>
+    </div>`;
+  modal.appendChild(card);document.body.appendChild(modal);
+  turnierRender();
+}
+async function turnierRender(){
+  const list=document.getElementById("turnier-list"), tally=document.getElementById("turnier-tally");
+  if(!list)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/turnier_spiele?datum=eq.${encodeURIComponent(spieltagKey())}&select=*&order=created_at.asc`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)rows=await r.json();}catch(e){}
+  if(!rows.length){list.innerHTML='<div style="color:var(--text3);font-size:12.5px;padding:6px 0">Noch kein Spiel – trag unten das erste ein. 🏆</div>';if(tally)tally.innerHTML="";return;}
+  let s=0,u=0,n=0,tf=0,ga=0;
+  rows.forEach(x=>{tf+=x.tore;ga+=x.gegentore;if(x.tore>x.gegentore)s++;else if(x.tore===x.gegentore)u++;else n++;});
+  if(tally)tally.innerHTML=`<div class="card" style="padding:10px 12px;display:flex;gap:8px;justify-content:space-around;text-align:center">
+    <div><div style="font-size:18px;font-weight:800;color:#15803d">${s}</div><div style="font-size:9px;color:var(--text2)">Siege</div></div>
+    <div><div style="font-size:18px;font-weight:800;color:#a16207">${u}</div><div style="font-size:9px;color:var(--text2)">Unent.</div></div>
+    <div><div style="font-size:18px;font-weight:800;color:#dc2626">${n}</div><div style="font-size:9px;color:var(--text2)">Niederl.</div></div>
+    <div><div style="font-size:18px;font-weight:800;color:var(--text)">${tf}:${ga}</div><div style="font-size:9px;color:var(--text2)">Tore</div></div>
+  </div>`;
+  list.innerHTML=rows.map((x,i)=>{const w=x.tore>x.gegentore?"#15803d":x.tore===x.gegentore?"#a16207":"#dc2626";
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--surface2)">
+      <span style="font-size:10px;color:var(--text3);width:18px">${i+1}.</span>
+      <span style="flex:1;font-size:13px">${x.gegner?esc(x.gegner):"Gegner "+(i+1)}</span>
+      <span style="font-weight:800;color:${w}">${x.tore}:${x.gegentore}</span>
+      <button onclick="turnierDelete(${x.id})" title="löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:13px;padding:2px 4px"><i class="ti ti-trash"></i></button>
+    </div>`;}).join("");
+}
+async function turnierAdd(){
+  const g=(document.getElementById("turnier-gegner")?.value||"").trim();
+  const tore=parseInt(document.getElementById("turnier-tore")?.value)||0;
+  const geg=parseInt(document.getElementById("turnier-geg")?.value)||0;
+  try{const r=await fetch(`${SB_URL}/rest/v1/turnier_spiele`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({datum:spieltagKey(),gegner:g||null,tore,gegentore:geg})});if(sbCheck401(r))return;if(!r.ok&&r.status!==201){toast("Speichern fehlgeschlagen","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  ["turnier-gegner"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  ["turnier-tore","turnier-geg"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="0";});
+  try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
+  turnierRender();
+}
+async function turnierDelete(id){
+  try{await fetch(`${SB_URL}/rest/v1/turnier_spiele?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}
+  turnierRender();
+}
 // Spieltags-Nominierung: wer ist dabei / nicht / verletzt – speist Rotations-Timer + Blitz
 let nomStatus={};
 // Match-Datum nur aus hinterlegten Spieltagen (termine typ spiel/turnier) wählbar – kein Freitext.
