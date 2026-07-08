@@ -1,4 +1,4 @@
-const CACHE="u9i-adler-v160";
+const CACHE="u9i-adler-v161";
 const PRECACHE=[
   "./",
   "./index.html",
@@ -59,6 +59,7 @@ self.addEventListener("activate",e=>{
 self.addEventListener("fetch",e=>{
   const url=e.request.url;
   if(url.includes("supabase.co"))return;
+  if(url.includes("open-meteo.com"))return; // Wetter: nie cachen (ignoreSearch würde die Datums-Query zerstören)
   if(e.request.method!=="GET")return;
 
   e.respondWith((async()=>{

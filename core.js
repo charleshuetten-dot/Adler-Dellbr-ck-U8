@@ -398,6 +398,45 @@ const XP_BADGES=[
 ];
 function xpBadge(total){return XP_BADGES.find(b=>(total||0)>=b.min)||XP_BADGES[XP_BADGES.length-1];}
 
+/* Wetter am Termin (open-meteo, ohne API-Key). Heim-Koordinaten Köln-Dellbrück als Default.
+   open-meteo wird im SW NICHT gecacht (durchgereicht) – sonst würde ignoreSearch die
+   Datums-Query zerstören. Zeigt nur etwas, wenn der Termin in Vorhersage-Reichweite liegt. */
+const WETTER_LAT=50.98, WETTER_LON=7.05; // SV Adler Dellbrück (Heim)
+function wetterCodeInfo(c){
+  c=Number(c);
+  if(c===0)return{e:"☀️",t:"Klar"};
+  if(c===1||c===2)return{e:"🌤️",t:"Leicht bewölkt"};
+  if(c===3)return{e:"☁️",t:"Bewölkt"};
+  if(c===45||c===48)return{e:"🌫️",t:"Nebel"};
+  if(c>=51&&c<=57)return{e:"🌦️",t:"Nieselregen"};
+  if((c>=61&&c<=67)||(c>=80&&c<=82))return{e:"🌧️",t:"Regen"};
+  if((c>=71&&c<=77)||(c>=85&&c<=86))return{e:"❄️",t:"Schnee"};
+  if(c>=95)return{e:"⛈️",t:"Gewitter"};
+  return{e:"🌡️",t:"Wetter"};
+}
+async function wetterFetch(dateStr){
+  if(!dateStr)return null;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const days=Math.round((new Date(dateStr+"T00:00:00")-today)/86400000);
+  if(days<0||days>15)return null; // open-meteo-Vorhersage reicht ~16 Tage
+  try{
+    const u=`https://api.open-meteo.com/v1/forecast?latitude=${WETTER_LAT}&longitude=${WETTER_LON}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBerlin&start_date=${dateStr}&end_date=${dateStr}`;
+    const r=await fetch(u);
+    if(!r.ok)return null;
+    const dd=(await r.json()).daily;
+    if(!dd||!dd.weather_code||!dd.weather_code.length)return null;
+    const info=wetterCodeInfo(dd.weather_code[0]);
+    return {emoji:info.e,text:info.t,tmax:Math.round(dd.temperature_2m_max[0]),tmin:Math.round(dd.temperature_2m_min[0]),rain:dd.precipitation_probability_max?dd.precipitation_probability_max[0]:null};
+  }catch(e){return null;}
+}
+async function wetterInto(elId,dateStr){
+  const w=await wetterFetch(dateStr);
+  const el=document.getElementById(elId);
+  if(!el||!w)return; // außer Reichweite / offline: nichts anzeigen
+  const rain=(w.rain!=null)?` · 💧 ${w.rain}%`:"";
+  el.innerHTML=`<span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text2);background:var(--surface2);border:var(--border);border-radius:20px;padding:3px 10px;margin-top:6px">${w.emoji} ${w.text} · ${w.tmax}°/${w.tmin}°${rain}</span>`;
+}
+
 async function xpAward(spielerId,quelle,quelleId){
   try{
     const r=await fetch(`${SB_URL}/rest/v1/rpc/xp_award_event`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({p_spieler_id:spielerId,p_quelle:quelle,p_quelle_id:quelleId==null?null:String(quelleId)})});

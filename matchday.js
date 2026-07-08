@@ -177,6 +177,7 @@ async function elternDashLoad(){
     html+=card(`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Nächster Termin</div>
       <div style="font-size:16px;font-weight:800;margin-top:2px">${m.icon} ${esc(termin.titel||termin.gegner||m.label)}</div>
       <div style="font-size:12.5px;color:#64748b;margin-top:3px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})}${zeit?" · "+zeit:""}${termin.ort?" · "+esc(termin.ort):""}</div>
+      <div id="wetter-eltern"></div>
       <button onclick="galerieOpen(${termin.id},'${(termin.titel||termin.gegner||m.label).replace(/'/g,'')}')" style="width:100%;margin-top:10px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 Event-Fotos ansehen &amp; teilen</button>`);
     html+=kids.map(k=>{
       const kd=k.kader||{}, cur=rsvp[k.spieler_id], st=cur?cur.status:null;
@@ -236,6 +237,7 @@ async function elternDashLoad(){
   }
   html+=`<div id="ak-slot"></div>`; // FEAT Z: Adler-Kasse (async, nur wenn Link gesetzt)
   body.innerHTML=html;
+  if(termin&&termin.datum)wetterInto("wetter-eltern",termin.datum); // Wetter am nächsten Termin (open-meteo)
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(el)el.innerHTML=adlerkasseCardHtml(l);}).catch(()=>{});
   // FEAT S: XP-Chips async füllen (RPC xp_total – Eltern sehen nur das eigene Kind)
   kids.forEach(k=>{xpTotal(k.spieler_id).then(t=>{const el=document.getElementById("xp-chip-"+k.spieler_id);if(el){const b=xpBadge(t);el.textContent=`${XP_ICON} ${t} ${XP_LABEL} · ${b.emo} ${b.t}`;}}).catch(()=>{});});
