@@ -1978,6 +1978,7 @@ function tickerRenderControls(){
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center">
       <button class="btn btn-sm" onclick="matchReport()"><i class="ti ti-news"></i>Spielbericht</button>
+      <button class="btn btn-sm" onclick="ergebnisKarte()"><i class="ti ti-photo"></i>Ergebnis-Karte</button>
       <span style="font-size:10px;color:var(--text3)">Tore &amp; Gegentore kommen automatisch aus der Live-Aktion.</span>
     </div>
     <div id="ticker-feed" style="font-size:11.5px;color:var(--text2)"></div>`;
@@ -2144,6 +2145,60 @@ function matchReportCopy(){
   if(navigator.share){navigator.share({title:"Spielbericht U9",text}).then(done).catch(()=>{});return;}
   if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(done,()=>{ta.select();try{document.execCommand("copy");done();}catch(e){}});}
   else{ta.select();try{document.execCommand("copy");done();}catch(e){}}
+}
+// Teilbare Ergebnis-Karte (Bild): Ergebnis + Torschützen als Social-Card fürs Familien-/Eltern-Chat.
+async function ergebnisKarte(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  toast("🖼️ Ergebnis-Karte wird erstellt…");
+  const datum=spieltagKey(), realDate=spieltagRawDate();
+  let trows=[],acts=[],gegner="";
+  try{const r=await fetch(`${SB_URL}/rest/v1/ticker_events?datum=eq.${encodeURIComponent(datum)}&select=typ`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)trows=await r.json();}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/match_actions?datum=eq.${encodeURIComponent(datum)}&select=spieler,aktion`,{headers:sbAuthHeaders()});if(r.ok)acts=await r.json();}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/matchday?datum=eq.${encodeURIComponent(realDate)}&select=gegner&order=datum.desc&limit=1`,{headers:sbAuthHeaders()});if(r.ok){const m=(await r.json())[0];gegner=(m&&m.gegner)||"";}}catch(e){}
+  const tore=trows.filter(t=>t.typ==="tor").length||acts.filter(a=>a.aktion==="tor").length;
+  const gegentore=trows.filter(t=>t.typ==="gegentor").length;
+  const sc={}; acts.filter(a=>a.aktion==="tor").forEach(a=>{ if(a.spieler)sc[a.spieler]=(sc[a.spieler]||0)+1; });
+  const scorers=Object.entries(sc).sort((a,b)=>b[1]-a[1]).map(([n,c])=>c>1?`${n} (${c})`:n);
+  const logo=new Image();
+  logo.onload=()=>drawErgebnisKarte(logo,{tore,gegentore,gegner,scorers,realDate});
+  logo.onerror=()=>drawErgebnisKarte(null,{tore,gegentore,gegner,scorers,realDate});
+  logo.src="logo.png";
+}
+function drawErgebnisKarte(logoImg,d){
+  const W=640,H=800,ctx=Object.assign(document.createElement("canvas"),{width:W,height:H}).getContext("2d");
+  const c=ctx.canvas;
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,"#1e3a8a");g.addColorStop(1,"#1a56db");
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.textAlign="center";ctx.textBaseline="alphabetic";
+  if(logoImg){try{ctx.drawImage(logoImg,W/2-46,46,92,92);}catch(e){}}
+  ctx.fillStyle="#fff";ctx.font="bold 26px Arial";ctx.fillText("SV ADLER DELLBRÜCK · U9",W/2,178);
+  const p=(d.realDate||"").split("-");const ds=p.length===3?`${p[2]}.${p[1]}.${p[0]}`:d.realDate;
+  ctx.fillStyle="rgba(255,255,255,.75)";ctx.font="18px Arial";ctx.fillText(ds,W/2,208);
+  const py=252,ph=210;
+  ctx.fillStyle="rgba(255,255,255,.12)";tbRoundRect(ctx,60,py,W-120,ph,20);ctx.fill();
+  ctx.fillStyle="rgba(255,255,255,.85)";ctx.font="bold 18px Arial";ctx.fillText("SPIELERGEBNIS",W/2,py+38);
+  ctx.fillStyle="#facc15";ctx.font="bold 92px Arial";ctx.fillText(`${d.tore} : ${d.gegentore}`,W/2,py+140);
+  ctx.fillStyle="#fff";ctx.font="bold 22px Arial";ctx.fillText(`Adler${d.gegner?"   –   "+d.gegner:""}`,W/2,py+185);
+  let y=py+ph+66;
+  if(d.scorers.length){
+    ctx.fillStyle="rgba(255,255,255,.9)";ctx.font="20px Arial";ctx.fillText("⚽ Torschützen",W/2,y);y+=36;
+    ctx.fillStyle="#fff";ctx.font="bold 22px Arial";
+    const words=d.scorers;let line="",yy=y;
+    words.forEach(w=>{const t=line?line+"   ·   "+w:w; if(ctx.measureText(t).width>W-100&&line){ctx.fillText(line,W/2,yy);yy+=32;line=w;}else line=t;});
+    if(line)ctx.fillText(line,W/2,yy);
+  }
+  ctx.fillStyle="rgba(255,255,255,.9)";ctx.font="bold 24px Arial";ctx.fillText("🦅 Auf geht's, Adler!",W/2,H-46);
+  c.toBlob(async(blob)=>{
+    if(!blob){toast("Bild konnte nicht erzeugt werden","err");return;}
+    const file=new File([blob],"ergebnis-u9.png",{type:"image/png"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],title:"Ergebnis U9"});}catch(e){}
+    }else{
+      const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="ergebnis-u9.png";
+      document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+      toast("Ergebnis-Karte heruntergeladen ✓");
+    }
+  },"image/png");
 }
 
 /* Kalender-Sync (.ics): kommende veröffentlichte Termine als Kalenderdatei –
