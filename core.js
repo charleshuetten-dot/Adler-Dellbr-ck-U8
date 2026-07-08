@@ -401,6 +401,22 @@ function xpBadge(total){return XP_BADGES.find(b=>(total||0)>=b.min)||XP_BADGES[X
 /* Wetter am Termin (open-meteo, ohne API-Key). Heim-Koordinaten Köln-Dellbrück als Default.
    open-meteo wird im SW NICHT gecacht (durchgereicht) – sonst würde ignoreSearch die
    Datums-Query zerstören. Zeigt nur etwas, wenn der Termin in Vorhersage-Reichweite liegt. */
+// Chart.js Lazy-Loader: lädt das ~200-KB-Skript erst, wenn ein Diagramm gebraucht wird
+// (nur Trainer-Verlauf/Radar). SW hat es weiterhin im Precache → offline aus dem Cache.
+let _chartJsPromise=null;
+function ensureChart(){
+  if(window.Chart)return Promise.resolve();
+  if(_chartJsPromise)return _chartJsPromise;
+  _chartJsPromise=new Promise((res,rej)=>{
+    const s=document.createElement("script");
+    s.src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js";
+    s.onload=()=>res();
+    s.onerror=()=>{_chartJsPromise=null;rej(new Error("Chart.js konnte nicht geladen werden"));};
+    document.head.appendChild(s);
+  });
+  return _chartJsPromise;
+}
+
 // Ort/Adresse → antippbarer Karten-Link (Google Maps, öffnet native App auf dem Handy).
 function mapsUrl(q){ return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q||""); }
 function mapsAnchor(ort,color){ if(!ort)return ""; return `<a href="${mapsUrl(ort)}" target="_blank" rel="noopener" style="color:${color||"var(--blue)"};text-decoration:none">📍 ${esc(ort)}</a>`; }

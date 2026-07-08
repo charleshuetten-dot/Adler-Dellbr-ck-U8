@@ -12,6 +12,7 @@
 let liveChart=null;
 let builtDimsTw=null; // welche Layout-Variante (Feld=false / TW=true) aktuell im DOM steht; null = leer
 function updateLiveRadar(){
+  if(!window.Chart){ensureChart().then(updateLiveRadar).catch(()=>{});return;}
   const v=getV(),dims=currentDims();
   const{dims:ds}=calcScores(v,dims);
   const labels=dims.map(d=>d.label.split(" ")[0]);
@@ -126,6 +127,7 @@ function showBewSticky(name){
    DOM BUILDER
 ═══════════════════════════════════ */
 function buildDims(isTw){
+  if(!window.Chart){ensureChart().then(()=>buildDims(isTw)).catch(()=>{});return;}
   const dims=isTw?[...DIMS_FELD,...DIMS_TW]:DIMS_FELD;
   const wrap=document.getElementById("dims-wrap");
   wrap.innerHTML="";
@@ -794,6 +796,7 @@ function renderProfil(){
   if(!window._dbLoaded&&!Object.keys(DB).length){document.getElementById("profil-content").innerHTML=skeletonRows(3);return;} // L2
   if(!name){document.getElementById("profil-content").innerHTML='<div class="empty"><i class="ti ti-user-circle"></i>Spieler auswählen</div>';return;}
   const snaps=DB[name]||[];if(!snaps.length)return;
+  if(!window.Chart){ensureChart().then(renderProfil).catch(()=>{});return;} // Chart lazy laden
   const lat=snaps[snaps.length-1];
   const sc=safeParse(lat.scores,[0,0,0,0,0]);
   const tot=lat.total_score||0,pot=lat.pot_score||0;
@@ -1422,6 +1425,7 @@ let vchart=null,vchartTimer=0;
 function renderVerlauf(){
   const name=document.getElementById("psel-verlauf").value;
   if(!name){document.getElementById("verlauf-content").innerHTML='<div class="empty"><i class="ti ti-chart-line"></i>Spieler auswählen</div>';return;}
+  if(!window.Chart){ensureChart().then(renderVerlauf).catch(()=>{});return;} // Chart lazy laden
   const snaps=DB[name]||[];
   const isTw=getKader(name)?.tw||false;
   const dims=isTw?[...DIMS_FELD,...DIMS_TW]:DIMS_FELD;
