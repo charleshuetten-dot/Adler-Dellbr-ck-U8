@@ -1667,8 +1667,12 @@ function tmSetTyp(t,btn){
   tmTyp=t;
   btn.parentElement.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active"));
   btn.classList.add("active");
+  const titelRow=document.getElementById("tm-titel-row");
+  if(titelRow)titelRow.style.display=t==="training"?"none":"block"; // Training braucht keinen Titel/Gegner
   const lbl=document.getElementById("tm-titel-lbl");
-  if(lbl)lbl.textContent=t==="training"?"Titel (optional)":t==="event"?"Titel (z. B. Saisonabschluss, Weihnachtsfeier)":"Gegner / Titel";
+  if(lbl)lbl.textContent=t==="event"?"Titel (z. B. Saisonabschluss, Weihnachtsfeier)":"Gegner / Titel";
+  const platzRow=document.getElementById("tm-platz")?.closest(".mg");
+  if(platzRow)platzRow.style.display=t==="training"?"block":"none"; // Platz nur beim Training relevant
   const sfRow=document.getElementById("tm-spielform-row");
   if(sfRow)sfRow.style.display=(t==="spiel"||t==="turnier")?"block":"none"; // Spielform nur bei Spiel/Turnier
   const drRow=document.getElementById("tm-dauer-row");
