@@ -275,6 +275,12 @@ function getPlayerData(name){
   return{name,v,ds,total,rolle,tw,lat};
 }
 
+// Bewertungs-Trend: Vergleich der letzten beiden Snapshots (total_score). conf = Anzahl Bewertungen.
+function playerTrend(name){
+  const snaps=DB[name]; if(!snaps||snaps.length<2)return {delta:0,conf:snaps?snaps.length:0};
+  const cur=snaps[snaps.length-1].total_score||0, prev=snaps[snaps.length-2].total_score||0;
+  return {delta:Math.round(cur-prev), conf:snaps.length};
+}
 function roleScore(player,role){
   // player.rolle wurde in getPlayerData() bereits mit demselben foot berechnet – nicht doppelt tun
   return player.rolle.scores[role]||0;

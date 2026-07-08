@@ -680,13 +680,15 @@ function renderKader(){
     const tot=lat.total_score||0,pot=lat.pot_score||0;
     const grpB=lat.grp==="A"?'<span class="grp-a">A</span>':lat.grp==="B"?'<span class="grp-b">B</span>':'<span style="font-size:10px;color:var(--text3)">–</span>';
     const mini=val=>{let s='<div class="sm">';for(let i=0;i<5;i++)s+=`<div class="sm-s${val>=(i+1)*20?" on":""}"></div>`;return s+'</div>';};
-    const snBadge=DB[name].length>1?`<span style="font-size:9px;color:var(--teal);font-weight:600;margin-left:4px">×${DB[name].length}</span>`:"";
+    const snBadge=DB[name].length>1?`<span title="${DB[name].length} Bewertungen – mehr = verlässlicher" style="font-size:9px;color:var(--teal);font-weight:600;margin-left:4px">×${DB[name].length}</span>`:"";
+    const _tr=(typeof playerTrend==="function")?playerTrend(name):{delta:0,conf:0};
+    const trArrow=_tr.delta>2?`<span title="verbessert (+${_tr.delta}%)" style="color:#16a34a;font-size:12px;font-weight:800"> ↗</span>`:_tr.delta<-2?`<span title="gefallen (${_tr.delta}%)" style="color:#dc2626;font-size:12px;font-weight:800"> ↘</span>`:_tr.conf>=2?`<span title="stabil" style="color:var(--text3);font-size:12px"> →</span>`:"";
     html+=`<tr>
       <td><div style="font-weight:600;font-size:12.5px">${getKader(name)?.nr?`<span style="font-size:9px;font-weight:700;color:var(--text3);background:var(--surface2);border:var(--border);border-radius:8px;padding:1px 5px;margin-right:4px">${getKader(name).nr}</span>`:""}${esc(name)}${isTw?" 🥅":""}</div><div style="font-size:10px;color:var(--text2)">${esc(lat.datum||'')}${snBadge}</div></td>
       <td><span class="rbadge ${bMap[prim]||'rb-flex'}">${isTw?`TW / ${esc(lMap[prim]||prim)}`:esc(lMap[prim]||prim)}</span>${lat.sek_rolle&&!isTw?`<br><span style="font-size:10px;color:var(--text2)">${esc(lat.sek_rolle)}</span>`:""}</td>
       <td>${grpB}</td>
       ${[0,1,2].map(i=>`<td><span style="font-size:11px;font-weight:600;color:${dimCols[i]}">${sc[i]||0}%</span>${mini(sc[i]||0)}</td>`).join("")}
-      <td><span style="font-weight:700;font-size:13px">${tot}%</span></td>
+      <td><span style="font-weight:700;font-size:13px">${tot}%</span>${trArrow}</td>
       <td><span style="font-size:11px;color:var(--teal);font-weight:600">${pot}%</span></td>
       <td style="font-size:11px;color:var(--text2)">${esc(lat.trainer||'–')}</td>
       <td style="white-space:nowrap">
