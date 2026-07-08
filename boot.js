@@ -384,6 +384,49 @@ function awSave(){
   toast("Anwesenheit gespeichert ✓");
 }
 
+/* ═══════════════════════════════════
+   FEAT V: BUDDY-AUSLOSUNG (Welle 1)
+   Fisher-Yates über die anwesend markierten Kinder → Zweier-Paare,
+   bei ungerader Zahl wird das letzte Paar zum Dreier-Team.
+   Anzeige zuerst (fürs Hochhalten am Platz), Persistenz best-effort
+   in termine.buddies des Termins am gewählten Datum.
+═══════════════════════════════════ */
+function buddyShuffle(){
+  const anwesend=KADER.filter(k=>document.querySelector(`.aw-toggle[data-player="${k.name}"]`)?.classList.contains("on")).map(k=>k.name);
+  if(anwesend.length<2){toast("Erst mindestens 2 Kinder als anwesend markieren","err");return;}
+  for(let i=anwesend.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[anwesend[i],anwesend[j]]=[anwesend[j],anwesend[i]];}
+  const paare=[];
+  for(let i=0;i+1<anwesend.length;i+=2)paare.push([anwesend[i],anwesend[i+1]]);
+  if(anwesend.length%2===1)paare[paare.length-1].push(anwesend[anwesend.length-1]);
+  buddyRender(paare);
+  buddyPersist(paare);
+  try{navigator.vibrate&&navigator.vibrate([30,40,30]);}catch(e){}
+}
+function buddyRender(paare){
+  const el=document.getElementById("buddy-result");
+  if(!el)return;
+  el.innerHTML=`<div style="margin-top:12px;padding:14px;background:var(--surface);border:var(--border-s);border-radius:var(--rl)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-weight:800;font-size:15px">🎲 Buddy-Paare</div>
+      <button class="btn btn-sm" onclick="buddyShuffle()">Neu mischen</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">
+      ${paare.map((p,i)=>`<div style="padding:12px;border-radius:10px;background:${["#eff6ff","#f0fdf4","#fef3c7","#fdf2f8","#f0f9ff","#f5f3ff","#fff7ed","#f0fdfa"][i%8]};font-size:16px;font-weight:800;text-align:center">${p.map(esc).join(" 🤝 ")}${p.length===3?' <span style="font-size:10px;font-weight:700;color:#92400e">(3er-Team)</span>':""}</div>`).join("")}
+    </div>
+  </div>`;
+}
+async function buddyPersist(paare){
+  const datum=document.getElementById("aw-date")?.value;
+  if(!datum)return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?datum=eq.${encodeURIComponent(datum)}&select=id&limit=1`,{headers:sbAuthHeaders()});
+    if(!r.ok)return;
+    const rows=await r.json();
+    if(!rows.length)return; // kein Termin an dem Tag -> nur Anzeige, kein Fehler
+    await fetch(`${SB_URL}/rest/v1/termine?id=eq.${rows[0].id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({buddies:paare})});
+  }catch(e){}
+}
+
 function awLoad(){
   const datum=document.getElementById("aw-date").value;
   const existing=AW_DATA[datum]||{};
