@@ -4530,6 +4530,8 @@ async function kiCoachGenerate(){
     if(out)out.innerHTML=`<div style="color:#dc2626;font-size:13px;padding:10px">${e&&e.name==="AbortError"?"Zeitüberschreitung – bitte nochmal versuchen.":"Netzwerkfehler – bist du online?"}</div>`;
   }finally{ if(btn)btn.disabled=false; }
 }
+// Kategorien für die Bibliothek (gleiche Keys wie renderTraining/PERIOD_CATS).
+const KI_KATS=[["aufwaermen","Aufwärmen"],["raute","Raute & Grundordnung"],["passspiel","Passspiel"],["wahrnehmung","Wahrnehmung & IQ"],["technik","Technik & Ball"],["pressing","Pressing & Umschalten"],["spass","Spaß & Wettbewerb"],["torwart","Torwart"],["individual","Individual"],["mindset","Mindset"]];
 function kiCoachRender(uebungen,rest){
   kiLastUebungen=uebungen||[];
   const out=document.getElementById("ki-result"); if(!out)return;
@@ -4539,7 +4541,14 @@ function kiCoachRender(uebungen,rest){
     <div style="font-size:11px;color:var(--text2);margin:2px 0 6px">${u.dauer?"⏱ "+esc(u.dauer):""}${u.material?" · 🎒 "+esc(u.material):""}</div>
     <div style="font-size:12.5px;line-height:1.5;white-space:pre-wrap">${esc(u.beschreibung||"")}</div>
     ${u.variante?`<div style="font-size:11.5px;color:var(--text2);margin-top:5px">➕ ${esc(u.variante)}</div>`:""}
-    <button class="btn btn-sm btn-p" style="margin-top:8px" onclick="kiCoachSaveForm(${i})"><i class="ti ti-clipboard-list"></i>In Trainingsplanung übernehmen</button>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px">
+      <label style="font-size:11px;color:var(--text2)">Kategorie:
+        <select id="ki-kat-${i}" style="padding:6px 8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text)">
+          ${KI_KATS.map(([k,l])=>`<option value="${k}"${k==="technik"?" selected":""}>${l}</option>`).join("")}
+        </select>
+      </label>
+      <button class="btn btn-sm btn-p" onclick="kiCoachSaveForm(${i})"><i class="ti ti-clipboard-list"></i>In Bibliothek übernehmen</button>
+    </div>
   </div>`).join("")+(rest!=null?`<div style="font-size:10px;color:var(--text3);text-align:center;margin-top:2px">Noch ${esc(rest)} KI-Anfragen heute frei</div>`:"");
 }
 async function kiCoachSave(i){
@@ -4579,12 +4588,13 @@ async function ttViewKi(id){
 // gewuenschte Stelle. Navigiert direkt in die Planung.
 async function kiCoachSaveForm(i){
   const u=kiLastUebungen[i]; if(!u)return;
+  const kat=document.getElementById("ki-kat-"+i)?.value||"technik"; // vom Trainer gewählte Kategorie
   const ablauf=(u.beschreibung||"")+(u.variante?"\n\nVariante: "+u.variante:"");
   if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
   // Spalten exakt wie in trainingsformen: KEIN svg (existiert nicht), tags ist text (kein Array).
   const form={
     name:(u.titel||"KI-Übung").slice(0,120),
-    kat:"custom",
+    kat:kat,
     ablauf:ablauf,
     varianten:u.variante||"",
     coaching:"Vom Adler-Coach (KI) vorgeschlagen – altersgerecht für U8/U9.",
