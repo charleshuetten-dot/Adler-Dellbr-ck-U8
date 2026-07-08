@@ -1099,6 +1099,40 @@ const CARD_MILESTONES=[
   {min:10, a:"#5c4300", b:"#e9c94a", name:"GOLD", medal:"gold", border:"#ffe08a"}
 ];
 function cardMilestoneTheme(trainings){ const t=Number(trainings)||0; return CARD_MILESTONES.find(m=>t>=m.min)||null; }
+/* Karten-Skins (Feder-Freischaltung): rein aus dem Federn-Gesamtstand abgeleitet – KEIN
+   Extra-Speicher, keine RLS-Änderung. Der höchste erreichte Skin wird automatisch auf die
+   Karte gebacken (Rahmen-Akzent + Emblem-Pill), zusätzlich zum Dim-/Meilenstein-Theme.
+   Schließt die Federn-Schleife: Lernen (z. B. Wissensquiz) → Federn → neues Karten-Design. */
+const CARD_SKINS=[
+  {min:0,    name:"Küken-Adler",   emo:"🐣", border:null},
+  {min:60,   name:"Bronze-Adler",  emo:"🥉", border:"#cd7f32"},
+  {min:150,  name:"Silber-Adler",  emo:"🥈", border:"#cbd5e1"},
+  {min:300,  name:"Gold-Adler",    emo:"🥇", border:"#facc15"},
+  {min:500,  name:"Feuer-Adler",   emo:"🔥", border:"#f97316"},
+  {min:800,  name:"Eis-Adler",     emo:"❄️", border:"#38bdf8"},
+  {min:1200, name:"Diamant-Adler", emo:"💎", border:"#a78bfa"}
+];
+function cardSkinFor(federn){ const f=Number(federn)||0; return CARD_SKINS.filter(s=>f>=s.min).pop()||CARD_SKINS[0]; }
+// Skin-Galerie fürs Modal (nicht ins PNG gebacken): zeigt alle Designs, freie in Farbe,
+// gesperrte ausgegraut mit Federn-Bedarf – der Sammel-/Ansporn-Effekt ohne extra Auswahl.
+function cardSkinGalleryEl(federn){
+  const f=Number(federn)||0, active=cardSkinFor(f), shown=CARD_SKINS.filter(s=>s.min>0);
+  const unlocked=shown.filter(s=>f>=s.min).length;
+  const wrap=document.createElement("div");
+  wrap.style.cssText="width:300px;max-width:100%;background:var(--surface);border:var(--border-s);border-radius:14px;padding:10px 12px";
+  wrap.innerHTML=`<div style="font-size:11px;font-weight:800;color:var(--text);margin-bottom:8px">🃏 Karten-Designs <span style="color:var(--text3);font-weight:600">(${unlocked}/${shown.length} frei · ${f} 🪶)</span></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">`+
+    shown.map(s=>{
+      const on=f>=s.min, isActive=active&&active.name===s.name;
+      return `<div style="text-align:center;padding:6px 2px;border-radius:10px;${isActive?"background:rgba(250,204,21,.14);outline:2px solid "+(s.border||"#facc15"):""}">
+        <div style="font-size:24px;line-height:1;${on?"":"filter:grayscale(1);opacity:.4"}">${s.emo}</div>
+        <div style="font-size:9px;font-weight:700;color:${on?"var(--text)":"var(--text3)"};margin-top:3px;line-height:1.1">${s.name.replace("-Adler","")}</div>
+        <div style="font-size:8px;color:var(--text3);margin-top:1px">${on?(isActive?"aktiv":"frei ✓"):"🔒 "+s.min+" 🪶"}</div>
+      </div>`;
+    }).join("")+`</div>
+    <div style="font-size:9px;color:var(--text3);margin-top:8px;text-align:center">Sammle Adler-Federn 🪶 – z. B. im Fußball-Wissensquiz – und schalte neue Designs frei!</div>`;
+  return wrap;
+}
 // On-Screen-Glanz (nur im Modal, nicht im Export): sanftes Gold-/Hero-Pulsieren um die Karte.
 function cardApplyGlow(canvas,trainings){
   if(!canvas)return;
@@ -1137,7 +1171,7 @@ function adlerCardData(name){
   const pos=k.lieblingsposition||(k.tw?"Torwart":(posMap[lat.position]||lat.prim_rolle||"Allrounder"));
   const fussMap={L:"linker Fuß",R:"rechter Fuß",B:"beidfüßig"};
   return {name,nr:k.nr,tw:!!k.tw,geb:k.geb,fotoPath:k.foto_path,pos:cardPosLabel(pos),fuss:fussMap[k.starker_fuss||lat.strong_foot]||"",
-          alter:k.geb?homeAlter(k.geb):(lat.age||null), badges:strengths.map(s=>CARD_BADGES[s.key]), theme};
+          alter:k.geb?homeAlter(k.geb):(lat.age||null), badges:strengths.map(s=>CARD_BADGES[s.key]), theme, spielerId:k.id};
 }
 function adlerCardDraw(ctx,W,H,d,photoImg){
   // Meilenstein-Theme (Teilnahme, nicht Leistung) überschreibt das Dim-Theme.
@@ -1180,6 +1214,18 @@ function adlerCardDraw(ctx,W,H,d,photoImg){
   ctx.font="600 12px Arial";ctx.fillStyle="rgba(255,255,255,.8)";ctx.fillText(th.name,40,134);
   // Wappen oben rechts
   ctx.textAlign="right";ctx.font="34px Arial";ctx.fillText(d.tw?"🧤":"🦅",W-34,84);
+
+  // ── Karten-Skin (Feder-Freischaltung): Rahmen-Akzent + Emblem-Pill, wird ins PNG gebacken ──
+  const sk=cardSkinFor(d.federn);
+  if(sk&&sk.border){
+    if(!medal){ ctx.lineWidth=3;ctx.strokeStyle=sk.border;tbRoundRect(ctx,16,16,W-32,H-32,23);ctx.stroke(); } // Meilenstein-Rahmen hat Vorrang (kein Doppelrahmen)
+    ctx.textAlign="right";ctx.font="700 12px Arial";
+    const label=sk.emo+" "+sk.name, lw=ctx.measureText(label).width, pw=lw+18, px=W-34-pw, py=98;
+    ctx.save();tbRoundRect(ctx,px,py,pw,24,12);ctx.fillStyle="rgba(0,0,0,.30)";ctx.fill();
+    ctx.lineWidth=1.5;ctx.strokeStyle=sk.border;ctx.stroke();ctx.restore();
+    ctx.fillStyle="#fff";ctx.fillText(label,W-43,py+16);
+    ctx.textAlign="left";
+  }
 
   // ── Foto / Initialen (mit Glow) ──
   const cx=W/2, cy=H*0.315, rad=W*0.225;
@@ -1350,6 +1396,8 @@ async function adlerCardOpen(){
     <button class="btn" onclick="document.getElementById('adler-card-modal').remove()">Schließen</button>`;
   modal.appendChild(bar);
   document.body.appendChild(modal);
+  // Federn-Stand → Karten-Skin (wird in render() gebacken) + Skin-Galerie unter der Karte
+  if(d.spielerId){ xpTotal(d.spielerId).then(f=>{ if(document.getElementById("adler-card-modal")){ d.federn=f; render(); modal.appendChild(cardSkinGalleryEl(f)); } }).catch(()=>{}); }
   // Einsatz-Zähler laden und neu zeichnen (Modal-Guard gegen Race, falls schon geschlossen)
   adlerCardStats(name).then(c=>{ if(document.getElementById("adler-card-modal")){ d.counts=c; render(); cardApplyGlow(canvas,c.trainings); } });
   // Foto (falls vorhanden) laden und neu zeichnen

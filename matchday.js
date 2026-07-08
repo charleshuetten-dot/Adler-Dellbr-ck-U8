@@ -286,7 +286,7 @@ async function elternCardOpen(spielerId){
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/my_child_card`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler:spielerId})});if(r.ok)p=await r.json();}catch(e){}
   if(!p){toast("Karte konnte nicht geladen werden","err");return;}
   if(!p.radios||(typeof p.radios==="object"&&!Object.keys(p.radios).length)||p.radios==="{}"){toast("Für dein Kind gibt es noch keine Bewertung","err");return;}
-  elternCardShow(adlerCardDataFromChild(p));
+  const d=adlerCardDataFromChild(p); d.spielerId=spielerId; elternCardShow(d);
 }
 async function elternCardShow(d){
   const W=500,H=780;
@@ -308,6 +308,8 @@ async function elternCardShow(d){
     <button class="btn" onclick="document.getElementById('adler-card-modal').remove()">Schließen</button>`;
   modal.appendChild(bar);
   document.body.appendChild(modal);
+  // Federn-Stand → Karten-Skin (in render() gebacken) + Skin-Galerie unter der Karte
+  if(d.spielerId){ xpTotal(d.spielerId).then(f=>{ if(document.getElementById("adler-card-modal")){ d.federn=f; render(); modal.appendChild(cardSkinGalleryEl(f)); } }).catch(()=>{}); }
   if(d.fotoPath){ const img=await fotoLoadImage(d.fotoPath); if(img&&document.getElementById("adler-card-modal")){ rawPhoto=img; render(); } }
 }
 /* ═══════════════════════════════════
