@@ -127,7 +127,50 @@ function elternPortalDashboard(root){
     </div>
     <div id="ep-dash-body"><div style="text-align:center;padding:40px;color:#64748b">Lade…</div></div>
   </div>`;
-  elternDashLoad();
+  dsgvoEnsureConsent(elternDashLoad); // Dashboard erst nach Datenschutz-Einwilligung laden
+}
+// Datenschutz-Einwilligung beim (ersten) Eltern-Login. Server-Nachweis in dsgvo_consent
+// (user_id + Version + Zeitstempel). Bei neuer Version (Text-Update) → erneute Einwilligung.
+const DSGVO_VERSION="1.0";
+async function dsgvoEnsureConsent(onOk){
+  let has=false;
+  try{const r=await fetch(`${SB_URL}/rest/v1/dsgvo_consent?select=version&version=eq.${encodeURIComponent(DSGVO_VERSION)}`,{headers:sbAuthHeaders()});if(r.ok)has=((await r.json())||[]).length>0;}catch(e){}
+  if(has){onOk();return;}
+  dsgvoRenderGate(onOk);
+}
+function dsgvoRenderGate(onOk){
+  const body=document.getElementById("ep-dash-body"); if(!body){onOk();return;}
+  window._dsgvoOnOk=onOk;
+  body.innerHTML=`<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;font-size:12.5px;line-height:1.55;color:#334155">
+    <div style="font-size:16px;font-weight:800;color:#1a1a2e;margin-bottom:6px">Datenschutz & Einwilligung</div>
+    <p style="margin:0 0 8px">Bevor du den Eltern-Bereich nutzt, bitten wir um deine Einwilligung. So gehen wir mit euren Daten um:</p>
+    <ul style="margin:0 0 8px 18px;padding:0">
+      <li><b>Wozu:</b> Organisation des Trainings- und Spielbetriebs der U9 (Termine, Rückmeldungen, Aufstellung, altersgerechte Förderung).</li>
+      <li><b>Sicherheit:</b> Zugang nur per persönlichem Login (Einmal-Code an eure E-Mail, kein Passwort). Du siehst ausschließlich die Daten deines eigenen Kindes – technisch per Zugriffsregeln (Row-Level-Security) erzwungen.</li>
+      <li><b>Fotos:</b> Kinderfotos liegen in einem privaten, zugriffsgeschützten Speicher und werden nur mit ausdrücklicher, kindbezogener Freigabe verwendet (Standard: aus).</li>
+      <li><b>Keine Weitergabe:</b> keine Nutzung zu Werbezwecken, kein Verkauf; keine Zahlungs-/Kontodaten in der App.</li>
+      <li><b>Technik:</b> Hosting/Datenbank über Supabase (EU); Wetter über open-meteo, Karten über OpenStreetMap – dorthin gehen nur Orts-/Termindaten, keine personenbezogenen Daten.</li>
+    </ul>
+    <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;font-size:11.5px;color:#92400e;margin:8px 0">
+      <b>Vom Verein auszufüllen:</b> Verantwortlicher: [Name/Anschrift] · Datenschutz-Kontakt: [E-Mail] · Rechtsgrundlage: [z. B. Einwilligung Art. 6/9 DSGVO] · Speicherdauer: [z. B. bis Saisonende/Austritt] · Rechte (Auskunft, Löschung, Widerruf) über den Kontakt · Vollständige Datenschutzerklärung: [Link].
+    </div>
+    <label style="display:flex;align-items:flex-start;gap:8px;margin:10px 0;font-size:12.5px;cursor:pointer">
+      <input type="checkbox" id="dsgvo-cb" style="margin-top:3px" onchange="var b=document.getElementById('dsgvo-ok');b.disabled=!this.checked;b.style.opacity=this.checked?'1':'.5'">
+      <span>Ich habe die Hinweise gelesen und willige in die beschriebene Verarbeitung ein. Die Einwilligung kann ich jederzeit für die Zukunft widerrufen.</span>
+    </label>
+    <button id="dsgvo-ok" disabled onclick="dsgvoAccept()" style="width:100%;min-height:46px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;opacity:.5">Zustimmen & fortfahren</button>
+    <div style="text-align:center;margin-top:8px"><button onclick="elternPortalLogout()" style="border:none;background:none;color:#64748b;font-size:12px;cursor:pointer">Ablehnen & abmelden</button></div>
+  </div>`;
+}
+async function dsgvoAccept(){
+  const btn=document.getElementById("dsgvo-ok"); if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/dsgvo_consent`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({version:DSGVO_VERSION})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast("Konnte nicht speichern","err");if(btn)btn.disabled=false;return;}
+  }catch(e){toast("Netzwerkfehler","err");if(btn)btn.disabled=false;return;}
+  toast("Danke – Einwilligung gespeichert ✓");
+  const ok=window._dsgvoOnOk; window._dsgvoOnOk=null; if(typeof ok==="function")ok();
 }
 const EP_RSVP={zugesagt:{lbl:"Zusage",emo:"👍",col:"#059669"},abgesagt:{lbl:"Absage",emo:"👎",col:"#dc2626"},krank:{lbl:"Krank",emo:"🤒",col:"#d97706"}};
 async function elternDashLoad(){
