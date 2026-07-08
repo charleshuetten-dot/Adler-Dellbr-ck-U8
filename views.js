@@ -343,7 +343,8 @@ function kaderEditRow(k,i){
       <span>📰 Foto fürs <b>digitale Eltern-Stadionheft</b> freigegeben <span style="color:var(--text3)">(Eltern-Einwilligung eingeholt)</span></span>
     </label>
     <input class="ke-medical" value="${esc(k.medical||'')}" placeholder="Medical-Hinweis (z. B. Asthma, Allergie…)" style="width:100%;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
-    ${k._id?`<button type="button" class="btn btn-sm" onclick="kontakteEditOpen(${k._id})" style="margin-top:6px;width:100%"><i class="ti ti-address-book"></i>Kontakte & Eltern-Login</button>`:'<div style="font-size:10px;color:var(--text3);margin-top:6px">Erst speichern – dann sind Kontakte & Eltern-Login hinterlegbar.</div>'}
+    ${k._id?`<button type="button" class="btn btn-sm" onclick="kontakteEditOpen(${k._id})" style="margin-top:6px;width:100%"><i class="ti ti-address-book"></i>Kontakte & Eltern-Login</button>
+    <button type="button" class="btn btn-sm" onclick="kindLinkShare(${k._id})" style="margin-top:6px;width:100%" title="Persönlicher 1-Tap Zu-/Absage-Link ohne Login"><i class="ti ti-calendar-check"></i>Zu-/Absage-Link teilen</button>`:'<div style="font-size:10px;color:var(--text3);margin-top:6px">Erst speichern – dann sind Kontakte & Eltern-Login hinterlegbar.</div>'}
   </div>`;
 }
 // Foto aus einer Kader-Zeile hochladen (nutzt den aktuellen Namen der Zeile).
@@ -460,6 +461,17 @@ async function kontakteAddPhone(sid){
 async function kontakteDelPhone(id,sid){
   try{const r=await fetch(`${SB_URL}/rest/v1/kind_kontakte?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
   kontakteRender(sid);
+}
+// Persönlichen 1-Tap Zu-/Absage-Link (?kind=<token>) eines Kindes an die Familie teilen.
+async function kindLinkShare(spielerId){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  let token=null, nm="";
+  try{const r=await fetch(`${SB_URL}/rest/v1/kader?id=eq.${spielerId}&select=name,rsvp_token`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok){const row=(await r.json())[0];if(row){token=row.rsvp_token;nm=row.name||"";}}}catch(e){}
+  if(!token){toast("Kein Link gefunden","err");return;}
+  const url=location.origin+location.pathname+"?kind="+encodeURIComponent(token);
+  const text=`⚽ Zu-/Absage für ${nm||"dein Kind"} (1 Tipp, kein Login):\n${url}`;
+  if(navigator.share){navigator.share({title:"Zu-/Absage-Link "+nm,text,url}).catch(()=>{});}
+  else{navigator.clipboard?.writeText(url).then(()=>toast("Link kopiert ✓"),()=>prompt("Link:",url));}
 }
 async function kaderSaveAll(btn){
   const rows=[...document.querySelectorAll(".kader-edit-row")];

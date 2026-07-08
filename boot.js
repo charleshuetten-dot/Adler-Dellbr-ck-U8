@@ -917,6 +917,16 @@ async function pinCheck(){
     renderTickerView(params.get("ticker")||"");
     return;
   }
+  // Persönlicher Kind-Link (?kind=<token>): 1-Tap Zu-/Absage ohne Login (Capability-Token).
+  if(params.has("kind")){
+    document.title="Zu-/Absage – SV Adler Dellbrück U9";
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#1e3a8a");
+    document.getElementById("pin-gate")?.remove();
+    document.getElementById("main-app")?.remove();
+    if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+    renderKindView(params.get("kind")||"");
+    return;
+  }
   // Digitales Stadionheft: Nur-Ansehen fuer alle Eltern (?heft), kein Login. Namen maskiert, Fotos nur bei Einwilligung.
   if(params.has("heft")){
     document.title="Stadionheft – SV Adler Dellbrück U9";

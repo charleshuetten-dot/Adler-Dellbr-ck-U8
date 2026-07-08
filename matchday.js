@@ -2240,6 +2240,53 @@ async function elternKalenderIcs(){
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
   toast("Kalenderdatei erstellt ✓");
 }
+/* Persönlicher Kind-Link (?kind=<token>): 1-Tap Zu-/Absage ohne Login.
+   Liest/schreibt ausschließlich über die security-definer-RPCs kind_termine / rsvp_by_token. */
+let kindRoot=null, kindToken=null;
+async function renderKindView(token){
+  kindToken=token;
+  kindRoot=document.createElement("div");
+  kindRoot.style.cssText="max-width:440px;margin:0 auto;padding:16px;font-family:inherit;min-height:100vh;background:#f1f5f9";
+  document.body.appendChild(kindRoot);
+  kindRoot.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Lade…</div>';
+  await kindLoad();
+}
+async function kindLoad(){
+  let d=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kind_termine`,{method:"POST",headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_token:kindToken})});if(r.ok)d=await r.json();}catch(e){}
+  if(!d||!d.ok){ kindRoot.innerHTML='<div style="text-align:center;padding:48px;color:#64748b"><img src="logo.png" style="width:56px;height:56px" alt=""><div style="margin-top:12px">Dieser Link ist ungültig oder abgelaufen.<br>Frag den Trainer nach einem neuen. 🦅</div></div>'; return; }
+  const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"];
+  const evCard=(t)=>{
+    const dt=new Date(t.datum+"T00:00:00");
+    const ds=wtag[dt.getDay()]+", "+dt.toLocaleDateString("de-DE",{day:"2-digit",month:"long"});
+    const istTr=t.typ==="training";
+    const titel=istTr?"Training":("Spiel"+(t.gegner?" gegen "+elternEsc(t.gegner):""));
+    const st=t.status;
+    const btn=(status,emo,lbl,onCol)=>`<button onclick="kindRsvp(${t.id},'${status}')" style="flex:1;min-height:52px;border:2px solid ${st===status?onCol:'#cbd5e1'};border-radius:12px;background:${st===status?onCol:'#fff'};color:${st===status?'#fff':'#334155'};font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">${emo} ${lbl}</button>`;
+    return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">
+      <div style="font-size:15px;font-weight:800;color:#1e293b">${istTr?"🏃 ":"⚽ "}${titel}</div>
+      <div style="font-size:12.5px;color:#64748b;margin:2px 0 10px">${ds}${t.uhrzeit?" · "+t.uhrzeit+" Uhr":""}${t.ort?" · "+elternEsc(t.ort):""}</div>
+      <div style="display:flex;gap:8px">${btn('zugesagt','👍','Dabei','#16a34a')}${btn('abgesagt','👎','Kann nicht','#dc2626')}</div>
+    </div>`;
+  };
+  kindRoot.innerHTML=`
+    <div style="text-align:center;margin:8px 0 16px">
+      <img src="logo.png" style="width:60px;height:60px" alt="">
+      <div style="font-size:18px;font-weight:800;color:#1e3a8a;margin-top:6px">Hallo! 👋</div>
+      <div style="font-size:14px;color:#334155">Sag <b>${elternEsc(d.name)}</b> mit einem Tipp zu oder ab.</div>
+    </div>
+    ${d.termine&&d.termine.length?d.termine.map(evCard).join(""):'<div style="text-align:center;color:#64748b;background:#fff;border-radius:16px;padding:24px">Aktuell keine anstehenden Termine. 🎉</div>'}
+    <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:8px">SV Adler Dellbrück e.V. · persönlicher Link für ${elternEsc(d.name)}</div>`;
+}
+async function kindRsvp(terminId,status){
+  if(!kindToken)return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/rsvp_by_token`,{method:"POST",headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_token:kindToken,p_termin_id:terminId,p_status:status})});
+    const d=r.ok?await r.json():null;
+    if(d&&d.ok){ toast(status==="zugesagt"?"👍 Zugesagt – danke!":"👎 Abgesagt – schade!"); try{navigator.vibrate&&navigator.vibrate(40);}catch(e){} await kindLoad(); }
+    else toast("Konnte nicht speichern","err");
+  }catch(e){ toast("Netzwerkfehler – bist du online?","err"); }
+}
 /* ═══════════════════════════════════
    ELTERN-MATCHDAY-CARD – öffentlicher Read-Only-Link (?eltern / ?match=datum)
    Bewusst nur Logistik, keine Bewertungsdaten. Läuft ohne Login über den Anon-Key.
