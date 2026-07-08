@@ -1461,7 +1461,7 @@ async function adlerCardOpen(nameArg){
   render(); // sofort (Initialen + "–"), Foto und Zähler laden asynchron nach
   const modal=document.createElement("div");
   modal.id="adler-card-modal";
-  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;overflow-y:auto";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:10002;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;overflow-y:auto";
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   canvas.style.cssText="max-width:100%;width:300px;height:auto;border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.5)";
   modal.appendChild(canvas);

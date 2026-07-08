@@ -241,6 +241,7 @@ async function elternDashLoad(){
   }
   html+=`<div style="text-align:center;font-size:10.5px;color:#94a3b8;margin:2px 0 12px">Deine Rückmeldung ist ein Hinweis für den Trainer – die endgültige Aufstellung entscheidet er.</div>`;
   // Quiz-Zugang für Eltern: öffnet die Kids-Quiz-App (Federn zählen, weil die Eltern-Session auf dem Gerät liegt)
+  if(termin&&termin.typ==="training")html+='<div id="betreuung-card"></div>'; // Eltern: wer bleibt vor Ort
   html+=`<a href="${location.pathname}?quiz" style="display:block;text-align:center;background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;border-radius:14px;padding:14px;margin-bottom:12px;text-decoration:none;font-weight:800;font-size:14px">🎮 Adler-Quiz spielen <span style="display:block;font-weight:600;font-size:11.5px;opacity:.92;margin-top:2px">Fußball-Wissen & Taktik – Federn sammeln, Karte aufwerten</span></a>`;
   // UX 6: Timeline der kommenden Termine (scrollbar, rein informativ – RSVP läuft oben)
   if(termineListe.length>1){
@@ -284,6 +285,7 @@ async function elternDashLoad(){
   html+=`<div id="ak-slot"></div>`; // FEAT Z: Adler-Kasse (async, nur wenn Link gesetzt)
   body.innerHTML=html;
   if(termin&&termin.datum)wetterInto("wetter-eltern",termin.datum,termin.ort,termin.uhrzeit); // Wetter am Termin-Ort + Uhrzeit
+  if(termin&&termin.typ==="training")elternBetreuungLoad(termin.id,kids); // wer bleibt vor Ort
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(el)el.innerHTML=adlerkasseCardHtml(l);}).catch(()=>{});
   // FEAT S: XP-Chips async füllen (RPC xp_total – Eltern sehen nur das eigene Kind)
   kids.forEach(k=>{xpTotal(k.spieler_id).then(t=>{const el=document.getElementById("xp-chip-"+k.spieler_id);if(el){const b=xpBadge(t);el.textContent=`${XP_ICON} ${t} ${XP_LABEL} · ${b.emo} ${b.t}`;}}).catch(()=>{});});
@@ -310,6 +312,32 @@ async function elternRsvp(terminId,spielerId,status){
   // FEAT S: XP für Zusagen (idempotent pro Termin via quelle_id, Punktwert bestimmt der Server)
   if(status==="zugesagt"){const d=await xpAward(spielerId,"rsvp","t"+terminId);if(d>0)setTimeout(()=>toast(`${XP_ICON} +${d} ${XP_LABEL} gesammelt!`),1100);}
   elternDashLoad();
+}
+// Eltern-Betreuung beim Training: wer bleibt vor Ort. Alle Eltern sehen die Liste (betreuung_board).
+async function elternBetreuungLoad(terminId,kids){
+  const box=document.getElementById("betreuung-card"); if(!box)return;
+  const ids=(kids||[]).map(k=>k.spieler_id);
+  let mine={};
+  try{const r=await fetch(`${SB_URL}/rest/v1/betreuung?termin_id=eq.${terminId}&spieler_id=in.(${ids.join(",")})&select=spieler_id,will_stay`,{headers:sbAuthHeaders()});if(r.ok)(await r.json()).forEach(x=>mine[x.spieler_id]=x.will_stay);}catch(e){}
+  let board=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/betreuung_board`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_termin:terminId})});if(r.ok)board=((await r.json())||[]).map(x=>x.name);}catch(e){}
+  const toggles=(kids||[]).map(k=>{const kd=k.kader||{};const stay=mine[k.spieler_id]===true;
+    return `<button onclick="elternBetreuungToggle(${terminId},${k.spieler_id},${stay?"false":"true"})" style="width:100%;margin-top:6px;padding:11px;border:1.5px solid ${stay?"#059669":"#cbd5e1"};border-radius:10px;background:${stay?"#059669":"#fff"};color:${stay?"#fff":"#334155"};font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">${stay?"✅ "+esc(kd.name||"Kind")+" – ich bleibe vor Ort":"🙋 "+esc(kd.name||"Kind")+": ich bleibe vor Ort"}</button>`;}).join("");
+  const list=board.length?`<b style="color:#059669">${board.map(esc).join(", ")}</b>`:`<span style="color:#b45309;font-weight:700">noch niemand – bitte helft mit ⚠️</span>`;
+  box.innerHTML=`<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px">
+    <div style="font-weight:700;font-size:15px;margin-bottom:2px">🙋 Betreuung beim Training</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Mindestens ein Elternteil sollte während des Trainings vor Ort bleiben.</div>
+    <div style="font-size:12.5px;margin-bottom:6px">Vor Ort: ${list}</div>
+    ${toggles}
+  </div>`;
+}
+async function elternBetreuungToggle(terminId,spielerId,stay){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/betreuung?on_conflict=termin_id,spieler_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({termin_id:terminId,spieler_id:spielerId,will_stay:stay,updated_at:new Date().toISOString()})});
+    if(!r.ok){toast("Konnte nicht speichern","err");return;}
+    toast(stay?"Danke – du bleibst vor Ort ✓":"Notiert – du bleibst nicht vor Ort");
+    elternDashLoad();
+  }catch(e){toast("Netzwerkfehler","err");}
 }
 // Adler-Karte des eigenen Kindes (Eltern-Sicht): Daten kommen aus der security-definer
 // RPC my_child_card (kein Direktzugriff auf geschützte Tabellen). Baut dieselbe d-Struktur
@@ -409,8 +437,8 @@ async function abzeichenRender(spielerId){
           <div style="font-size:13px;font-weight:700;color:#1a1a2e">${esc(a.name)}${on?" ✓":""}</div>
           <div style="font-size:11px;color:#64748b;line-height:1.3">${esc(a.desc)}</div>
         </div>
-        ${on?`<span style="font-size:11px;font-weight:800;color:#16a34a">geschafft</span>`
-             :`<button onclick="abzeichenAward(${spielerId},'${a.id}',this)" style="flex:none;padding:8px 10px;border:none;border-radius:10px;background:#f59e0b;color:#fff;font-family:inherit;font-size:12px;font-weight:800;cursor:pointer">✅ Geschafft!</button>`}
+        ${on?`<span style="font-size:11px;font-weight:800;color:#16a34a">✓ geschafft</span>`
+             :`<button onclick="abzeichenAward(${spielerId},'${a.id}',this)" style="flex:none;padding:8px 10px;border:none;border-radius:10px;background:#f59e0b;color:#fff;font-family:inherit;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap">Als geschafft eintragen</button>`}
       </div>`;
     }).join("");
 }
