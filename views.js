@@ -514,6 +514,37 @@ function drawChildWrapped(logoImg,d){
     else{ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="adler-wrapped.png";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);toast("Saison-Karte heruntergeladen ✓"); }
   },"image/png");
 }
+// Wochen-Challenge (Kids): Heim-Aufgabe der Woche -> 🪶 20 Federn beim Abhaken.
+async function wochenChallengeOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  let cur="";
+  try{const r=await fetch(`${SB_URL}/rest/v1/wochen_challenge?aktiv=eq.true&select=text&order=created_at.desc&limit=1`,{headers:sbAuthHeaders()});if(r.ok){const row=(await r.json())[0];cur=(row&&row.text)||"";}}catch(e){}
+  document.getElementById("wc-modal")?.remove();
+  const modal=document.createElement("div");modal.id="wc-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const card=document.createElement("div");
+  card.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  card.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🏆 Wochen-Challenge</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Heim-Aufgabe der Woche für die Kids. Geschafft = 🪶 20 Federn (im Quiz abhakbar).</div>
+    <textarea id="wc-input" rows="3" placeholder="z. B. „Diese Woche: 50 Ballkontakte im Garten – jeden Tag ein bisschen!&quot;" style="width:100%;padding:9px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box;resize:vertical">${esc(cur)}</textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+      <button class="btn btn-p" onclick="wochenChallengeSave()"><i class="ti ti-trophy"></i>Challenge aktiv setzen</button>
+      <button class="btn btn-sm" onclick="document.getElementById('wc-modal').remove()">Schließen</button>
+    </div>`;
+  modal.appendChild(card);document.body.appendChild(modal);
+}
+async function wochenChallengeSave(){
+  const el=document.getElementById("wc-input");const text=(el?.value||"").trim();
+  if(!text){toast("Bitte eine Aufgabe eintippen","err");return;}
+  try{
+    await fetch(`${SB_URL}/rest/v1/wochen_challenge?aktiv=eq.true`,{method:"PATCH",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({aktiv:false})});
+    const r=await fetch(`${SB_URL}/rest/v1/wochen_challenge`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({text,aktiv:true})});
+    if(sbCheck401(r))return;
+    if(r.ok||r.status===201){toast("🏆 Challenge ist live!");document.getElementById("wc-modal")?.remove();}
+    else toast("Speichern fehlgeschlagen","err");
+  }catch(e){toast("Netzwerkfehler","err");}
+}
 // Entwicklungs-Ziele pro Kind: 1-2 Förderziele setzen & abhaken (DFB-Fördergedanke).
 async function zieleOpen(spielerId){
   if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
@@ -1581,6 +1612,7 @@ async function renderHome(){
     <button onclick="fundbueroOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🧦 Fundbüro</button>
     <button onclick="ausruestungGrid()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">👕 Team-Ausrüstung</button>
     <button onclick="stadionheftOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">📰 Stadionheft erstellen & drucken</button>
+    <button onclick="wochenChallengeOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🏆 Wochen-Challenge (Kids)</button>
     <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;margin-top:12px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>`;
 
   homeRadarLoad(); // "Kein Kind übersehen"-Radar async nachladen

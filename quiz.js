@@ -343,6 +343,7 @@ function tqStart(){
     html+=`</div>`;
     html+=tqRenderBarometer();
     html+=tqRenderStickers(pp);
+    html+=`<div id="tq-challenge"></div>`;
     html+=`<div style="display:flex;gap:6px;margin-top:10px">
         <button class="btn btn-sm" onclick="tqPlayer=null;tqStart()"><i class="ti ti-arrow-left"></i>Spieler wechseln</button>
         ${extern?"":'<button class="btn btn-sm" onclick="tqStop()" style="margin-left:auto"><i class="ti ti-x"></i>Schließen</button>'}
@@ -350,8 +351,29 @@ function tqStart(){
   }
   html+=`</div>`;
   panel.innerHTML=html;
+  if(tqPlayer)tqChallengeLoad(); // Wochen-Challenge im Spieler-Kontext nachladen
 }
-
+// Wochen-Challenge im Quiz: aktive Aufgabe anzeigen + "Geschafft" -> Federn fürs gewählte Kind.
+async function tqChallengeLoad(){
+  const box=document.getElementById("tq-challenge"); if(!box||!tqPlayer)return;
+  let ch=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/wochen_challenge?aktiv=eq.true&select=id,text&order=created_at.desc&limit=1`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});if(r.ok)ch=(await r.json())[0];}catch(e){}
+  if(!ch){box.innerHTML="";return;}
+  box.innerHTML=`<div style="background:linear-gradient(135deg,#7c3aed,#2563eb);border-radius:var(--rl);padding:12px;margin-top:10px;color:#fff">
+    <div style="font-size:12px;font-weight:800;margin-bottom:4px">🏆 Wochen-Challenge</div>
+    <div style="font-size:13px;line-height:1.4;margin-bottom:10px">${esc(ch.text)}</div>
+    <button onclick="wcDone(${ch.id},this)" style="width:100%;min-height:44px;border:none;border-radius:10px;background:#fbbf24;color:#1e293b;font-family:inherit;font-weight:800;font-size:13.5px;cursor:pointer">✅ Geschafft! (+${XP_ICON} 20 ${XP_LABEL})</button>
+  </div>`;
+}
+async function wcDone(challengeId,btn){
+  if(!tqPlayer){toast("Erst Spieler wählen","err");return;}
+  if(btn)btn.disabled=true;
+  try{
+    const d=await xpAwardByName(tqPlayer,"challenge","wc"+challengeId);
+    if(d>0){ toast(`🏆 Challenge geschafft – ${XP_ICON} +${d} ${XP_LABEL} für ${tqPlayer}!`); try{navigator.vibrate&&navigator.vibrate([40,60,40]);}catch(e){} if(btn){btn.textContent="✅ Erledigt – super!";btn.style.background="#22c55e";btn.style.color="#fff";} }
+    else { toast(tqPlayer+" hat diese Challenge schon geschafft 👍"); if(btn)btn.textContent="✅ Schon erledigt"; }
+  }catch(e){ toast("Hat nicht geklappt (online & angemeldet?)","err"); if(btn)btn.disabled=false; }
+}
 // Adler-Stickerheft: pro gemeistertem Block (>=7) ein farbiger Sticker, sonst ausgegraut
 const TQ_STICKERS=["💎","🦅","⚡","🎯","🏃","🥅","🛡️","👟","🧠","🔥"];
 function tqRenderStickers(pp){
