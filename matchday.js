@@ -2687,18 +2687,33 @@ const TEAM_QUESTS=[
 ];
 // Editierbare Laufzeit-Kopie aus team_config (TEAM_QUESTS bleibt der Default) + Freitext-Belohnung.
 let teamQuests=TEAM_QUESTS.map(q=>({...q})), teamBelohnung="", teamDoubleXpUntil=null;
+// HOTFIX 4: waehlbare Quest-Aktionen (qkey) im CRUD-Editor
+const QUEST_KEYS=[
+  {key:"pass",label:"Pässe"},{key:"dribbling",label:"Dribblings"},{key:"gewinn",label:"Ballgewinne"},
+  {key:"parade",label:"Paraden (TW)"},{key:"tor",label:"Tore"},{key:"aufbau",label:"Spielaufbau"},{key:"heraus",label:"Herausspielen"}
+];
 async function loadTeamConfig(){
+  // Belohnung + Booster bleiben in team_config; Quests kommen aus der team_quests-Tabelle
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/team_config?id=eq.1&select=quests,belohnung,double_xp_until`,{headers:sbAuthHeaders()});
+    const r=await fetch(`${SB_URL}/rest/v1/team_config?id=eq.1&select=belohnung,double_xp_until`,{headers:sbAuthHeaders()});
+    if(r.ok){const c=(await r.json())[0]; if(c){teamBelohnung=c.belohnung||""; teamDoubleXpUntil=c.double_xp_until||null;}}
+  }catch(e){}
+  await loadTeamQuests();
+}
+async function loadTeamQuests(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/team_quests?select=id,qkey,icon,label,target,aktiv,sort&order=sort.asc`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+(sbToken()||SB_KEY)}});
     if(!r.ok)return;
-    const c=(await r.json())[0];
-    if(c){
-      if(Array.isArray(c.quests)&&c.quests.length){
-        teamQuests=TEAM_QUESTS.map(def=>{const s=c.quests.find(x=>x.key===def.key);return s?{...def,label:s.label||def.label,target:Number(s.target)||def.target}:{...def};});
+    let rows=await r.json();
+    if(!rows.length){ // leer -> mit Defaults seeden (nur Trainer darf schreiben)
+      if(sbToken()){
+        try{await fetch(`${SB_URL}/rest/v1/team_quests`,{method:"POST",headers:sbAuthHeaders({'Prefer':'return=representation'}),body:JSON.stringify(TEAM_QUESTS.map((q,i)=>({team:'adler1',qkey:q.key,icon:q.icon,label:q.label,target:q.target,aktiv:true,sort:i})))}).then(rr=>rr.ok&&rr.json().then(d=>rows=d));}catch(e){}
       }
-      teamBelohnung=c.belohnung||"";
-      teamDoubleXpUntil=c.double_xp_until||null;
+      if(!rows.length)return; // anon/offline -> Defaults aus data.js bleiben aktiv
     }
+    // auf die von questStripHTML/questCheck erwartete Struktur mappen (qkey -> key)
+    teamQuests=rows.filter(r=>r.aktiv!==false).sort((a,b)=>(a.sort||0)-(b.sort||0))
+      .map(r=>({key:r.qkey||"pass",icon:r.icon||"🏆",label:r.label||"Quest",target:Number(r.target)||10,_id:r.id}));
   }catch(e){}
 }
 /* FEAT T: Double-XP-Booster – der Trainer schaltet nur das Zeitfenster in team_config.
@@ -2761,20 +2776,19 @@ function questSeedDone(){
   questDone=new Set(teamQuests.filter(q=>(counts[q.key]||0)>=q.target).map(q=>q.key));
 }
 // Trainer-Editor: Ziel & Name je Quest anpassen + Freitext-Belohnung für die Kids.
+let qeDraft=[];
 function questEditorOpen(){
   document.getElementById("quest-editor")?.remove();
+  qeDraft=teamQuests.map(q=>({key:q.key,icon:q.icon,label:q.label,target:q.target}));
   const m=document.createElement("div");
   m.id="quest-editor";
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
   m.onclick=e=>{if(e.target===m)m.remove();};
-  m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:420px;width:100%;margin:auto">
-    <div style="font-weight:700;margin-bottom:2px">🏆 Team-Quests anpassen</div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Name & Ziel je Quest änderbar. Die Belohnung ist Freitext für die Kids.</div>
-    <div id="qe-list">${teamQuests.map((q,i)=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-      <span style="font-size:18px;width:24px;text-align:center">${q.icon}</span>
-      <input class="qe-label" data-i="${i}" value="${esc(q.label)}" style="flex:1;min-width:80px;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
-      <input class="qe-target" data-i="${i}" type="number" min="1" value="${q.target}" title="Ziel" style="width:64px;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
-    </div>`).join("")}</div>
+  m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:440px;width:100%;margin:auto">
+    <div style="font-weight:700;margin-bottom:2px">🏆 Team-Quests verwalten</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Quests anlegen, bearbeiten oder löschen. Jede Quest zählt eine Aktion bis zum Ziel.</div>
+    <div id="qe-list"></div>
+    <button class="btn btn-sm" style="margin-bottom:12px" onclick="qeAddQuest()"><i class="ti ti-plus"></i>Quest hinzufügen</button>
     <label style="font-size:11px;color:var(--text2)">🎁 Nächste Belohnung für die Kids</label>
     <textarea id="qe-belohnung" rows="2" placeholder="z. B. Eis für alle beim nächsten Training!" style="width:100%;padding:8px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px;margin:4px 0 12px;box-sizing:border-box">${esc(teamBelohnung)}</textarea>
     <div style="margin:0 0 12px;padding:10px;border:1.5px dashed #f59e0b;border-radius:10px;background:#fffbeb">
@@ -2788,18 +2802,45 @@ function questEditorOpen(){
     </div>
   </div>`;
   document.body.appendChild(m);
+  qeRenderList();
 }
+function qeSyncFromInputs(){
+  document.querySelectorAll("#qe-list [data-i]").forEach(el=>{
+    const i=+el.dataset.i, f=el.dataset.f; if(!qeDraft[i])return;
+    if(f==="target")qeDraft[i].target=Math.max(1,parseInt(el.value)||1);
+    else if(f==="key")qeDraft[i].key=el.value;
+    else qeDraft[i][f]=el.value;
+  });
+}
+function qeRenderList(){
+  const wrap=document.getElementById("qe-list"); if(!wrap)return;
+  wrap.innerHTML=qeDraft.map((q,i)=>`<div style="display:flex;align-items:center;gap:5px;margin-bottom:8px">
+    <input data-i="${i}" data-f="icon" value="${esc(q.icon||"🏆")}" maxlength="2" style="width:34px;text-align:center;padding:7px 2px;border:var(--border-s);border-radius:6px;font-size:15px">
+    <input data-i="${i}" data-f="label" value="${esc(q.label||"")}" placeholder="Name" style="flex:1;min-width:70px;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
+    <select data-i="${i}" data-f="key" style="padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">${QUEST_KEYS.map(k=>`<option value="${k.key}"${k.key===q.key?" selected":""}>${k.label}</option>`).join("")}</select>
+    <input data-i="${i}" data-f="target" type="number" min="1" value="${q.target||10}" title="Ziel" style="width:52px;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
+    <button onclick="qeDelQuest(${i})" title="Löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:16px">🗑</button>
+  </div>`).join("")||'<div style="font-size:12px;color:var(--text3);padding:6px">Noch keine Quests – füge eine hinzu.</div>';
+}
+function qeAddQuest(){ qeSyncFromInputs(); qeDraft.push({key:"pass",icon:"🏆",label:"Neue Quest",target:10}); qeRenderList(); }
+function qeDelQuest(i){ qeSyncFromInputs(); qeDraft.splice(i,1); qeRenderList(); }
 async function questSave(btn){
-  const labels=[...document.querySelectorAll(".qe-label")], targets=[...document.querySelectorAll(".qe-target")];
-  teamQuests=teamQuests.map((q,i)=>({...q,label:(labels[i]&&labels[i].value.trim())||q.label,target:Math.max(1,parseInt(targets[i]&&targets[i].value)||q.target)}));
+  qeSyncFromInputs();
+  const clean=qeDraft.filter(q=>(q.label||"").trim()).map(q=>({key:q.key||"pass",icon:(q.icon||"🏆").trim()||"🏆",label:q.label.trim(),target:Math.max(1,parseInt(q.target)||1)}));
   teamBelohnung=(document.getElementById("qe-belohnung")?.value||"").trim();
   if(btn)btn.disabled=true;
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/team_config?on_conflict=id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({id:1,quests:teamQuests.map(q=>({key:q.key,label:q.label,target:q.target})),belohnung:teamBelohnung,updated_at:new Date().toISOString()})});
-    if(sbCheck401(r))return;
-    if(!r.ok){toast("Speichern fehlgeschlagen","err");return;}
+    // HOTFIX 4: Quests -> team_quests (replace-all), Belohnung bleibt in team_config
+    const del=await fetch(`${SB_URL}/rest/v1/team_quests?team=eq.adler1`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(sbCheck401(del))return;
+    if(clean.length){
+      const ins=await fetch(`${SB_URL}/rest/v1/team_quests`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify(clean.map((q,i)=>({team:'adler1',qkey:q.key,icon:q.icon,label:q.label,target:q.target,aktiv:true,sort:i})))});
+      if(!ins.ok){toast("Speichern fehlgeschlagen","err");return;}
+    }
+    await fetch(`${SB_URL}/rest/v1/team_config?on_conflict=id`,{method:"POST",headers:sbAuthHeaders({'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify({id:1,belohnung:teamBelohnung,updated_at:new Date().toISOString()})});
   }catch(e){toast("Netzwerkfehler","err");return;}
   finally{if(btn)btn.disabled=false;}
+  teamQuests=clean.map(q=>({...q}));
   document.getElementById("quest-editor")?.remove();
   toast("Team-Quests gespeichert ✓");
   questSeedDone(); if(document.getElementById("action-panel"))atRender();
