@@ -1630,6 +1630,76 @@ async function homeRadarLoad(){
   box.innerHTML=`<div class="card" style="padding:14px;margin-bottom:10px;border-left:3px solid #dc2626">${playHtml}${absHtml}</div>`;
 }
 function onboardingDismiss(){ try{localStorage.setItem("adler_onboarded","1");}catch(e){} document.getElementById("onboard-card")?.remove(); }
+// Schnelle Einheit-Bewertung: 3 Stern-Kategorien (Spaß/Umsetzung/Erfolg) + Notiz, pro Datum.
+let EINHEIT_CACHE=[];
+function einheitStarRow(key,label,val){
+  val=val||0;
+  const stars=[1,2,3,4,5].map(i=>`<span onclick="einheitSetStar('${key}',${i})" style="cursor:pointer;font-size:24px;line-height:1;color:${i<=val?'#f59e0b':'#cbd5e1'}">${i<=val?'★':'☆'}</span>`).join("");
+  return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0">
+    <span style="font-size:13.5px;font-weight:600;color:var(--text)">${label}</span>
+    <span id="eb-stars-${key}" data-val="${val}">${stars}</span></div>`;
+}
+function einheitSetStar(key,val){
+  const box=document.getElementById("eb-stars-"+key); if(!box)return;
+  const nv=(parseInt(box.dataset.val)||0)===val?0:val; // gleicher Stern nochmal = zurücksetzen
+  box.dataset.val=nv;
+  box.innerHTML=[1,2,3,4,5].map(i=>`<span onclick="einheitSetStar('${key}',${i})" style="cursor:pointer;font-size:24px;line-height:1;color:${i<=nv?'#f59e0b':'#cbd5e1'}">${i<=nv?'★':'☆'}</span>`).join("");
+}
+function einheitRowsHtml(v){ v=v||{}; return einheitStarRow("spass","😄 Spaß",v.spass)+einheitStarRow("umsetzung","🎯 Umsetzung",v.umsetzung)+einheitStarRow("erfolg","🏆 Erfolg",v.erfolg); }
+function einheitPrefill(){
+  const datum=document.getElementById("eb-datum")?.value;
+  const ex=EINHEIT_CACHE.find(x=>x.datum===datum)||{};
+  const rows=document.getElementById("eb-rows"); if(rows)rows.innerHTML=einheitRowsHtml(ex);
+  const note=document.getElementById("eb-notiz"); if(note)note.value=ex.notiz||"";
+}
+function einheitRenderHistory(){
+  const box=document.getElementById("eb-history"); if(!box)return;
+  if(!EINHEIT_CACHE.length){box.innerHTML='<div style="font-size:11px;color:var(--text3)">Noch keine Einheit bewertet.</div>';return;}
+  const st=n=>n?"★".repeat(n)+"☆".repeat(5-n):"–";
+  box.innerHTML=`<div style="font-size:11px;font-weight:800;color:var(--text2);margin:4px 0">Zuletzt</div>`+
+    EINHEIT_CACHE.slice(0,8).map(v=>`<div style="font-size:11px;color:var(--text2);padding:3px 0;border-top:var(--border)">
+      <b style="color:var(--text)">${new Date(v.datum+"T00:00:00").toLocaleDateString("de-DE")}</b> · 😄 ${st(v.spass)} · 🎯 ${st(v.umsetzung)} · 🏆 ${st(v.erfolg)}${v.notiz?`<br><em>${esc(v.notiz)}</em>`:""}</div>`).join("");
+}
+async function einheitBewertenOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("eb-modal")?.remove();
+  try{const r=await fetch(`${SB_URL}/rest/v1/einheit_bewertung?select=*&order=datum.desc&limit=20`,{headers:sbAuthHeaders()});if(r.ok)EINHEIT_CACHE=await r.json();}catch(e){}
+  const heute=new Date().toISOString().slice(0,10);
+  const modal=document.createElement("div");
+  modal.id="eb-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Einheit bewerten");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:440px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  const fld="padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
+  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">⭐ Einheit bewerten</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Schnell-Feedback zur Trainingseinheit – 1 bis 5 Sterne.</div>
+    <label style="font-size:11px;color:var(--text2)">Datum<input type="date" id="eb-datum" value="${heute}" onchange="einheitPrefill()" style="${fld};width:100%"></label>
+    <div id="eb-rows" style="margin:8px 0"></div>
+    <textarea id="eb-notiz" rows="2" placeholder="Notiz (optional)" style="${fld};width:100%;resize:vertical"></textarea>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btn-p btn-sm" onclick="einheitSave()"><i class="ti ti-device-floppy"></i>Speichern</button>
+      <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('eb-modal').remove()">Schließen</button>
+    </div>
+    <div id="eb-history" style="margin-top:12px"></div>`;
+  modal.appendChild(c);document.body.appendChild(modal);
+  einheitPrefill(); einheitRenderHistory();
+}
+async function einheitSave(){
+  const datum=document.getElementById("eb-datum")?.value; if(!datum){toast("Bitte Datum wählen","err");return;}
+  const g=k=>{const el=document.getElementById("eb-stars-"+k);const v=el?parseInt(el.dataset.val):0;return v>0?v:null;};
+  const body={datum,spass:g("spass"),umsetzung:g("umsetzung"),erfolg:g("erfolg"),notiz:(document.getElementById("eb-notiz")?.value||"").trim()||null,updated_at:new Date().toISOString()};
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/einheit_bewertung?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(body)});
+    if(sbCheck401(r))return;
+    if(r.ok||r.status===201){
+      toast("Einheit bewertet ✓");
+      const idx=EINHEIT_CACHE.findIndex(x=>x.datum===datum); if(idx>=0)EINHEIT_CACHE[idx]=body; else EINHEIT_CACHE.unshift(body);
+      EINHEIT_CACHE.sort((a,b)=>String(b.datum).localeCompare(String(a.datum)));
+      einheitRenderHistory();
+    }else toast("Speichern fehlgeschlagen","err");
+  }catch(e){toast("Netzwerkfehler","err");}
+}
 // Anwesenheits-Quote je Kind: Training (aus AW_DATA) + Spiele/Turniere (aus nominierungen "dabei").
 async function anwesenheitOpen(){
   const active=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
@@ -1733,6 +1803,7 @@ async function renderHome(){
     <button onclick="fundbueroOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🧦 Fundbüro</button>
     <button onclick="ausruestungGrid()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">👕 Team-Ausrüstung</button>
     <button onclick="anwesenheitOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">📊 Anwesenheits-Quote</button>
+    <button onclick="einheitBewertenOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">⭐ Einheit bewerten</button>
     <button onclick="stadionheftOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">📰 Adler Horst erstellen & drucken</button>
     <button onclick="wochenChallengeOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🏆 Wochen-Challenge (Kids)</button>
     <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;margin-top:12px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>`;
