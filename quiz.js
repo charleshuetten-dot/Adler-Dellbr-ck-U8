@@ -326,24 +326,9 @@ function tqStart(){
     html+=`</div>${extern?"":'<button class="btn btn-sm" onclick="tqStop()" style="margin-top:8px"><i class="ti ti-x"></i>Abbrechen</button>'}`;
   } else {
     html+=`🧑 ${tqPlayer}${tqPlayerRole?" – "+tqPlayerRole:""}</div>
-      <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">Wähle einen Block!</div>
-      <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Jeder Block hat 10 Fragen. Dein Fortschritt wird gespeichert.</div>
-      <div class="tq-blocks">`;
-    TQ_BLOCKS.forEach((b,i)=>{
-      const bp=pp[i];
-      const done=bp&&bp.score>=7;
-      const pct=bp?Math.round(bp.score/bp.total*100):0;
-      const medaille=bp?(bp.score>=9?" 🥇":bp.score>=7?" 🥈":bp.score>=5?" 🥉":""):""; // K4
-      html+=`<div class="tq-block-card${done?" tq-block-done":""}" onclick="tqStartBlock(${i})">
-        <div class="tq-block-title"><i class="ti ${b.icon}" style="margin-right:4px"></i>${b.name}${medaille}</div>
-        <div class="tq-block-sub">Block ${i+1}${bp?" · "+bp.score+"/"+bp.total+" ("+pct+"%)":""}</div>
-        <div class="tq-block-prog"><div class="tq-block-prog-fill" style="width:${bp?pct:0}%"></div></div>
-      </div>`;
-    });
-    html+=`</div>`;
-    html+=wqRenderLauncher(); // Fußball-Wissensquiz-Einstieg
-    html+=tqRenderBarometer();
-    html+=tqRenderStickers(pp);
+      <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px">Wähle ein Quiz!</div>`;
+    html+=tqRenderTaktikLauncher(pp); // Taktik-Quiz hinter Button (aufgeräumt, wie das Wissensquiz)
+    html+=wqRenderLauncher();         // Fußball-Wissensquiz
     html+=`<div id="tq-challenge"></div>`;
     html+=`<div style="display:flex;gap:6px;margin-top:10px">
         <button class="btn btn-sm" onclick="tqPlayer=null;tqStart()"><i class="ti ti-arrow-left"></i>Spieler wechseln</button>
@@ -353,6 +338,48 @@ function tqStart(){
   html+=`</div>`;
   panel.innerHTML=html;
   if(tqPlayer)tqChallengeLoad(); // Wochen-Challenge im Spieler-Kontext nachladen
+}
+// Taktik-Quiz-Einstieg als Karte (wie wqRenderLauncher) – klappt die 10 Blöcke auf.
+function tqRenderTaktikLauncher(pp){
+  pp=pp||{};
+  const done=TQ_BLOCKS.filter((b,i)=>pp[i]&&pp[i].score>=7).length, total=TQ_BLOCKS.length;
+  const pct=Math.round(done/total*100);
+  return `<div class="card" style="padding:0;margin-top:10px;overflow:hidden;cursor:pointer" onclick="tqBlocksShow()">
+    <div style="background:linear-gradient(135deg,#7c3aed,#2563eb);padding:12px 14px;color:#fff">
+      <div style="font-size:14px;font-weight:800;margin-bottom:2px">🎯 Taktik-Quiz</div>
+      <div style="font-size:11px;opacity:.95;margin-bottom:8px">Die Raute verstehen – ${total} Blöcke Spielverständnis</div>
+      <div style="height:8px;background:rgba(255,255,255,.25);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#fbbf24;border-radius:4px;transition:width .4s"></div></div>
+      <div style="font-size:10px;margin-top:5px;opacity:.9">${done}/${total} Blöcke gemeistert</div>
+    </div>
+  </div>`;
+}
+// Block-Auswahl des Taktik-Quiz (aus tqStart ausgelagert) inkl. Barometer + Sticker-Heft.
+function tqBlocksShow(){
+  if(!tqPlayer){tqStart();return;}
+  const panel=document.getElementById("tq-panel"); panel.style.display="block";
+  const pp=(tqGetProgress()[tqPlayer])||{};
+  let html=`<div class="tq-panel">
+    <div style="font-size:10px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🎯 Taktik-Quiz · ${esc(tqPlayer)}</div>
+    <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:2px">Wähle einen Block!</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Jeder Block hat 10 Fragen. Dein Fortschritt wird gespeichert.</div>
+    <div class="tq-blocks">`;
+  TQ_BLOCKS.forEach((b,i)=>{
+    const bp=pp[i];
+    const done=bp&&bp.score>=7;
+    const pct=bp?Math.round(bp.score/bp.total*100):0;
+    const medaille=bp?(bp.score>=9?" 🥇":bp.score>=7?" 🥈":bp.score>=5?" 🥉":""):"";
+    html+=`<div class="tq-block-card${done?" tq-block-done":""}" onclick="tqStartBlock(${i})">
+      <div class="tq-block-title"><i class="ti ${b.icon}" style="margin-right:4px"></i>${b.name}${medaille}</div>
+      <div class="tq-block-sub">Block ${i+1}${bp?" · "+bp.score+"/"+bp.total+" ("+pct+"%)":""}</div>
+      <div class="tq-block-prog"><div class="tq-block-prog-fill" style="width:${bp?pct:0}%"></div></div>
+    </div>`;
+  });
+  html+=`</div>`;
+  html+=tqRenderBarometer();
+  html+=tqRenderStickers(pp);
+  html+=`<button class="btn btn-sm" style="margin-top:12px" onclick="tqStart()"><i class="ti ti-arrow-left"></i>Zurück zur Quiz-Auswahl</button>`;
+  html+=`</div>`;
+  panel.innerHTML=html;
 }
 // Wochen-Challenge im Quiz: aktive Aufgabe anzeigen + "Geschafft" -> Federn fürs gewählte Kind.
 async function tqChallengeLoad(){
