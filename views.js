@@ -1446,6 +1446,31 @@ function homeGebTage(geb){ // Tage bis zum nächsten Geburtstag (0 = heute)
   if(next<h)next.setFullYear(h.getFullYear()+1);
   return Math.round((next-h)/86400000);
 }
+// "Kein Kind übersehen"-Radar: welche Kinder hatten zuletzt am wenigsten Spielzeit/Aktionen?
+// Fairness-Nudge fürs Trainer-Dashboard. Nur bei genug Daten sichtbar.
+async function homeRadarLoad(){
+  const box=document.getElementById("home-radar"); if(!box)return;
+  const active=KADER.filter(k=>k.aktiv!==false); if(active.length<3){box.innerHTML="";return;}
+  let ez=[], ma=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/einsatzzeiten?select=spieler,feld_sek`,{headers:sbAuthHeaders()});if(sbCheck401&&sbCheck401(r))return;if(r.ok)ez=await r.json();}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/match_actions?select=spieler`,{headers:sbAuthHeaders()});if(r.ok)ma=await r.json();}catch(e){}
+  if((ez.length+ma.length)<4){box.innerHTML="";return;} // zu wenig Daten -> Radar ausblenden
+  const min={}, act={};
+  ez.forEach(x=>{if(x.spieler)min[x.spieler]=(min[x.spieler]||0)+(x.feld_sek||0);});
+  ma.forEach(x=>{if(x.spieler)act[x.spieler]=(act[x.spieler]||0)+1;});
+  const maxMin=Math.max(1,...active.map(k=>min[k.name]||0));
+  const scored=active.map(k=>{const m=min[k.name]||0,a=act[k.name]||0; const score=(1-m/maxMin)*2+(a===0?1.5:0); return {name:k.name,nr:k.nr,min:Math.round(m/60),act:a,score};});
+  scored.sort((x,y)=>y.score-x.score);
+  const top=scored.slice(0,3).filter(s=>s.score>0.5);
+  if(!top.length){box.innerHTML="";return;}
+  box.innerHTML=`<div class="card" style="padding:14px;margin-bottom:10px;border-left:3px solid #dc2626">
+    <div style="font-weight:700;margin-bottom:2px">🎯 Kein Kind übersehen</div>
+    <div style="font-size:10.5px;color:var(--text2);margin-bottom:10px">Diese Kinder hatten zuletzt am wenigsten Spielzeit &amp; Aktionen – gib ihnen bewusst mehr Bühne.</div>
+    ${top.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--surface2)">
+      <span style="flex:1;font-weight:600">${s.nr!=null?esc(s.nr)+" ":""}${esc(s.name)}</span>
+      <span style="font-size:11px;color:var(--text2)">${s.min} Min · ${s.act} Aktionen</span></div>`).join("")}
+  </div>`;
+}
 async function renderHome(){
   const box=document.getElementById("home-content");
   if(!box)return;
@@ -1496,6 +1521,7 @@ async function renderHome(){
       ${statTile(bewertet+"/"+KADER.length,"bewertet (v2)","#059669","go('bew')")}
       ${statTile(stale,"überfällig >8 Wo","#dc2626","go('bew')")}
     </div>
+    <div id="home-radar"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-p" style="flex:1;min-height:46px" onclick="openTab('spieltag')"><i class="ti ti-whistle"></i>Spieltag</button>
       <button class="btn" style="flex:1;min-height:46px" onclick="go('anwesenheit')"><i class="ti ti-checkbox"></i>Anwesenheit</button>
@@ -1507,6 +1533,7 @@ async function renderHome(){
     <button onclick="stadionheftOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">📰 Stadionheft erstellen & drucken</button>
     <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;margin-top:12px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>`;
 
+  homeRadarLoad(); // "Kein Kind übersehen"-Radar async nachladen
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc&limit=2`,{headers:sbAuthHeaders()});
