@@ -411,6 +411,7 @@ async function elternFanfactsOpen(spielerId,kindName){
   document.getElementById("fanfacts-modal")?.remove();
   let f={};
   try{const r=await fetch(`${SB_URL}/rest/v1/kind_fanfacts?spieler_id=eq.${spielerId}&select=*`,{headers:sbAuthHeaders()});if(r.ok)f=(await r.json())[0]||{};}catch(e){}
+  const half="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font-family:inherit;font-size:13px";
   const inp="width:100%;padding:9px;margin:4px 0 10px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font-family:inherit;font-size:13px";
   const m=document.createElement("div");m.id="fanfacts-modal";
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
@@ -432,6 +433,11 @@ async function elternFanfactsOpen(spielerId,kindName){
     <input id="ff-verein" value="${esc(f.lieblingsverein||'')}" placeholder="z. B. 1. FC Köln" style="${inp}">
     <label style="font-size:12px;color:#475569">Lieblingsspieler</label>
     <input id="ff-spieler" value="${esc(f.lieblingsspieler||'')}" placeholder="z. B. Musiala" style="${inp}">
+    <div style="font-size:11px;font-weight:700;color:#475569;margin:6px 0 4px">👕 Ausrüstung <span style="font-weight:400;color:#94a3b8">(hilft dem Trainer bei Sammelbestellungen)</span></div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div style="flex:1"><label style="font-size:11px;color:#64748b">Trikot-Größe</label><input id="ff-trikot" value="${esc(f.trikot_groesse||'')}" placeholder="z. B. 128" style="${half}"></div>
+      <div style="flex:1"><label style="font-size:11px;color:#64748b">Schuh-Größe</label><input id="ff-schuh" value="${esc(f.schuh_groesse||'')}" placeholder="z. B. 31" style="${half}"></div>
+    </div>
     <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#475569;margin:6px 0 14px">
       <input id="ff-gallery" type="checkbox" ${f.gallery_optin?"checked":""}> Foto in der Team-Galerie zeigen (Opt-in)
     </label>
@@ -447,6 +453,8 @@ async function elternFanfactsSave(spielerId){
     spitzname:(document.getElementById("ff-spitz")?.value||"").trim()||null,
     lieblingsverein:(document.getElementById("ff-verein")?.value||"").trim()||null,
     lieblingsspieler:(document.getElementById("ff-spieler")?.value||"").trim()||null,
+    trikot_groesse:(document.getElementById("ff-trikot")?.value||"").trim()||null,
+    schuh_groesse:(document.getElementById("ff-schuh")?.value||"").trim()||null,
     gallery_optin:!!(document.getElementById("ff-gallery")&&document.getElementById("ff-gallery").checked),
     updated_at:new Date().toISOString()};
   try{
@@ -3560,4 +3568,34 @@ async function ttDelete(id){
     if(!r.ok){toast("Löschen fehlgeschlagen","err");return;}
     ttRender();
   }catch(e){}
+}
+
+/* ═══════════════════════════════════
+   AUSRÜSTUNGS-EXPORT (Welle 2, FEAT U) – Trainer-CSV für Sammelbestellungen.
+   Daten kommen ausschliesslich aus der security-definer-RPC ausruestung_export
+   (Minimaldaten name/nr/groessen, trainer-only). CSV mit ; als Trenner + BOM,
+   damit Excel Umlaute und Spalten korrekt oeffnet.
+═══════════════════════════════════ */
+function _csvCell(v){
+  const s=(v==null?"":String(v));
+  return /[;"\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+}
+async function ausruestungExport(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  let rows=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/ausruestung_export`,{method:"POST",headers:sbAuthHeaders(),body:"{}"});
+    if(sbCheck401(r))return;
+    if(r.ok)rows=(await r.json())||[];
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  if(!rows.length){toast("Keine Kaderdaten gefunden","err");return;}
+  const mitGroesse=rows.filter(r=>r.trikot_groesse||r.schuh_groesse).length;
+  const csv=["Name;Nummer;Trikot;Schuhe",...rows.map(r=>[_csvCell(r.name),_csvCell(r.nr),_csvCell(r.trikot_groesse),_csvCell(r.schuh_groesse)].join(";"))].join("\r\n");
+  const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"}); // BOM fuer Excel
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="adler-ausruestung.csv";
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  toast(`CSV exportiert – ${mitGroesse}/${rows.length} mit Größe ✓`);
 }

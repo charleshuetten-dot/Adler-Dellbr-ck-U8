@@ -1416,7 +1416,8 @@ async function renderHome(){
     </div>
     <button id="wrapped-btn" onclick="adlerWrappedOpen()" style="width:100%;min-height:48px;margin-top:12px;border:none;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;color:#fff;background:linear-gradient(135deg,#7c3aed,#ec4899)">🎬 Adler Wrapped – Saison-Rückblick</button>
     <button onclick="kasseOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">💰 Teamkasse</button>
-    <button onclick="fundbueroOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🧦 Fundbüro</button>`;
+    <button onclick="fundbueroOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🧦 Fundbüro</button>
+    <button onclick="ausruestungExport()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">👕 Ausrüstung als CSV</button>`;
 
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
   try{
