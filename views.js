@@ -344,7 +344,8 @@ function kaderEditRow(k,i){
     </label>
     <input class="ke-medical" value="${esc(k.medical||'')}" placeholder="Medical-Hinweis (z. B. Asthma, Allergie…)" style="width:100%;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
     ${k._id?`<button type="button" class="btn btn-sm" onclick="kontakteEditOpen(${k._id})" style="margin-top:6px;width:100%"><i class="ti ti-address-book"></i>Kontakte & Eltern-Login</button>
-    <button type="button" class="btn btn-sm" onclick="kindLinkShare(${k._id})" style="margin-top:6px;width:100%" title="Persönlicher 1-Tap Zu-/Absage-Link ohne Login"><i class="ti ti-calendar-check"></i>Zu-/Absage-Link teilen</button>`:'<div style="font-size:10px;color:var(--text3);margin-top:6px">Erst speichern – dann sind Kontakte & Eltern-Login hinterlegbar.</div>'}
+    <button type="button" class="btn btn-sm" onclick="kindLinkShare(${k._id})" style="margin-top:6px;width:100%" title="Persönlicher 1-Tap Zu-/Absage-Link ohne Login"><i class="ti ti-calendar-check"></i>Zu-/Absage-Link teilen</button>
+    <button type="button" class="btn btn-sm" onclick="childWrappedShare(${k._id})" style="margin-top:6px;width:100%" title="Persönliche Saison-Rückblick-Karte zum Teilen mit der Familie"><i class="ti ti-movie"></i>Saison-Karte (Wrapped)</button>`:'<div style="font-size:10px;color:var(--text3);margin-top:6px">Erst speichern – dann sind Kontakte & Eltern-Login hinterlegbar.</div>'}
   </div>`;
 }
 // Foto aus einer Kader-Zeile hochladen (nutzt den aktuellen Namen der Zeile).
@@ -472,6 +473,43 @@ async function kindLinkShare(spielerId){
   const text=`⚽ Zu-/Absage für ${nm||"dein Kind"} (1 Tipp, kein Login):\n${url}`;
   if(navigator.share){navigator.share({title:"Zu-/Absage-Link "+nm,text,url}).catch(()=>{});}
   else{navigator.clipboard?.writeText(url).then(()=>toast("Link kopiert ✓"),()=>prompt("Link:",url));}
+}
+// Adler-Wrapped pro Kind: persönliche Saison-Karte (Bild) für die Familie. Daten aus get_child_wrapped.
+async function childWrappedShare(spielerId){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  toast("🎬 Saison-Karte wird erstellt…");
+  let d=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/get_child_wrapped`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler:spielerId})});if(sbCheck401(r))return;if(r.ok)d=await r.json();}catch(e){}
+  if(!d||!d.ok){toast("Konnte Saison-Daten nicht laden","err");return;}
+  const logo=new Image();
+  logo.onload=()=>drawChildWrapped(logo,d);
+  logo.onerror=()=>drawChildWrapped(null,d);
+  logo.src="logo.png";
+}
+function drawChildWrapped(logoImg,d){
+  const W=640,H=800,c=document.createElement("canvas");c.width=W;c.height=H;const ctx=c.getContext("2d");
+  const g=ctx.createLinearGradient(0,0,W,H);g.addColorStop(0,"#5b21b6");g.addColorStop(1,"#1e3a8a");
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.textAlign="center";ctx.textBaseline="alphabetic";
+  if(logoImg){try{ctx.drawImage(logoImg,W/2-40,42,80,80);}catch(e){}}
+  ctx.fillStyle="rgba(255,255,255,.9)";ctx.font="bold 15px Arial";ctx.fillText("🦅 ADLER WRAPPED",W/2,150);
+  ctx.fillStyle="#facc15";ctx.font="bold 38px Arial";ctx.fillText(((d.name||"")+"s Saison"),W/2,196);
+  const rows=[["⚽",d.tore||0,"Tore"],["🔥",d.aktionen||0,"Ballaktionen"],["⏱️",d.einsatz_min||0,"Minuten Spielzeit"],["⚡",d.xp||0,"XP gesammelt"],["📅",d.spiele||0,"Spiele bestritten"]];
+  let y=254;
+  rows.forEach(r=>{
+    ctx.fillStyle="rgba(255,255,255,.1)";tbRoundRect(ctx,70,y,W-140,82,16);ctx.fill();
+    ctx.textAlign="left";ctx.fillStyle="#fff";ctx.font="32px Arial";ctx.fillText(r[0],96,y+53);
+    ctx.font="bold 38px Arial";ctx.fillStyle="#facc15";ctx.fillText(String(r[1]),150,y+54);
+    ctx.textAlign="right";ctx.fillStyle="rgba(255,255,255,.9)";ctx.font="bold 20px Arial";ctx.fillText(r[2],W-96,y+51);
+    ctx.textAlign="center";y+=96;
+  });
+  ctx.fillStyle="rgba(255,255,255,.92)";ctx.font="bold 22px Arial";ctx.fillText("Stark gemacht! 🦅❤️",W/2,H-38);
+  c.toBlob(async(blob)=>{
+    if(!blob){toast("Bild konnte nicht erzeugt werden","err");return;}
+    const file=new File([blob],"adler-wrapped.png",{type:"image/png"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){ try{await navigator.share({files:[file],title:"Adler Wrapped"});}catch(e){} }
+    else{ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="adler-wrapped.png";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);toast("Saison-Karte heruntergeladen ✓"); }
+  },"image/png");
 }
 async function kaderSaveAll(btn){
   const rows=[...document.querySelectorAll(".kader-edit-row")];
