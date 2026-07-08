@@ -372,6 +372,10 @@ function refreshSelects(){
    Fehler laufen still ins Leere – XP dürfen nie einen Kern-Flow blockieren.
    KEIN öffentliches Leaderboard (bewusste Produktentscheidung).
 ═══════════════════════════════════ */
+// Kindgerechter Begriff für die gesammelten Punkte (früher "XP"). ZENTRAL – überall referenziert,
+// damit ein späterer Wechsel (z. B. "Punkte"/"Sterne") ein Einzeiler bleibt.
+const XP_LABEL="Federn";
+const XP_ICON="🪶";
 const XP_BADGES=[
   {min:400,t:"Adler-Legende",emo:"👑"},
   {min:150,t:"Adler",emo:"🦅"},

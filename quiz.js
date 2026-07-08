@@ -630,6 +630,6 @@ function tqShowResult(){
   tqChipRemove(); // K6
   // FEAT S: Quiz-XP – greift nur, wenn auf dem Gerät eine Eltern-/Trainer-Session liegt
   // (anon = stiller No-Op). Server kappt auf 1 Gutschrift pro Kind und Tag.
-  if(tqPlayer)xpAwardByName(tqPlayer,"quiz").then(d=>{if(d>0)setTimeout(()=>toast(`⚡ +${d} XP für ${tqPlayer}!`),1400);}).catch(()=>{});
+  if(tqPlayer)xpAwardByName(tqPlayer,"quiz").then(d=>{if(d>0)setTimeout(()=>toast(`${XP_ICON} +${d} ${XP_LABEL} für ${tqPlayer}!`),1400);}).catch(()=>{});
   if(!document.body.classList.contains("quiz-extern"))taktikReset("adler");
 }

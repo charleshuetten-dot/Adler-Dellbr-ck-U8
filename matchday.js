@@ -237,7 +237,7 @@ async function elternDashLoad(){
   body.innerHTML=html;
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(el)el.innerHTML=adlerkasseCardHtml(l);}).catch(()=>{});
   // FEAT S: XP-Chips async füllen (RPC xp_total – Eltern sehen nur das eigene Kind)
-  kids.forEach(k=>{xpTotal(k.spieler_id).then(t=>{const el=document.getElementById("xp-chip-"+k.spieler_id);if(el){const b=xpBadge(t);el.textContent=`⚡ ${t} XP · ${b.emo} ${b.t}`;}}).catch(()=>{});});
+  kids.forEach(k=>{xpTotal(k.spieler_id).then(t=>{const el=document.getElementById("xp-chip-"+k.spieler_id);if(el){const b=xpBadge(t);el.textContent=`${XP_ICON} ${t} ${XP_LABEL} · ${b.emo} ${b.t}`;}}).catch(()=>{});});
   // UX 3: Deep-Link-Intent genau einmal abarbeiten – zum Nudge scrollen + kurz pulsen lassen
   if(rsvpIntent){
     try{sessionStorage.removeItem("adler_rsvp_intent");}catch(e){}
@@ -259,7 +259,7 @@ async function elternRsvp(terminId,spielerId,status){
   }catch(e){toast("Netzwerkfehler","err");return;}
   toast("Rückmeldung gespeichert ✓");
   // FEAT S: XP für Zusagen (idempotent pro Termin via quelle_id, Punktwert bestimmt der Server)
-  if(status==="zugesagt"){const d=await xpAward(spielerId,"rsvp","t"+terminId);if(d>0)setTimeout(()=>toast(`⚡ +${d} XP gesammelt!`),1100);}
+  if(status==="zugesagt"){const d=await xpAward(spielerId,"rsvp","t"+terminId);if(d>0)setTimeout(()=>toast(`${XP_ICON} +${d} ${XP_LABEL} gesammelt!`),1100);}
   elternDashLoad();
 }
 // Adler-Karte des eigenen Kindes (Eltern-Sicht): Daten kommen aus der security-definer
@@ -1653,7 +1653,7 @@ async function tmSetResult(id,val){
 async function tmDelete(id){
   // HOTFIX 3: Löschen räumt via ON DELETE CASCADE automatisch Anwesenheit, Live-Aktionen,
   // Rückmeldungen und Event-Fotos dieses Termins mit weg (Server-seitig). XP-Ledger bleibt.
-  if(!confirm("Termin wirklich löschen?\n\nAlle zugehörigen Anwesenheiten, Live-Aktionen, Rückmeldungen und Event-Fotos werden mitgelöscht. (Gesammelte XP bleiben erhalten.)"))return;
+  if(!confirm("Termin wirklich löschen?\n\nAlle zugehörigen Anwesenheiten, Live-Aktionen, Rückmeldungen und Event-Fotos werden mitgelöscht. (Gesammelte Adler-"+XP_LABEL+" bleiben erhalten.)"))return;
   try{const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;terminIdCacheClear();tmLoad();}catch(e){toast("Netzwerkfehler","err");}
 }
 // Schnell-Sprung von einem Termin zum passenden Werkzeug, Datum vorbelegt.
@@ -3010,7 +3010,7 @@ async function xpBoosterToggle(btn){
   }catch(e){toast("Netzwerkfehler","err");return;}
   finally{if(btn)btn.disabled=false;}
   teamDoubleXpUntil=neu;
-  toast(neu?"⚡ Double-XP aktiv – 72 Stunden!":"Booster beendet");
+  toast(neu?"⚡ Doppel-"+XP_LABEL+" aktiv – 72 Stunden!":"Booster beendet");
   questEditorOpen(); // Editor mit aktualisiertem Status neu zeichnen
 }
 let questDone=new Set();
@@ -3073,8 +3073,8 @@ function questEditorOpen(){
     <label style="font-size:11px;color:var(--text2)">🎁 Nächste Belohnung für die Kids</label>
     <textarea id="qe-belohnung" rows="2" placeholder="z. B. Eis für alle beim nächsten Training!" style="width:100%;padding:8px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px;margin:4px 0 12px;box-sizing:border-box">${esc(teamBelohnung)}</textarea>
     <div style="margin:0 0 12px;padding:10px;border:1.5px dashed #f59e0b;border-radius:10px;background:#fffbeb">
-      <div style="font-weight:700;font-size:12.5px;color:#92400e;margin-bottom:2px">⚡ Double-XP-Booster</div>
-      <div style="font-size:11px;color:#78716c;margin-bottom:8px">${xpBoostActive()?`Aktiv bis ${new Date(teamDoubleXpUntil).toLocaleString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})} Uhr – alle XP zählen doppelt!`:"72-Stunden-Fenster (z. B. übers Wochenende). Den 2x-Multiplikator rechnet der Server."}</div>
+      <div style="font-weight:700;font-size:12.5px;color:#92400e;margin-bottom:2px">⚡ Doppel-${XP_LABEL}-Booster</div>
+      <div style="font-size:11px;color:#78716c;margin-bottom:8px">${xpBoostActive()?`Aktiv bis ${new Date(teamDoubleXpUntil).toLocaleString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})} Uhr – alle ${XP_LABEL} zählen doppelt!`:"72-Stunden-Fenster (z. B. übers Wochenende). Den 2x-Multiplikator rechnet der Server."}</div>
       <button class="btn btn-sm ${xpBoostActive()?"":"btn-p"}" onclick="xpBoosterToggle(this)">${xpBoostActive()?"Booster beenden":"⚡ 72h aktivieren"}</button>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
