@@ -238,7 +238,7 @@ function tqRenderTrainerView(){
     wrap.innerHTML='<div style="color:var(--text2);font-size:12px;padding:8px">Noch keine Quiz-Ergebnisse vorhanden.</div>';
     return;
   }
-  let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;background:var(--surface);border:var(--border-s);border-radius:var(--rl)">';
+  let html='<div style="overflow-x:auto"><table class="card" style="width:100%;border-collapse:collapse;font-size:11px">';
   html+='<tr style="background:var(--surface2);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">';
   html+='<td style="padding:6px 8px">Spieler</td>';
   TQ_BLOCKS.forEach((b,i)=>{html+=`<td style="padding:6px 4px;text-align:center;min-width:50px" title="${b.name}"><i class="${b.icon}" style="font-size:12px"></i><br>${i+1}</td>`;});
@@ -367,7 +367,7 @@ function tqRenderStickers(pp){
     </div>`;
   }).join("");
   const geschafft=TQ_BLOCKS.filter((b,i)=>pp[i]&&pp[i].score>=7).length;
-  return `<div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:10px 12px;margin-top:10px">
+  return `<div class="card" style="padding:10px 12px;margin-top:10px">
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--purple);margin-bottom:8px">🏅 Dein Sticker-Heft (${geschafft}/${TQ_BLOCKS.length})</div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">${items}</div>
   </div>`;

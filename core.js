@@ -92,7 +92,7 @@ function showLoginGate(){
   const gate=document.createElement("div");
   gate.id="login-gate";
   gate.style.cssText="position:fixed;inset:0;z-index:9000;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px";
-  gate.innerHTML=`<div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:24px;max-width:340px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.15)">
+  gate.innerHTML=`<div class="card" style="padding:24px;max-width:340px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.15)">
     <div style="font-size:16px;font-weight:700;margin-bottom:4px">🔐 Trainer-Anmeldung</div>
     <div style="font-size:11.5px;color:var(--text2);margin-bottom:14px">Spielerdaten sind geschützt – bitte mit deinem Trainer-Account anmelden.</div>
     <div class="mg" style="margin-bottom:8px"><label>E-Mail</label><input type="email" id="login-email" autocomplete="username" style="width:100%"></div>

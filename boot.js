@@ -335,7 +335,7 @@ function awRenderList(){
   if(!wrap)return;
   const datum=document.getElementById("aw-date").value;
   const existing=AW_DATA[datum]||{};
-  let html='<div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);overflow:hidden;margin-top:8px">';
+  let html='<div class="card" style="overflow:hidden;margin-top:8px">';
   KADER.forEach(k=>{
     const p=existing[k.name]||{da:false,qual:0};
     html+=`<div class="aw-row">
@@ -411,7 +411,7 @@ function buddyShuffle(){
 function buddyRender(paare){
   const el=document.getElementById("buddy-result");
   if(!el)return;
-  el.innerHTML=`<div style="margin-top:12px;padding:14px;background:var(--surface);border:var(--border-s);border-radius:var(--rl)">
+  el.innerHTML=`<div class="card" style="margin-top:12px;padding:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <div style="font-weight:800;font-size:15px">🎲 Buddy-Paare</div>
       <button class="btn btn-sm" onclick="buddyShuffle()">Neu mischen</button>
@@ -467,7 +467,7 @@ function awRenderTrainerStats(){
       }
     });
   });
-  let html='<div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);overflow:hidden;font-size:12px">';
+  let html='<div class="card" style="overflow:hidden;font-size:12px">';
   html+='<div style="display:grid;grid-template-columns:1fr 60px 70px;padding:6px 10px;background:var(--surface2);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">';
   html+='<div>Trainer</div><div>Quote</div><div>Einheiten</div></div>';
   allTrainers.forEach(t=>{
@@ -501,7 +501,7 @@ function awRenderStats(){
       }
     });
   });
-  let html='<div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);overflow:hidden;font-size:12px">';
+  let html='<div class="card" style="overflow:hidden;font-size:12px">';
   html+='<div style="display:grid;grid-template-columns:1fr 60px 60px 70px;padding:6px 10px;background:var(--surface2);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">';
   html+='<div>Spieler</div><div>Quote</div><div>Qualität</div><div>Einheiten</div></div>';
   KADER.forEach(k=>{
@@ -1152,7 +1152,7 @@ function evalRenderHistory(){
   let html='';
   dates.slice(0,10).forEach(d=>{
     const items=EVAL_DATA[d];
-    html+=`<div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:10px;margin-bottom:6px">`;
+    html+=`<div class="card" style="padding:10px;margin-bottom:6px">`;
     html+=`<div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:4px">${new Date(d).toLocaleDateString("de-DE")}</div>`;
     items.forEach(it=>{
       const stars=k=>it[k]?"★".repeat(it[k])+"☆".repeat(5-it[k]):"–";

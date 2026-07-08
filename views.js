@@ -1461,7 +1461,7 @@ async function renderHome(){
     if(!s||!s.length)return true;
     return (s[s.length-1].datum||"0000")<cutoff;
   }).length;
-  const statTile=(val,lbl,col,jump)=>`<div onclick="${jump}" style="flex:1;min-width:90px;background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:10px;text-align:center;cursor:pointer">
+  const statTile=(val,lbl,col,jump)=>`<div onclick="${jump}" class="card" style="flex:1;min-width:90px;padding:10px;text-align:center;cursor:pointer">
     <div style="font-size:22px;font-weight:800;color:${col}">${val}</div>
     <div style="font-size:10px;color:var(--text2)">${lbl}</div></div>`;
 

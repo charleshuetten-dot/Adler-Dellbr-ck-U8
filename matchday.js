@@ -3445,7 +3445,7 @@ function blitzRenderCard(){
   const card=document.getElementById("blitz-card");
   if(!card)return;
   if(blitzIdx>=blitzPlayers.length){
-    card.innerHTML=`<div style="text-align:center;padding:22px 16px;background:var(--surface);border:var(--border-s);border-radius:var(--rl)">
+    card.innerHTML=`<div class="card" style="text-align:center;padding:22px 16px">
       <div style="font-size:30px">✅</div>
       <div style="font-weight:700;margin:6px 0">Alle durch!</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${blitzPlayers.length} Spieler bewertet.</div>
@@ -3457,7 +3457,7 @@ function blitzRenderCard(){
   if(blitzCritPlayer!==name){blitzCrit={};BLITZ_CRIT.forEach(c=>blitzCrit[c.key]=2);blitzCritPlayer=name;} // Mitte vorbelegt
   const evidenz=(typeof atSummary==="function"&&atSummary(name))?`<div style="font-size:12px;color:var(--text2);margin-bottom:12px">Live-Aktionen: ${atSummary(name)}</div>`:"";
   const lvlBtn=(cKey,val,txt,col)=>{const on=blitzCrit[cKey]===val;return `<button onclick="blitzSetCrit('${cKey}',${val})" style="flex:1;min-height:40px;font-size:12px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;background:${on?col:"var(--surface2)"};color:${on?"#fff":"var(--text2)"}">${txt}</button>`;};
-  card.innerHTML=`<div style="padding:16px;background:var(--surface);border:var(--border-s);border-radius:var(--rl)">
+  card.innerHTML=`<div class="card" style="padding:16px">
     <div style="text-align:center">
       <div style="font-size:11px;color:var(--text3)">Spieler ${blitzIdx+1}/${blitzPlayers.length}</div>
       <div style="font-size:22px;font-weight:800;margin:6px 0 10px">${nr?nr+" ":""}${esc(name)}</div>
@@ -3504,7 +3504,7 @@ async function tnLoad(){
     const rows=await r.json();
     if(!rows.length){wrap.innerHTML='<div class="empty" style="padding:1rem;font-size:12px">Noch keine Notizen – schreib die erste!</div>';return;}
     wrap.innerHTML=rows.map(n=>`
-      <div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:10px 12px;margin-bottom:8px${n.pinned?";border-left:3px solid var(--blue)":""}">
+      <div class="card" style="padding:10px 12px;margin-bottom:8px${n.pinned?";border-left:3px solid var(--blue)":""}">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">
           <span style="font-size:11px;font-weight:700">${n.pinned?"📌 ":""}${esc(n.autor||"?")}</span>
           <span style="font-size:10px;color:var(--text3)">${n.created_at?new Date(n.created_at).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"}):""}</span>
@@ -3580,7 +3580,7 @@ function teamStatsRender(){
     const lat=snaps[snaps.length-1];
     return !lat.datum||new Date(lat.datum).getTime()<limit;
   });
-  const tile=(title,body)=>`<div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:10px 12px"><div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">${title}</div>${body}</div>`;
+  const tile=(title,body)=>`<div class="card" style="padding:10px 12px"><div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">${title}</div>${body}</div>`;
   wrap.innerHTML=
     tile("Letzte Einheit",evalTile)+
     tile("Anwesenheit (letzte 4)",`<div style="font-size:16px;font-weight:700;color:var(--teal)">${quote}</div><div style="font-size:10px;color:var(--text2)">${awDates.length} Termin${awDates.length!==1?"e":""}</div>`)+
