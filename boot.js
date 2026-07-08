@@ -213,12 +213,12 @@ function sbTeamHeaders(){
 }
 
 // G1: local-first Upsert (Fehler still schlucken – offline-fähig bleiben)
-async function teamSyncUpsert(table,datum,data){
+async function teamSyncUpsert(table,datum,data,extra){
   try{
     await fetch(`${SB_URL}/rest/v1/${table}?on_conflict=datum`,{
       method:"POST",
       headers:{...sbTeamHeaders(),'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({datum,data})
+      body:JSON.stringify(Object.assign({datum,data},extra||{})) // HOTFIX 3-FE: optional termin_id
     });
   }catch(e){/* offline */}
 }
@@ -226,10 +226,10 @@ async function teamSyncUpsert(table,datum,data){
 // werden zu einem Write zusammengefasst (1,5 s). Lokal wird sofort gespeichert (local-first),
 // nur der Supabase-Write wartet – schützt vor Request-Spam bei schnellem Tippen/Speichern.
 const _tsuTimers={};
-function teamSyncUpsertDebounced(table,datum,data){
+function teamSyncUpsertDebounced(table,datum,data,extra){
   const key=table+"|"+datum;
   clearTimeout(_tsuTimers[key]);
-  _tsuTimers[key]=setTimeout(()=>{ delete _tsuTimers[key]; teamSyncUpsert(table,datum,data); }, 1500);
+  _tsuTimers[key]=setTimeout(()=>{ delete _tsuTimers[key]; teamSyncUpsert(table,datum,data,extra); }, 1500);
 }
 // Generischer Debounce-Helfer (wiederverwendbar)
 function debounce(fn,ms){ let t; return function(...a){ clearTimeout(t); t=setTimeout(()=>fn.apply(this,a),ms); }; }
@@ -379,7 +379,8 @@ function awSave(){
   AW_DATA[datum]=data;
   localStorage.setItem(AW_KEY,JSON.stringify(AW_DATA));
   teamTsSet(AW_TS_KEY,datum); // G1
-  teamSyncUpsertDebounced("anwesenheit",datum,data); // G1 local-first + Schritt-6-Debounce
+  // HOTFIX 3-FE: termin_id mitschreiben (falls Termin am Datum existiert) -> Cascade greift
+  terminIdForDatum(datum).then(tid=>teamSyncUpsertDebounced("anwesenheit",datum,data,tid?{termin_id:tid}:null));
   // FEAT S: Trainings-XP für anwesende Kinder – idempotent pro Datum (quelle_id),
   // Mehrfach-Speichern vergibt also nie doppelt. Un-Toggle nimmt bewusst nichts weg.
   KADER.forEach(k=>{if(data[k.name]&&data[k.name].da)xpAwardByName(k.name,"training",datum).catch(()=>{});});

@@ -1189,8 +1189,8 @@ function dwRedraw(){
   dwStrokes.forEach(s=>{
     const pts=s.points;if(!pts.length)return;
     ctx.lineWidth=3.5;ctx.lineJoin="round";ctx.lineCap="round";
-    if(s.mode==="pass"){ctx.strokeStyle="#dc2626";ctx.setLineDash([9,7]);}
-    else{ctx.strokeStyle="#1a56db";ctx.setLineDash([]);}
+    if(s.mode==="pass"){ctx.strokeStyle="#fde047";ctx.setLineDash([9,7]);}   // HOTFIX 17: High-Vis Neon-Gelb
+    else{ctx.strokeStyle="#ffffff";ctx.setLineDash([]);}                      // HOTFIX 17: High-Vis Weiß
     ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
     for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);
     ctx.stroke();
@@ -1302,8 +1302,8 @@ function vtbDrawStrokes(ctx,W,H){
   vtbStrokes.forEach(s=>{
     const pts=s.points;if(!pts.length)return;
     ctx.lineWidth=Math.max(2,W*0.008);ctx.lineJoin="round";ctx.lineCap="round";
-    if(s.mode==="pass"){ctx.strokeStyle="#f43f5e";ctx.setLineDash([W*0.03,W*0.022]);}
-    else{ctx.strokeStyle="#38bdf8";ctx.setLineDash([]);}
+    if(s.mode==="pass"){ctx.strokeStyle="#fde047";ctx.setLineDash([W*0.03,W*0.022]);}  // HOTFIX 17: High-Vis Neon-Gelb
+    else{ctx.strokeStyle="#ffffff";ctx.setLineDash([]);}                                 // HOTFIX 17: High-Vis Weiß
     ctx.beginPath();ctx.moveTo(pts[0].x*W,pts[0].y*H);
     for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x*W,pts[i].y*H);
     ctx.stroke();
@@ -1568,7 +1568,7 @@ async function tmAdd(){
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify(body)});
     if(sbCheck401(r))return;
-    if(r.ok||r.status===201){toast("Termin angelegt ✓");document.getElementById("tm-titel").value="";document.getElementById("tm-ort").value="";tmLoad();}
+    if(r.ok||r.status===201){terminIdCacheClear();toast("Termin angelegt ✓");document.getElementById("tm-titel").value="";document.getElementById("tm-ort").value="";tmLoad();}
     else toast("Fehler beim Anlegen","err");
   }catch(e){toast("Netzwerkfehler","err");}
 }
@@ -1634,8 +1634,10 @@ async function tmSetResult(id,val){
   try{await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({ergebnis:val})});}catch(e){}
 }
 async function tmDelete(id){
-  if(!confirm("Termin löschen?"))return;
-  try{const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;tmLoad();}catch(e){toast("Netzwerkfehler","err");}
+  // HOTFIX 3: Löschen räumt via ON DELETE CASCADE automatisch Anwesenheit, Live-Aktionen,
+  // Rückmeldungen und Event-Fotos dieses Termins mit weg (Server-seitig). XP-Ledger bleibt.
+  if(!confirm("Termin wirklich löschen?\n\nAlle zugehörigen Anwesenheiten, Live-Aktionen, Rückmeldungen und Event-Fotos werden mitgelöscht. (Gesammelte XP bleiben erhalten.)"))return;
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;terminIdCacheClear();tmLoad();}catch(e){toast("Netzwerkfehler","err");}
 }
 // Schnell-Sprung von einem Termin zum passenden Werkzeug, Datum vorbelegt.
 // Spielform des Termins wird an Taktikboard + Rotation durchgereicht (Kopplung Schritt 5).
@@ -1921,7 +1923,7 @@ function tickerGoal(){
   tickerPush(atSel,"tor");
   // Torschütze zusätzlich als Aktion sichern → Datenquelle für Spielbericht (8-G) + Live-Quest (8-F).
   if(typeof atCounts==="object"){ if(!atCounts[atSel])atCounts[atSel]={}; atCounts[atSel].tor=(atCounts[atSel].tor||0)+1; }
-  sbQueuedPost("match_actions",{datum:spieltagKey(),spieler:atSel,aktion:"tor"});
+  {const _d=spieltagKey(),_s=atSel; terminIdForDatum(_d).then(tid=>sbQueuedPost("match_actions",{datum:_d,spieler:_s,aktion:"tor",termin_id:tid}));} // HOTFIX 3-FE
   if(typeof atRender==="function")atRender();
   if(typeof questCheck==="function")questCheck();
 }
@@ -3060,7 +3062,8 @@ async function atTap(aktion){
   if(TICKER_POSITIVE_KEYS.includes(aktion))tickerPush(atSel,aktion);
   questCheck(); // Team-Quest evtl. gerade geknackt → Confetti + Toast
   const datum=spieltagKey();
-  const res=await sbQueuedPost("match_actions",{datum,spieler:atSel,aktion},"return=representation"); // offline -> Queue
+  const tid=await terminIdForDatum(datum); // HOTFIX 3-FE: FK-Kopplung für ON DELETE CASCADE
+  const res=await sbQueuedPost("match_actions",{datum,spieler:atSel,aktion,termin_id:tid},"return=representation"); // offline -> Queue
   if(res.ok&&res.res){try{const rows=await res.res.json();if(rows&&rows[0]&&rows[0].id!=null)entry.id=rows[0].id;}catch(e){}}
 }
 // Undo (Korrektur 2): letzte Aktion am Spielfeldrand zurücknehmen – In-Memory-Zähler

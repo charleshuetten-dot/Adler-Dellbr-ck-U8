@@ -458,3 +458,20 @@ function pwaBannerShow(kind){
 ═══════════════════════════════════ */
 function hapticTap(pattern){ try{ if(navigator.vibrate)navigator.vibrate(pattern||12); }catch(e){} }
 document.addEventListener("click",e=>{ if(e.target&&e.target.closest&&e.target.closest("button,.btn,.nb,.seg-btn"))hapticTap(12); },{passive:true});
+
+/* ═══════════════════════════════════
+   HOTFIX 3-Frontend: datum -> termin_id (gecacht). Damit anwesenheit &
+   match_actions die echte FK-Kopplung fuellen und der ON DELETE CASCADE
+   real greift. Kein Termin am Datum -> null (FK erlaubt null, kein Cascade nötig).
+═══════════════════════════════════ */
+let _terminIdCache={};
+function terminIdCacheClear(){ _terminIdCache={}; }
+async function terminIdForDatum(datum){
+  if(!datum)return null;
+  if(Object.prototype.hasOwnProperty.call(_terminIdCache,datum))return _terminIdCache[datum];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?datum=eq.${encodeURIComponent(datum)}&select=id&limit=1`,{headers:sbAuthHeaders()});
+    if(r.ok){const rows=await r.json();return (_terminIdCache[datum]=(rows[0]&&rows[0].id)||null);}
+  }catch(e){}
+  return null;
+}
