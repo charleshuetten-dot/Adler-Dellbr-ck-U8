@@ -586,7 +586,7 @@ async function zieleAdd(spielerId){
 }
 async function zieleToggle(id,newStatus,spielerId){
   try{await fetch(`${SB_URL}/rest/v1/entwicklungsziele?id=eq.${id}`,{method:"PATCH",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({status:newStatus,erreicht_at:newStatus==="erreicht"?new Date().toISOString():null})});}catch(e){}
-  if(newStatus==="erreicht"){try{navigator.vibrate&&navigator.vibrate(40);}catch(e){}toast("Stark – Ziel erreicht! 🎉");}
+  if(newStatus==="erreicht"){try{navigator.vibrate&&navigator.vibrate([40,50,90]);}catch(e){}toast("Stark – Ziel erreicht! 🎉");if(typeof confetti==="function")confetti(document.getElementById("ziele-modal")||document.body);}
   zieleRender(spielerId);
 }
 async function zieleDelete(id,spielerId){

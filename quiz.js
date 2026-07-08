@@ -370,7 +370,7 @@ async function wcDone(challengeId,btn){
   if(btn)btn.disabled=true;
   try{
     const d=await xpAwardByName(tqPlayer,"challenge","wc"+challengeId);
-    if(d>0){ toast(`🏆 Challenge geschafft – ${XP_ICON} +${d} ${XP_LABEL} für ${tqPlayer}!`); try{navigator.vibrate&&navigator.vibrate([40,60,40]);}catch(e){} if(btn){btn.textContent="✅ Erledigt – super!";btn.style.background="#22c55e";btn.style.color="#fff";} }
+    if(d>0){ toast(`🏆 Challenge geschafft – ${XP_ICON} +${d} ${XP_LABEL} für ${tqPlayer}!`); try{navigator.vibrate&&navigator.vibrate([40,60,40,60,120]);}catch(e){} if(typeof confetti==="function")confetti(document.getElementById("tq-panel")||document.body); if(btn){btn.textContent="✅ Erledigt – super!";btn.style.background="#22c55e";btn.style.color="#fff";} }
     else { toast(tqPlayer+" hat diese Challenge schon geschafft 👍"); if(btn)btn.textContent="✅ Schon erledigt"; }
   }catch(e){ toast("Hat nicht geklappt (online & angemeldet?)","err"); if(btn)btn.disabled=false; }
 }
