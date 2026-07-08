@@ -501,10 +501,15 @@ async function buddyPersist(paare){
 function awLoad(){
   const datum=document.getElementById("aw-date").value;
   const existing=AW_DATA[datum]||{};
-  const savedTrainers=existing._trainers||[];
-  document.querySelectorAll("#aw-trainer-checks input").forEach(cb=>{
-    cb.checked=savedTrainers.includes(cb.value);
-  });
+  const savedTrainers=existing._trainers;
+  const apply=list=>document.querySelectorAll("#aw-trainer-checks input").forEach(cb=>{cb.checked=(list||[]).includes(cb.value);});
+  if(savedTrainers&&savedTrainers.length){ apply(savedTrainers); }
+  else{
+    apply([]);
+    // Vorausfüllen aus der Trainer-Verfügbarkeit des Trainings-Termins an diesem Datum
+    try{fetch(`${SB_URL}/rest/v1/termine?datum=eq.${datum}&typ=eq.training&select=trainer_status&limit=1`,{headers:sbAuthHeaders()})
+      .then(r=>r.ok?r.json():[]).then(rows=>{const ts=(rows[0]||{}).trainer_status||{};const ja=Object.keys(ts).filter(n=>ts[n]==="ja");if(ja.length)apply(ja);}).catch(()=>{});}catch(e){}
+  }
   awRenderList();
 }
 

@@ -221,6 +221,7 @@ async function elternDashLoad(){
       <div style="font-size:16px;font-weight:800;margin-top:2px">${m.icon} ${esc(termin.titel||termin.gegner||m.label)}</div>
       <div style="font-size:12.5px;color:#64748b;margin-top:3px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})}${zeit?" · "+zeit:""}${termin.ort?" · "+mapsAnchor(termin.ort):""}${termin.platz?" · 🏟️ "+esc(termin.platz):""}</div>
       <div id="wetter-eltern"></div>
+      ${(()=>{const ts=termin.trainer_status||{};const ja=Object.keys(ts).filter(n=>ts[n]==='ja');return ja.length?`<div style="font-size:11.5px;color:#64748b;margin-top:4px">👤 Trainer dabei: ${ja.map(esc).join(', ')}</div>`:'';})()}
       <button onclick="galerieOpen(${termin.id},'${(termin.titel||termin.gegner||m.label).replace(/'/g,'')}')" style="width:100%;margin-top:10px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 Event-Fotos ansehen &amp; teilen</button>`);
     html+=kids.map(k=>{
       const kd=k.kader||{}, cur=rsvp[k.spieler_id], st=cur?cur.status:null;
@@ -1971,6 +1972,7 @@ function tmCard(t){
       <button class="btn btn-sm" onclick="tmJump('blitz','${t.datum}','${t.spielform||''}')"><i class="ti ti-bolt"></i>Auswertung</button>
       <button class="btn btn-sm" onclick="mdOpen('${t.datum}','${t.typ}')"><i class="ti ti-users"></i>Eltern-Info</button>`;
   }
+  actions+=`<button class="btn btn-sm" onclick="tmEdit(${Number(t.id)})" title="Termin bearbeiten"><i class="ti ti-edit"></i>Bearbeiten</button>`;
   actions+=`<button class="btn btn-sm" onclick="tmIcsOne(${Number(t.id)})" title="In den Kalender"><i class="ti ti-calendar-plus"></i>Kalender</button>`;
   if(t.datum>=new Date().toISOString().slice(0,10)) actions+=`<button class="btn btn-sm" onclick="rsvpOverviewOpen(${Number(t.id)})" title="Wer hat schon geantwortet?"><i class="ti ti-list-check"></i>Rückmeldungen</button>`;
   const zeitStr=t.uhrzeit?String(t.uhrzeit).slice(0,5):((/Uhrzeit:\s*(\d{1,2}:\d{2})/.exec(t.notiz||"")||[])[1]||"");
@@ -1992,6 +1994,10 @@ function tmCard(t){
     ${t.ort?`<div style="font-size:11px;color:var(--text2)"><i class="ti ti-map-pin" style="font-size:11px"></i> ${mapsAnchor(t.ort)}</div>`:""}
     ${t.platz?`<div style="font-size:11px;color:var(--text2)">🏟️ Platz: ${esc(t.platz)}</div>`:""}
     <div id="wx-tm-${t.id}"></div>
+    ${t.datum>=new Date().toISOString().slice(0,10)?`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px">
+      <span style="font-size:10px;color:var(--text3);font-weight:700">Trainer dabei?</span>
+      ${(typeof TRAINER!=="undefined"?TRAINER:[]).map(tn=>{const stt=(t.trainer_status||{})[tn];const bg=stt==="ja"?"#16a34a":stt==="nein"?"#dc2626":"var(--surface2)";const col=stt?"#fff":"var(--text2)";const mk=stt==="ja"?" ✓":stt==="nein"?" ✕":"";return `<button onclick="tmTrainerToggle(${Number(t.id)},'${tn.replace(/'/g,"")}')" style="border:var(--border-s);border-radius:12px;padding:2px 8px;font-size:10.5px;font-weight:700;background:${bg};color:${col};cursor:pointer;font-family:inherit">${esc(tn)}${mk}</button>`;}).join("")}
+    </div>`:""}
     ${notizClean?`<div style="font-size:11px;color:var(--text3)">${esc(notizClean)}</div>`:""}
     ${istSpiel?`<div style="display:flex;align-items:center;gap:6px;margin:6px 0"><span style="font-size:11px;color:var(--text2)">Ergebnis:</span><input type="text" value="${esc(t.ergebnis||"")}" placeholder="z. B. 3:2" onchange="tmSetResult(${Number(t.id)},this.value)" style="width:90px;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:12px;font-family:inherit"></div>`:""}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
@@ -2009,6 +2015,64 @@ async function tmDelete(id){
   // Rückmeldungen und Event-Fotos dieses Termins mit weg (Server-seitig). XP-Ledger bleibt.
   if(!confirm("Termin wirklich löschen?\n\nAlle zugehörigen Anwesenheiten, Live-Aktionen, Rückmeldungen und Event-Fotos werden mitgelöscht. (Gesammelte Adler-"+XP_LABEL+" bleiben erhalten.)"))return;
   try{const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;terminIdCacheClear();tmLoad();}catch(e){toast("Netzwerkfehler","err");}
+}
+// Kommenden/vergangenen Termin bearbeiten (Datum, Uhrzeit, Gegner/Titel, Ort, Platz, Spielform).
+function tmEdit(id){
+  const t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(id)); if(!t){toast("Termin nicht gefunden","err");return;}
+  const isSpiel=(t.typ==="spiel"||t.typ==="turnier"), isTraining=t.typ==="training";
+  document.getElementById("tm-edit-modal")?.remove();
+  const modal=document.createElement("div");
+  modal.id="tm-edit-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Termin bearbeiten");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const fld="width:100%;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
+  const PLATZ=["Käfig","vorne links","vorne rechts","hinten links","hinten rechts","Halle"];
+  const platzOpts=`<option value=""${!t.platz?" selected":""}>– kein Platz –</option>`+PLATZ.map(p=>`<option${p===t.platz?" selected":""}>${p}</option>`).join("");
+  const sfOpts=["funino","4+1","5+1"].map(s=>`<option${s===t.spielform?" selected":""}>${s}</option>`).join("");
+  const m=TM_META[t.typ]||{icon:"📅",label:t.typ};
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:440px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:10px">✏️ ${m.icon} Termin bearbeiten</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <label style="font-size:11px;color:var(--text2)">Datum<input type="date" id="te-datum" value="${t.datum}" style="${fld}"></label>
+      <label style="font-size:11px;color:var(--text2)">Uhrzeit<input type="time" id="te-zeit" value="${t.uhrzeit?String(t.uhrzeit).slice(0,5):''}" style="${fld}"></label>
+    </div>
+    ${!isTraining?`<label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Gegner / Titel<input id="te-titel" value="${esc(t.titel||'')}" style="${fld}"></label>`:''}
+    <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Ort / Adresse<input id="te-ort" value="${esc(t.ort||'')}" style="${fld}"></label>
+    ${isTraining?`<label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Platz<select id="te-platz" style="${fld}">${platzOpts}</select></label>`:''}
+    ${isSpiel?`<label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Spielform<select id="te-sf" style="${fld}">${sfOpts}</select></label>`:''}
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-p btn-sm" onclick="tmEditSave(${Number(t.id)})"><i class="ti ti-device-floppy"></i>Speichern</button>
+      <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('tm-edit-modal').remove()">Abbrechen</button>
+    </div>`;
+  modal.appendChild(c);document.body.appendChild(modal);
+}
+async function tmEditSave(id){
+  const t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(id))||{};
+  const isSpiel=(t.typ==="spiel"||t.typ==="turnier");
+  const g=i=>document.getElementById(i);
+  const datum=g("te-datum")?.value;
+  if(!datum){toast("Bitte Datum wählen","err");return;}
+  const body={datum, uhrzeit:(g("te-zeit")?.value||"")||null, ort:(g("te-ort")?.value||"").trim()||null};
+  if(g("te-titel")){const tt=(g("te-titel").value||"").trim()||null; body.titel=tt; body.gegner=isSpiel?tt:null;}
+  if(g("te-platz"))body.platz=(g("te-platz").value||"").trim()||null;
+  if(g("te-sf"))body.spielform=g("te-sf").value||null;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify(body)});
+    if(sbCheck401(r))return;
+    if(r.ok){toast("Termin aktualisiert ✓");terminIdCacheClear();document.getElementById("tm-edit-modal")?.remove();tmLoad();}
+    else toast("Speichern fehlgeschlagen","err");
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+// Trainer-Verfügbarkeit am Termin togglen: neutral → dabei (ja) → nicht (nein) → neutral.
+async function tmTrainerToggle(id,name){
+  const t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(id)); if(!t)return;
+  const st=Object.assign({},t.trainer_status||{});
+  st[name]= st[name]==="ja"?"nein":st[name]==="nein"?undefined:"ja";
+  if(st[name]===undefined)delete st[name];
+  t.trainer_status=st;
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({trainer_status:st})});if(sbCheck401(r))return;}catch(e){}
+  tmLoad();
 }
 // Schnell-Sprung von einem Termin zum passenden Werkzeug, Datum vorbelegt.
 // Spielform des Termins wird an Taktikboard + Rotation durchgereicht (Kopplung Schritt 5).
