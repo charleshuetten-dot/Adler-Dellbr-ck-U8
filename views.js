@@ -1582,6 +1582,19 @@ async function stadionheftOpen(){
   try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&typ=in.(spiel,turnier)&datum=gte.${heute}&order=datum.asc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)heftTermin=(await r.json())[0]||null;}catch(e){}
   heftFotos=await Promise.all(heftKader.map(k=>heftFotoDataUrl(k.foto_path)));
   heftCfgLoad();
+  // HOTFIX 19 digital: Server-Stand ist die Quelle der Wahrheit (geräteübergreifend). Nur überschreiben, wenn eine Zeile existiert.
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/stadionheft?team=eq.adler1&select=*&limit=1`,{headers:sbAuthHeaders()});
+    if(r.ok){const row=(await r.json())[0]; if(row){
+      heftCfg.titel=row.titel||heftCfg.titel;
+      heftCfg.einleitung=row.einleitung||"";
+      heftCfg.fokusId=row.fokus_spieler_id!=null?String(row.fokus_spieler_id):"";
+      heftCfg.fokusText=row.fokus_text||"";
+      heftCfg.kommentar=row.kommentar||"";
+      heftCfg.published=!!row.published;
+      heftCfg._pubAt=row.updated_at;
+    }}
+  }catch(e){}
   heftRenderEditor();
 }
 function heftRenderEditor(){
@@ -1618,8 +1631,13 @@ function heftRenderEditor(){
       <input type="checkbox" id="heft-f-mask" ${heftCfg.mask?"checked":""} style="margin-top:2px;width:18px;height:18px;flex:0 0 auto">
       <span style="font-size:12px;color:var(--text)"><strong>🔒 Eltern-Version (Nachnamen maskiert)</strong><br><span style="font-size:11px;color:var(--text2)">DSGVO: Fürs Verteilen/Aushängen werden Nachnamen zu „Max M." gekürzt. Für die interne Trainer-Version aus lassen.</span></span>
     </label>
+    <label style="display:flex;align-items:flex-start;gap:8px;margin-top:8px;padding:9px 11px;background:${heftCfg.published?"#dcfce7":"var(--surface2)"};border:var(--border-s);border-radius:10px;cursor:pointer">
+      <input type="checkbox" id="heft-f-pub" ${heftCfg.published?"checked":""} style="margin-top:2px;width:18px;height:18px;flex:0 0 auto">
+      <span style="font-size:12px;color:var(--text)"><strong>👨‍👩‍👧 Für Eltern veröffentlichen (digital)</strong><br><span style="font-size:11px;color:var(--text2)">Sichtbar im Eltern-Bereich. Namen erscheinen dort <b>immer maskiert</b>; Fotos nur bei Einwilligung.${heftCfg.published&&heftCfg._pubAt?" · zuletzt "+new Date(heftCfg._pubAt).toLocaleString("de-DE"):""}</span></span>
+    </label>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:12px">
-      <button class="btn btn-p" onclick="heftPrintNow()"><i class="ti ti-printer"></i>Drucken</button>
+      <button class="btn btn-p" onclick="heftSaveDb()"><i class="ti ti-device-floppy"></i>Speichern</button>
+      <button class="btn btn-sm" onclick="heftPrintNow()"><i class="ti ti-printer"></i>Drucken</button>
       <button class="btn btn-sm" onclick="document.getElementById('heft-modal').remove()">Schließen</button>
     </div>`;
   modal.appendChild(card);
@@ -1628,7 +1646,21 @@ function heftRenderEditor(){
   bind("heft-f-titel","titel");bind("heft-f-einl","einleitung");bind("heft-f-fokustext","fokusText");bind("heft-f-komm","kommentar");
   const fokusEl=document.getElementById("heft-f-fokus");if(fokusEl)fokusEl.onchange=()=>{heftCfg.fokusId=fokusEl.value;heftCfgSave();heftRenderPreview();};
   const maskEl=document.getElementById("heft-f-mask");if(maskEl)maskEl.onchange=()=>{heftCfg.mask=maskEl.checked;heftCfgSave();heftRenderPreview();};
+  const pubEl=document.getElementById("heft-f-pub");if(pubEl)pubEl.onchange=()=>{heftCfg.published=pubEl.checked;};
   heftRenderPreview();
+}
+// HOTFIX 19 digital: Editor-Inhalt in die stadionheft-Tabelle schreiben (+ Veröffentlichen-Status).
+async function heftSaveDb(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  const payload={team:"adler1",titel:heftCfg.titel||"Stadionheft U9",einleitung:heftCfg.einleitung||"",fokus_spieler_id:heftCfg.fokusId?Number(heftCfg.fokusId):null,fokus_text:heftCfg.fokusText||"",kommentar:heftCfg.kommentar||"",published:!!heftCfg.published,updated_at:new Date().toISOString()};
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/stadionheft?on_conflict=team`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(payload)});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast("Speichern fehlgeschlagen ("+r.status+")","err");return;}
+    heftCfg._pubAt=payload.updated_at; heftCfgSave();
+    toast(heftCfg.published?"✅ Gespeichert & für Eltern veröffentlicht":"✅ Gespeichert (nicht veröffentlicht)");
+    heftRenderEditor();
+  }catch(e){ toast("Netzwerkfehler beim Speichern","err"); }
 }
 function heftRenderPreview(){ const box=document.getElementById("heft-preview"); if(box)box.innerHTML=heftBuildHtml(heftCfg,{mask:!!heftCfg.mask}); }
 function heftPrintNow(){
