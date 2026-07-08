@@ -1446,7 +1446,7 @@ async function renderHome(){
     <button onclick="kasseOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">💰 Teamkasse</button>
     <button onclick="fundbueroOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🧦 Fundbüro</button>
     <button onclick="ausruestungGrid()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">👕 Team-Ausrüstung</button>
-    <button onclick="printStadionheft()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🖨️ Stadionheft drucken</button>
+    <button onclick="stadionheftOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">📰 Stadionheft erstellen & drucken</button>
     <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;margin-top:12px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>`;
 
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
@@ -1508,45 +1508,126 @@ async function heftFotoDataUrl(path){
     return await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=()=>res(null);fr.readAsDataURL(blob);});
   }catch(e){return null;}
 }
-async function printStadionheft(){
-  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
-  toast("🖨️ Stadionheft wird vorbereitet…");
-  let kader=[],fanfacts={},termin=null;
-  try{const r=await fetch(`${SB_URL}/rest/v1/kader?select=id,name,nr,foto_path,lieblingsposition,tw,aktiv&order=nr.asc.nullslast`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)kader=(await r.json()).filter(k=>k.aktiv!==false);}catch(e){}
-  if(!kader.length){toast("Kein Kader gefunden","err");return;}
-  try{const r=await fetch(`${SB_URL}/rest/v1/kind_fanfacts?select=spieler_id,spitzname`,{headers:sbAuthHeaders()});if(r.ok)(await r.json()).forEach(f=>{if(f.spitzname)fanfacts[f.spieler_id]=f.spitzname;});}catch(e){}
-  const heute=new Date().toISOString().slice(0,10);
-  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&typ=in.(spiel,turnier)&datum=gte.${heute}&order=datum.asc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)termin=(await r.json())[0]||null;}catch(e){}
-  const fotos=await Promise.all(kader.map(k=>heftFotoDataUrl(k.foto_path)));
-  const cards=kader.map((k,i)=>{
-    const foto=fotos[i];
+/* ═══ HOTFIX 19: Stadionheft-Editor (WYSIWYG) – ersetzt den Direktdruck.
+   Trainer bearbeitet Titel, Einleitung, „Spieler im Fokus" + Trainer-Kommentar,
+   sieht eine Live-Vorschau und druckt. Texte bleiben in localStorage erhalten.
+   heftBuildHtml(cfg,{mask}) baut das Heft rein – die Nachnamen-Maskierung ist
+   bereits eingebaut (Aktivierung folgt in der DSGVO-Etappe). ═══ */
+let heftKader=[], heftFanfacts={}, heftTermin=null, heftFotos=[];
+let heftCfg={titel:"Stadionheft U9 I", einleitung:"", fokusId:"", fokusText:"", kommentar:""};
+function heftCfgLoad(){ try{const s=JSON.parse(localStorage.getItem("adler_heft_cfg")||"null"); if(s&&typeof s==="object")heftCfg=Object.assign(heftCfg,s);}catch(e){} }
+function heftCfgSave(){ try{localStorage.setItem("adler_heft_cfg",JSON.stringify(heftCfg));}catch(e){} }
+// DSGVO: Nachname zu Initiale kürzen ("Max Mustermann" -> "Max M."); Einzelnamen bleiben.
+function heftMaskName(name){ const p=String(name||"").trim().split(/\s+/); if(p.length<2)return p[0]||""; return p[0]+" "+p[p.length-1].charAt(0).toUpperCase()+"."; }
+function heftBuildHtml(cfg,opts){
+  opts=opts||{}; const mask=!!opts.mask; const nm=n=>mask?heftMaskName(n):n;
+  const cards=heftKader.map((k,i)=>{
+    const foto=heftFotos[i];
     const initialen=(k.name||"?").trim().slice(0,1).toUpperCase();
-    const spitz=fanfacts[k.id];
+    const spitz=heftFanfacts[k.id];
     const pos=k.lieblingsposition?cardPosLabel(k.lieblingsposition):(k.tw?"Torwart":"");
     return `<div class="heft-card">
       <div class="heft-foto">${foto?`<img src="${foto}" alt="">`:`<span>${esc(initialen)}</span>`}${k.nr!=null?`<div class="heft-nr">${esc(k.nr)}</div>`:""}</div>
-      <div class="heft-name">${esc(k.name)}${k.tw?" 🥅":""}</div>
+      <div class="heft-name">${esc(nm(k.name))}${k.tw?" 🥅":""}</div>
       ${spitz?`<div class="heft-spitz">„${esc(spitz)}"</div>`:""}
       ${pos?`<div class="heft-pos">${esc(pos)}</div>`:""}
     </div>`;
   }).join("");
   let spielHtml="";
-  if(termin){
-    const tm=(typeof TM_META!=="undefined"&&TM_META[termin.typ])||{icon:"⚽"};
-    const d=new Date(termin.datum+"T00:00:00");
-    spielHtml=`<div class="heft-match">${tm.icon} Nächstes Spiel: ${esc(termin.titel||termin.gegner||"")} · ${d.toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})}${termin.uhrzeit?" · "+String(termin.uhrzeit).slice(0,5)+" Uhr":""}${termin.ort?" · "+esc(termin.ort):""}</div>`;
+  if(heftTermin){
+    const tm=(typeof TM_META!=="undefined"&&TM_META[heftTermin.typ])||{icon:"⚽"};
+    const d=new Date(heftTermin.datum+"T00:00:00");
+    spielHtml=`<div class="heft-match">${tm.icon} Nächstes Spiel: ${esc(heftTermin.titel||heftTermin.gegner||"")} · ${d.toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})}${heftTermin.uhrzeit?" · "+String(heftTermin.uhrzeit).slice(0,5)+" Uhr":""}${heftTermin.ort?" · "+esc(heftTermin.ort):""}</div>`;
   }
-  document.getElementById("heft-print").innerHTML=`<div class="heft-wrap">
+  const einl=cfg.einleitung&&cfg.einleitung.trim()?`<div class="heft-intro">${esc(cfg.einleitung).replace(/\n/g,"<br>")}</div>`:"";
+  let fokusHtml="";
+  if(cfg.fokusId){
+    const idx=heftKader.findIndex(k=>String(k.id)===String(cfg.fokusId));
+    if(idx>=0){
+      const k=heftKader[idx], foto=heftFotos[idx];
+      const initialen=(k.name||"?").trim().slice(0,1).toUpperCase();
+      fokusHtml=`<div class="heft-fokus">
+        <div class="heft-fokus-foto">${foto?`<img src="${foto}" alt="">`:`<span>${esc(initialen)}</span>`}</div>
+        <div class="heft-fokus-body">
+          <div class="heft-fokus-badge">⭐ Spieler im Fokus</div>
+          <div class="heft-fokus-name">${esc(nm(k.name))}${k.nr!=null?` · #${esc(k.nr)}`:""}</div>
+          ${cfg.fokusText&&cfg.fokusText.trim()?`<div class="heft-fokus-text">${esc(cfg.fokusText).replace(/\n/g,"<br>")}</div>`:""}
+        </div></div>`;
+    }
+  }
+  const komm=cfg.kommentar&&cfg.kommentar.trim()?`<div class="heft-komm"><div class="heft-komm-h">📣 Ein Wort vom Trainerteam</div><div>${esc(cfg.kommentar).replace(/\n/g,"<br>")}</div></div>`:"";
+  return `<div class="heft-wrap">
     <div class="heft-head">
       <img src="logo.png" alt="SV Adler Dellbrück">
       <div class="heft-club">SV ADLER DELLBRÜCK e.V.</div>
-      <div class="heft-title">Stadionheft U9 I</div>
+      <div class="heft-title">${esc(cfg.titel||"Stadionheft U9")}</div>
       <div class="heft-club">Saison ${typeof saisonLabel==="function"?saisonLabel():""} · unsere Mannschaft</div>
     </div>
     ${spielHtml}
+    ${einl}
+    ${fokusHtml}
     <div class="heft-grid">${cards}</div>
+    ${komm}
     <div class="heft-foot">Auf geht's, Adler! 🦅 · Trainerteam ${(typeof TRAINER!=="undefined"?TRAINER:["Sandy","Charles","Finn","Kenneth","Peter"]).join(" · ")}</div>
   </div>`;
+}
+async function stadionheftOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  toast("📰 Stadionheft wird geladen…");
+  heftKader=[];heftFanfacts={};heftTermin=null;heftFotos=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/kader?select=id,name,nr,foto_path,lieblingsposition,tw,aktiv&order=nr.asc.nullslast`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)heftKader=(await r.json()).filter(k=>k.aktiv!==false);}catch(e){}
+  if(!heftKader.length){toast("Kein Kader gefunden","err");return;}
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_fanfacts?select=spieler_id,spitzname`,{headers:sbAuthHeaders()});if(r.ok)(await r.json()).forEach(f=>{if(f.spitzname)heftFanfacts[f.spieler_id]=f.spitzname;});}catch(e){}
+  const heute=new Date().toISOString().slice(0,10);
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&typ=in.(spiel,turnier)&datum=gte.${heute}&order=datum.asc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)heftTermin=(await r.json())[0]||null;}catch(e){}
+  heftFotos=await Promise.all(heftKader.map(k=>heftFotoDataUrl(k.foto_path)));
+  heftCfgLoad();
+  heftRenderEditor();
+}
+function heftRenderEditor(){
+  const old=document.getElementById("heft-modal");if(old)old.remove();
+  const modal=document.createElement("div");
+  modal.id="heft-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;flex-direction:column;padding:12px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const kaderOpts=`<option value="">— keiner —</option>`+heftKader.map(k=>`<option value="${esc(k.id)}"${String(heftCfg.fokusId)===String(k.id)?" selected":""}>${esc(k.name)}${k.nr!=null?" (#"+esc(k.nr)+")":""}</option>`).join("");
+  const fld="width:100%;padding:8px 10px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box;resize:vertical";
+  const card=document.createElement("div");
+  card.style.cssText="background:var(--surface);color:var(--text);max-width:900px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  card.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div style="font-weight:800;font-size:16px">📰 Stadionheft-Editor</div><span style="font-size:11px;color:var(--text2)">frei bearbeiten · Vorschau live · Texte werden gemerkt</span></div>
+    <div style="display:grid;grid-template-columns:1fr;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label style="font-size:11px;font-weight:700;color:var(--text2)">Titel
+          <input id="heft-f-titel" type="text" value="${esc(heftCfg.titel||"")}" style="${fld};min-height:40px;font-size:14px"></label>
+        <label style="font-size:11px;font-weight:700;color:var(--text2)">Einleitung / Grußwort
+          <textarea id="heft-f-einl" rows="3" style="${fld}">${esc(heftCfg.einleitung||"")}</textarea></label>
+        <label style="font-size:11px;font-weight:700;color:var(--text2)">⭐ Spieler im Fokus
+          <select id="heft-f-fokus" style="${fld};min-height:40px;font-size:14px">${kaderOpts}</select></label>
+        <label style="font-size:11px;font-weight:700;color:var(--text2)">Text zum Spieler im Fokus
+          <textarea id="heft-f-fokustext" rows="2" style="${fld}">${esc(heftCfg.fokusText||"")}</textarea></label>
+        <label style="font-size:11px;font-weight:700;color:var(--text2)">📣 Trainer-Kommentar
+          <textarea id="heft-f-komm" rows="3" style="${fld}">${esc(heftCfg.kommentar||"")}</textarea></label>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">Vorschau</div>
+        <div id="heft-preview" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px;max-height:60vh;overflow:auto"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px">
+      <button class="btn btn-p" onclick="heftPrintNow()"><i class="ti ti-printer"></i>Drucken</button>
+      <button class="btn btn-sm" onclick="document.getElementById('heft-modal').remove()">Schließen</button>
+    </div>`;
+  modal.appendChild(card);
+  document.body.appendChild(modal);
+  const bind=(id,key)=>{const el=document.getElementById(id);if(el)el.oninput=()=>{heftCfg[key]=el.value;heftCfgSave();heftRenderPreview();};};
+  bind("heft-f-titel","titel");bind("heft-f-einl","einleitung");bind("heft-f-fokustext","fokusText");bind("heft-f-komm","kommentar");
+  const fokusEl=document.getElementById("heft-f-fokus");if(fokusEl)fokusEl.onchange=()=>{heftCfg.fokusId=fokusEl.value;heftCfgSave();heftRenderPreview();};
+  heftRenderPreview();
+}
+function heftRenderPreview(){ const box=document.getElementById("heft-preview"); if(box)box.innerHTML=heftBuildHtml(heftCfg,{mask:false}); }
+function heftPrintNow(){
+  document.getElementById("heft-print").innerHTML=heftBuildHtml(heftCfg,{mask:false});
   document.body.classList.add("printing-heft");
   const cleanup=()=>{document.body.classList.remove("printing-heft");window.removeEventListener("afterprint",cleanup);};
   window.addEventListener("afterprint",cleanup);
