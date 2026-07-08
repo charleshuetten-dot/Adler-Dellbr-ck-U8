@@ -2795,33 +2795,44 @@ function rotRenderControls(){
    Spielform verteilen. 4+1 nutzt den echten Kombinator (calcBestCombos, gedeckelt),
    Funino/5+1 nutzen eine Greedy-Verteilung nach Gesamtscore (kein Brute-Force ->
    kein Einfrieren). Torwart separat. Ergebnis ist frei nachjustierbar. */
-function magicLineup(){
+async function magicLineup(){
   const squad=(typeof nominierteSpieler==="function"?nominierteSpieler():[]);
   const form=(typeof FORMATIONS!=="undefined"&&FORMATIONS[tbFormation])||{tw:true,fieldCount:5};
   const need=form.fieldCount+(form.tw?1:0);
   if(squad.length<need){toast(`Zu wenige nominierte Spieler (${squad.length}/${need}) für ${tbFormation}`,"err");return;}
   const keeper=form.tw?(squad.find(n=>getKader(n)?.tw)||null):null;
   const outfieldPool=squad.filter(n=>n!==keeper);
-  let ordered=null;
-  if(tbFormation==='4+1'&&outfieldPool.length>=4){
-    const combo=calcBestCombos(outfieldPool); // nur nominierte Feldspieler, Kombinator liefert beste Raute
+  // Saison-Fairness: kumulierte Einsatzzeiten laden (best-effort). Wenig gespielt -> Startvorteil.
+  const minutes={}; let fair=false;
+  try{const r=await fetch(`${SB_URL}/rest/v1/einsatzzeiten?select=spieler,feld_sek`,{headers:sbAuthHeaders()});if(r.ok){const rows=await r.json();rows.forEach(x=>{if(x.spieler)minutes[x.spieler]=(minutes[x.spieler]||0)+(x.feld_sek||0);});fair=rows.length>0;}}catch(e){}
+  // Basis: Skill-Reihenfolge (Gesamtscore)
+  const skillOrder=outfieldPool.map(n=>{const pd=getPlayerData(n);return {n,s:pd?pd.total:0};}).sort((a,b)=>b.s-a.s).map(x=>x.n);
+  // Blend mit Fairness (55% Fairness / 45% Skill), nur wenn Saisondaten da sind
+  let ranked=skillOrder;
+  if(fair){
+    const maxM=Math.max(1,...outfieldPool.map(n=>minutes[n]||0));
+    const skIdx={}; skillOrder.forEach((n,i)=>skIdx[n]=i); const L=Math.max(1,skillOrder.length-1);
+    const val=n=>0.55*(1-(minutes[n]||0)/maxM)+0.45*(1-(skIdx[n]/L)); // hoch = soll starten (wenig gespielt / stark)
+    ranked=[...outfieldPool].sort((a,b)=>val(b)-val(a));
+  }
+  // Startelf-Positionierung: für 4+1 die gewählten 4 Starter in die beste Raute stellen
+  let ordered=ranked;
+  if(tbFormation==='4+1'&&ranked.length>=4){
+    const starters=ranked.slice(0,4);
+    const combo=calcBestCombos(starters);
     if(combo&&combo[0]){
       const b=combo[0];
       const used=[b.aufpasser.name,b.flitzer_l.name,b.flitzer_r.name,b.jaeger.name];
-      const rest=outfieldPool.filter(n=>!used.includes(n));
+      const rest=ranked.filter(n=>!used.includes(n));
       ordered=[...used,...rest];
     }
-  }
-  if(!ordered){
-    // Greedy nach Gesamtscore (Funino/5+1 oder 4+1-Fallback)
-    ordered=outfieldPool.map(n=>{const pd=getPlayerData(n);return {n,s:pd?pd.total:0};}).sort((a,b)=>b.s-a.s).map(x=>x.n);
   }
   rotTW=keeper;
   rotField=ordered.slice(0,form.fieldCount);
   rotBench=ordered.slice(form.fieldCount);
   rotBenchSec={};squad.forEach(n=>rotBenchSec[n]=0);rotElapsed=0;
   rotRenderControls();rotRenderLive();
-  toast("Auto-Aufstellung erstellt ✓ – frei anpassbar");
+  toast(fair?"⚖️ Faire Auto-Aufstellung ✓ – wenig-gespielte Kinder starten, frei anpassbar":"Auto-Aufstellung erstellt ✓ – frei anpassbar");
 }
 function fmtSec(s){const m=Math.floor(s/60),ss=s%60;return m+":"+(ss<10?"0":"")+ss;}
 function rotRenderLive(){
