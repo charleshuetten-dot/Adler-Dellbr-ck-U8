@@ -2285,7 +2285,7 @@ async function renderElternView(datum){
         ${row("ℹ️","Infos",m.infos)}
         ${routeUrl?`<a href="${routeUrl}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:14px;background:#1e3a8a;color:#fff;padding:13px;border-radius:12px;text-decoration:none;font-weight:600">🗺️ Route ${istTraining?"zum Platz":"zum Gegner"}</a>`:""}
       </div>
-      ${istTraining?`<div id="ev-dabei" style="margin-top:14px"></div><div id="ev-fahrt" style="margin-top:14px"></div>`:`<div id="ev-ticker" style="margin-top:14px"></div>`}
+      ${istTraining?`<div id="ev-dabei" style="margin-top:14px"></div><div id="ev-fahrt" style="margin-top:14px"></div>`:`<div id="ev-ticker" style="margin-top:14px"></div><div id="ev-einsatz" style="margin-top:14px"></div>`}
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin:16px 0 8px;text-align:center">Für Eltern</div>
       <button onclick="elternKalenderIcs()" style="width:100%;margin-bottom:10px;background:#1e3a8a;color:#fff;border:none;padding:14px;border-radius:12px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer">🗓️ Termine in meinen Kalender</button>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -2298,8 +2298,24 @@ async function renderElternView(datum){
       elTickerLoad(m.datum,m.spieldauer_min||20);
       clearInterval(elTickerTimer);
       elTickerTimer=setInterval(()=>elTickerLoad(m.datum,m.spieldauer_min||20),20000);
+      elternEinsatzLoad(m.datum);
     }
   }catch(e){root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Konnte nicht laden. Bitte später erneut versuchen.</div>';}
+}
+// Faire Einsatzzeiten für Eltern: transparente Balken je Kind (Vorname + Minuten), aus der
+// security-definer-RPC (nur veröffentlichte Spieltage, minimale Daten). U9-Vertrauenssignal.
+async function elternEinsatzLoad(datum){
+  const box=document.getElementById("ev-einsatz"); if(!box)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/einsatzzeiten_public`,{method:"POST",headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_datum:datum})});if(r.ok)rows=await r.json();}catch(e){}
+  if(!Array.isArray(rows)||!rows.length){box.innerHTML="";return;}
+  const max=Math.max(...rows.map(x=>x.feld_sek||0),1);
+  const bar=(x)=>{const min=Math.round((x.feld_sek||0)/60);const pct=Math.round((x.feld_sek||0)/max*100);
+    return `<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:2px"><span style="font-weight:600;color:#1e293b">${elternEsc(x.spieler)}</span><span style="color:#64748b">${min} Min</span></div><div style="height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#1a56db,#3b82f6)"></div></div></div>`;};
+  box.innerHTML=`<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,.06)">
+    <div style="font-weight:700;margin-bottom:3px">⚖️ Faire Einsatzzeiten</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:12px">Jedes Kind soll fair Spielzeit bekommen – hier ganz transparent.</div>
+    ${rows.map(bar).join("")}</div>`;
 }
 // Eltern-Liveticker: pollt alle 20s (kein Realtime-Client nötig, passt zur REST-Architektur).
 // Respektiert den Wolff-Fuss-Toggle des Trainers unabhängig vom ticker_events-Inhalt.
@@ -2750,13 +2766,24 @@ function rotTick(){
   if(rotElapsed>=rotIntervalMin*60){
     rotElapsed=0;rotBeep();try{navigator.vibrate&&navigator.vibrate([100,60,100]);}catch(e){}
   }
+  if((++rotPersistCtr%30)===0)rotPersistTimes(); // Faire Einsatzzeiten: alle 30s sichern
   rotRenderLive();
 }
 // Idempotente Start/Stop-Funktionen (statt reinem Toggle), damit die Match-Uhr den
 // Rotations-Timer sicher mitsteuern kann, ohne einen bereits korrekten Zustand zu kippen.
 function rotStart(){ if(!rotTimerId){rotTimerId=setInterval(rotTick,1000);requestWakeLock();} rotRenderControls();rotRenderLive(); }
-function rotStop(){ if(rotTimerId){clearInterval(rotTimerId);rotTimerId=null;} rotRenderControls();rotRenderLive(); }
+function rotStop(){ if(rotTimerId){clearInterval(rotTimerId);rotTimerId=null;} rotPersistTimes(); rotRenderControls();rotRenderLive(); }
 function rotToggle(){ if(rotTimerId)rotStop(); else rotStart(); }
+// Faire Einsatzzeiten: aktuelle Feldzeit je Spieler in Supabase sichern (best-effort, Trainer-Auth).
+let rotPersistCtr=0;
+async function rotPersistTimes(){
+  if(typeof sbToken==="function"&&!sbToken())return;
+  const datum=spieltagKey();
+  const all=new Set([...rotField,...rotBench,...(rotTW?[rotTW]:[])]);
+  const payload=[...all].map(n=>({datum,spieler:n,feld_sek:rotFieldSec[n]||0}));
+  if(!payload.length)return;
+  try{ await fetch(`${SB_URL}/rest/v1/einsatzzeiten?on_conflict=datum,spieler`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(payload)}); }catch(e){}
+}
 function rotReset(){
   if(rotTimerId){clearInterval(rotTimerId);rotTimerId=null;}
   rotElapsed=0;Object.keys(rotBenchSec).forEach(n=>rotBenchSec[n]=0);
