@@ -301,6 +301,7 @@ async function loadKader(){
         if(x.starker_fuss)o.starker_fuss=x.starker_fuss;
         if(x.lieblingsposition)o.lieblingsposition=x.lieblingsposition;
         if(x.foto_path)o.foto_path=x.foto_path;
+        o.foto_stadionheft_ok=!!x.foto_stadionheft_ok; // HOTFIX 19 digital: Foto-Freigabe fürs Eltern-Heft
         return o;
       }));
     }
@@ -337,6 +338,10 @@ function kaderEditRow(k,i){
       <input type="file" accept="image/jpeg,image/png,image/webp" onchange="kaderRowFoto(this)" style="font-size:11px;flex:1">
       ${k.foto_path?'<span style="font-size:10px;color:#059669">✓ vorhanden</span>':''}
     </div>
+    <label style="display:flex;align-items:flex-start;gap:6px;margin-bottom:6px;font-size:11px;color:var(--text2)" title="Nur mit ausdrücklicher Eltern-Zustimmung. Ohne Häkchen erscheinen im Eltern-Heft nur die Initialen.">
+      <input class="ke-fotook" type="checkbox" ${k.foto_stadionheft_ok?"checked":""} style="margin-top:1px">
+      <span>📰 Foto fürs <b>digitale Eltern-Stadionheft</b> freigegeben <span style="color:var(--text3)">(Eltern-Einwilligung eingeholt)</span></span>
+    </label>
     <input class="ke-medical" value="${esc(k.medical||'')}" placeholder="Medical-Hinweis (z. B. Asthma, Allergie…)" style="width:100%;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
     ${k._id?`<button type="button" class="btn btn-sm" onclick="kontakteEditOpen(${k._id})" style="margin-top:6px;width:100%"><i class="ti ti-address-book"></i>Kontakte & Eltern-Login</button>`:'<div style="font-size:10px;color:var(--text3);margin-top:6px">Erst speichern – dann sind Kontakte & Eltern-Login hinterlegbar.</div>'}
   </div>`;
@@ -472,7 +477,8 @@ async function kaderSaveAll(btn){
       tw:row.querySelector(".ke-tw").checked,
       tw_prio:parseInt(row.querySelector(".ke-prio").value)||0,
       geb:geb||null, medical:medical||null,
-      starker_fuss:fuss||null, lieblingsposition:pos||null, sort_order:i+1
+      starker_fuss:fuss||null, lieblingsposition:pos||null, sort_order:i+1,
+      foto_stadionheft_ok:row.querySelector(".ke-fotook")?.checked||false // HOTFIX 19 digital: Foto-Freigabe
     });
   });
   if(!payload.length){toast("Kein Spieler eingetragen","err");return;}
