@@ -2173,12 +2173,15 @@ async function renderElternView(datum){
     // Route: Google-Maps-Suche nach der Gegner-Adresse (oder dem Gegnernamen)
     const routeQuery=m.gegner_adresse||m.gegner||m.ort||"";
     const routeUrl=routeQuery?"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(routeQuery):"";
+    // Hub: prominenter Live-Hinweis, wenn die Match-Uhr gerade läuft – der Grund, JETZT reinzuschauen.
+    const liveBanner=(!istTraining&&m.clock_status==="running")?`<a href="#ev-ticker" style="display:block;text-decoration:none;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border-radius:14px;padding:14px 16px;margin-bottom:14px;text-align:center;box-shadow:0 4px 16px rgba(220,38,38,.35)"><div style="font-size:15px;font-weight:800">🔴 Wir spielen gerade LIVE!</div><div style="font-size:12px;opacity:.9;margin-top:2px">Zum Liveticker ↓</div></a>`:"";
     root.innerHTML=`
       <div style="text-align:center;margin:8px 0 16px">
         <img src="logo.png" style="width:64px;height:64px" alt="SV Adler Dellbrück">
         <div style="font-size:18px;font-weight:800;color:#1e3a8a;margin-top:6px">${istTraining?"Training":"Spieltag"} U9</div>
         <div style="font-size:13px;color:#64748b">${datumStr}</div>
       </div>
+      ${liveBanner}
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,.06)">
         ${!istTraining&&m.gegner?`<div style="text-align:center;font-size:19px;font-weight:800;color:#1e293b;margin-bottom:10px">⚽ gegen ${esc(m.gegner)}</div>`:""}
         ${!istTraining&&m.gegner_adresse?row("🏟️","Adresse Gegner",m.gegner_adresse):""}
@@ -2189,8 +2192,12 @@ async function renderElternView(datum){
         ${routeUrl?`<a href="${routeUrl}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:14px;background:#1e3a8a;color:#fff;padding:13px;border-radius:12px;text-decoration:none;font-weight:600">🗺️ Route ${istTraining?"zum Platz":"zum Gegner"}</a>`:""}
       </div>
       ${istTraining?`<div id="ev-dabei" style="margin-top:14px"></div><div id="ev-fahrt" style="margin-top:14px"></div>`:`<div id="ev-ticker" style="margin-top:14px"></div>`}
-      <a href="${location.origin+location.pathname}?heft" style="display:block;text-align:center;margin-top:14px;background:#fff;border:1.5px solid #1e3a8a;color:#1e3a8a;padding:12px;border-radius:12px;text-decoration:none;font-weight:700">📰 Stadionheft ansehen</a>
-      <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:14px">SV Adler Dellbrück e.V. · Angaben ohne Gewähr</div>`;
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin:16px 0 8px;text-align:center">Für Eltern</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <a href="${location.origin+location.pathname}?heft" style="text-align:center;background:#fff;border:1.5px solid #1e3a8a;color:#1e3a8a;padding:13px 8px;border-radius:12px;text-decoration:none;font-weight:700;font-size:13px">📰 Stadionheft</a>
+        <a href="${location.origin+location.pathname}?portal" style="text-align:center;background:#fff;border:1.5px solid #1e3a8a;color:#1e3a8a;padding:13px 8px;border-radius:12px;text-decoration:none;font-weight:700;font-size:13px">👨‍👩‍👧 Mein Kind</a>
+      </div>
+      <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:16px">SV Adler Dellbrück e.V. · Angaben ohne Gewähr</div>`;
     if(istTraining){edLoad(m.datum);fgLoad(m.datum);}
     else{
       elTickerLoad(m.datum,m.spieldauer_min||20);
