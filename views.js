@@ -520,7 +520,7 @@ async function wochenChallengeOpen(){
   let cur="";
   try{const r=await fetch(`${SB_URL}/rest/v1/wochen_challenge?aktiv=eq.true&select=text&order=created_at.desc&limit=1`,{headers:sbAuthHeaders()});if(r.ok){const row=(await r.json())[0];cur=(row&&row.text)||"";}}catch(e){}
   document.getElementById("wc-modal")?.remove();
-  const modal=document.createElement("div");modal.id="wc-modal";
+  const modal=document.createElement("div");modal.id="wc-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Wochen-Challenge");
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const card=document.createElement("div");
@@ -550,7 +550,7 @@ async function zieleOpen(spielerId){
   if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
   const k=KADER.find(x=>x._id===spielerId);
   document.getElementById("ziele-modal")?.remove();
-  const modal=document.createElement("div");modal.id="ziele-modal";
+  const modal=document.createElement("div");modal.id="ziele-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Entwicklungs-Ziele");
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const card=document.createElement("div");
@@ -1827,7 +1827,7 @@ async function heftAutoContent(){
 function heftRenderEditor(){
   const old=document.getElementById("heft-modal");if(old)old.remove();
   const modal=document.createElement("div");
-  modal.id="heft-modal";
+  modal.id="heft-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Adler-Horst-Editor");
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;flex-direction:column;padding:12px;overflow-y:auto";
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const kaderOpts=`<option value="">— keiner —</option>`+heftKader.map(k=>`<option value="${esc(k.id)}"${String(heftCfg.fokusId)===String(k.id)?" selected":""}>${esc(k.name)}${k.nr!=null?" (#"+esc(k.nr)+")":""}</option>`).join("");

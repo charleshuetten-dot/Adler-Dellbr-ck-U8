@@ -1707,7 +1707,7 @@ function spieltagSetTeam(n,btn){
 async function turnierOpen(){
   if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
   document.getElementById("turnier-modal")?.remove();
-  const modal=document.createElement("div");modal.id="turnier-modal";
+  const modal=document.createElement("div");modal.id="turnier-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Turnier-Modus");
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const p=(spieltagRawDate()||"").split("-"); const ds=p.length===3?`${p[2]}.${p[1]}.${p[0]}`:spieltagRawDate();

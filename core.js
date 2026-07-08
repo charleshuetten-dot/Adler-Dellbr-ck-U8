@@ -496,6 +496,17 @@ function toggleTheme(){
 document.addEventListener("DOMContentLoaded",()=>{ try{ applyTheme(localStorage.getItem("adler_theme")); }catch(e){} }); // Button-Icon setzen
 if(window.matchMedia){ try{ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{ if(!localStorage.getItem("adler_theme"))applyTheme(null); }); }catch(e){} }
 
+/* A11y: Esc schließt das oberste offene Overlay (mit korrektem Cleanup für Spezial-Overlays). */
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Escape")return;
+  // Overlays mit eigener Aufräum-Logik zuerst
+  if(document.getElementById("at-live")&&typeof atLiveClose==="function"){atLiveClose();return;}
+  if(document.getElementById("adler-wrapped")&&typeof adlerWrappedClose==="function"){adlerWrappedClose();return;}
+  // Generische Modals (id endet auf -modal) – das zuletzt geöffnete schließen
+  const modals=[...document.querySelectorAll('[id$="-modal"]')].filter(el=>getComputedStyle(el).position==="fixed");
+  if(modals.length){ modals[modals.length-1].remove(); }
+});
+
 /* ═══════════════════════════════════
    HOTFIX 3-Frontend: datum -> termin_id (gecacht). Damit anwesenheit &
    match_actions die echte FK-Kopplung fuellen und der ON DELETE CASCADE
