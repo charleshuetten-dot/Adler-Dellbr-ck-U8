@@ -3830,6 +3830,8 @@ async function ttViewKi(id){
 async function kiCoachSaveForm(i){
   const u=kiLastUebungen[i]; if(!u)return;
   const ablauf=(u.beschreibung||"")+(u.variante?"\n\nVariante: "+u.variante:"");
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  // Spalten exakt wie in trainingsformen: KEIN svg (existiert nicht), tags ist text (kein Array).
   const form={
     name:(u.titel||"KI-Übung").slice(0,120),
     kat:"custom",
@@ -3838,11 +3840,13 @@ async function kiCoachSaveForm(i){
     coaching:"Vom Adler-Coach (KI) vorgeschlagen – altersgerecht für U8/U9.",
     spieler:"", feld:u.material||"", dauer:u.dauer||"",
     spass:5, diff:2,
-    custom:true, focus:false, svg:"", tags:["KI-Coach"],
+    custom:true, focus:false, tags:"KI-Coach",
     kurz:(u.beschreibung||"").slice(0,80)
   };
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/trainingsformen`,{method:"POST",headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(form)});
+    // Trainer-Token (RLS: trainingsformen schreibbar nur fuer is_trainer, NICHT anon)
+    const r=await fetch(`${SB_URL}/rest/v1/trainingsformen`,{method:"POST",headers:sbAuthHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(form)});
+    if(sbCheck401(r))return;
     if(!r.ok){toast("Speichern fehlgeschlagen","err");return;}
   }catch(e){toast("Netzwerkfehler","err");return;}
   if(typeof CUSTOM_FORMS!=="undefined")CUSTOM_FORMS.push(form);

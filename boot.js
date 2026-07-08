@@ -42,13 +42,14 @@ async function saveCustomTraining(){
     dauer:document.getElementById('tf-dauer').value,
     spass:parseInt(document.getElementById('tf-spass').value),
     diff:parseInt(document.getElementById('tf-diff').value),
-    custom:true,focus:false,svg:'',tags:['Eigene Form'],
+    custom:true,focus:false,tags:'Eigene Form',
     kurz:document.getElementById('tf-ablauf').value.slice(0,80)
   };
   try{
+    // Trainer-Token statt anon (RLS: trainingsformen schreibbar nur fuer is_trainer). Kein svg-Feld (Spalte existiert nicht).
     var res=await fetch(SB_URL+'/rest/v1/trainingsformen',{
       method:'POST',
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      headers:sbAuthHeaders({'Prefer':'return=minimal'}),
       body:JSON.stringify(form)
     });
     if(!res.ok){toast("Cloud-Speicherung fehlgeschlagen – nur lokal gespeichert","info");}
