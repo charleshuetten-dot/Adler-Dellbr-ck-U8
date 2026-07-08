@@ -343,8 +343,9 @@ function kaderEditRow(k,i){
       <span>📰 Foto fürs <b>digitale Eltern-Stadionheft</b> freigegeben <span style="color:var(--text3)">(Eltern-Einwilligung eingeholt)</span></span>
     </label>
     <input class="ke-medical" value="${esc(k.medical||'')}" placeholder="Medical-Hinweis (z. B. Asthma, Allergie…)" style="width:100%;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
-    ${k._id?`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px">
+    ${k._id?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
       <button type="button" class="btn btn-sm" onclick="kontakteEditOpen(${k._id})" title="Kontakte & Eltern-Login" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;font-size:10px;line-height:1.2"><i class="ti ti-address-book" style="font-size:17px"></i>Kontakte</button>
+      <button type="button" class="btn btn-sm" onclick="zieleOpen(${k._id})" title="Entwicklungs-Ziele setzen & verfolgen" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;font-size:10px;line-height:1.2"><i class="ti ti-target" style="font-size:17px"></i>Ziele</button>
       <button type="button" class="btn btn-sm" onclick="kindLinkShare(${k._id})" title="Persönlicher 1-Tap Zu-/Absage-Link ohne Login" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;font-size:10px;line-height:1.2"><i class="ti ti-calendar-check" style="font-size:17px"></i>Zu-/Absage</button>
       <button type="button" class="btn btn-sm" onclick="childWrappedShare(${k._id})" title="Persönliche Saison-Rückblick-Karte zum Teilen mit der Familie" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;font-size:10px;line-height:1.2"><i class="ti ti-movie" style="font-size:17px"></i>Saison</button>
     </div>`:'<div style="font-size:10px;color:var(--text3);margin-top:6px">Erst speichern – dann sind Kontakte, Links & Saison-Karte verfügbar.</div>'}
@@ -512,6 +513,55 @@ function drawChildWrapped(logoImg,d){
     if(navigator.canShare&&navigator.canShare({files:[file]})){ try{await navigator.share({files:[file],title:"Adler Wrapped"});}catch(e){} }
     else{ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="adler-wrapped.png";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);toast("Saison-Karte heruntergeladen ✓"); }
   },"image/png");
+}
+// Entwicklungs-Ziele pro Kind: 1-2 Förderziele setzen & abhaken (DFB-Fördergedanke).
+async function zieleOpen(spielerId){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  const k=KADER.find(x=>x._id===spielerId);
+  document.getElementById("ziele-modal")?.remove();
+  const modal=document.createElement("div");modal.id="ziele-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const card=document.createElement("div");
+  card.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  card.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🎯 Entwicklungs-Ziele</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${esc(k?.name||"Spieler")} · 1–2 Förderziele für die Saison</div>
+    <div id="ziele-list" style="margin-bottom:12px"><div style="color:var(--text3);font-size:12px">Lade…</div></div>
+    <textarea id="ziele-input" rows="2" placeholder="z. B. „Mutiger ins 1-gegen-1 gehen&quot;" style="width:100%;padding:9px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box;resize:vertical"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+      <button class="btn btn-p" onclick="zieleAdd(${spielerId})"><i class="ti ti-plus"></i>Ziel hinzufügen</button>
+      <button class="btn btn-sm" onclick="document.getElementById('ziele-modal').remove()">Schließen</button>
+    </div>`;
+  modal.appendChild(card);document.body.appendChild(modal);
+  zieleRender(spielerId);
+}
+async function zieleRender(spielerId){
+  const box=document.getElementById("ziele-list");if(!box)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/entwicklungsziele?spieler_id=eq.${spielerId}&select=*&order=status.asc,created_at.desc`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)rows=await r.json();}catch(e){}
+  if(!rows.length){box.innerHTML='<div style="color:var(--text3);font-size:12.5px;padding:6px 0">Noch keine Ziele – setz das erste unten. 🎯</div>';return;}
+  box.innerHTML=rows.map(z=>{const done=z.status==="erreicht";
+    return `<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--surface2)">
+      <button onclick="zieleToggle(${z.id},'${done?'offen':'erreicht'}',${spielerId})" title="${done?'wieder offen':'als erreicht markieren'}" style="border:none;background:transparent;cursor:pointer;font-size:18px;line-height:1;padding:0">${done?'✅':'⬜'}</button>
+      <span style="flex:1;font-size:13px;${done?'text-decoration:line-through;color:var(--text3)':''}">${esc(z.ziel)}</span>
+      <button onclick="zieleDelete(${z.id},${spielerId})" title="löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:13px;padding:2px 4px"><i class="ti ti-trash"></i></button>
+    </div>`;}).join("");
+}
+async function zieleAdd(spielerId){
+  const el=document.getElementById("ziele-input");const ziel=(el?.value||"").trim();
+  if(!ziel){toast("Bitte ein Ziel eintippen","err");return;}
+  try{const r=await fetch(`${SB_URL}/rest/v1/entwicklungsziele`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({spieler_id:spielerId,ziel})});if(sbCheck401(r))return;if(!r.ok&&r.status!==201){toast("Speichern fehlgeschlagen","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  if(el)el.value="";toast("Ziel gesetzt 🎯");zieleRender(spielerId);
+}
+async function zieleToggle(id,newStatus,spielerId){
+  try{await fetch(`${SB_URL}/rest/v1/entwicklungsziele?id=eq.${id}`,{method:"PATCH",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({status:newStatus,erreicht_at:newStatus==="erreicht"?new Date().toISOString():null})});}catch(e){}
+  if(newStatus==="erreicht"){try{navigator.vibrate&&navigator.vibrate(40);}catch(e){}toast("Stark – Ziel erreicht! 🎉");}
+  zieleRender(spielerId);
+}
+async function zieleDelete(id,spielerId){
+  if(!confirm("Ziel löschen?"))return;
+  try{await fetch(`${SB_URL}/rest/v1/entwicklungsziele?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}
+  zieleRender(spielerId);
 }
 async function kaderSaveAll(btn){
   const rows=[...document.querySelectorAll(".kader-edit-row")];
