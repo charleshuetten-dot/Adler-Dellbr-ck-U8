@@ -1729,7 +1729,7 @@ async function renderHome(){
                   :`<button class="btn btn-sm" onclick="tmJump('planung','${t.datum}')" style="white-space:nowrap"><i class="ti ti-clipboard-list"></i>Plan</button>`}
       </div>
       <div id="wetter-home"></div>`,m.col);
-    wetterInto("wetter-home",t.datum); // Wetter am Termin (open-meteo, nur in Reichweite)
+    wetterInto("wetter-home",t.datum,t.ort); // Wetter am Termin-Ort (Geocoding), nur in Reichweite
   }catch(e){
     const slot=document.getElementById("home-next");
     if(slot)slot.innerHTML=card('<div style="font-size:12px;color:var(--text3)">Offline – kein Terminabruf.</div>');

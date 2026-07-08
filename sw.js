@@ -60,6 +60,7 @@ self.addEventListener("fetch",e=>{
   const url=e.request.url;
   if(url.includes("supabase.co"))return;
   if(url.includes("open-meteo.com"))return; // Wetter: nie cachen (ignoreSearch würde die Datums-Query zerstören)
+  if(url.includes("openstreetmap.org"))return; // Geocoding/Adress-Suche: nie cachen (Query-Sicherheit)
   if(e.request.method!=="GET")return;
 
   e.respondWith((async()=>{

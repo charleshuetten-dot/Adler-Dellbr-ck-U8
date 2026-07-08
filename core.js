@@ -414,13 +414,38 @@ function wetterCodeInfo(c){
   if(c>=95)return{e:"⛈️",t:"Gewitter"};
   return{e:"🌡️",t:"Wetter"};
 }
-async function wetterFetch(dateStr){
+// OSM/Nominatim: Adress-Suche per Name (kein Key). Für die manuelle Gegner-Adress-Suche
+// (Trainer tippt Name/Ort → Vorschläge) UND als Geocoder fürs Wetter. Nur Deutschland,
+// max. 5 Treffer. Nominatim-Policy: geringe Frequenz – wir cachen Geocodes (s. u.).
+async function osmSearch(query){
+  if(!query||!query.trim())return [];
+  try{
+    const u=`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query.trim())}&format=json&limit=5&addressdetails=1&countrycodes=de&accept-language=de`;
+    const r=await fetch(u,{headers:{'Accept':'application/json'}});
+    if(!r.ok)return [];
+    return ((await r.json())||[]).map(x=>({label:x.display_name,lat:parseFloat(x.lat),lon:parseFloat(x.lon)}));
+  }catch(e){return [];}
+}
+// Ort-String → {lat,lon}, dauerhaft gecacht (localStorage) → pro Ort nur EIN Netz-Aufruf.
+async function geocodePlace(place){
+  if(!place||!place.trim())return null;
+  const key=place.trim().toLowerCase();
+  let cache={}; try{cache=JSON.parse(localStorage.getItem("adler_geo")||"{}");}catch(e){}
+  if(cache[key])return cache[key]; // Treffer ODER gemerktes "null" (0-Länge) – kein erneuter Call
+  const res=await osmSearch(place);
+  const coords=res.length?{lat:res[0].lat,lon:res[0].lon}:null;
+  cache[key]=coords||0; try{localStorage.setItem("adler_geo",JSON.stringify(cache));}catch(e){}
+  return coords;
+}
+async function wetterFetch(dateStr,place){
   if(!dateStr)return null;
   const today=new Date(); today.setHours(0,0,0,0);
   const days=Math.round((new Date(dateStr+"T00:00:00")-today)/86400000);
   if(days<0||days>15)return null; // open-meteo-Vorhersage reicht ~16 Tage
+  let lat=WETTER_LAT, lon=WETTER_LON; // Heim-Default
+  if(place){ try{ const g=await geocodePlace(place); if(g&&g.lat){lat=g.lat;lon=g.lon;} }catch(e){} }
   try{
-    const u=`https://api.open-meteo.com/v1/forecast?latitude=${WETTER_LAT}&longitude=${WETTER_LON}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBerlin&start_date=${dateStr}&end_date=${dateStr}`;
+    const u=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBerlin&start_date=${dateStr}&end_date=${dateStr}`;
     const r=await fetch(u);
     if(!r.ok)return null;
     const dd=(await r.json()).daily;
@@ -429,8 +454,8 @@ async function wetterFetch(dateStr){
     return {emoji:info.e,text:info.t,tmax:Math.round(dd.temperature_2m_max[0]),tmin:Math.round(dd.temperature_2m_min[0]),rain:dd.precipitation_probability_max?dd.precipitation_probability_max[0]:null};
   }catch(e){return null;}
 }
-async function wetterInto(elId,dateStr){
-  const w=await wetterFetch(dateStr);
+async function wetterInto(elId,dateStr,place){
+  const w=await wetterFetch(dateStr,place);
   const el=document.getElementById(elId);
   if(!el||!w)return; // außer Reichweite / offline: nichts anzeigen
   const rain=(w.rain!=null)?` · 💧 ${w.rain}%`:"";

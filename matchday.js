@@ -237,7 +237,7 @@ async function elternDashLoad(){
   }
   html+=`<div id="ak-slot"></div>`; // FEAT Z: Adler-Kasse (async, nur wenn Link gesetzt)
   body.innerHTML=html;
-  if(termin&&termin.datum)wetterInto("wetter-eltern",termin.datum); // Wetter am nächsten Termin (open-meteo)
+  if(termin&&termin.datum)wetterInto("wetter-eltern",termin.datum,termin.ort); // Wetter am Termin-Ort (Geocoding)
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(el)el.innerHTML=adlerkasseCardHtml(l);}).catch(()=>{});
   // FEAT S: XP-Chips async füllen (RPC xp_total – Eltern sehen nur das eigene Kind)
   kids.forEach(k=>{xpTotal(k.spieler_id).then(t=>{const el=document.getElementById("xp-chip-"+k.spieler_id);if(el){const b=xpBadge(t);el.textContent=`${XP_ICON} ${t} ${XP_LABEL} · ${b.emo} ${b.t}`;}}).catch(()=>{});});
@@ -1657,9 +1657,28 @@ async function tmAdd(){
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify(body)});
     if(sbCheck401(r))return;
-    if(r.ok||r.status===201){terminIdCacheClear();toast("Termin angelegt ✓");document.getElementById("tm-titel").value="";document.getElementById("tm-ort").value="";tmLoad();}
+    if(r.ok||r.status===201){terminIdCacheClear();toast("Termin angelegt ✓");document.getElementById("tm-titel").value="";document.getElementById("tm-ort").value="";const rb=document.getElementById("tm-addr-results");if(rb)rb.innerHTML="";tmLoad();}
     else toast("Fehler beim Anlegen","err");
   }catch(e){toast("Netzwerkfehler","err");}
+}
+// Gegner-Adresse per Name finden (OpenStreetMap). Trainer tippt Verein/Platz -> Vorschläge ->
+// Klick übernimmt die Adresse ins Ort-Feld (füttert auch das Termin-Wetter via Geocoding).
+async function gegnerAddrSearch(){
+  const box=document.getElementById("tm-addr-results"); if(!box)return;
+  const gegner=(document.getElementById("tm-titel")?.value||"").trim();
+  const ort=(document.getElementById("tm-ort")?.value||"").trim();
+  const q=ort||gegner;
+  if(!q){toast("Erst Gegner/Ort eintippen","err");return;}
+  box.innerHTML=`<div style="font-size:11px;color:var(--text3);padding:6px 2px">🔍 Suche „${esc(q)}"…</div>`;
+  const res=await osmSearch(q);
+  if(!res.length){ box.innerHTML=`<div style="font-size:11px;color:var(--text3);padding:6px 2px">Keine Adresse gefunden – bitte manuell eintragen.</div>`; return; }
+  box.innerHTML=`<div style="font-size:10px;color:var(--text3);margin:6px 2px 2px">Tippe die passende Adresse an:</div>`+
+    res.map(r=>`<button type="button" onclick="gegnerAddrPick(this)" data-addr="${esc(r.label).replace(/"/g,"&quot;")}" style="display:block;width:100%;text-align:left;margin-top:4px;padding:8px 10px;border:var(--border-s);border-radius:8px;background:var(--surface);font-family:inherit;font-size:11.5px;color:var(--text);cursor:pointer;white-space:normal;line-height:1.3">📍 ${esc(r.label)}</button>`).join("");
+}
+function gegnerAddrPick(btn){
+  const addr=btn.getAttribute("data-addr")||"";
+  const inp=document.getElementById("tm-ort"); if(inp)inp.value=addr;
+  const box=document.getElementById("tm-addr-results"); if(box)box.innerHTML=`<div style="font-size:11px;color:#16a34a;padding:4px 2px">✓ Adresse übernommen – Wetter nutzt jetzt diesen Ort.</div>`;
 }
 async function tmLoad(){
   const up=document.getElementById("tm-upcoming"),pa=document.getElementById("tm-past");
