@@ -463,29 +463,44 @@ async function geocodePlace(place){
   cache[key]=coords||0; try{localStorage.setItem("adler_geo",JSON.stringify(cache));}catch(e){}
   return coords;
 }
-async function wetterFetch(dateStr,place){
+async function wetterFetch(dateStr,place,timeStr){
   if(!dateStr)return null;
   const today=new Date(); today.setHours(0,0,0,0);
   const days=Math.round((new Date(dateStr+"T00:00:00")-today)/86400000);
   if(days<0||days>15)return null; // open-meteo-Vorhersage reicht ~16 Tage
   let lat=WETTER_LAT, lon=WETTER_LON; // Heim-Default
   if(place){ try{ const g=await geocodePlace(place); if(g&&g.lat){lat=g.lat;lon=g.lon;} }catch(e){} }
+  const hm=timeStr&&/^(\d{1,2}):(\d{2})/.exec(timeStr); // stundengenau, wenn Uhrzeit vorhanden
+  const base=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&timezone=Europe%2FBerlin&start_date=${dateStr}&end_date=${dateStr}`;
   try{
-    const u=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBerlin&start_date=${dateStr}&end_date=${dateStr}`;
-    const r=await fetch(u);
+    if(hm){
+      const hh=hm[1].padStart(2,"0");
+      const j=await (await fetch(base+"&hourly=weather_code,temperature_2m,precipitation_probability")).json();
+      const h=j&&j.hourly;
+      if(h&&h.time&&h.time.length){
+        let idx=h.time.indexOf(`${dateStr}T${hh}:00`);
+        if(idx<0)idx=h.time.findIndex(t=>t.indexOf(`${dateStr}T${hh}`)===0);
+        if(idx>=0){
+          const info=wetterCodeInfo(h.weather_code[idx]);
+          return {emoji:info.e,text:info.t,temp:Math.round(h.temperature_2m[idx]),rain:h.precipitation_probability?h.precipitation_probability[idx]:null,hour:true};
+        }
+      }
+    }
+    const r=await fetch(base+"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max");
     if(!r.ok)return null;
     const dd=(await r.json()).daily;
     if(!dd||!dd.weather_code||!dd.weather_code.length)return null;
     const info=wetterCodeInfo(dd.weather_code[0]);
-    return {emoji:info.e,text:info.t,tmax:Math.round(dd.temperature_2m_max[0]),tmin:Math.round(dd.temperature_2m_min[0]),rain:dd.precipitation_probability_max?dd.precipitation_probability_max[0]:null};
+    return {emoji:info.e,text:info.t,tmax:Math.round(dd.temperature_2m_max[0]),tmin:Math.round(dd.temperature_2m_min[0]),rain:dd.precipitation_probability_max?dd.precipitation_probability_max[0]:null,hour:false};
   }catch(e){return null;}
 }
-async function wetterInto(elId,dateStr,place){
-  const w=await wetterFetch(dateStr,place);
+async function wetterInto(elId,dateStr,place,timeStr){
+  const w=await wetterFetch(dateStr,place,timeStr);
   const el=document.getElementById(elId);
   if(!el||!w)return; // außer Reichweite / offline: nichts anzeigen
   const rain=(w.rain!=null)?` · 💧 ${w.rain}%`:"";
-  el.innerHTML=`<span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text2);background:var(--surface2);border:var(--border);border-radius:20px;padding:3px 10px;margin-top:6px">${w.emoji} ${w.text} · ${w.tmin}–${w.tmax} °C${rain}</span>`;
+  const temp=w.hour?`${w.temp} °C`:`${w.tmin}–${w.tmax} °C`;
+  el.innerHTML=`<span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text2);background:var(--surface2);border:var(--border);border-radius:20px;padding:3px 10px;margin-top:6px">${w.emoji} ${w.text} · ${temp}${rain}</span>`;
 }
 
 async function xpAward(spielerId,quelle,quelleId){

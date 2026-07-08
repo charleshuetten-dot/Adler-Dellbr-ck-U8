@@ -237,7 +237,7 @@ async function elternDashLoad(){
   }
   html+=`<div id="ak-slot"></div>`; // FEAT Z: Adler-Kasse (async, nur wenn Link gesetzt)
   body.innerHTML=html;
-  if(termin&&termin.datum)wetterInto("wetter-eltern",termin.datum,termin.ort); // Wetter am Termin-Ort (Geocoding)
+  if(termin&&termin.datum)wetterInto("wetter-eltern",termin.datum,termin.ort,termin.uhrzeit); // Wetter am Termin-Ort + Uhrzeit
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(el)el.innerHTML=adlerkasseCardHtml(l);}).catch(()=>{});
   // FEAT S: XP-Chips async füllen (RPC xp_total – Eltern sehen nur das eigene Kind)
   kids.forEach(k=>{xpTotal(k.spieler_id).then(t=>{const el=document.getElementById("xp-chip-"+k.spieler_id);if(el){const b=xpBadge(t);el.textContent=`${XP_ICON} ${t} ${XP_LABEL} · ${b.emo} ${b.t}`;}}).catch(()=>{});});
@@ -1849,7 +1849,7 @@ async function tmLoad(){
     const vergangen=rows.filter(t=>t.datum<heute).reverse();
     up.innerHTML=kommend.length?kommend.map(tmCard).join(""):'<div style="font-size:11px;color:var(--text3);padding:6px">Keine kommenden Termine.</div>';
     pa.innerHTML=vergangen.length?vergangen.slice(0,20).map(tmCard).join(""):'<div style="font-size:11px;color:var(--text3);padding:6px">Noch keine vergangenen Termine.</div>';
-    kommend.forEach(t=>wetterInto("wx-tm-"+t.id,t.datum,t.ort)); // Wetter je Termin (self-limitiert auf Reichweite)
+    kommend.forEach(t=>wetterInto("wx-tm-"+t.id,t.datum,t.ort,t.uhrzeit)); // Wetter je Termin (stundengenau, self-limitiert)
   }catch(e){up.innerHTML='<div style="font-size:11px;color:var(--text3)">Offline</div>';}
 }
 // Einzel-Termin als .ics (Kalender-Datei) – nutzt die vorhandenen ics-Helfer.

@@ -1734,7 +1734,7 @@ async function renderHome(){
       </div>
       <div id="wetter-home"></div>
       <div id="gegner-contact-home"></div>`,m.col);
-    wetterInto("wetter-home",t.datum,t.ort); // Wetter am Termin-Ort (Geocoding), nur in Reichweite
+    wetterInto("wetter-home",t.datum,t.ort,t.uhrzeit); // Wetter am Termin-Ort + Uhrzeit (stundengenau)
     if(istSpiel)gegnerContactInto("gegner-contact-home",t.titel||t.gegner); // Ansprechpartner aus Gegner-DB
   }catch(e){
     const slot=document.getElementById("home-next");
