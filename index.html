@@ -45,7 +45,10 @@
       <div class="logo-t2">SV Adler Dellbrück · 4+1 Raute · Sandy, Charles, Kenneth, Peter</div>
     </div>
   </div>
-  <div class="cloud-row"><span class="cdot" id="cdot"></span><span id="clbl">Verbinde...</span></div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+    <button id="theme-toggle" onclick="toggleTheme()" title="Hell / Dunkel umschalten" aria-label="Theme umschalten" style="border:var(--border-s);background:var(--surface);color:var(--text);border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:16px;line-height:1;flex-shrink:0">🌙</button>
+    <div class="cloud-row"><span class="cdot" id="cdot"></span><span id="clbl">Verbinde...</span></div>
+  </div>
 </div>
 
 <div id="main-nav" style="position:fixed;left:0;right:0;bottom:0;z-index:50;display:grid;grid-template-columns:repeat(6,1fr);gap:2px;background:#fff;padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-top:1px solid #e2e8f0;box-shadow:0 -2px 12px rgba(0,0,0,.08)">

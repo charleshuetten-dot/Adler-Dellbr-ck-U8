@@ -16,6 +16,21 @@
   --shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
   --shadow-md:0 4px 12px rgba(0,0,0,.08)
 }
+/* Dark Mode: automatisch nach OS + manueller Toggle (data-theme). Wirkt in der Trainer-App (CSS-Variablen). */
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --text:#e6eaf2;--text2:#9aa6ba;--text3:#6d7a8f;
+  --bg:#0f172a;--surface:#1e293b;--surface2:#152033;
+  --border:1px solid #334155;--border-s:1px solid #475569;
+  --blue-bg:#172554;--green-bg:#052e1a;--amber-bg:#3a2a08;--red-bg:#3a1010;--purple-bg:#241247;--yellow-bg:#332905;--teal-bg:#082f36;--orange-bg:#3a1e08;
+  --shadow:0 1px 3px rgba(0,0,0,.4);--shadow-md:0 4px 14px rgba(0,0,0,.5);
+}}
+:root[data-theme="dark"]{
+  --text:#e6eaf2;--text2:#9aa6ba;--text3:#6d7a8f;
+  --bg:#0f172a;--surface:#1e293b;--surface2:#152033;
+  --border:1px solid #334155;--border-s:1px solid #475569;
+  --blue-bg:#172554;--green-bg:#052e1a;--amber-bg:#3a2a08;--red-bg:#3a1010;--purple-bg:#241247;--yellow-bg:#332905;--teal-bg:#082f36;--orange-bg:#3a1e08;
+  --shadow:0 1px 3px rgba(0,0,0,.4);--shadow-md:0 4px 14px rgba(0,0,0,.5);
+}
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
 .app{max-width:920px;margin:0 auto;padding:16px 16px 100px}
 

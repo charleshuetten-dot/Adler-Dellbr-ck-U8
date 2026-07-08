@@ -463,6 +463,25 @@ function pwaBannerShow(kind){
 function hapticTap(pattern){ try{ if(navigator.vibrate)navigator.vibrate(pattern||12); }catch(e){} }
 document.addEventListener("click",e=>{ if(e.target&&e.target.closest&&e.target.closest("button,.btn,.nb,.seg-btn"))hapticTap(12); },{passive:true});
 
+/* ═══ Dark Mode: automatisch nach OS + manueller Toggle (in localStorage gemerkt). ═══ */
+function applyTheme(t){
+  const el=document.documentElement;
+  if(t==="dark"||t==="light")el.setAttribute("data-theme",t); else el.removeAttribute("data-theme");
+  const btn=document.getElementById("theme-toggle");
+  if(btn){ const dark=(t==="dark")||(t!=="light"&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches); btn.textContent=dark?"☀️":"🌙"; }
+}
+function toggleTheme(){
+  const el=document.documentElement;
+  const effDark=el.getAttribute("data-theme")==="dark"||(!el.getAttribute("data-theme")&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const next=effDark?"light":"dark";
+  try{localStorage.setItem("adler_theme",next);}catch(e){}
+  applyTheme(next);
+  if(typeof hapticTap==="function")hapticTap(12);
+}
+(function(){ try{ applyTheme(localStorage.getItem("adler_theme")); }catch(e){} })(); // sofort (Anti-Flash)
+document.addEventListener("DOMContentLoaded",()=>{ try{ applyTheme(localStorage.getItem("adler_theme")); }catch(e){} }); // Button-Icon setzen
+if(window.matchMedia){ try{ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{ if(!localStorage.getItem("adler_theme"))applyTheme(null); }); }catch(e){} }
+
 /* ═══════════════════════════════════
    HOTFIX 3-Frontend: datum -> termin_id (gecacht). Damit anwesenheit &
    match_actions die echte FK-Kopplung fuellen und der ON DELETE CASCADE
