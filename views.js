@@ -866,6 +866,7 @@ function renderProfil(){
     <div class="detail-box"><div class="fazit-display">${esc(lat.fazit||'–')}</div></div>
     <div class="brow">
       <button class="btn" data-edit-player data-name="${esc(name)}" data-snap-idx="${snaps.length-1}"><i class="ti ti-edit"></i>Profil bearbeiten</button>
+      <button class="btn" onclick="entwicklungsReport()"><i class="ti ti-file-text"></i>Entwicklungs-Report</button>
     </div>`;
 
   if(rchart){rchart.destroy();rchart=null;}
@@ -1069,6 +1070,77 @@ function printZertifikat(){
   const cleanup=()=>{document.body.classList.remove("printing-zert");window.removeEventListener("afterprint",cleanup);};
   window.addEventListener("afterprint",cleanup);
   setTimeout(cleanup,3000); // Fallback, falls afterprint nicht feuert
+  window.print();
+}
+// Entwicklungs-Report (druckbar) fürs Elterngespräch – nutzt vorhandene Daten + den
+// generischen Druck-Container (#zert-print / printing-zert). Trend, Dimensionen, Stärken,
+// Anwesenheit, aktuelle Ziele, Trainer-Fazit.
+async function entwicklungsReport(){
+  const name=document.getElementById("psel-profil")?.value;
+  if(!name){toast("Erst einen Spieler wählen","err");return;}
+  const snaps=DB[name]||[]; if(!snaps.length){toast("Keine Bewertung vorhanden","err");return;}
+  const lat=snaps[snaps.length-1];
+  const k=getKader(name)||{}, isTw=lat.tw===true||k.tw;
+  const v=typeof lat.radios==="string"?safeParse(lat.radios,{}):(lat.radios||{});
+  const {dims:ds}=calcScores(v,DIMS_FELD);
+  const dimHtml=DIMS_FELD.map(d=>{const p=Math.round(ds[d.id]||0);return `<div style="display:flex;align-items:center;gap:8px;margin:3px 0">
+    <div style="width:150px;font-size:12px">${esc(d.label)}</div>
+    <div style="flex:1;height:10px;background:#e2e8f0;border-radius:5px;overflow:hidden"><div style="height:100%;width:${p}%;background:${d.col};border-radius:5px"></div></div>
+    <div style="width:38px;text-align:right;font-size:12px;font-weight:700">${p}%</div></div>`;}).join("");
+  const tr=playerTrend(name)||{delta:0,conf:snaps.length};
+  const arrow=tr.delta>0?`↗ +${tr.delta}%`:tr.delta<0?`↘ ${tr.delta}%`:"→ stabil";
+  const badges=(adlerCardData(name)||{}).badges||[];
+  const staerken=badges.slice(0,3).map(b=>`<span style="display:inline-block;background:#eef2ff;color:#3730a3;border-radius:14px;padding:3px 10px;font-size:12px;margin:2px 4px 2px 0">${b.icon} ${esc(b.label)}</span>`).join("")||"—";
+  // Anwesenheit
+  let trP=0,trT=0; try{Object.keys(AW_DATA||{}).forEach(d=>{const e=(AW_DATA[d]||{})[name];if(e&&typeof e.da==="boolean"){trT++;if(e.da)trP++;}});}catch(e){}
+  let gmP=0,gmT=0; try{const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data`,{headers:sbAuthHeaders()});if(r.ok)(await r.json()).forEach(row=>{const s=(row.data||{})[name];if(s==="dabei"||s==="nicht"||s==="verletzt"){gmT++;if(s==="dabei")gmP++;}});}catch(e){}
+  const q=(p,t)=>t?Math.round(p/t*100)+"% ("+p+"/"+t+")":"—";
+  // Aktuelle Ziele
+  let goals=[]; if(k.id){try{const r=await fetch(`${SB_URL}/rest/v1/entwicklungsziele?spieler_id=eq.${k.id}&status=eq.offen&select=ziel&order=created_at.desc`,{headers:sbAuthHeaders()});if(r.ok)goals=(await r.json()).map(z=>z.ziel).filter(Boolean);}catch(e){}}
+  const goalsHtml=goals.length?goals.map(g=>`<li style="font-size:12.5px;margin:2px 0">${esc(g)}</li>`).join(""):'<li style="font-size:12.5px;color:#64748b">Noch kein Ziel gesetzt</li>';
+  const fazit=(lat.fazit||"").trim();
+  document.getElementById("zert-print").innerHTML=`
+    <div style="max-width:720px;margin:0 auto;padding:24px;font-family:Inter,system-ui,sans-serif;color:#1a1a2e">
+      <div style="display:flex;align-items:center;gap:12px;border-bottom:2px solid #1a56db;padding-bottom:10px;margin-bottom:14px">
+        <img src="logo.png" alt="" style="width:48px;height:48px;object-fit:contain">
+        <div><div style="font-size:12px;color:#64748b">SV Adler Dellbrück e.V. · U9</div>
+        <div style="font-size:20px;font-weight:800">Entwicklungsbericht</div></div>
+        <div style="margin-left:auto;text-align:right;font-size:12px;color:#64748b">Saison ${saisonLabel()}<br>${new Date().toLocaleDateString("de-DE")}</div>
+      </div>
+      <div style="font-size:22px;font-weight:800;margin-bottom:2px">${esc(name)}${isTw?" 🥅":""}${k.nr!=null?` <span style="color:#94a3b8;font-size:15px">#${k.nr}</span>`:""}</div>
+      <div style="font-size:13px;color:#475569;margin-bottom:14px">Rolle: ${esc(lat.prim_rolle||k.lieblingsposition||"Allrounder")} · ${snaps.length} Bewertung${snaps.length!==1?"en":""}</div>
+
+      <div style="display:flex;gap:14px;margin-bottom:14px">
+        <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px">
+          <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Entwicklungsstand</div>
+          <div style="font-size:24px;font-weight:800;color:#1a56db">${lat.total_score||0}%</div>
+          <div style="font-size:12px;font-weight:700;color:${tr.delta>0?'#16a34a':tr.delta<0?'#dc2626':'#64748b'}">${arrow}</div>
+        </div>
+        <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px">
+          <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Anwesenheit</div>
+          <div style="font-size:12.5px;margin-top:4px">🏃 Training: <b>${q(trP,trT)}</b></div>
+          <div style="font-size:12.5px">⚽ Spiele: <b>${q(gmP,gmT)}</b></div>
+        </div>
+      </div>
+
+      <div style="font-size:13px;font-weight:800;margin:6px 0 4px">Stärken</div>
+      <div style="margin-bottom:12px">${staerken}</div>
+
+      <div style="font-size:13px;font-weight:800;margin:6px 0 6px">Entwicklungsprofil</div>
+      ${dimHtml}
+
+      <div style="font-size:13px;font-weight:800;margin:14px 0 4px">Aktuelle Ziele</div>
+      <ul style="margin:0 0 12px 18px;padding:0">${goalsHtml}</ul>
+
+      ${fazit?`<div style="font-size:13px;font-weight:800;margin:6px 0 4px">Einschätzung des Trainerteams</div>
+      <div style="font-size:12.5px;white-space:pre-wrap;line-height:1.5;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px">${esc(fazit)}</div>`:""}
+
+      <div style="margin-top:18px;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:8px">Vertraulich – nur für das Entwicklungsgespräch. Trainerteam SV Adler Dellbrück U9.</div>
+    </div>`;
+  document.body.classList.add("printing-zert");
+  const cleanup=()=>{document.body.classList.remove("printing-zert");window.removeEventListener("afterprint",cleanup);};
+  window.addEventListener("afterprint",cleanup);
+  setTimeout(cleanup,3000);
   window.print();
 }
 
