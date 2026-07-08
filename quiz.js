@@ -341,6 +341,7 @@ function tqStart(){
       </div>`;
     });
     html+=`</div>`;
+    html+=wqRenderLauncher(); // Fußball-Wissensquiz-Einstieg
     html+=tqRenderBarometer();
     html+=tqRenderStickers(pp);
     html+=`<div id="tq-challenge"></div>`;
@@ -654,4 +655,207 @@ function tqShowResult(){
   // (anon = stiller No-Op). Server kappt auf 1 Gutschrift pro Kind und Tag.
   if(tqPlayer)xpAwardByName(tqPlayer,"quiz").then(d=>{if(d>0)setTimeout(()=>toast(`${XP_ICON} +${d} ${XP_LABEL} für ${tqPlayer}!`),1400);}).catch(()=>{});
   if(!document.body.classList.contains("quiz-extern"))taktikReset("adler");
+}
+
+/* ═══════════════════════════════════
+   FUSSBALL-WISSENSQUIZ (kindgerecht, U9)
+   Kuratierte Fragenbank (keine KI → immer korrekt, offline, gratis). Vier Kategorien:
+   WM/EM · Bundesliga-Legenden · Regeln · Adler-Wissen. Multiple-Choice, Optionen werden
+   pro Frage gemischt. Federn-Vergabe: quelle="wissensquiz", quelle_id=Frage-ID → der Server
+   schreibt pro Frage GENAU EINMAL gut (idempotent). Dadurch KEIN Tages-Zwang und kein
+   Farmen: Nachschub nur, wenn wir neue Fragen ergänzen. Läuft anonym (localStorage-Fortschritt);
+   Federn nur, wenn eine Eltern-/Trainer-Session auf dem Gerät liegt (sonst stiller No-Op).
+   WICHTIG: Frage-IDs sind stabil und dürfen NIE umbenannt werden (sonst Doppel-Gutschrift).
+═══════════════════════════════════ */
+const WQ_CATS=[
+  {key:"wm",     name:"WM & EM",       icon:"🏆", col:"#f59e0b"},
+  {key:"bl",     name:"Bundesliga",    icon:"⚽", col:"#16a34a"},
+  {key:"regeln", name:"Regeln",        icon:"📏", col:"#2563eb"},
+  {key:"adler",  name:"Adler-Wissen",  icon:"🦅", col:"#7c3aed"}
+];
+// correct = Index in opts (Anzeige wird gemischt). fun = kindgerechter Fakt nach der Antwort.
+const WQ_QUESTIONS=[
+  // ── WM & EM ──
+  {id:"wm_wm2014",cat:"wm",q:"Wer wurde 2014 Fußball-Weltmeister?",opts:["Deutschland 🇩🇪","Brasilien 🇧🇷","Spanien 🇪🇸","Frankreich 🇫🇷"],correct:0,fun:"Deutschland gewann 2014 in Brasilien – zum 4. Mal!"},
+  {id:"wm_alle4",cat:"wm",q:"Wie oft findet die Fußball-WM statt?",opts:["Jedes Jahr","Alle 2 Jahre","Alle 4 Jahre","Alle 10 Jahre"],correct:2,fun:"Nur alle 4 Jahre – deshalb ist sie so besonders!"},
+  {id:"wm_sterne",cat:"wm",q:"Wie viele Sterne hat Deutschland über dem Trikot-Wappen?",opts:["1","2","4","6"],correct:2,fun:"4 Sterne für 4 WM-Titel: 1954, 1974, 1990 und 2014."},
+  {id:"wm_emkont",cat:"wm",q:"Bei der EM spielen Länder aus welchem Erdteil?",opts:["Europa","Afrika","Asien","Amerika"],correct:0,fun:"EM heißt Europameisterschaft – nur europäische Länder."},
+  {id:"wm_pokal",cat:"wm",q:"Welche Farbe hat der WM-Pokal?",opts:["Gold","Silber","Bronze","Blau"],correct:0,fun:"Der WM-Pokal glänzt golden!"},
+  {id:"wm_2014land",cat:"wm",q:"In welchem Land war die WM 2014?",opts:["Brasilien 🇧🇷","Deutschland","England","Japan"],correct:0,fun:"2014 wurde in Brasilien gespielt – und Deutschland gewann dort."},
+  {id:"wm_pokalheld",cat:"wm",q:"Wer darf am Ende den Pokal in die Höhe halten?",opts:["Die Sieger-Mannschaft","Der Schiedsrichter","Die Zuschauer","Der Busfahrer"],correct:0,fun:"Die Weltmeister feiern gemeinsam mit dem Pokal!"},
+  // ── Bundesliga (evergreen) ──
+  {id:"bl_hoechste",cat:"bl",q:"Wie heißt die höchste Fußball-Liga in Deutschland?",opts:["Bundesliga","Kreisliga","Weltliga","Stadtliga"],correct:0,fun:"Die Bundesliga – dort spielen die besten deutschen Teams."},
+  {id:"bl_bvbstadt",cat:"bl",q:"In welcher Stadt spielt Borussia Dortmund?",opts:["Dortmund","Hamburg","Stuttgart","Bremen"],correct:0,fun:"Borussia Dortmund – kurz BVB – kommt aus Dortmund."},
+  {id:"bl_bvbfarben",cat:"bl",q:"Welche Farben hat Borussia Dortmund?",opts:["Schwarz-Gelb","Rot-Weiß","Blau-Weiß","Grün-Weiß"],correct:0,fun:"Schwarz-Gelb – deshalb heißen sie 'die Schwarzgelben'."},
+  {id:"bl_bayernstadt",cat:"bl",q:"In welcher Stadt spielt der FC Bayern?",opts:["München","Berlin","Köln","Leipzig"],correct:0,fun:"Der FC Bayern kommt aus München."},
+  {id:"bl_koelntier",cat:"bl",q:"Welches Tier ist das Maskottchen vom 1. FC Köln?",opts:["Ein Geißbock 🐐","Ein Löwe 🦁","Ein Bär 🐻","Ein Adler 🦅"],correct:0,fun:"Der Geißbock 'Hennes' ist das Maskottchen des 1. FC Köln."},
+  {id:"bl_anzahl",cat:"bl",q:"Wie viele Mannschaften spielen in der Bundesliga?",opts:["18","10","24","30"],correct:0,fun:"18 Teams spielen jede Saison um die Meisterschale."},
+  {id:"bl_schale",cat:"bl",q:"Welche Farbe hat die Meisterschale (Pokal für den Bundesliga-Sieger)?",opts:["Silber","Gold","Grün","Schwarz"],correct:0,fun:"Die Meisterschale ist silbern und schon über 100 Jahre alt."},
+  {id:"bl_koelnstadt",cat:"bl",q:"Welcher große Verein spielt bei uns in der Nähe, in Köln?",opts:["1. FC Köln","FC Bayern","Schalke 04","Hertha BSC"],correct:0,fun:"Der 1. FC Köln spielt in unserer Stadt Köln!"},
+  // ── Regeln ──
+  {id:"reg_elf",cat:"regeln",q:"Wie viele Spieler stehen bei den Großen pro Team auf dem Feld?",opts:["11","7","9","15"],correct:0,fun:"11 Spieler pro Team – einer davon ist der Torwart."},
+  {id:"reg_dauer",cat:"regeln",q:"Wie lange dauert ein Profi-Spiel insgesamt?",opts:["90 Minuten","30 Minuten","60 Minuten","120 Minuten"],correct:0,fun:"2 × 45 Minuten = 90 Minuten."},
+  {id:"reg_hand",cat:"regeln",q:"Wer darf den Ball mit der Hand fangen?",opts:["Der Torwart","Jeder Spieler","Der Trainer","Niemand"],correct:0,fun:"Nur der Torwart darf im Strafraum die Hände nehmen."},
+  {id:"reg_rot",cat:"regeln",q:"Welche Karte bedeutet: Der Spieler muss vom Platz?",opts:["Rote Karte 🟥","Gelbe Karte 🟨","Grüne Karte 🟩","Blaue Karte 🟦"],correct:0,fun:"Rote Karte = raus! Gelb ist nur eine Warnung."},
+  {id:"reg_einwurf",cat:"regeln",q:"Der Ball rollt über die Seitenlinie. Was gibt es?",opts:["Einwurf","Elfmeter","Tor","Ecke"],correct:0,fun:"Einwurf – mit beiden Händen über dem Kopf."},
+  {id:"reg_elfmeter",cat:"regeln",q:"Was gibt der Schiedsrichter bei einem Foul im Strafraum?",opts:["Elfmeter","Einwurf","Anstoß","Abstoß"],correct:0,fun:"Elfmeter – ein Schuss allein gegen den Torwart."},
+  {id:"reg_ecke",cat:"regeln",q:"Ein Verteidiger schießt den Ball über die eigene Torauslinie. Was gibt es?",opts:["Eckball","Einwurf","Elfmeter","Freistoß"],correct:0,fun:"Eckball – aus der Ecke wird geflankt."},
+  {id:"reg_pfeife",cat:"regeln",q:"Womit gibt der Schiedsrichter seine Signale?",opts:["Mit einer Pfeife","Mit einer Trommel","Mit einem Handy","Mit einer Hupe"],correct:0,fun:"Die Pfeife – und die Assistenten winken mit Fahnen."},
+  // ── Adler-Wissen (Verein) ──
+  {id:"ad_verein",cat:"adler",q:"Wie heißt unser Verein?",opts:["SV Adler Dellbrück","FC Bayern","1. FC Köln","Adler Mannheim"],correct:0,fun:"Wir sind der SV Adler Dellbrück – unser Team! 🦅"},
+  {id:"ad_tier",cat:"adler",q:"Welches Tier ist unser Wappentier?",opts:["Der Adler 🦅","Der Löwe 🦁","Der Bär 🐻","Der Tiger 🐯"],correct:0,fun:"Der Adler – stark, schnell und fliegt hoch hinaus!"},
+  {id:"ad_stadtteil",cat:"adler",q:"In welchem Kölner Stadtteil spielen wir?",opts:["Dellbrück","Ehrenfeld","Nippes","Chorweiler"],correct:0,fun:"Dellbrück – das steckt sogar in unserem Namen!"},
+  {id:"ad_federn",cat:"adler",q:"Was sammelt ihr in der App für gute Sachen?",opts:["Adler-Federn 🪶","Sterne","Münzen","Diamanten"],correct:0,fun:"Adler-Federn! Je mehr du sammelst, desto cooler deine Karte."},
+  {id:"ad_gewinnen",cat:"adler",q:"Wie viele Tore braucht man, um ein Spiel zu gewinnen?",opts:["Mehr als der Gegner","Immer genau 10","Genau 3","Gar keine"],correct:0,fun:"Ein Tor mehr als der Gegner reicht zum Sieg – und Spaß gehört immer dazu!"},
+  {id:"ad_team",cat:"adler",q:"Was ist beim Fußball am allerwichtigsten?",opts:["Als Team zusammenspielen","Alleine dribbeln","Am lautesten schreien","Der teuerste Schuh"],correct:0,fun:"Teamwork! Zusammen sind wir Adler am stärksten. 🦅"}
+];
+
+const WQ_PROGRESS_KEY="adler_wq_progress";
+let wqCat="",wqQs=[],wqIdx=0,wqScore=0,wqAnsweredNow=false;
+
+function wqGetProgress(){ try{return JSON.parse(localStorage.getItem(WQ_PROGRESS_KEY)||"{}");}catch(e){return{};} }
+function wqSaveCorrect(player,qid){
+  const p=wqGetProgress();
+  if(!p[player])p[player]={};
+  p[player][qid]=1;
+  try{localStorage.setItem(WQ_PROGRESS_KEY,JSON.stringify(p));}catch(e){}
+}
+function wqPlayerDone(){ const p=(wqGetProgress()[tqPlayer])||{}; return WQ_QUESTIONS.filter(q=>p[q.id]).length; }
+
+// Einstiegs-Karte für die Spieler-Auswahl-Ansicht (tqStart) – zeigt Gesamt-Fortschritt.
+function wqRenderLauncher(){
+  if(!tqPlayer)return "";
+  const done=wqPlayerDone(), total=WQ_QUESTIONS.length, pct=Math.round(done/total*100);
+  return `<div class="card" style="padding:0;margin-top:10px;overflow:hidden;cursor:pointer" onclick="wqStart()">
+    <div style="background:linear-gradient(135deg,#0ea5e9,#6366f1);padding:12px 14px;color:#fff">
+      <div style="font-size:14px;font-weight:800;margin-bottom:2px">🧠 Fußball-Wissen</div>
+      <div style="font-size:11px;opacity:.95;margin-bottom:8px">WM · Bundesliga · Regeln · 🦅 Adler-Wissen — sammle ${XP_ICON} Federn!</div>
+      <div style="height:8px;background:rgba(255,255,255,.25);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#fbbf24;border-radius:4px;transition:width .4s"></div></div>
+      <div style="font-size:10px;margin-top:5px;opacity:.9">${done}/${total} Fragen gelernt</div>
+    </div>
+  </div>`;
+}
+
+// Kategorie-Übersicht
+function wqStart(){
+  if(!tqPlayer){tqStart();return;}
+  document.body.classList.add("wq-active");
+  if("speechSynthesis" in window)speechSynthesis.cancel();
+  const panel=document.getElementById("tq-panel"); panel.style.display="block";
+  const prog=(wqGetProgress()[tqPlayer])||{};
+  let html=`<div class="tq-panel">
+    <div style="font-size:10px;font-weight:700;color:#0ea5e9;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🧠 Fußball-Wissen · ${esc(tqPlayer)}</div>
+    <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:2px">Wähle eine Kategorie!</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Jede richtige Antwort bringt beim ersten Mal ${XP_ICON} Federn.</div>
+    <div style="display:flex;flex-direction:column;gap:8px">`;
+  WQ_CATS.forEach(c=>{
+    const qs=WQ_QUESTIONS.filter(q=>q.cat===c.key);
+    const done=qs.filter(q=>prog[q.id]).length, pct=Math.round(done/qs.length*100), fertig=done>=qs.length;
+    html+=`<div class="card" style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:12px" onclick="wqStartCat('${c.key}')">
+      <div style="font-size:26px;line-height:1">${c.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;color:var(--text)">${c.name}${fertig?" ✓":""}</div>
+        <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-top:5px"><div style="height:100%;width:${pct}%;background:${c.col};border-radius:3px"></div></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">${done}/${qs.length} gelernt</div>
+      </div>
+      <div style="font-size:18px;color:var(--text3)">›</div>
+    </div>`;
+  });
+  html+=`</div>
+    <button class="btn btn-sm" style="margin-top:12px" onclick="wqExit()"><i class="ti ti-arrow-left"></i>Zurück zum Quiz</button>
+  </div>`;
+  panel.innerHTML=html;
+}
+
+function wqStartCat(key){
+  wqCat=key; wqIdx=0; wqScore=0;
+  const prog=(wqGetProgress()[tqPlayer])||{};
+  const qs=WQ_QUESTIONS.filter(q=>q.cat===key).slice();
+  qs.sort((a,b)=>(prog[a.id]?1:0)-(prog[b.id]?1:0)); // noch nicht gelernte Fragen zuerst
+  wqQs=qs;
+  wqRenderQ();
+}
+
+function wqRenderQ(){
+  const q=wqQs[wqIdx];
+  if(!q){wqResult();return;}
+  wqAnsweredNow=false;
+  const cat=WQ_CATS.find(c=>c.key===q.cat)||{name:"Quiz",icon:"🧠"};
+  const opts=q.opts.map((t,i)=>({t,ok:i===q.correct}));
+  for(let i=opts.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[opts[i],opts[j]]=[opts[j],opts[i]];} // Fisher-Yates
+  const panel=document.getElementById("tq-panel"); panel.style.display="block";
+  panel.innerHTML=`<div class="tq-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:10px;font-weight:700;color:#0ea5e9;text-transform:uppercase;letter-spacing:.5px">${cat.icon} ${cat.name} · ${wqIdx+1}/${wqQs.length}</div>
+      <div class="tq-score">✅ ${wqScore}/${wqIdx}</div>
+    </div>
+    <div class="wq-question">${esc(q.q)}</div>
+    <div class="wq-opts">
+      ${opts.map(o=>`<button class="wq-opt" data-ok="${o.ok?1:0}" onclick="wqAnswer(this)">${esc(o.t)}</button>`).join("")}
+    </div>
+    <div id="wq-feedback"></div>
+  </div>`;
+}
+
+function wqAnswer(el){
+  if(wqAnsweredNow)return;
+  wqAnsweredNow=true;
+  const q=wqQs[wqIdx];
+  const ok=el.dataset.ok==="1";
+  el.parentElement.querySelectorAll(".wq-opt").forEach(b=>{
+    b.disabled=true; b.style.pointerEvents="none";
+    if(b.dataset.ok==="1")b.classList.add("wq-correct");
+    else if(b===el)b.classList.add("wq-wrong");
+  });
+  const fb=document.getElementById("wq-feedback");
+  if(ok){
+    wqScore++;
+    tqVibrate([40,60,40]);
+    const wasNew=!((wqGetProgress()[tqPlayer])||{})[q.id];
+    wqSaveCorrect(tqPlayer,q.id);
+    fb.innerHTML=`<div class="wq-fb wq-fb-ok">🎉 Richtig!<span>${esc(q.fun)}</span></div>`;
+    confetti(document.getElementById("tq-panel"));
+    if(wasNew&&tqPlayer){
+      // Federn nur mit Session; Server gibt pro Frage genau einmal (idempotent).
+      xpAwardByName(tqPlayer,"wissensquiz",q.id).then(d=>{
+        if(d>0){ fb.insertAdjacentHTML("afterbegin",`<div class="wq-federn">${XP_ICON} +${d} ${XP_LABEL}!</div>`); try{navigator.vibrate&&navigator.vibrate([30,50,30]);}catch(e){} }
+      }).catch(()=>{});
+    }
+  }else{
+    tqVibrate(80);
+    fb.innerHTML=`<div class="wq-fb wq-fb-no">Fast! Die richtige Antwort ist grün. 💡<span>${esc(q.fun)}</span></div>`;
+  }
+  fb.innerHTML+=`<button class="btn btn-p btn-sm" style="margin-top:10px;width:100%;min-height:48px" onclick="wqNext()"><i class="ti ti-arrow-right"></i>Weiter</button>`;
+}
+
+function wqNext(){
+  wqIdx++;
+  if(wqIdx>=wqQs.length){wqResult();return;}
+  wqRenderQ();
+}
+
+function wqResult(){
+  const total=wqQs.length, pct=total?Math.round(wqScore/total*100):0;
+  const cat=WQ_CATS.find(c=>c.key===wqCat)||{name:"Quiz"};
+  const msg=pct>=80?{e:"🏆🦅🏆",t:"WISSENS-PROFI!"}:pct>=60?{e:"🌟⚽🌟",t:"RICHTIG GUT!"}:pct>=40?{e:"💪⚡💪",t:"GUT GEMACHT!"}:{e:"🦅🔥🦅",t:"WEITER SO!"};
+  const panel=document.getElementById("tq-panel");
+  panel.innerHTML=`<div class="tq-panel" id="wq-result-panel" style="text-align:center;position:relative;overflow:hidden">
+    <div style="font-size:36px;margin-bottom:4px">${msg.e}</div>
+    <div style="font-size:20px;font-weight:800;color:var(--text);margin-bottom:2px">${msg.t}</div>
+    <div style="font-size:16px;font-weight:600;color:var(--text)">${wqScore} von ${total} richtig!</div>
+    <div style="font-size:12px;color:var(--text2);margin:4px 0 12px">Kategorie: ${cat.name}</div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-p btn-sm" onclick="wqStartCat('${wqCat}')"><i class="ti ti-refresh"></i>Nochmal</button>
+      <button class="btn btn-sm" onclick="wqStart()"><i class="ti ti-layout-grid"></i>Andere Kategorie</button>
+      <button class="btn btn-sm" onclick="wqExit()">Fertig</button>
+    </div>
+  </div>`;
+  tqVibrate([30,50,30,50,120]);
+  if(pct>=70)confetti(document.getElementById("wq-result-panel"));
+}
+
+function wqExit(){
+  document.body.classList.remove("wq-active");
+  if("speechSynthesis" in window)speechSynthesis.cancel();
+  tqStart();
 }

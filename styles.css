@@ -394,6 +394,19 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .tq-block-card .tq-block-prog{height:3px;background:var(--border);border-radius:2px;margin-top:6px;overflow:hidden}
 .tq-block-card .tq-block-prog-fill{height:100%;background:var(--green);border-radius:2px;transition:width .3s}
 .tq-block-done{opacity:.6}
+/* Fußball-Wissensquiz (Multiple-Choice, kein Taktik-Feld) */
+body.wq-active .tb-wrap{display:none}
+.wq-question{font-size:17px;font-weight:800;line-height:1.35;color:var(--text);margin-top:4px}
+.wq-opts{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.wq-opt{min-height:52px;padding:12px 14px;border:var(--border-s);border-radius:12px;background:var(--surface);font-family:inherit;font-size:14px;font-weight:600;color:var(--text);text-align:left;cursor:pointer;transition:transform .08s,background .15s,border-color .15s}
+.wq-opt:active{transform:scale(.98)}
+.wq-opt.wq-correct{background:#dcfce7;border-color:#16a34a;color:#15803d}
+.wq-opt.wq-wrong{background:#fef2f2;border-color:#dc2626;color:#b91c1c}
+.wq-fb{margin-top:12px;padding:12px;border-radius:12px;font-size:13px;line-height:1.4;font-weight:700}
+.wq-fb span{display:block;margin-top:4px;font-weight:600;opacity:.9}
+.wq-fb-ok{background:#f0fdf4;color:#166534}
+.wq-fb-no{background:#fffbeb;color:#92400e}
+.wq-federn{margin-top:2px;margin-bottom:6px;font-weight:800;color:#b45309;font-size:15px;text-align:center}
 .tq-block-done .tq-block-title::after{content:" ✅";font-size:11px}
 .tq-player-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin:10px 0}
 .tq-player-btn{background:var(--surface);border:2px solid var(--border);border-radius:var(--rl);padding:10px 8px;text-align:center;cursor:pointer;transition:all .15s}
