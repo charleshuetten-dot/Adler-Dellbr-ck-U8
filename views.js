@@ -1559,6 +1559,7 @@ async function homeRadarLoad(){
       <span style="font-size:11px;color:var(--text2)">${s.min} Min · ${s.act} Aktionen</span></div>`).join("")}
   </div>`;
 }
+function onboardingDismiss(){ try{localStorage.setItem("adler_onboarded","1");}catch(e){} document.getElementById("onboard-card")?.remove(); }
 async function renderHome(){
   const box=document.getElementById("home-content");
   if(!box)return;
@@ -1599,8 +1600,20 @@ async function renderHome(){
     ${teamBelohnung?`<div style="font-size:11px;color:var(--text2);margin-top:6px">🎁 Belohnung: <strong>${esc(teamBelohnung)}</strong></div>`:""}
     <div style="font-size:10.5px;color:var(--text3);margin-top:6px">Live-Fortschritt + Konfetti während des Spiels im Action-Tracker.</div>`,"#7c3aed");
 
+  let onboardHtml="";
+  try{ if(!localStorage.getItem("adler_onboarded")) onboardHtml=`<div id="onboard-card" class="card" style="padding:16px;margin-bottom:12px;border-left:3px solid var(--blue)">
+    <div style="font-weight:800;font-size:15px;margin-bottom:2px">👋 Willkommen im Adler-Trainer!</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">In 3 Schritten startklar:</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn" style="justify-content:flex-start" onclick="go('kader')"><i class="ti ti-users"></i>1️⃣ Kader anlegen / prüfen</button>
+      <button class="btn" style="justify-content:flex-start" onclick="go('termine')"><i class="ti ti-calendar-plus"></i>2️⃣ Ersten Termin eintragen</button>
+      <button class="btn" style="justify-content:flex-start" onclick="openTab('spieltag')"><i class="ti ti-whistle"></i>3️⃣ Am Spieltag loslegen</button>
+    </div>
+    <button onclick="onboardingDismiss()" style="margin-top:10px;background:transparent;border:none;color:var(--text3);font-family:inherit;font-size:11.5px;cursor:pointer;text-decoration:underline">Alles klar, ausblenden</button>
+  </div>`; }catch(e){}
   box.innerHTML=`
     <div class="sl nt"><i class="ti ti-home"></i>Trainer-Dashboard</div>
+    ${onboardHtml}
     <div id="home-next">${card('<div style="font-size:12px;color:var(--text3)">Lade nächsten Termin...</div>')}</div>
     ${gebHtml}
     ${questTeaser}
