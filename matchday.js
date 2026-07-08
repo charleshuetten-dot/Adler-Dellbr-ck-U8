@@ -239,6 +239,8 @@ async function elternDashLoad(){
     }).join("");
   }
   html+=`<div style="text-align:center;font-size:10.5px;color:#94a3b8;margin:2px 0 12px">Deine Rückmeldung ist ein Hinweis für den Trainer – die endgültige Aufstellung entscheidet er.</div>`;
+  // Quiz-Zugang für Eltern: öffnet die Kids-Quiz-App (Federn zählen, weil die Eltern-Session auf dem Gerät liegt)
+  html+=`<a href="${location.pathname}?quiz" style="display:block;text-align:center;background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;border-radius:14px;padding:14px;margin-bottom:12px;text-decoration:none;font-weight:800;font-size:14px">🎮 Adler-Quiz spielen <span style="display:block;font-weight:600;font-size:11.5px;opacity:.92;margin-top:2px">Fußball-Wissen & Taktik – Federn sammeln, Karte aufwerten</span></a>`;
   // UX 6: Timeline der kommenden Termine (scrollbar, rein informativ – RSVP läuft oben)
   if(termineListe.length>1){
     html+=card(`<div style="font-weight:700;margin-bottom:8px">📅 Nächste Termine</div>

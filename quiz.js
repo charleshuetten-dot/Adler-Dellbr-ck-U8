@@ -1050,3 +1050,24 @@ function wqExit(){
   if("speechSynthesis" in window)speechSynthesis.cancel();
   tqStart();
 }
+
+// Einmaliger Willkommens-/Erklär-Overlay im Kids-Modus: Adler-Federn + Karten-System.
+function kidsIntroMaybe(){
+  try{if(localStorage.getItem("adler_kids_intro"))return;}catch(e){}
+  if(document.getElementById("kids-intro"))return;
+  const ov=document.createElement("div");
+  ov.id="kids-intro";
+  ov.style.cssText="position:fixed;inset:0;z-index:10002;background:linear-gradient(160deg,#0ea5e9,#6366f1);display:flex;align-items:center;justify-content:center;padding:20px";
+  ov.innerHTML=`<div style="background:#fff;border-radius:18px;padding:20px;max-width:340px;width:100%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.4)">
+    <div style="font-size:40px">🦅🪶</div>
+    <div style="font-size:18px;font-weight:800;color:#1a1a2e;margin:4px 0 10px">Willkommen beim Adler-Quiz!</div>
+    <div style="text-align:left;font-size:13px;color:#334155;line-height:1.5">
+      <div style="margin-bottom:8px">🪶 <b>Adler-Federn</b> bekommst du für jede <b>richtige Antwort</b> (jede Frage einmal) und für <b>Technik-Abzeichen</b>.</div>
+      <div style="margin-bottom:8px">🃏 Deine <b>Adler-Karte</b> wird immer cooler: mit mehr Federn schaltest du neue Designs frei – 🥉 Bronze, 🥈 Silber, 🥇 Gold und mehr!</div>
+      <div>🎯 Es gibt <b>Taktik</b> (die Raute) und <b>Fußball-Wissen</b> (WM, Bundesliga, Regeln, Legenden …).</div>
+    </div>
+    <button class="btn btn-p" style="width:100%;min-height:48px;margin-top:14px;font-size:15px;font-weight:800" onclick="kidsIntroClose()">Los geht's! 🚀</button>
+  </div>`;
+  document.body.appendChild(ov);
+}
+function kidsIntroClose(){ try{localStorage.setItem("adler_kids_intro","1");}catch(e){} document.getElementById("kids-intro")?.remove(); }

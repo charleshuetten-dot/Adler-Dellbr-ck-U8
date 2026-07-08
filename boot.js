@@ -1036,6 +1036,7 @@ async function pinCheck(){
     document.getElementById("view-taktik").style.display="";
     window.savePlayer=()=>{};window.delPlayer=()=>{};window.delSnapshot=()=>{};
     setTimeout(()=>tqStart(),100);
+    setTimeout(()=>{if(typeof kidsIntroMaybe==="function")kidsIntroMaybe();},250); // einmalige Federn/Karten-Erklärung
     setTimeout(pwaInstallNudge,1800); // UX 1: Soft-Install-Nudge für die Kids
     return;
   }
