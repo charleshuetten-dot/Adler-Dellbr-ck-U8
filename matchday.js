@@ -3789,7 +3789,7 @@ function kiCoachRender(uebungen,rest){
     <div style="font-size:11px;color:var(--text2);margin:2px 0 6px">${u.dauer?"⏱ "+esc(u.dauer):""}${u.material?" · 🎒 "+esc(u.material):""}</div>
     <div style="font-size:12.5px;line-height:1.5;white-space:pre-wrap">${esc(u.beschreibung||"")}</div>
     ${u.variante?`<div style="font-size:11.5px;color:var(--text2);margin-top:5px">➕ ${esc(u.variante)}</div>`:""}
-    <button class="btn btn-sm btn-p" style="margin-top:8px" onclick="kiCoachSave(${i})"><i class="ti ti-device-floppy"></i>In Bibliothek</button>
+    <button class="btn btn-sm btn-p" style="margin-top:8px" onclick="kiCoachSaveForm(${i})"><i class="ti ti-clipboard-list"></i>In Trainingsplanung übernehmen</button>
   </div>`).join("")+(rest!=null?`<div style="font-size:10px;color:var(--text3);text-align:center;margin-top:2px">Noch ${esc(rest)} KI-Anfragen heute frei</div>`:"");
 }
 async function kiCoachSave(i){
@@ -3821,4 +3821,32 @@ async function ttViewKi(id){
     ${u.variante?`<div style="font-size:12.5px;color:var(--text2);margin-top:8px">➕ <b>Variante:</b> ${esc(u.variante)}</div>`:""}
   </div>`;
   document.body.appendChild(m);
+}
+
+// FEAT AC-Folge: KI-Übung als echte Trainingsform speichern (Tabelle trainingsformen,
+// gleicher Weg wie saveCustomTraining). Danach ist sie via tpAllForms() in ALLEN
+// Planungs-Dropdowns waehlbar (jede Phase, jedes Datum) -> Trainer setzt sie an die
+// gewuenschte Stelle. Navigiert direkt in die Planung.
+async function kiCoachSaveForm(i){
+  const u=kiLastUebungen[i]; if(!u)return;
+  const ablauf=(u.beschreibung||"")+(u.variante?"\n\nVariante: "+u.variante:"");
+  const form={
+    name:(u.titel||"KI-Übung").slice(0,120),
+    kat:"custom",
+    ablauf:ablauf,
+    varianten:u.variante||"",
+    coaching:"Vom Adler-Coach (KI) vorgeschlagen – altersgerecht für U8/U9.",
+    spieler:"", feld:u.material||"", dauer:u.dauer||"",
+    spass:5, diff:2,
+    custom:true, focus:false, svg:"", tags:["KI-Coach"],
+    kurz:(u.beschreibung||"").slice(0,80)
+  };
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/trainingsformen`,{method:"POST",headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(form)});
+    if(!r.ok){toast("Speichern fehlgeschlagen","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  if(typeof CUSTOM_FORMS!=="undefined")CUSTOM_FORMS.push(form);
+  document.getElementById("ki-modal")?.remove();
+  toast("🏃 In Trainings-Bibliothek – jetzt in der Planung wählbar ✓");
+  if(typeof go==="function")go("planung"); // direkt zur Planung, dort in gewünschte Phase setzen
 }

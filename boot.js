@@ -14,6 +14,10 @@
 
 let CUSTOM_FORMS=[];
 let activeTF='alle';
+// FEAT AC-Folge: EINE gemeinsame Formenliste (Bibliothek + eigene/KI-Übungen).
+// Die Planung ist index-basiert – deshalb MUSS ueberall dieselbe Liste (gleicher
+// Index-Raum) genutzt werden, sonst zeigt ein Slot die falsche Uebung.
+function tpAllForms(){ return (typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[]).concat(typeof CUSTOM_FORMS!=="undefined"?CUSTOM_FORMS:[]); }
 
 async function loadCustomForms(){
   try{
@@ -540,11 +544,11 @@ function tpGetTrainerCount(){
 }
 
 function tpFilteredOpts(typ,kat){
-  const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+  const allForms=tpAllForms();
   if(typ==="warmup") return allForms.map((f,i)=>({i,f})).filter(x=>x.f.kat==="aufwaermen");
   if(typ==="tw") return allForms.map((f,i)=>({i,f})).filter(x=>x.f.kat==="torwart");
   if(typ==="individual") return allForms.map((f,i)=>({i,f})).filter(x=>x.f.kat==="individual");
-  const mainForms=allForms.map((f,i)=>({i,f})).filter(x=>!["aufwaermen","torwart","individual"].includes(x.f.kat)&&!x.f.custom);
+  const mainForms=allForms.map((f,i)=>({i,f})).filter(x=>!["aufwaermen","torwart","individual"].includes(x.f.kat)); // custom/KI-Übungen jetzt im Hauptteil wählbar
   if(kat) return mainForms.filter(x=>x.f.kat===kat);
   return mainForms;
 }
@@ -579,7 +583,7 @@ function tpExerciseHistoryHtml(formIdx){
 }
 
 function tpShowExercise(formIdx){
-  const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+  const allForms=tpAllForms();
   const f=allForms[formIdx];
   if(!f)return;
   const hist=tpGetExerciseHistory(formIdx);
@@ -622,7 +626,7 @@ function tpRenderTimeline(){
   if(!wrap)return;
   if(typeof renderTeamDiagnose==="function")renderTeamDiagnose(); // Phase 7-C: Team-Diagnose oben
   const trainerCount=tpGetTrainerCount();
-  const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+  const allForms=tpAllForms();
   let time=0;
   let html='';
   tpSlots.forEach((slot,si)=>{
@@ -728,7 +732,7 @@ function tpIndPlayerChange(slotIdx){
   if(!sel||!reco)return;
   const name=sel.value;
   if(!name){reco.innerHTML="";return;}
-  const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+  const allForms=tpAllForms();
   const indForms=allForms.map((f,i)=>({i,f})).filter(x=>x.f.kat==="individual");
   const playerKey="adler_player_"+name;
   let vals={};
@@ -973,7 +977,7 @@ function renderTeamDiagnose(){
   if(!box)return;
   const {players,weakest}=teamDiagnose();
   if(players<2){box.innerHTML="";return;} // erst ab 2 bewerteten Spielern aussagekräftig
-  const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+  const allForms=tpAllForms();
   const top=weakest[0];
   const reco=allForms.map((f,i)=>({i,f})).filter(x=>x.f.deficit===top.key);
   const chip=(m)=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;background:var(--surface);border:var(--border-s);border-radius:var(--r);margin-top:6px">
@@ -1024,7 +1028,7 @@ function addEvalSection(){
 function evalRenderList(){
   const wrap=document.getElementById("tp-eval-list");
   if(!wrap)return;
-  const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+  const allForms=tpAllForms();
   const sels=document.querySelectorAll(".tp-form-sel");
   const trainers=tpGetCheckedTrainers();
   const entries=[];
@@ -1154,7 +1158,7 @@ function tpGenerate(){
   tpRenderTimeline();
 
   setTimeout(()=>{
-    const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+    const allForms=tpAllForms();
     const warmups=allForms.map((f,i)=>({i,f})).filter(x=>x.f.kat==="aufwaermen");
     const main=allForms.map((f,i)=>({i,f})).filter(x=>!["aufwaermen","torwart","individual"].includes(x.f.kat)&&!x.f.custom);
     const tw=allForms.map((f,i)=>({i,f})).filter(x=>x.f.kat==="torwart");
@@ -1227,7 +1231,7 @@ function tpRenderTeamFokus(){
   if(!sorted.length){box.innerHTML="";return;}
   const[schwach,schwachVal]=sorted[0];
   const kats=dimKat[schwach]||[];
-  const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+  const allForms=tpAllForms();
   // Passende Formen: Fokus-Formen bevorzugt, max. 3
   const passende=allForms.map((f,i)=>({i,f})).filter(x=>kats.includes(x.f.kat));
   const gewaehlt=passende.filter(x=>x.f.focus).concat(passende.filter(x=>!x.f.focus)).slice(0,3);
@@ -1239,7 +1243,7 @@ function tpRenderTeamFokus(){
 }
 
 function tpRenderMindsetTip(){
-  const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+  const allForms=tpAllForms();
   const rituale=["Die Kraft des NOCH","Reset-Knopf","Drei-gute-Dinge-Kreis"];
   const kandidaten=allForms.map((f,i)=>({i,f})).filter(x=>rituale.includes(x.f.name));
   if(!kandidaten.length)return;
