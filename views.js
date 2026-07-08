@@ -1655,6 +1655,26 @@ async function stadionheftOpen(){
   }catch(e){}
   heftRenderEditor();
 }
+// KI-Auto-Entwurf: zieht Trainings/Ergebnisse/Geburtstage der letzten Wochen -> füllt Einleitung + Kommentar (frei änderbar).
+async function heftAutoContent(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  const btn=document.getElementById("heft-ai-btn");
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2"></i> Entwurf wird geschrieben …';}
+  const ctrl=new AbortController(), to=setTimeout(()=>ctrl.abort(),35000);
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/ki-stadionheft`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({}),signal:ctrl.signal});
+    clearTimeout(to);
+    if(sbCheck401(r))return;
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){toast(d.error||("Fehler "+r.status),"err");return;}
+    if(d.einleitung){heftCfg.einleitung=d.einleitung;const el=document.getElementById("heft-f-einl");if(el)el.value=d.einleitung;}
+    if(d.kommentar){heftCfg.kommentar=d.kommentar;const el=document.getElementById("heft-f-komm");if(el)el.value=d.kommentar;}
+    heftCfgSave();heftRenderPreview();
+    const m=d.meta||{};
+    toast(`✨ Entwurf da (${m.trainings||0} Trainings, ${m.spiele||0} Spiele${m.geburtstage?", "+m.geburtstage+" 🎂":""}) – frei anpassbar`);
+  }catch(e){ clearTimeout(to); toast(e&&e.name==="AbortError"?"Zeitüberschreitung – bitte nochmal":"Netzwerkfehler","err"); }
+  finally{ if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-sparkles"></i> Auto-Entwurf aus den letzten Wochen (KI)';} }
+}
 function heftRenderEditor(){
   const old=document.getElementById("heft-modal");if(old)old.remove();
   const modal=document.createElement("div");
@@ -1667,6 +1687,8 @@ function heftRenderEditor(){
   card.style.cssText="background:var(--surface);color:var(--text);max-width:900px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   card.innerHTML=`
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div style="font-weight:800;font-size:16px">📰 Stadionheft-Editor</div><span style="font-size:11px;color:var(--text2)">frei bearbeiten · Vorschau live · Texte werden gemerkt</span></div>
+    <button id="heft-ai-btn" onclick="heftAutoContent()" class="btn" style="width:100%;margin-bottom:4px;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;border:none;min-height:44px;font-weight:800"><i class="ti ti-sparkles"></i> Auto-Entwurf aus den letzten Wochen (KI)</button>
+    <div style="font-size:10.5px;color:var(--text2);margin:0 0 12px;text-align:center">Zieht Trainings, Ergebnisse & Geburtstage – kindgerecht formuliert, danach frei änderbar.</div>
     <div style="display:grid;grid-template-columns:1fr;gap:16px">
       <div style="display:flex;flex-direction:column;gap:10px">
         <label style="font-size:11px;font-weight:700;color:var(--text2)">Titel
