@@ -2242,6 +2242,8 @@ async function elternKalenderIcs(){
 }
 // Gebrandeter Ladezustand für alle öffentlichen Eltern-Flächen (statt fadem "Lade...").
 function elternLoader(msg){ return `<div style="text-align:center;padding:56px 16px"><img src="logo.png" alt="" style="width:52px;height:52px;animation:adlerPulse 1.3s ease-in-out infinite"><div style="margin-top:14px;font-size:13px;color:#64748b">${elternEsc(msg||"Lädt …")}</div></div>`; }
+// Freundlicher, gebrandeter Leer-/Fehlerzustand (Logo + optionales Emoji + Text). msg darf <br> enthalten.
+function elternEmpty(msg,emoji){ return `<div class="elt-fade" style="text-align:center;padding:52px 20px"><img src="logo.png" alt="" style="width:54px;height:54px;opacity:.92">${emoji?`<div style="font-size:30px;margin-top:6px">${emoji}</div>`:""}<div style="margin-top:12px;font-size:14px;color:#64748b;line-height:1.55">${msg}</div></div>`; }
 /* Persönlicher Kind-Link (?kind=<token>): 1-Tap Zu-/Absage ohne Login.
    Liest/schreibt ausschließlich über die security-definer-RPCs kind_termine / rsvp_by_token. */
 let kindRoot=null, kindToken=null;
@@ -2305,7 +2307,7 @@ async function renderElternView(datum){
       : `${SB_URL}/rest/v1/matchday?datum=gte.${heute}&published=eq.true&select=*&order=datum.asc&limit=1`;
     const r=await fetch(url,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     const rows=r.ok?await r.json():[];
-    if(!rows.length){root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Aktuell ist kein Spieltag hinterlegt.<br>Schau später nochmal rein.</div>';return;}
+    if(!rows.length){root.innerHTML=elternEmpty("Aktuell ist kein Spieltag hinterlegt.<br>Schau bald wieder rein!","📅");return;}
     const m=rows[0];
     elternCurrent=m; // für die Interaktions-Funktionen
     const istTraining=m.typ==="training";
@@ -2349,7 +2351,7 @@ async function renderElternView(datum){
       elTickerTimer=setInterval(()=>elTickerLoad(m.datum,m.spieldauer_min||20),20000);
       elternEinsatzLoad(m.datum);
     }
-  }catch(e){root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Konnte nicht laden. Bitte später erneut versuchen.</div>';}
+  }catch(e){root.innerHTML=elternEmpty("Konnte gerade nicht laden.<br>Bitte später erneut versuchen.","😕");}
 }
 // Ticker-Ereignis-Icon je Typ – macht den Feed lebendiger & auf einen Blick lesbar.
 function elTickerIcon(typ){return {tor:"⚽",gegentor:"🥅",parade:"🧤",aktion:"👏",info:"📣",wechsel:"🔄"}[typ]||"•";}
