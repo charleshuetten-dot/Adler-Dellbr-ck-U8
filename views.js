@@ -1754,6 +1754,7 @@ function heftBuildHtml(cfg,opts){
     ${spielHtml}
     ${einl}
     ${fokusHtml}
+    <div class="heft-rubrik">⚽ Unsere Mannschaft</div>
     <div class="heft-grid">${cards}</div>
     ${komm}
     <div class="heft-foot">Auf geht's, Adler! 🦅 · Trainerteam ${(typeof TRAINER!=="undefined"?TRAINER:["Sandy","Charles","Finn","Kenneth","Peter"]).join(" · ")}</div>
