@@ -1689,6 +1689,8 @@ function tmJump(ziel,datum,spielform){
 let spieltagTeam=1;
 function spieltagRawDate(){ return document.getElementById("spieltag-date")?.value||new Date().toISOString().slice(0,10); }
 function spieltagKey(){ const d=spieltagRawDate(); return spieltagTeam>1?`${d}__t${spieltagTeam}`:d; }
+// HOTFIX 9: Team aus einem Ticker-/Match-Key ableiten (Datum__t2 -> " · Adler 2"); Team 1 = leer.
+function teamLabelFromKey(key){ const m=/__t(\d+)$/.exec(String(key||"")); return m?` · Adler ${m[1]}`:""; }
 function spieltagSetTeam(n,btn){
   const t=parseInt(n)||1;
   if(t===spieltagTeam)return;
@@ -2249,7 +2251,7 @@ async function renderDelegateView(token){
     root.innerHTML=`
       <div style="text-align:center;margin:8px 0 16px">
         <img src="logo.png" style="width:56px;height:56px" alt="SV Adler Dellbrück">
-        <div style="font-size:16px;font-weight:800;color:#1e3a8a;margin-top:6px">Ticker-Helfer${m.gegner?` · gegen ${elternEsc(m.gegner)}`:""}</div>
+        <div style="font-size:16px;font-weight:800;color:#1e3a8a;margin-top:6px">Ticker-Helfer${teamLabelFromKey(m.datum)}${m.gegner?` · gegen ${elternEsc(m.gegner)}`:""}</div>
         <div style="font-size:12px;color:#64748b">Spielminute: ${elternEsc(minuteNow)} · Erst Kind, dann Aktion antippen.</div>
       </div>
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin-bottom:12px">
@@ -2317,7 +2319,7 @@ async function renderTickerView(key){
     root.innerHTML=`
       <div style="text-align:center;margin:8px 0 14px">
         <img src="logo.png" style="width:56px;height:56px" alt="SV Adler Dellbrück">
-        <div style="font-size:16px;font-weight:800;color:#1e3a8a;margin-top:6px">📣 Liveticker U9${gegner}</div>
+        <div style="font-size:16px;font-weight:800;color:#1e3a8a;margin-top:6px">📣 Liveticker U9${teamLabelFromKey(key)}${gegner}</div>
         <div style="font-size:13px;color:#64748b"><span id="tv-minute">${elternEsc(minuteNow())}</span></div>
       </div>
       ${wolffFuss
