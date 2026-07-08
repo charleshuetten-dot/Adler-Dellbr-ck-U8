@@ -590,9 +590,14 @@ async function zieleToggle(id,newStatus,spielerId){
   zieleRender(spielerId);
 }
 async function zieleDelete(id,spielerId){
-  if(!confirm("Ziel löschen?"))return;
+  let row=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/entwicklungsziele?id=eq.${id}&select=*`,{headers:sbAuthHeaders()});if(r.ok)row=(await r.json())[0];}catch(e){}
   try{await fetch(`${SB_URL}/rest/v1/entwicklungsziele?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}
   zieleRender(spielerId);
+  if(row&&typeof toastUndo==="function")toastUndo("Ziel gelöscht",async()=>{
+    try{await fetch(`${SB_URL}/rest/v1/entwicklungsziele`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({spieler_id:row.spieler_id,ziel:row.ziel,status:row.status})});}catch(e){}
+    zieleRender(spielerId);
+  });
 }
 async function kaderSaveAll(btn){
   const rows=[...document.querySelectorAll(".kader-edit-row")];

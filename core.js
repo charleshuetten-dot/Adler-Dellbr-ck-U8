@@ -289,6 +289,20 @@ function toast(msg,type="ok"){
   t.className=`toast toast-${type} show`;t.textContent=msg;
   clearTimeout(t._tid);t._tid=setTimeout(()=>t.classList.remove("show"),3000);
 }
+// Undo-Toast: Aktion sofort ausführen, aber ein paar Sekunden zurücknehmbar (statt Bestätigungsdialog).
+function toastUndo(msg,undoFn,ms){
+  ms=ms||6000;
+  document.getElementById("undo-toast")?.remove();
+  const el=document.createElement("div");el.id="undo-toast";
+  el.style.cssText="position:fixed;left:12px;right:12px;bottom:78px;z-index:10060;max-width:460px;margin:0 auto;background:#1e293b;color:#fff;border-radius:12px;padding:11px 12px;box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;align-items:center;gap:10px;font-size:13px;font-family:inherit";
+  const span=document.createElement("span");span.style.flex="1";span.textContent=msg;
+  const btn=document.createElement("button");btn.textContent="↶ Rückgängig";
+  btn.style.cssText="background:#fbbf24;color:#1e293b;border:none;border-radius:8px;padding:7px 12px;font-weight:800;font-family:inherit;cursor:pointer;flex:none";
+  let done=false; const close=()=>{clearTimeout(tid);el.remove();};
+  btn.onclick=()=>{ if(done)return; done=true; try{undoFn&&undoFn();}catch(e){} close(); };
+  el.appendChild(span);el.appendChild(btn);document.body.appendChild(el);
+  const tid=setTimeout(close,ms);
+}
 
 function clearForm(){
   document.getElementById("p-name").value="";

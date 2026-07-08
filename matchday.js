@@ -1763,8 +1763,14 @@ async function turnierAdd(){
   turnierRender();
 }
 async function turnierDelete(id){
+  let row=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/turnier_spiele?id=eq.${id}&select=*`,{headers:sbAuthHeaders()});if(r.ok)row=(await r.json())[0];}catch(e){}
   try{await fetch(`${SB_URL}/rest/v1/turnier_spiele?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}
   turnierRender();
+  if(row&&typeof toastUndo==="function")toastUndo("Spiel gelöscht",async()=>{
+    try{await fetch(`${SB_URL}/rest/v1/turnier_spiele`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({datum:row.datum,gegner:row.gegner,tore:row.tore,gegentore:row.gegentore})});}catch(e){}
+    turnierRender();
+  });
 }
 // Spieltags-Nominierung: wer ist dabei / nicht / verletzt – speist Rotations-Timer + Blitz
 let nomStatus={};
