@@ -1614,7 +1614,11 @@ function heftRenderEditor(){
         <div id="heft-preview" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px;max-height:60vh;overflow:auto"></div>
       </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px">
+    <label style="display:flex;align-items:flex-start;gap:8px;margin-top:12px;padding:9px 11px;background:var(--surface2);border:var(--border-s);border-radius:10px;cursor:pointer">
+      <input type="checkbox" id="heft-f-mask" ${heftCfg.mask?"checked":""} style="margin-top:2px;width:18px;height:18px;flex:0 0 auto">
+      <span style="font-size:12px;color:var(--text)"><strong>🔒 Eltern-Version (Nachnamen maskiert)</strong><br><span style="font-size:11px;color:var(--text2)">DSGVO: Fürs Verteilen/Aushängen werden Nachnamen zu „Max M." gekürzt. Für die interne Trainer-Version aus lassen.</span></span>
+    </label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:12px">
       <button class="btn btn-p" onclick="heftPrintNow()"><i class="ti ti-printer"></i>Drucken</button>
       <button class="btn btn-sm" onclick="document.getElementById('heft-modal').remove()">Schließen</button>
     </div>`;
@@ -1623,11 +1627,12 @@ function heftRenderEditor(){
   const bind=(id,key)=>{const el=document.getElementById(id);if(el)el.oninput=()=>{heftCfg[key]=el.value;heftCfgSave();heftRenderPreview();};};
   bind("heft-f-titel","titel");bind("heft-f-einl","einleitung");bind("heft-f-fokustext","fokusText");bind("heft-f-komm","kommentar");
   const fokusEl=document.getElementById("heft-f-fokus");if(fokusEl)fokusEl.onchange=()=>{heftCfg.fokusId=fokusEl.value;heftCfgSave();heftRenderPreview();};
+  const maskEl=document.getElementById("heft-f-mask");if(maskEl)maskEl.onchange=()=>{heftCfg.mask=maskEl.checked;heftCfgSave();heftRenderPreview();};
   heftRenderPreview();
 }
-function heftRenderPreview(){ const box=document.getElementById("heft-preview"); if(box)box.innerHTML=heftBuildHtml(heftCfg,{mask:false}); }
+function heftRenderPreview(){ const box=document.getElementById("heft-preview"); if(box)box.innerHTML=heftBuildHtml(heftCfg,{mask:!!heftCfg.mask}); }
 function heftPrintNow(){
-  document.getElementById("heft-print").innerHTML=heftBuildHtml(heftCfg,{mask:false});
+  document.getElementById("heft-print").innerHTML=heftBuildHtml(heftCfg,{mask:!!heftCfg.mask});
   document.body.classList.add("printing-heft");
   const cleanup=()=>{document.body.classList.remove("printing-heft");window.removeEventListener("afterprint",cleanup);};
   window.addEventListener("afterprint",cleanup);
