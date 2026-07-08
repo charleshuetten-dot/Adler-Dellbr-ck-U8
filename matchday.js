@@ -2058,6 +2058,8 @@ function matchReportBuild(per,roster,tore,gegentore){
   const paras=[];for(let i=0;i<lines.length;i+=3)paras.push(lines.slice(i,i+3).join(" "));
   return `🦅 Spielbericht${teamTxt} – ${dateStr}\n\n${intro}\n\n${paras.join("\n\n")}\n\n${rPick(REPORT_CLOSE)}`;
 }
+// HOTFIX 6: Spieldaten sammeln, dann dynamischen KI-Bericht anfordern (lokale Engine = Fallback).
+let reportData=null; // {per,roster,tore,gegentore,team,datum}
 async function matchReport(){
   const datum=spieltagKey();
   let acts=[],trows=[];
@@ -2069,9 +2071,44 @@ async function matchReport(){
   if(!roster.length){toast("Noch keine Spieldaten für einen Bericht","err");return;}
   const tore=trows.filter(t=>t.typ==="tor").length||Object.values(per).reduce((s,pl)=>s+(pl.tor||0),0);
   const gegentore=trows.filter(t=>t.typ==="gegentor").length;
-  matchReportShow(matchReportBuild(per,roster,tore,gegentore));
+  reportData={per,roster,tore,gegentore,team:spieltagTeam,datum:spieltagRawDate()};
+  reportGenerate(false);
 }
-function matchReportShow(text){
+// KI-Bericht anfordern; bei Offline/Fehler/Zeitüberschreitung auf die lokale Text-Engine zurückfallen.
+async function reportGenerate(isReroll){
+  if(!reportData){matchReport();return;}
+  const {per,roster,tore,gegentore,team,datum}=reportData;
+  reportShowLoading(isReroll);
+  const spieler=roster.map(name=>({name,highlights:per[name]||{}}));
+  const seed=Math.random().toString(36).slice(2,8);
+  const ctrl=new AbortController(), to=setTimeout(()=>ctrl.abort(),30000);
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/ki-spielbericht`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({spieler,tore,gegentore,team,datum,seed}),signal:ctrl.signal});
+    clearTimeout(to);
+    if(typeof sbCheck401==="function"&&sbCheck401(r))return;
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.bericht){ matchReportShow(matchReportBuild(per,roster,tore,gegentore),{fallback:true,reason:d.error}); return; }
+    const p=(datum||"").split("-"); const ds=p.length===3?`${p[2]}.${p[1]}.${p[0]}`:datum;
+    const head=`🦅 Spielbericht${team>1?" – Adler "+team:""} – ${ds}\n\n`;
+    matchReportShow(head+d.bericht,{ai:true,rest:d.rest});
+  }catch(e){
+    clearTimeout(to);
+    matchReportShow(matchReportBuild(per,roster,tore,gegentore),{fallback:true,reason:e&&e.name==="AbortError"?"timeout":"offline"});
+  }
+}
+function reportShowLoading(isReroll){
+  const old=document.getElementById("report-modal");if(old)old.remove();
+  const modal=document.createElement("div");
+  modal.id="report-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  modal.innerHTML=`<div style="background:var(--surface);color:var(--text);max-width:420px;width:100%;border-radius:16px;padding:28px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.4)">
+    <div style="font-size:15px;font-weight:700;margin-bottom:8px">📰 ${isReroll?"Neue Formulierung …":"Spielbericht wird geschrieben …"}</div>
+    <div style="font-size:13px;color:var(--text2)">🦅 Der Adler-Coach fasst das Spiel in Worte.</div></div>`;
+  document.body.appendChild(modal);
+}
+function matchReportShow(text,opts){
+  opts=opts||{};
   const old=document.getElementById("report-modal");if(old)old.remove();
   const modal=document.createElement("div");
   modal.id="report-modal";
@@ -2079,14 +2116,19 @@ function matchReportShow(text){
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const card=document.createElement("div");
   card.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  card.innerHTML=`<div style="font-weight:700;font-size:15px;margin-bottom:4px">📰 Automatischer Spielbericht</div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Vorschlag zum Kopieren in die Eltern-Gruppe – frei anpassbar. „Neu würfeln" erzeugt eine andere Formulierung.</div>`;
+  const badge=opts.ai
+    ?`<span style="font-size:10px;background:#dbeafe;color:#1e40af;padding:2px 7px;border-radius:10px;font-weight:700">🤖 KI-Bericht${opts.rest!=null?" · "+opts.rest+" heute übrig":""}</span>`
+    :opts.fallback
+      ?`<span style="font-size:10px;background:#fef3c7;color:#854d0e;padding:2px 7px;border-radius:10px;font-weight:700">📴 Offline-Vorlage</span>`
+      :"";
+  card.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div style="font-weight:700;font-size:15px">📰 Spielbericht</div>${badge}</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">${opts.fallback?"Kein Netz/KI – hier eine automatische Vorlage. ":""}Zum Kopieren in die Eltern-Gruppe – frei anpassbar. „Neu würfeln" erzeugt eine neue Variante.</div>`;
   const ta=document.createElement("textarea");
   ta.id="report-text";ta.value=text;
   ta.style.cssText="width:100%;min-height:280px;font-family:inherit;font-size:13px;line-height:1.5;border:var(--border-s);border-radius:10px;padding:12px;resize:vertical;background:var(--surface2);color:var(--text);box-sizing:border-box";
   const bar=document.createElement("div");
   bar.style.cssText="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:12px";
-  bar.innerHTML=`<button class="btn btn-sm" onclick="matchReport()"><i class="ti ti-dice-5"></i>Neu würfeln</button>
+  bar.innerHTML=`<button class="btn btn-sm" onclick="reportGenerate(true)"><i class="ti ti-refresh"></i>Neu würfeln</button>
     <button class="btn btn-p" onclick="matchReportCopy()"><i class="ti ti-copy"></i>Kopieren</button>
     <button class="btn btn-sm" onclick="document.getElementById('report-modal').remove()">Schließen</button>`;
   card.appendChild(ta);card.appendChild(bar);
