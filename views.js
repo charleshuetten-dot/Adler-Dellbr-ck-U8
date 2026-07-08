@@ -1671,3 +1671,49 @@ function heftPrintNow(){
   setTimeout(cleanup,4000);
   window.print();
 }
+/* HOTFIX 19 digital: öffentliche Eltern-Ansicht des Stadionhefts (?heft). Ruft die
+   Edge Function stadionheft-view – Namen kommen bereits maskiert, Fotos nur bei
+   Einwilligung (sonst Initialen). Kein Login, keine Trainer-Daten. */
+async function renderStadionheftView(){
+  const root=document.createElement("div");
+  root.style.cssText="max-width:460px;margin:0 auto;padding:16px;font-family:inherit;min-height:100vh;background:#f1f5f9";
+  document.body.appendChild(root);
+  root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Lade Stadionheft…</div>';
+  let d=null;
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/stadionheft-view`,{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({team:"adler1"})});
+    d=r.ok?await r.json():null;
+  }catch(e){}
+  if(!d||!d.published){
+    root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b"><img src="logo.png" style="width:56px;height:56px" alt=""><div style="margin-top:12px">Aktuell ist kein Stadionheft veröffentlicht.<br>Schau bald wieder rein! 🦅</div></div>';
+    return;
+  }
+  const h=d.heft||{};
+  const avatar=(sp,size)=>`<div style="position:relative;width:${size}px;height:${size}px;border-radius:50%;overflow:hidden;background:linear-gradient(135deg,#1a56db,#3b82f6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:${Math.round(size*0.38)}px;font-weight:800">${sp.foto_url?`<img src="${sp.foto_url}" alt="" style="width:100%;height:100%;object-fit:cover">`:`<span>${elternEsc((sp.name||"?").slice(0,1).toUpperCase())}</span>`}</div>`;
+  const cards=(d.spieler||[]).map(sp=>{
+    const pos=sp.lieblingsposition?(typeof cardPosLabel==="function"?cardPosLabel(sp.lieblingsposition):sp.lieblingsposition):(sp.tw?"Torwart":"");
+    return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:10px;text-align:center">
+      <div style="width:64px;margin:0 auto 6px;position:relative">${avatar(sp,64)}${sp.nr!=null?`<div style="position:absolute;bottom:-2px;right:-2px;min-width:20px;height:20px;background:#facc15;color:#1e293b;border-radius:10px;border:2px solid #fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 3px">${elternEsc(sp.nr)}</div>`:""}</div>
+      <div style="font-size:14px;font-weight:800;color:#1e293b">${elternEsc(sp.name)}${sp.tw?" 🥅":""}</div>
+      ${sp.spitzname?`<div style="font-size:10.5px;color:#64748b;font-style:italic">„${elternEsc(sp.spitzname)}"</div>`:""}
+      ${pos?`<div style="font-size:10.5px;color:#1a56db;font-weight:700">${elternEsc(pos)}</div>`:""}
+    </div>`;
+  }).join("");
+  const fk=h.fokus;
+  const fokusHtml=fk?`<div style="display:flex;gap:12px;align-items:center;background:linear-gradient(135deg,#fef9c3,#fef3c7);border:1px solid #fde047;border-radius:14px;padding:12px;margin-bottom:12px">
+    <div style="flex:0 0 auto">${avatar(fk,66)}</div>
+    <div><div style="font-size:10.5px;font-weight:800;color:#a16207;text-transform:uppercase;letter-spacing:.5px">⭐ Spieler im Fokus</div>
+      <div style="font-size:16px;font-weight:900;color:#1e293b">${elternEsc(fk.name)}${fk.nr!=null?" · #"+elternEsc(fk.nr):""}</div>
+      ${fk.text?`<div style="font-size:12px;color:#475569;margin-top:2px;line-height:1.4">${elternEsc(fk.text).replace(/\n/g,"<br>")}</div>`:""}</div></div>`:"";
+  root.innerHTML=`
+    <div style="text-align:center;margin:8px 0 14px">
+      <img src="logo.png" style="width:56px;height:56px" alt="SV Adler Dellbrück">
+      <div style="font-size:12px;color:#64748b;font-weight:600;letter-spacing:.5px">SV ADLER DELLBRÜCK e.V.</div>
+      <div style="font-size:22px;font-weight:900;color:#1a56db;margin:2px 0">${elternEsc(h.titel||"Stadionheft U9")}</div>
+    </div>
+    ${h.einleitung?`<div style="background:#fff;border-left:3px solid #1a56db;border-radius:8px;padding:10px 12px;font-size:13px;color:#334155;line-height:1.5;margin-bottom:12px">${elternEsc(h.einleitung).replace(/\n/g,"<br>")}</div>`:""}
+    ${fokusHtml}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
+    ${h.kommentar?`<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:11px 13px;margin-top:12px;font-size:12.5px;color:#1e3a8a;line-height:1.5"><div style="font-weight:800;margin-bottom:3px">📣 Ein Wort vom Trainerteam</div>${elternEsc(h.kommentar).replace(/\n/g,"<br>")}</div>`:""}
+    <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:16px">Auf geht's, Adler! 🦅 · SV Adler Dellbrück e.V.</div>`;
+}

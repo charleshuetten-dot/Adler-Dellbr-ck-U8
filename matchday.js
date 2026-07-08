@@ -2189,6 +2189,7 @@ async function renderElternView(datum){
         ${routeUrl?`<a href="${routeUrl}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:14px;background:#1e3a8a;color:#fff;padding:13px;border-radius:12px;text-decoration:none;font-weight:600">🗺️ Route ${istTraining?"zum Platz":"zum Gegner"}</a>`:""}
       </div>
       ${istTraining?`<div id="ev-dabei" style="margin-top:14px"></div><div id="ev-fahrt" style="margin-top:14px"></div>`:`<div id="ev-ticker" style="margin-top:14px"></div>`}
+      <a href="${location.origin+location.pathname}?heft" style="display:block;text-align:center;margin-top:14px;background:#fff;border:1.5px solid #1e3a8a;color:#1e3a8a;padding:12px;border-radius:12px;text-decoration:none;font-weight:700">📰 Stadionheft ansehen</a>
       <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:14px">SV Adler Dellbrück e.V. · Angaben ohne Gewähr</div>`;
     if(istTraining){edLoad(m.datum);fgLoad(m.datum);}
     else{
