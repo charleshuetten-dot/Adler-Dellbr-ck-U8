@@ -148,6 +148,25 @@ async function elternDashLoad(){
     const d=new Date(termin.datum+"T00:00:00");
     const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
     const zeit=termin.uhrzeit?String(termin.uhrzeit).slice(0,5)+" Uhr":"";
+    // UX 2: "Action Required" – fehlt die Rückmeldung, kommt ein grosses One-Tap-Widget
+    // zuoberst. Bewusst dismiss-bar (pro Termin, pro Tag): Zwang erzeugt Fake-Zusagen.
+    const offen=kids.filter(k=>!rsvp[k.spieler_id]);
+    const nudgeKey="adler_rsvp_nudge_"+termin.id;
+    let nudgeDismissed=false; try{nudgeDismissed=localStorage.getItem(nudgeKey)===heute;}catch(e){}
+    if(offen.length&&!nudgeDismissed){
+      html+=`<div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);border-radius:14px;padding:18px;margin-bottom:12px;color:#fff;box-shadow:0 6px 20px rgba(30,58,138,.35)">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;opacity:.85">❗ Rückmeldung fehlt</div>
+        <div style="font-size:17px;font-weight:800;margin:4px 0 2px">${m.icon} ${esc(termin.titel||termin.gegner||m.label)}</div>
+        <div style="font-size:12.5px;opacity:.85;margin-bottom:12px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})}${zeit?" · "+zeit:""}${termin.ort?" · "+esc(termin.ort):""}</div>
+        ${offen.map(k=>{const kd=k.kader||{};return `<div style="background:rgba(255,255,255,.14);border-radius:12px;padding:12px;margin-bottom:8px">
+          <div style="font-weight:700;font-size:14px;margin-bottom:8px">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="opacity:.7">#${kd.nr}</span>`:""}</div>
+          <div style="display:flex;gap:8px">
+            <button onclick="elternRsvp(${termin.id},${k.spieler_id},'zugesagt')" style="flex:1;min-height:52px;padding:12px;border:none;border-radius:10px;background:#22c55e;color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">👍 Ist dabei</button>
+            <button onclick="elternRsvp(${termin.id},${k.spieler_id},'abgesagt')" style="flex:1;min-height:52px;padding:12px;border:none;border-radius:10px;background:rgba(255,255,255,.22);color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">👎 Kann nicht</button>
+          </div></div>`;}).join("")}
+        <button onclick="try{localStorage.setItem('${nudgeKey}','${heute}')}catch(e){};elternDashLoad()" style="width:100%;padding:8px;border:none;background:transparent;color:rgba(255,255,255,.75);font-family:inherit;font-size:12px;cursor:pointer;text-decoration:underline">Später entscheiden – heute nicht mehr fragen</button>
+      </div>`;
+    }
     html+=card(`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Nächster Termin</div>
       <div style="font-size:16px;font-weight:800;margin-top:2px">${m.icon} ${esc(termin.titel||termin.gegner||m.label)}</div>
       <div style="font-size:12.5px;color:#64748b;margin-top:3px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})}${zeit?" · "+zeit:""}${termin.ort?" · "+esc(termin.ort):""}</div>`);
