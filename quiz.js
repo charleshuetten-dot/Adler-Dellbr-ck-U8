@@ -307,6 +307,7 @@ function tqPersonalize(text){
 function tqStart(){
   const panel=document.getElementById("tq-panel");
   panel.style.display="block";
+  document.body.classList.remove("tq-playing"); // Auswahl: Feld ausblenden
   const extern=document.body.classList.contains("quiz-extern"); // im Kinder-Quiz gibt es kein "Schließen"
   const progress=tqGetProgress();
   const pp=tqPlayer?progress[tqPlayer]||{}:{};
@@ -357,6 +358,7 @@ function tqRenderTaktikLauncher(pp){
 function tqBlocksShow(){
   if(!tqPlayer){tqStart();return;}
   const panel=document.getElementById("tq-panel"); panel.style.display="block";
+  document.body.classList.remove("tq-playing"); // Block-Auswahl: Feld ausblenden
   const pp=(tqGetProgress()[tqPlayer])||{};
   let html=`<div class="tq-panel">
     <div style="font-size:10px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🎯 Taktik-Quiz · ${esc(tqPlayer)}</div>
@@ -461,6 +463,7 @@ function tqStartBlock(block){
 function tqStop(){
   if("speechSynthesis" in window)speechSynthesis.cancel();
   tbCancelActiveDrags(); // Cleanup-Fix
+  document.body.classList.remove("tq-playing");
   tqActive=false;tqBlock=-1;tqCurrentOpps=[];
   tqChipRemove(); // K6
   document.getElementById("taktik-field")?.classList.remove("quiz-mode");
@@ -474,6 +477,7 @@ function tqStop(){
 function tqLoadScenario(idx){
   const sc=tqScenarios[idx];
   if(!sc){tqShowResult();return;}
+  document.body.classList.add("tq-playing"); // Taktikfeld einblenden (Szenario aktiv)
   const panel=document.getElementById("tq-panel");
   panel.style.display="block";
   const pName=tqPlayer||"Du";
@@ -657,6 +661,7 @@ function tqNext(){
 }
 
 function tqShowResult(){
+  document.body.classList.remove("tq-playing"); // Ergebnis: Feld ausblenden
   if(tqPlayer&&tqBlock>=0)tqSaveProgress(tqPlayer,tqBlock,tqScore,tqTotal);
   const panel=document.getElementById("tq-panel");
   const pct=tqTotal?Math.round(tqScore/tqTotal*100):0;
@@ -917,7 +922,7 @@ function wqRenderLauncher(){
       <div style="font-size:14px;font-weight:800;margin-bottom:2px">🧠 Fußball-Wissen</div>
       <div style="font-size:11px;opacity:.95;margin-bottom:8px">${WQ_CATS.length} Kategorien · WM, Bundesliga, Legenden, Stars & mehr — sammle ${XP_ICON} Federn!</div>
       <div style="height:8px;background:rgba(255,255,255,.25);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#fbbf24;border-radius:4px;transition:width .4s"></div></div>
-      <div style="font-size:10px;margin-top:5px;opacity:.9">${done}/${total} Fragen gelernt</div>
+      <div style="font-size:10px;margin-top:5px;opacity:.9">${done}/${total} richtig beantwortet</div>
     </div>
   </div>`;
 }
@@ -942,7 +947,7 @@ function wqStart(){
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:700;color:var(--text)">${c.name}${fertig?" ✓":""}</div>
         <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-top:5px"><div style="height:100%;width:${pct}%;background:${c.col};border-radius:3px"></div></div>
-        <div style="font-size:10px;color:var(--text3);margin-top:3px">${done}/${qs.length} gelernt</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">${done}/${qs.length} richtig</div>
       </div>
       <div style="font-size:18px;color:var(--text3)">›</div>
     </div>`;

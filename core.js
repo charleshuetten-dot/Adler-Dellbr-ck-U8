@@ -401,6 +401,10 @@ function xpBadge(total){return XP_BADGES.find(b=>(total||0)>=b.min)||XP_BADGES[X
 /* Wetter am Termin (open-meteo, ohne API-Key). Heim-Koordinaten Köln-Dellbrück als Default.
    open-meteo wird im SW NICHT gecacht (durchgereicht) – sonst würde ignoreSearch die
    Datums-Query zerstören. Zeigt nur etwas, wenn der Termin in Vorhersage-Reichweite liegt. */
+// Ort/Adresse → antippbarer Karten-Link (Google Maps, öffnet native App auf dem Handy).
+function mapsUrl(q){ return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q||""); }
+function mapsAnchor(ort,color){ if(!ort)return ""; return `<a href="${mapsUrl(ort)}" target="_blank" rel="noopener" style="color:${color||"var(--blue)"};text-decoration:none">📍 ${esc(ort)}</a>`; }
+
 const WETTER_LAT=50.98, WETTER_LON=7.05; // SV Adler Dellbrück (Heim)
 function wetterCodeInfo(c){
   c=Number(c);
@@ -432,7 +436,13 @@ async function geocodePlace(place){
   const key=place.trim().toLowerCase();
   let cache={}; try{cache=JSON.parse(localStorage.getItem("adler_geo")||"{}");}catch(e){}
   if(cache[key])return cache[key]; // Treffer ODER gemerktes "null" (0-Länge) – kein erneuter Call
-  const res=await osmSearch(place);
+  let res=await osmSearch(place);
+  if(!res.length){
+    // Fallback: Stadt/PLZ-Teil statt Heim-Köln – z. B. „Sportplatz XY, 51069 Köln" → „51069 Köln"
+    const parts=place.split(",").map(s=>s.trim()).filter(Boolean);
+    const cityGuess=(place.match(/\d{5}\s+[^,]+/)||[])[0] || (parts.length>1?parts[parts.length-1]:"");
+    if(cityGuess&&cityGuess.trim().toLowerCase()!==key) res=await osmSearch(cityGuess);
+  }
   const coords=res.length?{lat:res[0].lat,lon:res[0].lon}:null;
   cache[key]=coords||0; try{localStorage.setItem("adler_geo",JSON.stringify(cache));}catch(e){}
   return coords;
