@@ -741,7 +741,20 @@ function saisonLabel(){
    Konfetti-Finale. Reines Vanilla-JS/CSS, confetti() recycelt.
 ═══════════════════════════════════ */
 const AWRAP_MS=4800; // Anzeigedauer je Slide
-let awrapIdx=0, awrapSlides=[], awrapTimer=0;
+let awrapIdx=0, awrapSlides=[], awrapTimer=0, awrapFotoUrls=[]; // FEAT X: Galerie-Blob-URLs
+// FEAT X: Saison-Galerie fuer Wrapped laden (Trainer-only RPC), Fotos als Blob-URLs
+// (DOM-Background, kein Canvas -> kein Taint). Alte URLs revoken (Speicher).
+async function wrappedLoadFotos(saison){
+  awrapFotoUrls.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});
+  awrapFotoUrls=[];
+  let paths=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/season_gallery`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({p_saison:saison||null})});if(r.ok)paths=((await r.json())||[]).map(x=>x.foto_path).filter(Boolean);}catch(e){}
+  const urls=await Promise.all(paths.slice(0,8).map(async p=>{
+    try{const r=await fetch(`${SB_URL}/storage/v1/object/authenticated/termin_media/${p}`,{headers:{'Authorization':'Bearer '+sbToken()}});if(!r.ok)return null;return URL.createObjectURL(await r.blob());}catch(e){return null;}
+  }));
+  awrapFotoUrls=urls.filter(Boolean);
+  return awrapFotoUrls;
+}
 async function adlerWrappedOpen(){
   const btn=document.getElementById("wrapped-btn");
   if(btn)btn.disabled=true;
@@ -750,11 +763,12 @@ async function adlerWrappedOpen(){
   try{ const r=await call({p_saison:saisonLabel()}); if(sbCheck401(r)){if(btn)btn.disabled=false;return;} if(r.ok)d=await r.json(); }catch(e){}
   // Fallback: leere Saison → gesamte Historie zeigen
   if(d&&!d.spiele&&!d.trainings&&!d.tore&&!d.aktionen){ try{ const r=await call({p_saison:null}); if(r.ok)d=await r.json(); }catch(e){} }
+  if(!d){if(btn)btn.disabled=false;toast("Rückblick konnte nicht geladen werden","err");return;}
+  const fotos=await wrappedLoadFotos(d.saison||saisonLabel()); // FEAT X
   if(btn)btn.disabled=false;
-  if(!d){toast("Rückblick konnte nicht geladen werden","err");return;}
-  adlerWrappedShow(d);
+  adlerWrappedShow(d,fotos);
 }
-function adlerWrappedSlides(d){
+function adlerWrappedSlides(d,fotos){
   const g=(a,b)=>`linear-gradient(160deg,${a},${b})`;
   const S=[];
   S.push({bg:g("#0f172a","#1e3a8a"),html:`<div>
@@ -794,10 +808,20 @@ function adlerWrappedSlides(d){
     <div class="aw-pop" style="font-size:58px">🦅❤️</div>
     <div class="aw-pop d1" style="font-size:26px;font-weight:900;margin-top:10px">Was für eine Saison, Adler!</div>
     <div class="aw-pop d2" style="font-size:15px;opacity:.85;margin-top:10px">${d.spieler_anzahl||0} Kinder · ein Team</div></div>`});
+  // FEAT X: Galerie-Fotos als Hintergrund einstreuen (Gradient-Overlay -> Text bleibt lesbar).
+  // Rein DOM (background-image), daher kein Canvas-Taint. Fotos sind lokale Blob-URLs.
+  if(fotos&&fotos.length){
+    const overlay=(slide,foto)=>{slide.bg=slide.bg.replace(/linear-gradient\(160deg,\s*([^,]+),\s*([^)]+)\)/,(m,a,b)=>`linear-gradient(160deg,${a.trim()}cc,${b.trim()}cc), url("${foto}") center/cover`);};
+    [1,2,3,4,5].forEach((si,k)=>{ if(S[si]&&fotos[k])overlay(S[si],fotos[k]); }); // Intro & Finale bleiben clean
+    S.splice(S.length-1,0,{bg:`linear-gradient(160deg,#0f172acc,#1e293bcc), url("${fotos[0]}") center/cover`,html:`<div>
+      <div class="aw-pop" style="font-size:14px;opacity:.9;text-transform:uppercase;letter-spacing:2px">Unsere Momente</div>
+      <div class="aw-pop d1" style="font-size:26px;font-weight:900;margin-top:8px">📸 ${fotos.length} Erinnerungen</div>
+      <div class="aw-pop d2" style="font-size:14px;opacity:.85;margin-top:10px">Eine Saison zum Nie-Vergessen 🦅</div></div>`});
+  }
   return S;
 }
-function adlerWrappedShow(d){
-  awrapSlides=adlerWrappedSlides(d); awrapIdx=0;
+function adlerWrappedShow(d,fotos){
+  awrapSlides=adlerWrappedSlides(d,fotos); awrapIdx=0;
   if(!document.getElementById("wrapped-style")){
     const st=document.createElement("style");st.id="wrapped-style";
     st.textContent=`@keyframes awrapPop{0%{opacity:0;transform:translateY(28px) scale(.9)}100%{opacity:1;transform:none}}
@@ -839,7 +863,7 @@ function adlerWrappedRender(){
 }
 function adlerWrappedNext(){ if(!document.getElementById("adler-wrapped"))return; if(awrapIdx>=awrapSlides.length-1){adlerWrappedClose();return;} awrapIdx++; adlerWrappedRender(); }
 function adlerWrappedPrev(){ if(!document.getElementById("adler-wrapped"))return; if(awrapIdx<=0){adlerWrappedRender();return;} awrapIdx--; adlerWrappedRender(); }
-function adlerWrappedClose(){ clearTimeout(awrapTimer); document.getElementById("adler-wrapped")?.remove(); }
+function adlerWrappedClose(){ clearTimeout(awrapTimer); awrapFotoUrls.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}}); awrapFotoUrls=[]; document.getElementById("adler-wrapped")?.remove(); }
 function printZertifikat(){
   const name=document.getElementById("psel-profil")?.value;
   if(!name){toast("Erst einen Spieler wählen","err");return;}
