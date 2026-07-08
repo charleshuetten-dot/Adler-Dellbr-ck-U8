@@ -889,6 +889,13 @@ async function pinCheck(){
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#1e3a8a");
     document.getElementById("pin-gate")?.remove();
     document.getElementById("main-app")?.remove();
+    // UX 3: Deep-Link-Intent (?rsvp=<termin_id>) puffern und die URL SOFORT saeubern,
+    // damit Reload/Re-Share den Flow nicht doppelt triggert. Feuert nach Auth im Dashboard.
+    const rsvpId=params.get("rsvp");
+    if(rsvpId&&/^\d+$/.test(rsvpId)){
+      try{sessionStorage.setItem("adler_rsvp_intent",rsvpId);}catch(e){}
+      try{history.replaceState({},"",location.pathname+"?portal");}catch(e){}
+    }
     if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
     renderElternPortal();
     return;

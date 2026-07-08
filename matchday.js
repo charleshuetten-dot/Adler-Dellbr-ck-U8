@@ -132,6 +132,8 @@ async function elternDashLoad(){
   if(!body)return;
   const card=(inner)=>`<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">${inner}</div>`;
   const heute=new Date().toISOString().slice(0,10);
+  // UX 3: kam der Elternteil über einen Deep-Link (?rsvp=…)? Dann Nudge erzwingen + hinscrollen.
+  let rsvpIntent=null; try{rsvpIntent=sessionStorage.getItem("adler_rsvp_intent");}catch(e){}
   let kids=[], termin=null;
   try{const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?select=spieler_id,label,kader(id,name,nr)`,{headers:sbAuthHeaders()});if(r.ok)kids=await r.json();}catch(e){}
   if(!kids.length){ body.innerHTML=card('<div style="color:#475569;font-size:13px;line-height:1.6">Dein Trainer hat diese E-Mail noch <b>keinem Kind</b> zugeordnet.<br>Bitte gib ihm die E-Mail-Adresse, mit der du dich hier angemeldet hast.</div>'); return; }
@@ -154,8 +156,9 @@ async function elternDashLoad(){
     const offen=kids.filter(k=>!rsvp[k.spieler_id]);
     const nudgeKey="adler_rsvp_nudge_"+termin.id;
     let nudgeDismissed=false; try{nudgeDismissed=localStorage.getItem(nudgeKey)===heute;}catch(e){}
-    if(offen.length&&!nudgeDismissed){
-      html+=`<div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);border-radius:14px;padding:18px;margin-bottom:12px;color:#fff;box-shadow:0 6px 20px rgba(30,58,138,.35)">
+    // Deep-Link erzwingt das Widget – auch wenn heute schon weggeklickt (der Trainer hat gezielt erinnert)
+    if(offen.length&&(!nudgeDismissed||rsvpIntent)){
+      html+=`<div id="rsvp-nudge" style="background:linear-gradient(135deg,#1e3a8a,#2563eb);border-radius:14px;padding:18px;margin-bottom:12px;color:#fff;box-shadow:0 6px 20px rgba(30,58,138,.35)">
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;opacity:.85">❗ Rückmeldung fehlt</div>
         <div style="font-size:17px;font-weight:800;margin:4px 0 2px">${m.icon} ${esc(termin.titel||termin.gegner||m.label)}</div>
         <div style="font-size:12.5px;opacity:.85;margin-bottom:12px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})}${zeit?" · "+zeit:""}${termin.ort?" · "+esc(termin.ort):""}</div>
@@ -229,6 +232,16 @@ async function elternDashLoad(){
   body.innerHTML=html;
   // FEAT S: XP-Chips async füllen (RPC xp_total – Eltern sehen nur das eigene Kind)
   kids.forEach(k=>{xpTotal(k.spieler_id).then(t=>{const el=document.getElementById("xp-chip-"+k.spieler_id);if(el){const b=xpBadge(t);el.textContent=`⚡ ${t} XP · ${b.emo} ${b.t}`;}}).catch(()=>{});});
+  // UX 3: Deep-Link-Intent genau einmal abarbeiten – zum Nudge scrollen + kurz pulsen lassen
+  if(rsvpIntent){
+    try{sessionStorage.removeItem("adler_rsvp_intent");}catch(e){}
+    const w=document.getElementById("rsvp-nudge");
+    if(w){
+      setTimeout(()=>{w.scrollIntoView({behavior:"smooth",block:"center"});
+        try{w.animate([{transform:"scale(1)"},{transform:"scale(1.03)"},{transform:"scale(1)"}],{duration:600,iterations:2});}catch(e){}
+      },200);
+    }
+  }
 }
 async function elternRsvp(terminId,spielerId,status){
   let kommentar=null;
@@ -1560,6 +1573,14 @@ function tmCard(t){
   const zeitStr=t.uhrzeit?String(t.uhrzeit).slice(0,5):((/Uhrzeit:\s*(\d{1,2}:\d{2})/.exec(t.notiz||"")||[])[1]||"");
   const sfBadge=(istSpiel&&t.spielform)?`<span style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;background:${m.col}22;color:${m.col}">${esc(t.spielform)}</span>`:"";
   const notizClean=(t.notiz&&!/^Uhrzeit:/.test(t.notiz))?t.notiz:"";
+  // UX 3: Trainer-Erinnerung per WhatsApp – Deep-Link (?portal&rsvp=…) fuehrt Eltern direkt zur
+  // Rueckmeldung. Fuellt nur die Nachricht vor; Absenden/Empfaenger waehlt der Trainer selbst.
+  let remindBtn="";
+  if(t.datum>=new Date().toISOString().slice(0,10)){
+    const deepLink=location.origin+location.pathname+"?portal&rsvp="+t.id;
+    const waText=`🦅 SV Adler U9 – bitte kurz rückmelden fürs nächste ${m.label}:\n${t.titel||m.label} am ${datumStr}${zeitStr?" um "+zeitStr+" Uhr":""}${t.ort?" ("+t.ort+")":""}\n👉 Zu-/absagen: ${deepLink}`;
+    remindBtn=`<a class="btn btn-sm" href="https://wa.me/?text=${encodeURIComponent(waText)}" target="_blank" rel="noopener noreferrer"><i class="ti ti-bell"></i>Erinnerung</a>`;
+  }
   return `<div style="background:var(--surface);border:var(--border-s);border-left:3px solid ${m.col};border-radius:var(--rl);padding:10px 12px;margin-bottom:8px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
       <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px">${m.icon} ${esc(t.titel||m.label)}${sfBadge}</div>
@@ -1569,7 +1590,7 @@ function tmCard(t){
     ${notizClean?`<div style="font-size:11px;color:var(--text3)">${esc(notizClean)}</div>`:""}
     ${istSpiel?`<div style="display:flex;align-items:center;gap:6px;margin:6px 0"><span style="font-size:11px;color:var(--text2)">Ergebnis:</span><input type="text" value="${esc(t.ergebnis||"")}" placeholder="z. B. 3:2" onchange="tmSetResult(${Number(t.id)},this.value)" style="width:90px;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:12px;font-family:inherit"></div>`:""}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-      ${actions}
+      ${actions}${remindBtn}
       <button class="btn btn-sm btn-d" style="margin-left:auto" onclick="tmDelete(${Number(t.id)})"><i class="ti ti-trash"></i></button>
     </div>
   </div>`;
