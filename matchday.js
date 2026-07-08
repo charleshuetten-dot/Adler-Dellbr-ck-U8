@@ -135,7 +135,8 @@ async function elternDashLoad(){
   let kids=[], termin=null;
   try{const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?select=spieler_id,label,kader(id,name,nr)`,{headers:sbAuthHeaders()});if(r.ok)kids=await r.json();}catch(e){}
   if(!kids.length){ body.innerHTML=card('<div style="color:#475569;font-size:13px;line-height:1.6">Dein Trainer hat diese E-Mail noch <b>keinem Kind</b> zugeordnet.<br>Bitte gib ihm die E-Mail-Adresse, mit der du dich hier angemeldet hast.</div>'); return; }
-  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc&limit=1`,{headers:sbAuthHeaders()});if(r.ok){const rows=await r.json();termin=rows[0]||null;}}catch(e){}
+  let termineListe=[]; // UX 6: Timeline – die nächsten Termine, nicht nur der eine
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc&limit=12`,{headers:sbAuthHeaders()});if(r.ok){termineListe=await r.json();termin=termineListe[0]||null;}}catch(e){}
   let rsvp={};
   if(termin){
     try{const ids=kids.map(k=>k.spieler_id).join(",");const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${termin.id}&spieler_id=in.(${ids})&select=spieler_id,status,kommentar`,{headers:sbAuthHeaders()});if(r.ok){(await r.json()).forEach(x=>rsvp[x.spieler_id]=x);}}catch(e){}
@@ -186,6 +187,25 @@ async function elternDashLoad(){
     }).join("");
   }
   html+=`<div style="text-align:center;font-size:10.5px;color:#94a3b8;margin:2px 0 12px">Deine Rückmeldung ist ein Hinweis für den Trainer – die endgültige Aufstellung entscheidet er.</div>`;
+  // UX 6: Timeline der kommenden Termine (scrollbar, rein informativ – RSVP läuft oben)
+  if(termineListe.length>1){
+    html+=card(`<div style="font-weight:700;margin-bottom:8px">📅 Nächste Termine</div>
+      <div style="max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch">
+        ${termineListe.map((t,i)=>{
+          const tm=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"#1e3a8a"};
+          const td=new Date(t.datum+"T00:00:00");
+          const twtag=["So","Mo","Di","Mi","Do","Fr","Sa"][td.getDay()];
+          const tzeit=t.uhrzeit?String(t.uhrzeit).slice(0,5):"";
+          return `<div style="display:flex;align-items:center;gap:10px;padding:9px 6px;border-bottom:1px solid #f1f5f9${i===0?";background:#eff6ff;border-radius:8px":""}">
+            <div style="font-size:20px;width:28px;text-align:center">${tm.icon}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.titel||t.gegner||tm.label)}${i===0?' <span style="font-size:10px;color:#2563eb;font-weight:800">· NÄCHSTER</span>':""}</div>
+              <div style="font-size:11px;color:#64748b">${twtag} ${td.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${tzeit?" · "+tzeit+" Uhr":""}${t.ort?" · "+esc(t.ort):""}</div>
+            </div>
+            <span style="font-size:10px;font-weight:700;color:${tm.col};background:${tm.col}18;border-radius:6px;padding:3px 7px;white-space:nowrap">${tm.label}</span>
+          </div>`;}).join("")}
+      </div>`);
+  }
   html+=card(`<div style="font-weight:700;margin-bottom:8px">🎮 Für dein Kind</div>
     <button onclick="kabineOpen()" style="display:block;width:100%;padding:13px;margin-bottom:8px;border:none;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-weight:800;font-size:14px;font-family:inherit;cursor:pointer">🎮 Kabine öffnen (Kinder-Modus)</button>
     <a href="${location.pathname}?quiz" style="display:inline-block;padding:11px 16px;background:#059669;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">Nur Quiz starten</a>`);
@@ -1451,7 +1471,7 @@ function tbAddDrag(tok,fieldEl){
    KALENDER / TERMINE – das Rückgrat, das Training, Spiele und Turniere verbindet
 ═══════════════════════════════════ */
 let tmTyp="training", tmSpielform="4+1";
-const TM_META={training:{icon:"🏃",label:"Training",col:"#1a56db"},spiel:{icon:"⚽",label:"Spiel",col:"#059669"},turnier:{icon:"🏆",label:"Turnier",col:"#c2410c"}};
+const TM_META={training:{icon:"🏃",label:"Training",col:"#1a56db"},spiel:{icon:"⚽",label:"Spiel",col:"#059669"},turnier:{icon:"🏆",label:"Turnier",col:"#c2410c"},event:{icon:"🎉",label:"Event",col:"#7c3aed"}}; // UX 7: Event mit Freitext-Titel (Saisonabschluss etc.)
 // Saison-Zuordnung aus einem Datum (Saison läuft Jul–Jun)
 function saisonForDate(datum){
   const d=new Date((datum||new Date().toISOString().slice(0,10))+"T00:00:00");
@@ -1463,7 +1483,7 @@ function tmSetTyp(t,btn){
   btn.parentElement.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active"));
   btn.classList.add("active");
   const lbl=document.getElementById("tm-titel-lbl");
-  if(lbl)lbl.textContent=t==="training"?"Titel (optional)":"Gegner / Titel";
+  if(lbl)lbl.textContent=t==="training"?"Titel (optional)":t==="event"?"Titel (z. B. Saisonabschluss, Weihnachtsfeier)":"Gegner / Titel";
   const sfRow=document.getElementById("tm-spielform-row");
   if(sfRow)sfRow.style.display=(t==="spiel"||t==="turnier")?"block":"none"; // Spielform nur bei Spiel/Turnier
   const drRow=document.getElementById("tm-dauer-row");
