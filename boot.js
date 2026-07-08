@@ -605,6 +605,19 @@ function tpGetExerciseHistory(formIdx){
   });
   return entries.sort().reverse();
 }
+// Tage seit letztem Einsatz einer Form (null = nie genutzt) – für Vielfalt-Hinweise.
+function tpLastUsedDays(formIdx){
+  const h=tpGetExerciseHistory(formIdx);
+  if(!h.length)return null;
+  const last=new Date(h[0]); if(isNaN(last))return null;
+  return Math.max(0,Math.floor((Date.now()-last.getTime())/86400000));
+}
+function autoPlanFreshHint(formIdx){
+  const d=tpLastUsedDays(formIdx);
+  if(d===null)return '<span style="color:#16a34a">🆕 neu</span>';
+  if(d<14)return `<span style="color:#b45309">⚠️ vor ${d} T.</span>`;
+  return `<span style="color:var(--text3)">zuletzt vor ${d} T.</span>`;
+}
 
 function tpGetTrainerCount(){
   return document.querySelectorAll("#tp-trainer-checks input:checked").length;
@@ -1341,7 +1354,10 @@ const AUTOPLAN_DIMLABEL={tech:"Technik & Ball",raute:"Rauten-IQ & Taktik",phys:"
 function autoPlanPick(kats,used){
   const forms=tpAllForms().map((f,i)=>({i,f})).filter(x=>x.f&&kats.includes(x.f.kat)&&!used.has(x.i));
   if(!forms.length)return null;
-  const focus=forms.filter(x=>x.f.focus), pool=focus.length?focus:forms;
+  const focus=forms.filter(x=>x.f.focus), base=focus.length?focus:forms;
+  // Vielfalt: frische Übungen (nie oder >14 Tage nicht genutzt) bevorzugen
+  const fresh=base.filter(x=>{const d=tpLastUsedDays(x.i);return d===null||d>=14;});
+  const pool=fresh.length?fresh:base;
   const pick=pool[Math.floor(Math.random()*pool.length)];
   used.add(pick.i);
   return pick;
@@ -1377,7 +1393,7 @@ async function autoPlanBuild(){
       <div style="font-size:18px;width:24px;text-align:center">${b.tag}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3)">${esc(b.label)} · ${b.min} Min</div>
-        <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(b.pick.f.name)}</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(b.pick.f.name)} <span style="font-size:10px;font-weight:600">${autoPlanFreshHint(b.pick.i)}</span></div>
       </div>
       <button class="btn btn-sm" onclick="tpShowExercise(${b.pick.i})"><i class="ti ti-eye"></i></button>
     </div>`).join("")}
