@@ -2240,6 +2240,8 @@ async function elternKalenderIcs(){
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
   toast("Kalenderdatei erstellt ✓");
 }
+// Gebrandeter Ladezustand für alle öffentlichen Eltern-Flächen (statt fadem "Lade...").
+function elternLoader(msg){ return `<div style="text-align:center;padding:56px 16px"><img src="logo.png" alt="" style="width:52px;height:52px;animation:adlerPulse 1.3s ease-in-out infinite"><div style="margin-top:14px;font-size:13px;color:#64748b">${elternEsc(msg||"Lädt …")}</div></div>`; }
 /* Persönlicher Kind-Link (?kind=<token>): 1-Tap Zu-/Absage ohne Login.
    Liest/schreibt ausschließlich über die security-definer-RPCs kind_termine / rsvp_by_token. */
 let kindRoot=null, kindToken=null;
@@ -2248,7 +2250,7 @@ async function renderKindView(token){
   kindRoot=document.createElement("div");
   kindRoot.style.cssText="max-width:440px;margin:0 auto;padding:16px;font-family:inherit;min-height:100vh;background:#f1f5f9";
   document.body.appendChild(kindRoot);
-  kindRoot.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Lade…</div>';
+  kindRoot.innerHTML=elternLoader("Lädt …");
   await kindLoad();
 }
 async function kindLoad(){
@@ -2295,7 +2297,7 @@ async function renderElternView(datum){
   const root=document.createElement("div");
   root.style.cssText="max-width:440px;margin:0 auto;padding:16px;font-family:inherit;min-height:100vh;background:#f1f5f9";
   document.body.appendChild(root);
-  root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Lade Spieltag...</div>';
+  root.innerHTML=elternLoader("Spieltag wird geladen …");
   try{
     const heute=new Date().toISOString().slice(0,10);
     const url=datum
@@ -2459,7 +2461,7 @@ async function renderTickerView(key){
   const root=document.createElement("div");
   root.style.cssText="max-width:440px;margin:0 auto;padding:16px;font-family:inherit;min-height:100vh;background:#f1f5f9";
   document.body.appendChild(root);
-  root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Lade Liveticker...</div>';
+  root.innerHTML=elternLoader("Liveticker wird geladen …");
   let adlerkasseHtml=""; // FEAT Z: Spenden-Button, einmal geladen (draw() laeuft alle 15s)
   async function loadClock(){
     try{

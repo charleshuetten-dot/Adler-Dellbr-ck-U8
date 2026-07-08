@@ -877,6 +877,7 @@ async function pinCheck(){
     document.getElementById("main-app")?.remove();
     if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
     renderElternView(params.get("match")||"");
+    setTimeout(pwaInstallNudge,1800); // Adoption: Hub aufs Handy holen
     return;
   }
   // Delegate-Modus: Eltern-Helfer übernimmt den Ticker am Platz (Capability-Token, keine Trainer-Rechte)
@@ -915,6 +916,7 @@ async function pinCheck(){
     document.getElementById("main-app")?.remove();
     if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
     renderTickerView(params.get("ticker")||"");
+    setTimeout(pwaInstallNudge,1800);
     return;
   }
   // Persönlicher Kind-Link (?kind=<token>): 1-Tap Zu-/Absage ohne Login (Capability-Token).
@@ -925,6 +927,7 @@ async function pinCheck(){
     document.getElementById("main-app")?.remove();
     if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
     renderKindView(params.get("kind")||"");
+    setTimeout(pwaInstallNudge,1800);
     return;
   }
   // Digitales Stadionheft: Nur-Ansehen fuer alle Eltern (?heft), kein Login. Namen maskiert, Fotos nur bei Einwilligung.
@@ -935,6 +938,7 @@ async function pinCheck(){
     document.getElementById("main-app")?.remove();
     if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
     renderStadionheftView();
+    setTimeout(pwaInstallNudge,1800);
     return;
   }
   const isQuizMode=params.has("quiz");
