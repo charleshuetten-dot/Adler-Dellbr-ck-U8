@@ -581,8 +581,10 @@ async function zieleRender(spielerId){
 async function zieleAdd(spielerId){
   const el=document.getElementById("ziele-input");const ziel=(el?.value||"").trim();
   if(!ziel){toast("Bitte ein Ziel eintippen","err");return;}
-  try{const r=await fetch(`${SB_URL}/rest/v1/entwicklungsziele`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({spieler_id:spielerId,ziel})});if(sbCheck401(r))return;if(!r.ok&&r.status!==201){toast("Speichern fehlgeschlagen","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
-  if(el)el.value="";toast("Ziel gesetzt 🎯");zieleRender(spielerId);
+  const _r=await sbQueuedPost("entwicklungsziele",{spieler_id:spielerId,ziel},"return=minimal");
+  if(el)el.value="";
+  toast(_r&&_r.queued?"📶 Offline – Ziel wird nachgetragen":"Ziel gesetzt 🎯");
+  zieleRender(spielerId);
 }
 async function zieleToggle(id,newStatus,spielerId){
   try{await fetch(`${SB_URL}/rest/v1/entwicklungsziele?id=eq.${id}`,{method:"PATCH",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({status:newStatus,erreicht_at:newStatus==="erreicht"?new Date().toISOString():null})});}catch(e){}

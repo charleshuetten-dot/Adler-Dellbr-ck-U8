@@ -1756,7 +1756,8 @@ async function turnierAdd(){
   const g=(document.getElementById("turnier-gegner")?.value||"").trim();
   const tore=parseInt(document.getElementById("turnier-tore")?.value)||0;
   const geg=parseInt(document.getElementById("turnier-geg")?.value)||0;
-  try{const r=await fetch(`${SB_URL}/rest/v1/turnier_spiele`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({datum:spieltagKey(),gegner:g||null,tore,gegentore:geg})});if(sbCheck401(r))return;if(!r.ok&&r.status!==201){toast("Speichern fehlgeschlagen","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  const _r=await sbQueuedPost("turnier_spiele",{datum:spieltagKey(),gegner:g||null,tore,gegentore:geg},"return=minimal");
+  if(_r&&_r.queued)toast("📶 Offline – Spiel wird nachgetragen");
   ["turnier-gegner"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   ["turnier-tore","turnier-geg"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="0";});
   try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
@@ -2929,7 +2930,8 @@ async function rotPersistTimes(){
   const all=new Set([...rotField,...rotBench,...(rotTW?[rotTW]:[])]);
   const payload=[...all].map(n=>({datum,spieler:n,feld_sek:rotFieldSec[n]||0}));
   if(!payload.length)return;
-  try{ await fetch(`${SB_URL}/rest/v1/einsatzzeiten?on_conflict=datum,spieler`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(payload)}); }catch(e){}
+  // Offline-hart: über die Sync-Queue -> am Platz ohne Netz wird es zuverlässig nachgetragen.
+  try{ await sbQueuedPost("einsatzzeiten?on_conflict=datum,spieler",payload,"resolution=merge-duplicates"); }catch(e){}
 }
 function rotReset(){
   if(rotTimerId){clearInterval(rotTimerId);rotTimerId=null;}
