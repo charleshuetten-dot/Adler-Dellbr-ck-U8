@@ -583,16 +583,20 @@ async function xpTotal(spielerId){
 let _pwaPrompt=null, _pwaWant=false;
 function _pwaStandalone(){return (window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches)||navigator.standalone===true;}
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();_pwaPrompt=e;if(_pwaWant)pwaBannerShow("android");});
-/* Drei getrennt installierbare Apps (eigene Manifest-ids): Trainer, Eltern, Quiz.
-   Der Nudge muss deshalb je App benannt und je App weggeklickt werden können. */
+/* Genau ZWEI installierbare Apps (eigene Manifest-ids): Trainer und Eltern-Bereich.
+   Das Kinder-Quiz ist keine eigene App mehr – es lebt in der Kabine im Eltern-Zugang.
+   Alles andere (Quiz, Stadionheft, Liveticker, Kind-Link) hat gar kein Manifest; dort
+   wuerde ein Install-Angebot die TRAINER-App installieren. Also: kein Nudge.
+   Der Nudge wird je App benannt und je App weggeklickt. */
 function pwaKontext(){
   const p=new URLSearchParams(location.search);
-  if(p.has("portal"))return {slug:"eltern",name:"Eltern-Bereich"};
-  if(p.has("quiz"))  return {slug:"quiz",  name:"Adler-Quiz"};
-  return {slug:"trainer",name:"Trainer-App"};
+  if(p.has("portal"))return {slug:"eltern",name:"Eltern-Bereich",installierbar:true};
+  if(p.has("quiz")||p.has("heft")||p.has("ticker")||p.has("kind"))return {slug:"none",name:"",installierbar:false};
+  return {slug:"trainer",name:"Trainer-App",installierbar:true};
 }
 function pwaNudgeKey(){ return "adler_pwa_nudge_"+pwaKontext().slug; }
 function pwaInstallNudge(){
+  if(!pwaKontext().installierbar)return;                        // hier gibt es keine eigene App
   if(_pwaStandalone())return;                                   // läuft schon als App
   let dismissed=0; try{dismissed=+localStorage.getItem(pwaNudgeKey())||0;}catch(e){}
   if(Date.now()-dismissed < 14*864e5)return;                    // 14 Tage Ruhe nach Wegklicken

@@ -10,6 +10,25 @@
 <meta name="application-name" content="U9 I Adler">
 <link rel="manifest" id="pwa-manifest" href="manifest-trainer.json">
 <link rel="apple-touch-icon" id="apple-icon" href="icon-trainer.png">
+<script>
+/* MUSS hier im <head> stehen, nicht in boot.js: Chrome liest das Manifest beim Laden
+   der Seite. Haengt man es erst am Ende des Body um, hat Chrome die Seite laengst als
+   "Trainer-App" erkannt und meldet beim Eltern-Zugang "ist bereits installiert".
+   Nur der Eltern-Bereich ist eine zweite App; alle Nur-Lese-Ansichten (Quiz aus der
+   Kabine, Stadionheft, Liveticker, Kind-Link) bieten gar keine Installation an. */
+(function(){
+  var p=new URLSearchParams(location.search);
+  var m=document.getElementById("pwa-manifest"), i=document.getElementById("apple-icon");
+  if(p.has("portal")){
+    m.href="manifest-eltern.json"; i.href="icon-eltern.png";
+    document.querySelector('meta[name="theme-color"]').content="#1e3a8a";
+    document.querySelector('meta[name="apple-mobile-web-app-title"]').content="U9 Eltern";
+    document.querySelector('meta[name="application-name"]').content="U9 Eltern";
+  }else if(p.has("quiz")||p.has("heft")||p.has("ticker")||p.has("kind")){
+    m.remove(); // sonst wuerde ein Install-Angebot hier die Trainer-App installieren
+  }
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Spielerprofil U9 I – SV Adler Dellbrück</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">

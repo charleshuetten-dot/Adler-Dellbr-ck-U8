@@ -969,13 +969,7 @@ async function pinCheck(){
   // Eltern-Portal (?portal): passwortloser OTP-Login → rollenbasiert (parent-Dashboard / Trainer-Hinweis)
   if(params.has("portal")){
     document.title="Eltern-Bereich – SV Adler Dellbrück U9";
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#1e3a8a");
-    // Eigenes Manifest mit eigener id "adler-u9-eltern" – sonst halten Android/iOS
-    // Eltern- und Trainer-App fuer dieselbe App und ueberschreiben die Installation.
-    document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content","U9 Eltern");
-    document.querySelector('meta[name="application-name"]')?.setAttribute("content","U9 Eltern");
-    document.getElementById("pwa-manifest")?.setAttribute("href","manifest-eltern.json");
-    document.getElementById("apple-icon")?.setAttribute("href","icon-eltern.png");
+    // Manifest/Icon/Theme setzt der Inline-Block im <head> von index.html (Timing!).
     document.getElementById("pin-gate")?.remove();
     document.getElementById("main-app")?.remove();
     // UX 3: Deep-Link-Intent (?rsvp=<termin_id>) puffern und die URL SOFORT saeubern,
@@ -1026,12 +1020,8 @@ async function pinCheck(){
   const isQuizMode=params.has("quiz");
   if(isQuizMode){
     document.title="Taktik-Quiz U9 I – SV Adler Dellbrück";
-    document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content","U9 Quiz");
-    document.querySelector('meta[name="application-name"]')?.setAttribute("content","U9 Quiz");
-    // Eigene Manifest-Datei mit eindeutiger id "adler-u9-quiz" – sonst hält Android
-    // Trainer-App und Quiz für dieselbe App und überschreibt die Installation
-    document.getElementById("pwa-manifest")?.setAttribute("href","manifest-quiz.json");
-    document.getElementById("apple-icon")?.setAttribute("href","icon-quiz.png");
+    // Das Quiz ist keine eigene App mehr – die Kinder kommen ueber die Kabine im
+    // Eltern-Zugang hierher. Das Manifest entfernt der Inline-Block im <head>.
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#059669");
     document.getElementById("pin-gate").classList.add("hidden");
     document.getElementById("main-app").style.display="";
@@ -1494,65 +1484,9 @@ function tpRenderMindsetTip(){
     navigator.serviceWorker.register("./sw.js").catch(()=>{});
   }
 
-  // Show install banner after 3 seconds if not already installed
-  let deferredPrompt = null;
-  window.addEventListener("beforeinstallprompt", e => {
-    e.preventDefault();
-    deferredPrompt = e;
-    setTimeout(() => showInstallBanner(deferredPrompt), 3000);
-  });
-
-  function showInstallBanner(prompt){
-    if(document.getElementById("install-banner")) return;
-    const banner = document.createElement("div");
-    banner.id = "install-banner";
-    banner.style.cssText = `
-      position:fixed;bottom:16px;left:16px;right:16px;z-index:9999;
-      background:#1a56db;color:#fff;border-radius:12px;padding:14px 16px;
-      display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(26,86,219,.4);
-      font-family:'Inter',sans-serif;font-size:13px;
-    `;
-    banner.innerHTML = `
-      <div style="font-size:28px">⚽</div>
-      <div style="flex:1">
-        <div style="font-weight:600;font-size:13px">Als App installieren</div>
-        <div style="font-size:11px;opacity:.85;margin-top:2px">Schneller Zugriff direkt vom Homescreen</div>
-      </div>
-      <button id="install-yes" style="background:#fff;color:#1a56db;border:none;border-radius:8px;padding:8px 14px;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit">Installieren</button>
-      <button id="install-no" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:12px;cursor:pointer;font-family:inherit">✕</button>
-    `;
-    document.body.appendChild(banner);
-    document.getElementById("install-yes").onclick = () => {
-      prompt.prompt();
-      prompt.userChoice.then(() => banner.remove());
-    };
-    document.getElementById("install-no").onclick = () => banner.remove();
-  }
-
-  // iOS Safari: show manual instructions
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
-  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
-  if(isIOS && !isStandalone){
-    setTimeout(() => {
-      if(document.getElementById("install-banner")) return;
-      const banner = document.createElement("div");
-      banner.id = "install-banner";
-      banner.style.cssText = `
-        position:fixed;bottom:16px;left:16px;right:16px;z-index:9999;
-        background:#1a56db;color:#fff;border-radius:12px;padding:14px 16px;
-        box-shadow:0 4px 20px rgba(26,86,219,.4);font-family:'Inter',sans-serif;font-size:13px;
-      `;
-      banner.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-          <div style="font-size:24px">⚽</div>
-          <div style="font-weight:600">Als App installieren</div>
-          <button onclick="this.closest('#install-banner').remove()" style="margin-left:auto;background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:4px 8px;cursor:pointer">✕</button>
-        </div>
-        <div style="font-size:12px;opacity:.9;line-height:1.6">
-          Tippe auf <strong>Teilen</strong> (□↑) unten in Safari,<br>dann <strong>"Zum Home-Bildschirm"</strong>
-        </div>
-      `;
-      document.body.appendChild(banner);
-    }, 3000);
-  }
+  // Der Install-Hinweis lebt in core.js (pwaInstallNudge/pwaBannerShow): er kennt den
+  // Kontext, benennt die richtige App und meldet sich pro App nur einmal. Der frueher
+  // hier stehende zweite Banner war kontextblind – er haette im Eltern-Bereich und im
+  // Kinder-Quiz die Trainer-App angeboten – und lief als zweiter
+  // beforeinstallprompt-Listener parallel. Ersatzlos entfernt.
 })();
