@@ -1803,6 +1803,115 @@ async function anwesenheitOpen(){
     <button class="btn btn-sm" style="margin-top:12px;width:100%" onclick="document.getElementById('aq-modal').remove()">Schließen</button>`;
   modal.appendChild(cardEl);document.body.appendChild(modal);
 }
+/* ═══════════════════════════════════
+   TRAINER-HILFE + FEATURE-TOUR
+═══════════════════════════════════ */
+const HELP=[
+  {cat:"🏠 Start & Team", items:[
+    {t:"Dashboard", d:"Nächster Termin (mit Wetter & Trainer), Schnellzugriffe, „Kein Kind übersehen\"-Radar.", go:"home"},
+    {t:"Kader", d:"Spieler anlegen/bearbeiten, Trikotnummer, Foto, Kontakte, Foto-Freigabe.", go:"kader"},
+    {t:"Bewerten", d:"Spieler in 16 Kriterien einschätzen – mit Live-Radar.", go:"bew"},
+    {t:"Profil", d:"Spielerprofil, Stärken, Adler-Karte, Entwicklungs-Report drucken.", go:"profil"},
+    {t:"Verlauf", d:"Entwicklung über die Zeit als Diagramm.", go:"verlauf"},
+  ]},
+  {cat:"🏃 Training", items:[
+    {t:"Anwesenheit erfassen", d:"Wer war da – Haken je Kind; Trainer werden aus dem Termin vorausgefüllt.", go:"anwesenheit"},
+    {t:"Anwesenheits-Quote", d:"Quote je Kind über die Saison (Training + Spiele).", run:"anwesenheitOpen()"},
+    {t:"Planung", d:"Zeitplan bauen, Übungen zuweisen, danach bewerten.", go:"planung"},
+    {t:"Einheit bewerten", d:"Schnell-Sterne: Spaß, Umsetzung, Erfolg.", run:"einheitBewertenOpen()"},
+    {t:"Trainingsformen", d:"Bibliothek + Filter · „Auto-Plan\" baut eine Einheit · KI-Coach · Saison-Periodisierung.", go:"formen"},
+  ]},
+  {cat:"⚽ Spieltag", items:[
+    {t:"Match", d:"Nominierung, Match-Uhr, Live-Aktionen, Rotations-Timer für faire Zeiten.", go:"spieltag"},
+    {t:"Aufstellung", d:"Auto-Aufstellung mit fairen Einsatzzeiten.", go:"kombi"},
+    {t:"Analyse", d:"Auswertung nach dem Spiel.", go:"analyse"},
+    {t:"Taktikboard", d:"Formationen stellen, Laufwege/Pässe zeichnen, als Bild teilen.", go:"taktik"},
+  ]},
+  {cat:"🪶 Adler-Welt (Kids)", items:[
+    {t:"Adler-Welt-Hub", d:"Federn je Kind, FUT-Karten, Technik-Abzeichen und Wochen-Challenge an einem Ort.", run:"adlerWeltOpen()"},
+    {t:"Quiz (Kinder)", d:"Kinder spielen über den Kids-Link (?quiz); Ergebnisse hier unter Training → Quiz.", go:"quizresults"},
+  ]},
+  {cat:"📅 Orga & Eltern", items:[
+    {t:"Termine", d:"Anlegen/bearbeiten · Platz · Trainer-Verfügbarkeit · Wetter · Kalender-Export.", go:"termine"},
+    {t:"Gegner-Datenbank", d:"Adresse, Ansprechpartner, Telefon/WhatsApp, bisherige Spiele.", run:"gegnerManageOpen()"},
+    {t:"Adler Horst", d:"Digitales Stadionheft erstellen & drucken.", run:"stadionheftOpen()"},
+    {t:"Pinnwand", d:"Team-Notizen fürs Trainerteam.", go:"team"},
+    {t:"Eltern-Bereich", d:"Eltern melden sich per Link/Einmal-Code an: RSVP, Karte, Quiz, Betreuung vor Ort."},
+  ]},
+  {cat:"🧰 Extras", items:[
+    {t:"Teamkasse", d:"Kassen-Link hinterlegen (kein Geld in der App).", run:"kasseOpen()"},
+    {t:"Fundbüro", d:"Liegengebliebenes verwalten.", run:"fundbueroOpen()"},
+    {t:"Team-Ausrüstung", d:"Wer hat welches Material.", run:"ausruestungGrid()"},
+    {t:"Backup", d:"Kader-Daten exportieren.", run:"backupExport()"},
+    {t:"Dark Mode", d:"Hell/Dunkel umschalten.", run:"toggleTheme()"},
+  ]},
+];
+function hilfeOpen(){
+  document.getElementById("hilfe-modal")?.remove();
+  const modal=document.createElement("div");
+  modal.id="hilfe-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Hilfe & Funktionen");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10040;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:480px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">❓ Hilfe & Funktionen</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Alles, was die App kann – tippe auf → um direkt hinzuspringen.</div>
+    <button class="btn btn-p btn-sm" style="width:100%" onclick="hilfeClose();tourStart()"><i class="ti ti-player-play"></i>Kurze Feature-Tour starten</button>
+    <input type="text" placeholder="Suchen… (z. B. Wetter, Aufstellung)" oninput="hilfeRender(this.value)" style="width:100%;margin-top:10px;padding:8px 12px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box">
+    <div id="hilfe-list"></div>
+    <button class="btn btn-sm" style="margin-top:12px;width:100%" onclick="hilfeClose()">Schließen</button>`;
+  modal.appendChild(c);document.body.appendChild(modal);
+  hilfeRender("");
+}
+function hilfeClose(){ document.getElementById("hilfe-modal")?.remove(); }
+function hilfeRender(q){
+  const box=document.getElementById("hilfe-list"); if(!box)return;
+  q=(q||"").trim().toLowerCase();
+  const html=HELP.map(g=>{
+    const items=g.items.filter(it=>!q||(it.t+" "+it.d).toLowerCase().includes(q));
+    if(!items.length)return "";
+    return `<div style="margin-top:10px"><div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">${g.cat}</div>`+
+      items.map(it=>{const act=it.go?`hilfeClose();go('${it.go}')`:it.run?`hilfeClose();${it.run}`:"";
+        return `<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-top:var(--border)">
+          <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${esc(it.t)}</div><div style="font-size:11.5px;color:var(--text2);line-height:1.35">${esc(it.d)}</div></div>
+          ${act?`<button class="btn btn-sm" onclick="${act}" title="Öffnen"><i class="ti ti-arrow-right"></i></button>`:""}
+        </div>`;}).join("")+`</div>`;
+  }).join("");
+  box.innerHTML=html||`<div style="font-size:12px;color:var(--text3);padding:10px 0">Nichts gefunden.</div>`;
+}
+const TOUR=[
+  {emo:"🦅", t:"Willkommen in der Adler-App", d:"Ein kurzer Rundgang durch die wichtigsten Bereiche. Alles findest du danach jederzeit über ❓ oben rechts."},
+  {emo:"📋", t:"Team & Bewertung", d:"Unter „Team\" legst du den Kader an, schätzt Spieler in 16 Kriterien ein (Live-Radar) und druckst pro Kind einen Entwicklungs-Report."},
+  {emo:"🏃", t:"Training", d:"Anwesenheit erfassen, Zeitplan bauen, per „Auto-Plan\" eine ganze Einheit vorschlagen lassen, KI-Coach für Übungen – danach die Einheit mit Sternen bewerten."},
+  {emo:"⚽", t:"Spieltag", d:"Nominierung, Auto-Aufstellung mit fairen Einsatzzeiten, Match-Uhr + Rotations-Timer, Live-Aktionen und Analyse."},
+  {emo:"🪶", t:"Adler-Welt (Kids)", d:"Federn, FUT-Karten, Technik-Abzeichen und Wochen-Challenge – alles im „Adler-Welt\"-Button auf dem Dashboard. Die Kinder spielen das Quiz über den Kids-Link."},
+  {emo:"📅", t:"Orga & Eltern", d:"Termine mit Platz, Wetter & Trainer-Verfügbarkeit; Gegner-Datenbank mit Kontakt; der Eltern-Bereich mit RSVP, Betreuung vor Ort und Quiz. Viel Spaß! 🎉"},
+];
+let tourIdx=0;
+function tourMaybe(){ try{if(localStorage.getItem("adler_trainer_tour"))return;}catch(e){} tourStart(); }
+function tourStart(){ tourIdx=0; tourRender(); }
+function tourNext(){ if(tourIdx<TOUR.length-1){tourIdx++;tourRender();}else tourClose(); }
+function tourPrev(){ if(tourIdx>0){tourIdx--;tourRender();} }
+function tourClose(){ try{localStorage.setItem("adler_trainer_tour","1");}catch(e){} document.getElementById("tour-ov")?.remove(); }
+function tourRender(){
+  document.getElementById("tour-ov")?.remove();
+  const s=TOUR[tourIdx]; if(!s){tourClose();return;}
+  const last=tourIdx===TOUR.length-1;
+  const ov=document.createElement("div"); ov.id="tour-ov";
+  ov.style.cssText="position:fixed;inset:0;z-index:10050;background:rgba(15,23,42,.75);display:flex;align-items:center;justify-content:center;padding:20px";
+  ov.innerHTML=`<div style="background:var(--surface);color:var(--text);max-width:360px;width:100%;border-radius:18px;padding:22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.5)">
+    <div style="font-size:42px;line-height:1">${s.emo}</div>
+    <div style="font-size:18px;font-weight:800;margin:8px 0 8px">${esc(s.t)}</div>
+    <div style="font-size:13.5px;color:var(--text2);line-height:1.5;text-align:left">${esc(s.d)}</div>
+    <div style="display:flex;gap:6px;justify-content:center;margin:16px 0 4px">${TOUR.map((_,i)=>`<span style="width:7px;height:7px;border-radius:50%;background:${i===tourIdx?'var(--blue)':'var(--border)'}"></span>`).join("")}</div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      ${tourIdx>0?`<button class="btn btn-sm" onclick="tourPrev()">Zurück</button>`:`<button class="btn btn-sm" onclick="tourClose()">Überspringen</button>`}
+      <button class="btn btn-p btn-sm" style="margin-left:auto" onclick="tourNext()">${last?"Fertig 🚀":"Weiter"}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+}
+
 // Adler-Welt: Trainer-Hub für Federn/Karten/Abzeichen/Challenge – ansehen & verwalten.
 async function adlerWeltOpen(){
   const active=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
@@ -1833,6 +1942,7 @@ async function adlerWeltOpen(){
 async function renderHome(){
   const box=document.getElementById("home-content");
   if(!box)return;
+  if(!window._tourChecked){window._tourChecked=true;setTimeout(tourMaybe,700);} // Feature-Tour beim ersten Start
   const heute=new Date().toISOString().slice(0,10);
   const card=(inner,accent)=>`<div style="background:var(--surface);border:var(--border-s);${accent?`border-left:3px solid ${accent};`:""}border-radius:var(--rl);padding:12px 14px;margin-bottom:10px">${inner}</div>`;
 
