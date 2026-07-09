@@ -1,4 +1,4 @@
-const CACHE="u9i-adler-v193";
+const CACHE="u9i-adler-v194";
 const PRECACHE=[
   "./",
   "./index.html",
@@ -41,9 +41,13 @@ async function precacheFonts(cache){
 }
 
 self.addEventListener("install",e=>{
+  // cache:"reload" umgeht den HTTP-Cache des Browsers. Ohne das kann der Precache eine
+  // Datei aus dem Browser-Cache uebernehmen (GitHub Pages liefert HTML mit max-age=600)
+  // und der neue Service Worker startet mit einer veralteten index.html.
+  const frisch=PRECACHE.map(u=>new Request(u,{cache:"reload"}));
   e.waitUntil(
     caches.open(CACHE)
-      .then(c=>c.addAll(PRECACHE).then(()=>precacheFonts(c)))
+      .then(c=>c.addAll(frisch).then(()=>precacheFonts(c)))
       .then(()=>self.skipWaiting())
   );
 });
@@ -63,8 +67,34 @@ self.addEventListener("fetch",e=>{
   if(url.includes("openstreetmap.org"))return; // Geocoding/Adress-Suche: nie cachen (Query-Sicherheit)
   if(e.request.method!=="GET")return;
 
+  /* NETWORK-FIRST fuer die Seite selbst und die Manifeste.
+     Vorher galt auch hier cache-first: die HTML-Seite kam aus dem Cache und hing damit
+     strukturell eine Version hinterher. Fatal beim Installieren – Chrome liest das
+     Manifest aus dem gelieferten HTML, bekam die ALTE Seite (ohne die Manifest-Umschaltung
+     im <head>) und hat den Eltern-Zugang als Trainer-App installiert.
+     Offline faellt beides sauber auf den Cache zurueck. */
+  const istSeite = e.request.mode==="navigate";
+  const istManifest = /manifest-[a-z]+\.json$/.test(url);
+  if(istSeite||istManifest){
+    e.respondWith((async()=>{
+      try{
+        const net=await fetch(e.request);
+        if(net&&net.ok){
+          const clone=net.clone();
+          // Navigationen unter der App-Shell ablegen (?portal/?quiz sind dieselbe Datei)
+          caches.open(CACHE).then(c=>c.put(istSeite?"./index.html":e.request,clone));
+        }
+        return net;
+      }catch(err){
+        const cached=await caches.match(istSeite?"./index.html":e.request,{ignoreSearch:istSeite});
+        return cached||new Response("Offline",{status:503,statusText:"Offline"});
+      }
+    })());
+    return;
+  }
+
   e.respondWith((async()=>{
-    // ignoreSearch: "./?quiz" (installierte Quiz-App) matcht den Precache von "./"
+    // ignoreSearch: "./?quiz" matcht den Precache von "./"
     const cached=await caches.match(e.request,{ignoreSearch:true});
     const fetchPromise=fetch(e.request).then(res=>{
       if(res.ok){
