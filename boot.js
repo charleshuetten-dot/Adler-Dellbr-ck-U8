@@ -1040,6 +1040,14 @@ async function pinCheck(){
     document.querySelectorAll("#main-nav,.view").forEach(el=>el.style.display="none");
     document.getElementById("view-taktik").style.display="";
     window.savePlayer=()=>{};window.delPlayer=()=>{};window.delSnapshot=()=>{};
+    const qMode=params.get("mode"); if(qMode)window._quizMode=qMode; // direkt ins Taktik-/Wissens-Quiz
+    if(params.get("from")==="kabine"){ // sichtbarer Rückweg für die Kinder
+      const back=document.createElement("button");
+      back.id="quiz-back"; back.type="button"; back.textContent="← Zurück zur Kabine";
+      back.onclick=()=>{location.href=location.pathname+"?portal";};
+      back.style.cssText="position:fixed;bottom:12px;left:12px;z-index:9990;padding:10px 14px;border:none;border-radius:12px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.35)";
+      document.body.appendChild(back);
+    }
     setTimeout(()=>tqStart(),100);
     setTimeout(()=>{if(typeof kidsIntroMaybe==="function")kidsIntroMaybe();},250); // einmalige Federn/Karten-Erklärung
     setTimeout(pwaInstallNudge,1800); // UX 1: Soft-Install-Nudge für die Kids

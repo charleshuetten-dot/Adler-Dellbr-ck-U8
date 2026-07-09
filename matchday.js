@@ -252,8 +252,14 @@ async function elternDashLoad(){
       <div id="xp-chip-${k.spieler_id}" style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:8px"></div>
       <button onclick="elternCardOpen(${k.spieler_id})" style="width:100%;padding:9px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🃏 Adler-Karte ansehen</button>
       <button onclick="abzeichenOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #f59e0b;border-radius:10px;background:#fffbeb;color:#b45309;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🎖️ Technik-Abzeichen</button>
-      <button onclick="elternFanfactsOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #64748b;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">✏️ Fan-Fakten &amp; Foto</button>`);
+      <button onclick="childWrappedShare(${k.spieler_id})" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🎬 Saison-Rückblick (Wrapped)</button>
+      <button onclick="elternFanfactsOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #64748b;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">✏️ Fan-Fakten &amp; Foto</button>
+      <div style="font-size:10.5px;color:#94a3b8;margin-top:6px">Tipp: Das Foto erscheint erst dann in der Team-Galerie (Kabine), wenn du es unter „Fan-Fakten & Foto" freigibst.</div>`);
   }).join("");
+  // Mehr vom Team: Stadionheft (öffentliche Leseansicht)
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">📰 Mehr vom Team</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Das digitale Stadionheft mit Neuigkeiten, Ergebnissen und Geburtstagen.</div>
+    <a href="${location.pathname}?heft" style="display:block;text-align:center;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;text-decoration:none">📰 Adler Horst öffnen</a>`);
   // FEAT Y: Fundbüro – Board + Upload für alle eingeloggten Eltern
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🧦 Fundbüro</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Trinkflasche verschwunden? Jacke gefunden? Hier sammelt das Team.</div>
@@ -835,13 +841,16 @@ function kabineHome(){
       <div style="font-size:12px;opacity:.8">Adler U9 · Kinder-Modus</div>
     </div>
     <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px;align-content:center">
-      <button onclick="kabineShowGallery()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:18px;font-weight:800;min-height:120px"><span style="font-size:44px">🖼️</span>Team-Galerie</button>
-      <button onclick="kabineQuiz()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:18px;font-weight:800;min-height:120px"><span style="font-size:44px">🧠</span>Quiz</button>
-      <button onclick="kabineShowQuests()" style="grid-column:1/-1;border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;font-size:18px;font-weight:800;min-height:84px"><span style="font-size:34px">🏆</span>Unsere Missionen</button>
+      <button onclick="kabineQuiz('taktik')" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎯</span>Taktik-Quiz</button>
+      <button onclick="kabineQuiz('wissen')" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🧠</span>Fußball-Wissen</button>
+      <button onclick="kabineShowGallery()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🖼️</span>Team-Galerie</button>
+      <button onclick="kabineShowQuests()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🏆</span>Missionen</button>
     </div>
     <button onclick="kabineExit()" style="margin:0 16px 18px;padding:12px;border:none;border-radius:14px;background:rgba(0,0,0,.25);color:#fff;font-family:inherit;font-size:14px;cursor:pointer">🔒 Für Erwachsene: Kabine verlassen</button>`;
 }
-function kabineQuiz(){ window.location.href=location.pathname+"?quiz"; }
+// mode: "taktik" | "wissen" – springt nach der Namenswahl direkt ins gewählte Quiz.
+// from=kabine blendet im Quiz einen „Zurück zur Kabine"-Button ein.
+function kabineQuiz(mode){ window.location.href=location.pathname+"?quiz&from=kabine"+(mode?"&mode="+encodeURIComponent(mode):""); }
 function kabineShowQuests(){
   const b=document.getElementById("kabine-body"); if(!b)return;
   b.innerHTML=`
@@ -895,12 +904,13 @@ function galleryCardData(g){
     badges:strengths.map(x=>CARD_BADGES[x.key]),theme,
     counts:{trainings:g.trainings||0,tore:null,paraden:null,aktionen:null,spiele:null,quizRichtig:0,quizBloecke:0}};
 }
+// Erwachsenen-Gate der Kabine: fester Code statt Rechenaufgabe (die war für U9 zu leicht).
+const KABINE_CODE="1922";
 function kabineExit(){
-  const a=2+Math.floor(Math.random()*7), b=2+Math.floor(Math.random()*7);
-  const ans=prompt(`Nur für Erwachsene 🔒\nWie viel ist ${a} × ${b}?`);
+  const ans=prompt("Nur für Erwachsene 🔒\nBitte den Code eingeben:");
   if(ans===null)return;
-  if(parseInt(ans)===a*b){ isKidsMode=false; document.getElementById("kabine")?.remove(); }
-  else { toast("Leider falsch – die Kabine bleibt zu.","err"); }
+  if(String(ans).trim()===KABINE_CODE){ isKidsMode=false; document.getElementById("kabine")?.remove(); }
+  else { toast("Falscher Code – die Kabine bleibt zu.","err"); }
 }
 function elternPortalTrainerNotice(root){
   root.innerHTML=`<div style="max-width:360px;margin:8vh auto;background:#fff;border-radius:16px;padding:24px;text-align:center">

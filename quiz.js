@@ -447,6 +447,9 @@ function tqSelectPlayer(name){
     const lat=snaps[snaps.length-1];
     tqPlayerRole=lat.prim_rolle||lat.position||"";
   }else{tqPlayerRole="";}
+  const mode=window._quizMode; window._quizMode=null; // aus der Kabine direkt ins gewählte Quiz
+  if(mode==="taktik"){tqBlocksShow();return;}
+  if(mode==="wissen"){wqStart();return;}
   tqStart();
 }
 
