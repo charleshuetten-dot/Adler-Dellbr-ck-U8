@@ -413,9 +413,30 @@ function kontakteEditOpen(spielerId){
   document.body.appendChild(modal);
   kontakteRender(spielerId);
 }
+/* Eltern-Einladung: vorbereitete Nachricht, kein Server-Versand. Der Portal-Link ist
+   kein Geheimnis – anmelden kann sich nur, wessen E-Mail in eltern_kinder steht
+   (is_email_whitelisted + Einmal-Code). Der Trainer sieht den Text und sendet selbst. */
+function jsq(s){ return String(s==null?"":s).replace(/\\/g,"\\\\").replace(/'/g,"\\'"); }
+function elternPortalUrl(){ return location.origin+location.pathname+"?portal"; }
+function inviteText(email,kind){
+  return `Hallo! 🦅\n\nHier ist dein Zugang zum Eltern-Bereich der U9 vom SV Adler Dellbrück`
+    +`${kind?` – für ${kind}`:""}.\n\n${elternPortalUrl()}\n\n`
+    +`So geht's:\n1. Link öffnen\n2. Diese E-Mail-Adresse eingeben: ${email}\n3. Du bekommst einen Einmal-Code per Mail – fertig. Kein Passwort nötig.\n\n`
+    +`Dort kannst du zu- und absagen, Termine in deinen Kalender laden und die Adler-Karte deines Kindes ansehen.\n\nBis bald am Platz!`;
+}
+function inviteMail(email,kind){
+  const betreff=`Dein Zugang zum Eltern-Bereich der U9${kind?` (${kind})`:""}`;
+  location.href=`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(betreff)}&body=${encodeURIComponent(inviteText(email,kind))}`;
+}
+function inviteWa(tel,kind,email){
+  const nr=waNumber(tel); if(!nr){toast("Keine gültige Handynummer","err");return;}
+  if(!email){toast("Erst eine Login-E-Mail hinterlegen","err");return;} // ohne Whitelist-Mail nützt der Link nichts
+  window.open(`https://wa.me/${nr}?text=${encodeURIComponent(inviteText(email,kind))}`,"_blank","noopener");
+}
 async function kontakteRender(sid){
   const body=document.getElementById("kontakte-body");
   if(!body)return;
+  const kName=(KADER.find(x=>x._id===sid)||{}).name||"";
   let emails=[],phones=[];
   try{const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?spieler_id=eq.${sid}&select=id,email,label&order=id`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)emails=await r.json();}catch(e){}
   try{const r=await fetch(`${SB_URL}/rest/v1/kind_kontakte?spieler_id=eq.${sid}&select=id,name,rolle,telefon&order=id`,{headers:sbAuthHeaders()});if(r.ok)phones=await r.json();}catch(e){}
@@ -424,8 +445,10 @@ async function kontakteRender(sid){
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">🔑 Login-E-Mails</div>
     ${emails.length?emails.map(e=>`<div style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 0;border-bottom:1px solid var(--surface2)">
       <span style="flex:1;word-break:break-all">${esc(e.email)}${e.label?` <span style="color:var(--text3);font-size:11px">(${esc(e.label)})</span>`:""}</span>
+      <button onclick="inviteMail('${jsq(e.email)}','${jsq(kName)}')" title="Zugangs-Mail vorbereiten" style="border:none;background:transparent;color:var(--purple);cursor:pointer"><i class="ti ti-mail-forward"></i></button>
       <button onclick="kontakteDelEmail(${e.id},${sid})" title="Entfernen" style="border:none;background:transparent;color:#dc2626;cursor:pointer"><i class="ti ti-trash"></i></button>
     </div>`).join(""):'<div style="font-size:12px;color:var(--text3)">Noch keine Login-E-Mail.</div>'}
+    ${emails.length?'<div style="font-size:10.5px;color:var(--text3);margin-top:6px">✉️ öffnet dein Mail-Programm mit fertiger Einladung – du tippst nur noch auf Senden.</div>':""}
     <div style="display:flex;gap:6px;margin:8px 0 16px;flex-wrap:wrap">
       <input id="kk-new-email" type="email" placeholder="eltern@mail.de" style="flex:2;min-width:130px;${inp}">
       <input id="kk-new-email-label" placeholder="Rolle (optional)" style="flex:1;min-width:80px;${inp}">
@@ -434,8 +457,10 @@ async function kontakteRender(sid){
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">📞 Telefonnummern</div>
     ${phones.length?phones.map(p=>`<div style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 0;border-bottom:1px solid var(--surface2)">
       <span style="flex:1">${esc(p.telefon)}${(p.name||p.rolle)?` <span style="color:var(--text3);font-size:11px">(${esc([p.rolle,p.name].filter(Boolean).join(" · "))})</span>`:""}</span>
+      ${waNumber(p.telefon)&&emails.length?`<button onclick="inviteWa('${jsq(p.telefon)}','${jsq(kName)}','${jsq(emails[0].email)}')" title="Zugang per WhatsApp schicken" style="border:none;background:transparent;color:#25d366;cursor:pointer"><i class="ti ti-brand-whatsapp"></i></button>`:""}
       <button onclick="kontakteDelPhone(${p.id},${sid})" title="Entfernen" style="border:none;background:transparent;color:#dc2626;cursor:pointer"><i class="ti ti-trash"></i></button>
     </div>`).join(""):'<div style="font-size:12px;color:var(--text3)">Noch keine Nummer.</div>'}
+    ${phones.length?'<div style="font-size:10.5px;color:var(--text3);margin-top:6px">💬 öffnet WhatsApp mit der Einladung. Anmelden kann sich nur, wessen E-Mail oben hinterlegt ist.</div>':""}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
       <input id="kk-new-tel" type="tel" placeholder="Telefon" style="flex:2;min-width:110px;${inp}">
       <input id="kk-new-rolle" placeholder="Rolle (z. B. Mutter)" style="flex:1;min-width:90px;${inp}">
