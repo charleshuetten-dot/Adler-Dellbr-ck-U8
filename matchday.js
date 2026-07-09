@@ -403,9 +403,10 @@ async function elternBetreuungToggle(terminId,spielerId,stay){
 const ELTERN_TOUR=[
   {emo:"🦅", t:"Willkommen im Eltern-Bereich", d:"Hier läuft alles rund um dein Kind bei der U9 zusammen. Du kannst diese Tour später jederzeit über das ❓ oben neu starten."},
   {emo:"👍", t:"Zu- & Absagen", d:"Melde dein Kind direkt oben am nächsten Termin zu oder ab. Tippst du den aktiven Status nochmal an, wird die Rückmeldung wieder entfernt. Über „Alle Termine\" siehst du alles Kommende und kannst es in deinen Kalender laden."},
-  {emo:"🃏", t:"Adler-Karte & Federn", d:"Unter „Für dein Kind\" findest du die Sammelkarte, die Technik-Abzeichen und die Fan-Fakten. Mit „Adler-Federn 🪶\" schaltet dein Kind immer coolere Karten-Designs frei."},
-  {emo:"🎮", t:"Die Kabine (Kinder-Modus)", d:"In der Kabine spielt dein Kind das Fußball-Quiz und sammelt Federn – dazu Team-Galerie und Missionen. Und bei den Technik-Abzeichen hakst du zuhause geübte Übungen ab."},
-  {emo:"🙋", t:"Betreuung vor Ort & mehr", d:"Beim Training kannst du angeben, ob du vor Ort bleibst – so seht ihr alle, dass immer jemand da ist. Außerdem: Wetter am Termin, Fahrgemeinschaften, Fotos. Viel Spaß! 🎉"},
+  {emo:"🙋", t:"Alles rund um den Termin", d:"In derselben Karte findest du Wetter, Treffpunkt und Fahrgemeinschaften. Beim Training gibst du an, ob du vor Ort bleibst – so seht ihr alle, dass immer jemand da ist. Bei Spielen und Turnieren führt dich der 📣 Liveticker zum Spielstand, auch wenn du nicht dabei sein kannst."},
+  {emo:"🎮", t:"Die Kabine (Kinder-Modus)", d:"Gib dein Handy bedenkenlos weiter: In der Kabine spielt dein Kind das Taktik- und das Fußball-Quiz, sammelt 🪶 Federn und stöbert in Team-Galerie und Missionen. Zurück in den Eltern-Bereich geht es nur mit einem Code."},
+  {emo:"🃏", t:"Für dein Kind", d:"Sammelkarte, Technik-Abzeichen (die hakst du zuhause ab), Saison-Rückblick und Fan-Fakten. Dort entscheidest du auch, ob das Foto deines Kindes im „Adler Horst\" und in der Team-Galerie erscheinen darf – ohne dein Häkchen bleiben es nur die Initialen."},
+  {emo:"📰", t:"Team, Heft & Adler-Kasse", d:"Der „Adler Horst\" ist unser digitales Stadionheft. Und über „Fan-Link teilen\" schickst du Oma, Opa und Fans den Spenden-Link zur Mannschaftskasse. Viel Spaß! 🎉"},
 ];
 let elternTourIdx=0;
 function elternTourMaybe(){ try{if(localStorage.getItem("adler_eltern_tour"))return;}catch(e){} elternTourStart(); }
@@ -885,7 +886,8 @@ function kabineRenderGallery(){
       <canvas id="kabine-card" style="max-width:100%;width:280px;height:auto;border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.5)"></canvas>
       <button onclick="kabineGalleryNav(1)" style="position:absolute;right:8px;z-index:2;background:rgba(255,255,255,.15);border:none;color:#fff;width:46px;height:46px;border-radius:50%;font-size:24px;cursor:pointer">›</button>
     </div>
-    <div style="text-align:center;padding:0 16px 16px;font-size:13px;opacity:.85">${esc(g.name)}${g.spitzname?` „${esc(g.spitzname)}“`:""}${g.lieblingsverein?` · Fan von ${esc(g.lieblingsverein)}`:""}</div>`;
+    <div style="text-align:center;padding:0 16px 16px;font-size:13px;opacity:.85">${esc(g.name)}${g.spitzname?` „${esc(g.spitzname)}“`:""}${g.lieblingsverein?` · Fan von ${esc(g.lieblingsverein)}`:""}</div>
+    ${g.foto_path?"":`<div style="margin:0 16px 16px;background:rgba(255,255,255,.12);border-radius:12px;padding:10px 12px;text-align:center;font-size:11.5px;line-height:1.5">📷 Hier fehlt noch ein Foto von ${esc(g.name)}.<br><span style="opacity:.75">Frag Mama oder Papa, ob sie es freigeben – im Eltern-Bereich unter „Fan-Fakten &amp; Foto“.</span></div>`}`;
   const canvas=document.getElementById("kabine-card");if(!canvas)return;
   canvas.width=500;canvas.height=780;const ctx=canvas.getContext("2d");
   adlerCardDraw(ctx,500,780,d,null);
