@@ -1,0 +1,18 @@
+{
+  "id": "adler-u9-eltern",
+  "name": "Eltern-Bereich U9 – SV Adler Dellbrück",
+  "short_name": "U9 Eltern",
+  "description": "Termine, Zu- und Absagen, Adler-Karte und Kabine für die Eltern der U9 des SV Adler Dellbrück",
+  "start_url": "./?portal",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#1e3a8a",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "./icon-eltern.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-eltern.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "categories": ["sports", "lifestyle"],
+  "lang": "de"
+}

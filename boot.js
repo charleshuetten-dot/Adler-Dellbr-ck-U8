@@ -970,6 +970,12 @@ async function pinCheck(){
   if(params.has("portal")){
     document.title="Eltern-Bereich – SV Adler Dellbrück U9";
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#1e3a8a");
+    // Eigenes Manifest mit eigener id "adler-u9-eltern" – sonst halten Android/iOS
+    // Eltern- und Trainer-App fuer dieselbe App und ueberschreiben die Installation.
+    document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content","U9 Eltern");
+    document.querySelector('meta[name="application-name"]')?.setAttribute("content","U9 Eltern");
+    document.getElementById("pwa-manifest")?.setAttribute("href","manifest-eltern.json");
+    document.getElementById("apple-icon")?.setAttribute("href","icon-eltern.png");
     document.getElementById("pin-gate")?.remove();
     document.getElementById("main-app")?.remove();
     // UX 3: Deep-Link-Intent (?rsvp=<termin_id>) puffern und die URL SOFORT saeubern,
