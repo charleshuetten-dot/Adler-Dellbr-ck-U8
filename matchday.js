@@ -188,6 +188,7 @@ async function elternDashLoad(){
   if(!kids.length){ body.innerHTML=card('<div style="color:#475569;font-size:13px;line-height:1.6">Dein Trainer hat diese E-Mail noch <b>keinem Kind</b> zugeordnet.<br>Bitte gib ihm die E-Mail-Adresse, mit der du dich hier angemeldet hast.</div>'); return; }
   let termineListe=[]; // UX 6: Timeline – die nächsten Termine, nicht nur der eine
   try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc&limit=12`,{headers:sbAuthHeaders()});if(r.ok){termineListe=await r.json();termin=termineListe[0]||null;}}catch(e){}
+  ELTERN_TERMINE=termineListe; // für den „Alle Termine"-Dialog + Kalender-Export
   let rsvp={};
   if(termin){
     try{const ids=kids.map(k=>k.spieler_id).join(",");const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${termin.id}&spieler_id=in.(${ids})&select=spieler_id,status,kommentar`,{headers:sbAuthHeaders()});if(r.ok){(await r.json()).forEach(x=>rsvp[x.spieler_id]=x);}}catch(e){}
@@ -200,74 +201,59 @@ async function elternDashLoad(){
     const d=new Date(termin.datum+"T00:00:00");
     const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
     const zeit=termin.uhrzeit?String(termin.uhrzeit).slice(0,5)+" Uhr":"";
-    // UX 2: "Action Required" – fehlt die Rückmeldung, kommt ein grosses One-Tap-Widget
-    // zuoberst. Bewusst dismiss-bar (pro Termin, pro Tag): Zwang erzeugt Fake-Zusagen.
     const offen=kids.filter(k=>!rsvp[k.spieler_id]);
-    const nudgeKey="adler_rsvp_nudge_"+termin.id;
-    let nudgeDismissed=false; try{nudgeDismissed=localStorage.getItem(nudgeKey)===heute;}catch(e){}
-    // Deep-Link erzwingt das Widget – auch wenn heute schon weggeklickt (der Trainer hat gezielt erinnert)
-    if(offen.length&&(!nudgeDismissed||rsvpIntent)){
-      html+=`<div id="rsvp-nudge" style="background:linear-gradient(135deg,#1e3a8a,#2563eb);border-radius:14px;padding:18px;margin-bottom:12px;color:#fff;box-shadow:0 6px 20px rgba(30,58,138,.35)">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;opacity:.85">❗ Rückmeldung fehlt</div>
-        <div style="font-size:17px;font-weight:800;margin:4px 0 2px">${m.icon} ${esc(termin.titel||termin.gegner||m.label)}</div>
-        <div style="font-size:12.5px;opacity:.85;margin-bottom:12px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})}${zeit?" · "+zeit:""}${termin.ort?" · "+esc(termin.ort):""}</div>
-        ${offen.map(k=>{const kd=k.kader||{};return `<div style="background:rgba(255,255,255,.14);border-radius:12px;padding:12px;margin-bottom:8px">
-          <div style="font-weight:700;font-size:14px;margin-bottom:8px">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="opacity:.7">#${kd.nr}</span>`:""}</div>
-          <div style="display:flex;gap:8px">
-            <button onclick="elternRsvp(${termin.id},${k.spieler_id},'zugesagt')" style="flex:1;min-height:52px;padding:12px;border:none;border-radius:10px;background:#22c55e;color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">👍 Ist dabei</button>
-            <button onclick="elternRsvp(${termin.id},${k.spieler_id},'abgesagt')" style="flex:1;min-height:52px;padding:12px;border:none;border-radius:10px;background:rgba(255,255,255,.22);color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">👎 Kann nicht</button>
-          </div></div>`;}).join("")}
-        <button onclick="try{localStorage.setItem('${nudgeKey}','${heute}')}catch(e){};elternDashLoad()" style="width:100%;padding:8px;border:none;background:transparent;color:rgba(255,255,255,.75);font-family:inherit;font-size:12px;cursor:pointer;text-decoration:underline">Später entscheiden – heute nicht mehr fragen</button>
-      </div>`;
-    }
-    html+=card(`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Nächster Termin</div>
-      <div style="font-size:16px;font-weight:800;margin-top:2px">${m.icon} ${esc(termin.titel||termin.gegner||m.label)}</div>
-      <div style="font-size:12.5px;color:#64748b;margin-top:3px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})}${zeit?" · "+zeit:""}${termin.ort?" · "+mapsAnchor(termin.ort):""}${termin.platz?" · 🏟️ "+esc(termin.platz):""}</div>
-      <div id="wetter-eltern"></div>
-      ${(()=>{const ts=termin.trainer_status||{};const ja=Object.keys(ts).filter(n=>ts[n]==='ja');return ja.length?`<div style="font-size:11.5px;color:#64748b;margin-top:4px">👤 Trainer dabei: ${ja.map(esc).join(', ')}</div>`:'';})()}
-      <button onclick="galerieOpen(${termin.id},'${(termin.titel||termin.gegner||m.label).replace(/'/g,'')}')" style="width:100%;margin-top:10px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 Event-Fotos ansehen &amp; teilen</button>`);
-    html+=kids.map(k=>{
+    const trainerJa=Object.keys(termin.trainer_status||{}).filter(n=>(termin.trainer_status||{})[n]==="ja");
+    // Zu-/Absage direkt am Termin – erneuter Klick auf den aktiven Status entfernt ihn wieder.
+    const rsvpRows=kids.map(k=>{
       const kd=k.kader||{}, cur=rsvp[k.spieler_id], st=cur?cur.status:null;
       const btns=Object.keys(EP_RSVP).map(s=>{
         const on=st===s, c=EP_RSVP[s];
-        return `<button onclick="elternRsvp(${termin.id},${k.spieler_id},'${s}')" style="flex:1;min-width:92px;padding:11px 6px;border-radius:10px;border:1.5px solid ${on?c.col:"#e2e8f0"};background:${on?c.col:"#fff"};color:${on?"#fff":"#334155"};font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">${c.emo} ${c.lbl}</button>`;
+        const act=on?`elternRsvpClear(${termin.id},${k.spieler_id})`:`elternRsvp(${termin.id},${k.spieler_id},'${s}')`;
+        return `<button onclick="${act}" style="flex:1;min-width:84px;padding:10px 6px;border-radius:10px;border:1.5px solid ${on?c.col:"#e2e8f0"};background:${on?c.col:"#fff"};color:${on?"#fff":"#334155"};font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">${c.emo} ${c.lbl}</button>`;
       }).join("");
-      return card(`<div style="font-weight:700;font-size:15px;margin-bottom:2px">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="color:#94a3b8;font-weight:600">#${kd.nr}</span>`:""}</div>
-        <div id="xp-chip-${k.spieler_id}" style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:4px"></div>
-        <div style="font-size:11.5px;color:${st?EP_RSVP[st].col:"#94a3b8"};margin-bottom:8px">${st?`Aktuell: ${EP_RSVP[st].emo} ${EP_RSVP[st].lbl}`:"Bitte rückmelden"}${cur&&cur.kommentar?` · „${esc(cur.kommentar)}"`:""}</div>
+      return `<div style="border-top:1px solid #f1f5f9;margin-top:10px;padding-top:10px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="font-weight:700;font-size:14px">${esc(kd.name||"Kind")}</span>
+          ${kd.nr!=null?`<span style="color:#94a3b8;font-weight:600;font-size:12px">#${kd.nr}</span>`:""}
+          <span style="margin-left:auto;font-size:11.5px;font-weight:700;color:${st?EP_RSVP[st].col:"#b45309"}">${st?EP_RSVP[st].emo+" "+EP_RSVP[st].lbl:"❗ offen"}</span>
+        </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>
-        <button onclick="elternCardOpen(${k.spieler_id})" style="width:100%;margin-top:8px;padding:9px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🃏 Adler-Karte ansehen</button>
-        <button onclick="abzeichenOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #f59e0b;border-radius:10px;background:#fffbeb;color:#b45309;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🎖️ Technik-Abzeichen</button>
+        ${st?`<div style="font-size:10.5px;color:#94a3b8;margin-top:5px">Nochmal auf „${EP_RSVP[st].lbl}" tippen, um die Rückmeldung zu entfernen.</div>`:""}
+        ${cur&&cur.kommentar?`<div style="font-size:11px;color:#64748b;margin-top:3px">„${esc(cur.kommentar)}"</div>`:""}
         ${st==="zugesagt"?`<button onclick="elternCarpoolOpen(${k.spieler_id},${termin.id})" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🚗 Fahrgemeinschaft</button>`:""}
-        <button onclick="elternFanfactsOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #64748b;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">✏️ Fan-Fakten &amp; Foto</button>`);
+      </div>`;
     }).join("");
+    html+=`<div id="termin-card" style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;${offen.length?"border:2px solid #f59e0b;box-shadow:0 4px 16px rgba(245,158,11,.18)":""}">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Nächster Termin</div>
+        ${offen.length?`<span style="margin-left:auto;font-size:10px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:20px;padding:2px 8px">❗ Rückmeldung fehlt</span>`:""}
+      </div>
+      <div style="font-size:16px;font-weight:800;margin-top:2px">${m.icon} ${esc(termin.titel||termin.gegner||m.label)}</div>
+      <div style="font-size:12.5px;color:#64748b;margin-top:3px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})}${zeit?" · "+zeit:""}${termin.ort?" · "+mapsAnchor(termin.ort):""}${termin.platz?" · 🏟️ "+esc(termin.platz):""}</div>
+      <div id="wetter-eltern"></div>
+      ${trainerJa.length?`<div style="font-size:11.5px;color:#64748b;margin-top:4px">👤 Trainer dabei: ${trainerJa.map(esc).join(", ")}</div>`:""}
+      ${rsvpRows}
+      <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Deine Rückmeldung ist ein Hinweis für den Trainer – die endgültige Aufstellung entscheidet er.</div>
+      ${termin.typ==="training"?'<div id="betreuung-card"></div>':""}
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <button onclick="galerieOpen(${termin.id},'${(termin.titel||termin.gegner||m.label).replace(/'/g,'')}')" style="flex:1;min-width:130px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 Event-Fotos</button>
+        <button onclick="elternTermineOpen()" style="flex:1;min-width:130px;padding:9px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📅 Alle Termine</button>
+      </div>
+    </div>`;
   }
-  html+=`<div style="text-align:center;font-size:10.5px;color:#94a3b8;margin:2px 0 12px">Deine Rückmeldung ist ein Hinweis für den Trainer – die endgültige Aufstellung entscheidet er.</div>`;
-  // Quiz-Zugang für Eltern: öffnet die Kids-Quiz-App (Federn zählen, weil die Eltern-Session auf dem Gerät liegt)
-  if(termin&&termin.typ==="training")html+='<div id="betreuung-card"></div>'; // Eltern: wer bleibt vor Ort
-  html+=`<a href="${location.pathname}?quiz" style="display:block;text-align:center;background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;border-radius:14px;padding:14px;margin-bottom:12px;text-decoration:none;font-weight:800;font-size:14px">🎮 Adler-Quiz spielen <span style="display:block;font-weight:600;font-size:11.5px;opacity:.92;margin-top:2px">Fußball-Wissen & Taktik – Federn sammeln, Karte aufwerten</span></a>`;
-  // UX 6: Timeline der kommenden Termine (scrollbar, rein informativ – RSVP läuft oben)
-  if(termineListe.length>1){
-    html+=card(`<div style="font-weight:700;margin-bottom:8px">📅 Nächste Termine</div>
-      <div style="max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch">
-        ${termineListe.map((t,i)=>{
-          const tm=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"#1e3a8a"};
-          const td=new Date(t.datum+"T00:00:00");
-          const twtag=["So","Mo","Di","Mi","Do","Fr","Sa"][td.getDay()];
-          const tzeit=t.uhrzeit?String(t.uhrzeit).slice(0,5):"";
-          return `<div style="display:flex;align-items:center;gap:10px;padding:9px 6px;border-bottom:1px solid #f1f5f9${i===0?";background:#eff6ff;border-radius:8px":""}">
-            <div style="font-size:20px;width:28px;text-align:center">${tm.icon}</div>
-            <div style="flex:1;min-width:0">
-              <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.titel||t.gegner||tm.label)}${i===0?' <span style="font-size:10px;color:#2563eb;font-weight:800">· NÄCHSTER</span>':""}</div>
-              <div style="font-size:11px;color:#64748b">${twtag} ${td.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${tzeit?" · "+tzeit+" Uhr":""}${t.ort?" · "+esc(t.ort):""}</div>
-            </div>
-            <span style="font-size:10px;font-weight:700;color:${tm.col};background:${tm.col}18;border-radius:6px;padding:3px 7px;white-space:nowrap">${tm.label}</span>
-          </div>`;}).join("")}
-      </div>`);
-  }
-  html+=card(`<div style="font-weight:700;margin-bottom:8px">🎮 Für dein Kind</div>
-    <button onclick="kabineOpen()" style="display:block;width:100%;padding:13px;margin-bottom:8px;border:none;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-weight:800;font-size:14px;font-family:inherit;cursor:pointer">🎮 Kabine öffnen (Kinder-Modus)</button>
-    <a href="${location.pathname}?quiz" style="display:inline-block;padding:11px 16px;background:#059669;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">Nur Quiz starten</a>`);
+  // ── Kabine (Kinder-Modus) – das Quiz lebt ausschließlich hier ──
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">🎮 Für die Kinder</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Die Kabine ist der Kinder-Modus: Team-Galerie, Missionen und das Fußball-Quiz (${XP_ICON} Federn sammeln).</div>
+    <button onclick="kabineOpen()" style="display:block;width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-weight:800;font-size:14px;font-family:inherit;cursor:pointer">🎮 Kabine öffnen (Kinder-Modus)</button>`);
+  // ── Für dein Kind: Karte, Abzeichen, Fan-Fakten (ohne Zu-/Absage, auch ohne Termin erreichbar) ──
+  html+=`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin:2px 2px 6px">Für dein Kind</div>`;
+  html+=kids.map(k=>{const kd=k.kader||{};
+    return card(`<div style="font-weight:700;font-size:15px;margin-bottom:2px">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="color:#94a3b8;font-weight:600">#${kd.nr}</span>`:""}</div>
+      <div id="xp-chip-${k.spieler_id}" style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:8px"></div>
+      <button onclick="elternCardOpen(${k.spieler_id})" style="width:100%;padding:9px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🃏 Adler-Karte ansehen</button>
+      <button onclick="abzeichenOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #f59e0b;border-radius:10px;background:#fffbeb;color:#b45309;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🎖️ Technik-Abzeichen</button>
+      <button onclick="elternFanfactsOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #64748b;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">✏️ Fan-Fakten &amp; Foto</button>`);
+  }).join("");
   // FEAT Y: Fundbüro – Board + Upload für alle eingeloggten Eltern
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🧦 Fundbüro</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Trinkflasche verschwunden? Jacke gefunden? Hier sammelt das Team.</div>
@@ -293,10 +279,10 @@ async function elternDashLoad(){
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(el)el.innerHTML=adlerkasseCardHtml(l);}).catch(()=>{});
   // FEAT S: XP-Chips async füllen (RPC xp_total – Eltern sehen nur das eigene Kind)
   kids.forEach(k=>{xpTotal(k.spieler_id).then(t=>{const el=document.getElementById("xp-chip-"+k.spieler_id);if(el){const b=xpBadge(t);el.textContent=`${XP_ICON} ${t} ${XP_LABEL} · ${b.emo} ${b.t}`;}}).catch(()=>{});});
-  // UX 3: Deep-Link-Intent genau einmal abarbeiten – zum Nudge scrollen + kurz pulsen lassen
+  // UX 3: Deep-Link-Intent genau einmal abarbeiten – zur Termin-Karte scrollen + kurz pulsen lassen
   if(rsvpIntent){
     try{sessionStorage.removeItem("adler_rsvp_intent");}catch(e){}
-    const w=document.getElementById("rsvp-nudge");
+    const w=document.getElementById("termin-card");
     if(w){
       setTimeout(()=>{w.scrollIntoView({behavior:"smooth",block:"center"});
         try{w.animate([{transform:"scale(1)"},{transform:"scale(1.03)"},{transform:"scale(1)"}],{duration:600,iterations:2});}catch(e){}
@@ -317,6 +303,66 @@ async function elternRsvp(terminId,spielerId,status){
   if(status==="zugesagt"){const d=await xpAward(spielerId,"rsvp","t"+terminId);if(d>0)setTimeout(()=>toast(`${XP_ICON} +${d} ${XP_LABEL} gesammelt!`),1100);}
   elternDashLoad();
 }
+// Rückmeldung wieder entfernen (erneuter Klick auf den aktiven Status). Eltern dürfen nur die
+// Zeile des eigenen Kindes löschen (RLS). Gesammelte Adler-Federn bleiben (append-only Ledger).
+async function elternRsvpClear(terminId,spielerId){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${terminId}&spieler_id=eq.${spielerId}`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(!r.ok){toast("Konnte nicht entfernen","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Rückmeldung entfernt");
+  elternDashLoad();
+}
+// Alle kommenden Termine als Dialog + Kalender-Export (.ics) – gleiche Quelle wie die Liste.
+let ELTERN_TERMINE=[];
+function elternTermineOpen(){
+  const rows=ELTERN_TERMINE||[];
+  document.getElementById("et-modal")?.remove();
+  const modal=document.createElement("div");
+  modal.id="et-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Alle Termine");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10030;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const list=rows.length?rows.map((t,i)=>{
+    const tm=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"#1e3a8a"};
+    const td=new Date(t.datum+"T00:00:00");
+    const twtag=["So","Mo","Di","Mi","Do","Fr","Sa"][td.getDay()];
+    const tzeit=t.uhrzeit?String(t.uhrzeit).slice(0,5):"";
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 6px;border-bottom:1px solid #f1f5f9${i===0?";background:#eff6ff;border-radius:8px":""}">
+      <div style="font-size:20px;width:28px;text-align:center">${tm.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px">${esc(t.titel||t.gegner||tm.label)}${i===0?' <span style="font-size:10px;color:#2563eb;font-weight:800">· NÄCHSTER</span>':""}</div>
+        <div style="font-size:11px;color:#64748b">${twtag} ${td.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${tzeit?" · "+tzeit+" Uhr":""}${t.ort?" · "+esc(t.ort):""}${t.platz?" · 🏟️ "+esc(t.platz):""}</div>
+      </div>
+      <span style="font-size:10px;font-weight:700;color:${tm.col};background:${tm.col}18;border-radius:6px;padding:3px 7px;white-space:nowrap">${tm.label}</span>
+    </div>`;}).join(""):'<div style="font-size:12.5px;color:#94a3b8;padding:10px 0">Aktuell sind keine Termine geplant.</div>';
+  const c=document.createElement("div");
+  c.style.cssText="background:#fff;color:#1a1a2e;max-width:440px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:10px">📅 Alle Termine</div>
+    <div style="max-height:55vh;overflow-y:auto">${list}</div>
+    ${rows.length?`<button onclick="elternTermineIcs()" style="width:100%;margin-top:12px;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📥 Alle in meinen Kalender</button>`:""}
+    <button onclick="document.getElementById('et-modal').remove()" style="width:100%;margin-top:8px;padding:10px;border:none;border-radius:10px;background:#f1f5f9;color:#334155;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Schließen</button>`;
+  modal.appendChild(c);document.body.appendChild(modal);
+}
+function elternTermineIcs(){
+  const rows=ELTERN_TERMINE||[];
+  if(!rows.length){toast("Keine Termine","err");return;}
+  const dtStamp=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");
+  const lines=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//SV Adler Dellbrück//U9//DE","CALSCALE:GREGORIAN","METHOD:PUBLISH","X-WR-CALNAME:Adler U9 Termine"];
+  rows.forEach(t=>{
+    const tm=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{label:t.typ};
+    const time=(t.uhrzeit?String(t.uhrzeit).slice(0,5):"")||"17:00";
+    lines.push("BEGIN:VEVENT","UID:adler-"+t.id+"-"+t.datum+"@adler-u9","DTSTAMP:"+dtStamp,
+      "DTSTART:"+icsLocalStart(t.datum,time),"DTEND:"+icsLocalPlus(t.datum,time,90),
+      "SUMMARY:"+icsEscape((tm.label||"Termin")+": "+(t.titel||t.gegner||tm.label||"")));
+    if(t.ort)lines.push("LOCATION:"+icsEscape(t.ort));
+    lines.push("END:VEVENT");
+  });
+  lines.push("END:VCALENDAR");
+  const blob=new Blob([lines.join("\r\n")],{type:"text/calendar"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="adler-u9-termine.ics";
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast("Kalenderdatei erstellt ✓");
+}
 // Eltern-Betreuung beim Training: wer bleibt vor Ort. Alle Eltern sehen die Liste (betreuung_board).
 async function elternBetreuungLoad(terminId,kids){
   const box=document.getElementById("betreuung-card"); if(!box)return;
@@ -328,10 +374,10 @@ async function elternBetreuungLoad(terminId,kids){
   const toggles=(kids||[]).map(k=>{const kd=k.kader||{};const stay=mine[k.spieler_id]===true;
     return `<button onclick="elternBetreuungToggle(${terminId},${k.spieler_id},${stay?"false":"true"})" style="width:100%;margin-top:6px;padding:11px;border:1.5px solid ${stay?"#059669":"#cbd5e1"};border-radius:10px;background:${stay?"#059669":"#fff"};color:${stay?"#fff":"#334155"};font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">${stay?"✅ "+esc(kd.name||"Kind")+" – ich bleibe vor Ort":"🙋 "+esc(kd.name||"Kind")+": ich bleibe vor Ort"}</button>`;}).join("");
   const list=board.length?`<b style="color:#059669">${board.map(esc).join(", ")}</b>`:`<span style="color:#b45309;font-weight:700">noch niemand – bitte helft mit ⚠️</span>`;
-  box.innerHTML=`<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px">
-    <div style="font-weight:700;font-size:15px;margin-bottom:2px">🙋 Betreuung beim Training</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Mindestens ein Elternteil sollte während des Trainings vor Ort bleiben.</div>
-    <div style="font-size:12.5px;margin-bottom:6px">Vor Ort: ${list}</div>
+  box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
+    <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🙋 Betreuung beim Training</div>
+    <div style="font-size:11.5px;color:#64748b;margin-bottom:6px">Mindestens ein Elternteil sollte während des Trainings vor Ort bleiben.</div>
+    <div style="font-size:12.5px;margin-bottom:4px">Vor Ort: ${list}</div>
     ${toggles}
   </div>`;
 }
@@ -346,9 +392,9 @@ async function elternBetreuungToggle(terminId,spielerId,stay){
 // Eltern-Feature-Tour: kurzer Überblick beim ersten Login (einmalig), jederzeit neu startbar.
 const ELTERN_TOUR=[
   {emo:"🦅", t:"Willkommen im Eltern-Bereich", d:"Hier läuft alles rund um dein Kind bei der U9 zusammen. Du kannst diese Tour später jederzeit über das ❓ oben neu starten."},
-  {emo:"👍", t:"Zu- & Absagen", d:"Melde dein Kind zu Training und Spielen an oder ab. Deine Rückmeldung hilft dem Trainer bei der Planung – die endgültige Aufstellung entscheidet er."},
-  {emo:"🃏", t:"Adler-Karte & Federn", d:"Dein Kind hat eine eigene Sammelkarte. Mit „Adler-Federn 🪶\" schaltet es immer coolere Karten-Designs frei – von Bronze über Silber bis Gold."},
-  {emo:"🎮", t:"Quiz & Technik-Abzeichen", d:"Über „Adler-Quiz spielen\" sammelt dein Kind Federn (Fußball-Wissen & Taktik). Und bei den Technik-Abzeichen hakst du zuhause geübte Übungen ab – das gibt auch Federn."},
+  {emo:"👍", t:"Zu- & Absagen", d:"Melde dein Kind direkt oben am nächsten Termin zu oder ab. Tippst du den aktiven Status nochmal an, wird die Rückmeldung wieder entfernt. Über „Alle Termine\" siehst du alles Kommende und kannst es in deinen Kalender laden."},
+  {emo:"🃏", t:"Adler-Karte & Federn", d:"Unter „Für dein Kind\" findest du die Sammelkarte, die Technik-Abzeichen und die Fan-Fakten. Mit „Adler-Federn 🪶\" schaltet dein Kind immer coolere Karten-Designs frei."},
+  {emo:"🎮", t:"Die Kabine (Kinder-Modus)", d:"In der Kabine spielt dein Kind das Fußball-Quiz und sammelt Federn – dazu Team-Galerie und Missionen. Und bei den Technik-Abzeichen hakst du zuhause geübte Übungen ab."},
   {emo:"🙋", t:"Betreuung vor Ort & mehr", d:"Beim Training kannst du angeben, ob du vor Ort bleibst – so seht ihr alle, dass immer jemand da ist. Außerdem: Wetter am Termin, Fahrgemeinschaften, Fotos. Viel Spaß! 🎉"},
 ];
 let elternTourIdx=0;
