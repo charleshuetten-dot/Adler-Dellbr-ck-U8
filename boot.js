@@ -1044,7 +1044,9 @@ async function pinCheck(){
     if(params.get("from")==="kabine"){ // sichtbarer Rückweg für die Kinder
       const back=document.createElement("button");
       back.id="quiz-back"; back.type="button"; back.textContent="← Zurück zur Kabine";
-      back.onclick=()=>{location.href=location.pathname+"?portal";};
+      // Zurueck in den KINDER-Modus, nicht ins Eltern-Dashboard: das Flag ueberlebt das
+      // replaceState der ?portal-Route, elternDashLoad oeffnet danach direkt die Kabine.
+      back.onclick=()=>{try{sessionStorage.setItem("adler_open_kabine","1");}catch(e){} location.href=location.pathname+"?portal";};
       back.style.cssText="position:fixed;bottom:12px;left:12px;z-index:9990;padding:10px 14px;border:none;border-radius:12px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.35)";
       document.body.appendChild(back);
     }
