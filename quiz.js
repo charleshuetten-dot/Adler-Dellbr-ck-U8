@@ -331,9 +331,8 @@ function tqStart(){
     html+=tqRenderTaktikLauncher(pp); // Taktik-Quiz hinter Button (aufgeräumt, wie das Wissensquiz)
     html+=wqRenderLauncher();         // Fußball-Wissensquiz
     html+=`<div id="tq-challenge"></div>`;
-    html+=`<div style="display:flex;gap:6px;margin-top:10px">
-        <button class="btn btn-sm" onclick="tqPlayer=null;tqStart()"><i class="ti ti-arrow-left"></i>Spieler wechseln</button>
-        ${extern?"":'<button class="btn btn-sm" onclick="tqStop()" style="margin-left:auto"><i class="ti ti-x"></i>Schließen</button>'}
+    if(!extern)html+=`<div style="display:flex;margin-top:10px">
+        <button class="btn btn-sm" onclick="tqStop()" style="margin-left:auto"><i class="ti ti-x"></i>Schließen</button>
       </div>`;
   }
   html+=`</div>`;
@@ -354,6 +353,19 @@ function tqRenderTaktikLauncher(pp){
     </div>
   </div>`;
 }
+/* Gemeinsames Auswahl-Layout beider Quiz: Icon links, Titel, Fortschrittsbalken, ›.
+   Taktik-Quiz und Fußball-Wissen sehen dadurch identisch aus. */
+function quizChoiceCard(o){
+  return `<div class="card" style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:12px" onclick="${o.onclick}">
+    <div style="font-size:26px;line-height:1;width:30px;text-align:center">${o.icon}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">${o.titel}${o.fertig?" ✓":""}</div>
+      <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-top:5px"><div style="height:100%;width:${o.pct}%;background:${o.col};border-radius:3px"></div></div>
+      <div style="font-size:10px;color:var(--text3);margin-top:3px">${o.sub}</div>
+    </div>
+    <div style="font-size:18px;color:var(--text3)">›</div>
+  </div>`;
+}
 // Block-Auswahl des Taktik-Quiz (aus tqStart ausgelagert) inkl. Barometer + Sticker-Heft.
 function tqBlocksShow(){
   if(!tqPlayer){tqStart();return;}
@@ -363,18 +375,18 @@ function tqBlocksShow(){
   let html=`<div class="tq-panel">
     <div style="font-size:10px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🎯 Taktik-Quiz · ${esc(tqPlayer)}</div>
     <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:2px">Wähle einen Block!</div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Jeder Block hat 10 Fragen. Dein Fortschritt wird gespeichert.</div>
-    <div class="tq-blocks">`;
+    <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Jeder Block hat 10 Fragen. Dein Fortschritt wird gespeichert.</div>
+    <div style="display:flex;flex-direction:column;gap:8px">`;
   TQ_BLOCKS.forEach((b,i)=>{
     const bp=pp[i];
-    const done=bp&&bp.score>=7;
     const pct=bp?Math.round(bp.score/bp.total*100):0;
     const medaille=bp?(bp.score>=9?" 🥇":bp.score>=7?" 🥈":bp.score>=5?" 🥉":""):"";
-    html+=`<div class="tq-block-card${done?" tq-block-done":""}" onclick="tqStartBlock(${i})">
-      <div class="tq-block-title"><i class="ti ${b.icon}" style="margin-right:4px"></i>${b.name}${medaille}</div>
-      <div class="tq-block-sub">Block ${i+1}${bp?" · "+bp.score+"/"+bp.total+" ("+pct+"%)":""}</div>
-      <div class="tq-block-prog"><div class="tq-block-prog-fill" style="width:${bp?pct:0}%"></div></div>
-    </div>`;
+    html+=quizChoiceCard({
+      icon:`<i class="ti ${b.icon}" style="color:var(--purple)"></i>`,
+      titel:`${b.name}${medaille}`, fertig:!!(bp&&bp.score>=7), pct, col:"var(--purple)",
+      sub:`Block ${i+1}${bp?" · "+bp.score+"/"+bp.total+" richtig":" · 10 Fragen"}`,
+      onclick:`tqStartBlock(${i})`
+    });
   });
   html+=`</div>`;
   html+=tqRenderBarometer();
@@ -944,19 +956,14 @@ function wqStart(){
     <div style="display:flex;flex-direction:column;gap:8px">`;
   WQ_CATS.forEach(c=>{
     const qs=WQ_QUESTIONS.filter(q=>q.cat===c.key);
-    const done=qs.filter(q=>prog[q.id]).length, pct=Math.round(done/qs.length*100), fertig=done>=qs.length;
-    html+=`<div class="card" style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:12px" onclick="wqStartCat('${c.key}')">
-      <div style="font-size:26px;line-height:1">${c.icon}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:700;color:var(--text)">${c.name}${fertig?" ✓":""}</div>
-        <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-top:5px"><div style="height:100%;width:${pct}%;background:${c.col};border-radius:3px"></div></div>
-        <div style="font-size:10px;color:var(--text3);margin-top:3px">${done}/${qs.length} richtig</div>
-      </div>
-      <div style="font-size:18px;color:var(--text3)">›</div>
-    </div>`;
+    const done=qs.filter(q=>prog[q.id]).length, pct=Math.round(done/qs.length*100);
+    html+=quizChoiceCard({
+      icon:c.icon, titel:c.name, fertig:done>=qs.length, pct, col:c.col,
+      sub:`${done}/${qs.length} richtig`, onclick:`wqStartCat('${c.key}')`
+    });
   });
   html+=`</div>
-    <button class="btn btn-sm" style="margin-top:12px" onclick="wqExit()"><i class="ti ti-arrow-left"></i>Zurück zum Quiz</button>
+    <button class="btn btn-sm" style="margin-top:12px" onclick="wqExit()"><i class="ti ti-arrow-left"></i>Zurück zur Quiz-Auswahl</button>
   </div>`;
   panel.innerHTML=html;
 }

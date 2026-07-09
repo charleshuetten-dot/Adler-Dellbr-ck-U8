@@ -1913,7 +1913,9 @@ const TOUR=[
   {emo:"📅", t:"Orga & Eltern", d:"Termine mit Platz, Wetter & Trainer-Verfügbarkeit; Gegner-Datenbank mit Kontakt; der Eltern-Bereich mit RSVP, Betreuung vor Ort und Quiz. Viel Spaß! 🎉"},
 ];
 let tourIdx=0;
-function tourMaybe(){ try{if(localStorage.getItem("adler_trainer_tour"))return;}catch(e){} tourStart(); }
+// Nie im Kinder-Quiz: ?quiz laesst #home-content im DOM, renderHome laeuft also mit und
+// wuerde den Kindern die Trainer-Tour zeigen (die von Kader & Trainingsplan erzaehlt).
+function tourMaybe(){ if(document.body.classList.contains("quiz-extern"))return; try{if(localStorage.getItem("adler_trainer_tour"))return;}catch(e){} tourStart(); }
 function tourStart(){ tourIdx=0; tourRender(); }
 function tourNext(){ if(tourIdx<TOUR.length-1){tourIdx++;tourRender();}else tourClose(); }
 function tourPrev(){ if(tourIdx>0){tourIdx--;tourRender();} }
