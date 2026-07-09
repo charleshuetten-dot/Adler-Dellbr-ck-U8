@@ -472,7 +472,7 @@ async function kontakteAddEmail(sid){
   const email=(document.getElementById("kk-new-email")?.value||"").trim().toLowerCase();
   const label=(document.getElementById("kk-new-email-label")?.value||"").trim();
   if(!email||!/.+@.+\..+/.test(email)){toast("Gültige E-Mail eingeben","err");return;}
-  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?on_conflict=spieler_id,email`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({spieler_id:sid,email,label:label||null})});if(sbCheck401(r))return;if(!r.ok){toast("Konnte nicht speichern","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?on_conflict=spieler_id,email`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({spieler_id:sid,email,label:label||null})});if(sbCheck401(r))return;if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
   toast("Login-E-Mail hinterlegt ✓");
   kontakteRender(sid);
 }
@@ -485,7 +485,7 @@ async function kontakteAddPhone(sid){
   const rolle=(document.getElementById("kk-new-rolle")?.value||"").trim();
   const name=(document.getElementById("kk-new-name")?.value||"").trim();
   if(!telefon){toast("Telefonnummer eingeben","err");return;}
-  try{const r=await fetch(`${SB_URL}/rest/v1/kind_kontakte`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({spieler_id:sid,telefon,rolle:rolle||null,name:name||null})});if(sbCheck401(r))return;if(!r.ok){toast("Konnte nicht speichern","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_kontakte`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({spieler_id:sid,telefon,rolle:rolle||null,name:name||null})});if(sbCheck401(r))return;if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
   toast("Nummer hinterlegt ✓");
   kontakteRender(sid);
 }

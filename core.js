@@ -16,13 +16,41 @@ const SB_KEY="sb_publishable_Gz7hGb1ecNWkLJZA-neK_w_El3huo41";
    Kinderdaten sind per RLS nur für authentifizierte Trainer les-/schreibbar.
    Quiz-Sync (quiz_progress) läuft weiter über den Anon-Key.
 ═══════════════════════════════════ */
-const SB_TOKEN_KEY="adler_sb_auth";
-function sbToken(){
-  try{
-    const t=JSON.parse(localStorage.getItem(SB_TOKEN_KEY)||"null");
-    if(t&&t.access_token&&(t.expires_at*1000)>Date.now()+60000)return t.access_token;
-  }catch(e){}
+/* ZWEI getrennte Sitzungs-Faecher. Vorher teilten sich Trainer-Login (Passwort) und
+   Eltern-Login (Einmal-Code) EINEN localStorage-Key: wer sich zuletzt anmeldete,
+   ueberschrieb den anderen. Der PIN oeffnet nur die Oberflaeche – die Datenbank sah
+   dann den Eltern-Token, is_trainer() war false und jeder Trainer-Schreibvorgang
+   scheiterte mit "Konnte nicht speichern". Jetzt kann man beide Apps parallel nutzen. */
+const SB_TOKEN_KEY="adler_sb_auth";          // Trainer (Name bleibt: bestehende Sitzungen)
+const SB_TOKEN_KEY_ELTERN="adler_sb_auth_eltern";
+// Welche Faecher gelten in diesem Kontext? Erstes = das, in das geschrieben wird.
+// Das Kinder-Quiz darf auf den Trainer-Token zurueckfallen, damit Federn auch auf
+// dem Trainer-Geraet gezaehlt werden (RLS erlaubt beides).
+function sbSlots(){
+  const p=new URLSearchParams(location.search);
+  if(p.has("portal"))return [SB_TOKEN_KEY_ELTERN];
+  if(p.has("quiz"))return [SB_TOKEN_KEY_ELTERN,SB_TOKEN_KEY];
+  return [SB_TOKEN_KEY];
+}
+function sbWriteKey(){ return sbSlots()[0]; }
+function sbRead(){
+  for(const k of sbSlots()){
+    try{const t=JSON.parse(localStorage.getItem(k)||"null"); if(t&&t.access_token)return {key:k,t};}catch(e){}
+  }
   return null;
+}
+function sbToken(){
+  const s=sbRead();
+  if(s&&(s.t.expires_at*1000)>Date.now()+60000)return s.t.access_token;
+  return null;
+}
+function sbClearToken(){ const s=sbRead(); localStorage.removeItem(s?s.key:sbWriteKey()); }
+/* 403 = die RLS hat abgelehnt (z. B. Eltern-Token in der Trainer-App). Das ist kein
+   "Speicherfehler" und muss anders klingen, sonst sucht man an der falschen Stelle. */
+function sbDeniedMsg(res,fallback){
+  return (res&&res.status===403)
+    ? "Keine Trainer-Rechte – bitte oben rechts als Trainer anmelden."
+    : (fallback||"Konnte nicht speichern");
 }
 function sbAuthHeaders(extra){
   const tok=sbToken();
@@ -31,7 +59,7 @@ function sbAuthHeaders(extra){
 // Bei 401: Token verwerfen und Login zeigen (gibt true zurück, wenn 401 behandelt wurde)
 function sbCheck401(res){
   if(res&&res.status===401&&!document.body.classList.contains("quiz-extern")){
-    localStorage.removeItem(SB_TOKEN_KEY);
+    sbClearToken();
     // UX 5: im Eltern-Portal den passwortlosen Portal-Login zeigen, NICHT das Trainer-Passwort-Gate
     if(new URLSearchParams(location.search).has("portal")){
       if(typeof renderElternPortal==="function")renderElternPortal();
@@ -51,17 +79,19 @@ async function sbLogin(email,password){
   if(!r.ok)throw new Error(data.error_description||data.msg||"Login fehlgeschlagen");
   // Defensive: manche GoTrue-Antworten liefern nur expires_in (Sekunden relativ), nicht expires_at (Unix-Timestamp)
   const expiresAt=data.expires_at||(Math.floor(Date.now()/1000)+(data.expires_in||3600));
-  localStorage.setItem(SB_TOKEN_KEY,JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token||null,expires_at:expiresAt}));
+  localStorage.setItem(SB_TOKEN_KEY,JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token||null,expires_at:expiresAt})); // Passwort-Login = immer Trainer-Fach
   return true;
 }
 /* Silent Token Refresh (Schritt 6): Session vor Ablauf still erneuern, damit man
    z. B. mitten im Turnier nicht plötzlich ausgeloggt wird. Nutzt den refresh_token. */
-function sbSession(){ try{return JSON.parse(localStorage.getItem(SB_TOKEN_KEY)||"null");}catch(e){return null;} }
+function sbSession(){ const s=sbRead(); return s?s.t:null; }
 let sbRefreshing=null;
 function sbRefreshToken(){
   if(sbRefreshing)return sbRefreshing; // parallele Aufrufe teilen sich denselben Refresh
-  const s=sbSession();
+  const slot=sbRead();
+  const s=slot&&slot.t;
   if(!s||!s.refresh_token)return Promise.resolve(false);
+  const zielKey=slot.key; // in genau das Fach zurueckschreiben, aus dem der Token kam
   sbRefreshing=(async()=>{
     try{
       const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`,{
@@ -71,7 +101,7 @@ function sbRefreshToken(){
       const data=await r.json().catch(()=>({}));
       if(!r.ok||!data.access_token)return false;
       const expiresAt=data.expires_at||(Math.floor(Date.now()/1000)+(data.expires_in||3600));
-      localStorage.setItem(SB_TOKEN_KEY,JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token||s.refresh_token,expires_at:expiresAt}));
+      localStorage.setItem(zielKey,JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token||s.refresh_token,expires_at:expiresAt}));
       return true;
     }catch(e){return false;}
     finally{sbRefreshing=null;}
@@ -116,9 +146,22 @@ async function doLogin(){
   }catch(e){if(err)err.textContent=e.message;}
 }
 // Nach dem PIN-Gate aufrufen (nicht im Quiz-Modus)
-function ensureLogin(){
-  if(new URLSearchParams(location.search).has("quiz"))return;
-  if(!sbToken())showLoginGate();
+async function ensureLogin(){
+  const p=new URLSearchParams(location.search);
+  if(p.has("quiz")||p.has("portal"))return;
+  if(!sbToken()){showLoginGate();return;}
+  // Sitzung da – aber gehoert sie wirklich einem Trainer? Ein Eltern-Token wuerde die
+  // Oberflaeche zeigen und dann bei jedem Schreiben stumm an der RLS scheitern.
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/profiles?select=role&limit=1`,{headers:sbAuthHeaders()});
+    if(!r.ok)return; // offline o.ae.: bestehende Sitzung nicht wegwerfen
+    const rows=await r.json();
+    if(((rows[0]||{}).role)!=="trainer"){
+      sbClearToken();
+      showLoginGate();
+      if(typeof toast==="function")toast("Das war ein Eltern-Zugang – bitte als Trainer anmelden.","err");
+    }
+  }catch(e){/* Netzfehler: nichts kaputtmachen */}
 }
 
 /* ═══════════════════════════════════

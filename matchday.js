@@ -28,7 +28,7 @@ async function authOtpVerify(email,token){
   const data=await r.json().catch(()=>({}));
   if(!r.ok||!data.access_token)throw new Error(data.error_description||data.msg||data.error||"Code ungültig oder abgelaufen");
   const expiresAt=data.expires_at||(Math.floor(Date.now()/1000)+(data.expires_in||3600));
-  localStorage.setItem(SB_TOKEN_KEY,JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token||null,expires_at:expiresAt}));
+  localStorage.setItem(SB_TOKEN_KEY_ELTERN,JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token||null,expires_at:expiresAt})); // eigenes Fach – ueberschreibt den Trainer nicht mehr
   return true;
 }
 async function authRole(){
@@ -52,7 +52,7 @@ async function renderElternPortal(){
     const role=await authRole();
     if(role==="parent")return elternPortalDashboard(root);
     if(role==="trainer")return elternPortalTrainerNotice(root);
-    localStorage.removeItem(SB_TOKEN_KEY); // Session ohne Profil/Rolle → verwerfen
+    localStorage.removeItem(SB_TOKEN_KEY_ELTERN); // Session ohne Profil/Rolle → verwerfen
   }
   elternPortalLogin(root);
 }
@@ -118,7 +118,7 @@ async function elternPortalVerify(){
     renderElternPortal();
   }catch(e){if(err)err.textContent=e.message;if(btn){btn.disabled=false;btn.textContent="Anmelden";}}
 }
-function elternPortalLogout(){ localStorage.removeItem(SB_TOKEN_KEY); document.getElementById("eltern-portal")?.remove(); renderElternPortal(); }
+function elternPortalLogout(){ localStorage.removeItem(SB_TOKEN_KEY_ELTERN); document.getElementById("eltern-portal")?.remove(); renderElternPortal(); }
 function elternPortalDashboard(root){
   root.innerHTML=`<div style="max-width:440px;margin:0 auto">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px 12px">
