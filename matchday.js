@@ -123,7 +123,10 @@ function elternPortalDashboard(root){
   root.innerHTML=`<div style="max-width:440px;margin:0 auto">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px 12px">
       <div style="font-size:18px;font-weight:800">🦅 Eltern-Bereich</div>
-      <button onclick="elternPortalLogout()" style="border:none;background:none;color:#64748b;font-size:12px;cursor:pointer">Abmelden</button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="elternTourStart()" title="Kurze Tour" aria-label="Hilfe/Tour" style="border:1.5px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:15px;line-height:1">❓</button>
+        <button onclick="elternPortalLogout()" style="border:none;background:none;color:#64748b;font-size:12px;cursor:pointer">Abmelden</button>
+      </div>
     </div>
     <div id="ep-dash-body"><div style="text-align:center;padding:40px;color:#64748b">Lade…</div></div>
   </div>`;
@@ -286,6 +289,7 @@ async function elternDashLoad(){
   body.innerHTML=html;
   if(termin&&termin.datum)wetterInto("wetter-eltern",termin.datum,termin.ort,termin.uhrzeit); // Wetter am Termin-Ort + Uhrzeit
   if(termin&&termin.typ==="training")elternBetreuungLoad(termin.id,kids); // wer bleibt vor Ort
+  if(!window._eTourChecked){window._eTourChecked=true;setTimeout(elternTourMaybe,700);} // Eltern-Tour einmalig
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(el)el.innerHTML=adlerkasseCardHtml(l);}).catch(()=>{});
   // FEAT S: XP-Chips async füllen (RPC xp_total – Eltern sehen nur das eigene Kind)
   kids.forEach(k=>{xpTotal(k.spieler_id).then(t=>{const el=document.getElementById("xp-chip-"+k.spieler_id);if(el){const b=xpBadge(t);el.textContent=`${XP_ICON} ${t} ${XP_LABEL} · ${b.emo} ${b.t}`;}}).catch(()=>{});});
@@ -338,6 +342,38 @@ async function elternBetreuungToggle(terminId,spielerId,stay){
     toast(stay?"Danke – du bleibst vor Ort ✓":"Notiert – du bleibst nicht vor Ort");
     elternDashLoad();
   }catch(e){toast("Netzwerkfehler","err");}
+}
+// Eltern-Feature-Tour: kurzer Überblick beim ersten Login (einmalig), jederzeit neu startbar.
+const ELTERN_TOUR=[
+  {emo:"🦅", t:"Willkommen im Eltern-Bereich", d:"Hier läuft alles rund um dein Kind bei der U9 zusammen. Du kannst diese Tour später jederzeit über das ❓ oben neu starten."},
+  {emo:"👍", t:"Zu- & Absagen", d:"Melde dein Kind zu Training und Spielen an oder ab. Deine Rückmeldung hilft dem Trainer bei der Planung – die endgültige Aufstellung entscheidet er."},
+  {emo:"🃏", t:"Adler-Karte & Federn", d:"Dein Kind hat eine eigene Sammelkarte. Mit „Adler-Federn 🪶\" schaltet es immer coolere Karten-Designs frei – von Bronze über Silber bis Gold."},
+  {emo:"🎮", t:"Quiz & Technik-Abzeichen", d:"Über „Adler-Quiz spielen\" sammelt dein Kind Federn (Fußball-Wissen & Taktik). Und bei den Technik-Abzeichen hakst du zuhause geübte Übungen ab – das gibt auch Federn."},
+  {emo:"🙋", t:"Betreuung vor Ort & mehr", d:"Beim Training kannst du angeben, ob du vor Ort bleibst – so seht ihr alle, dass immer jemand da ist. Außerdem: Wetter am Termin, Fahrgemeinschaften, Fotos. Viel Spaß! 🎉"},
+];
+let elternTourIdx=0;
+function elternTourMaybe(){ try{if(localStorage.getItem("adler_eltern_tour"))return;}catch(e){} elternTourStart(); }
+function elternTourStart(){ elternTourIdx=0; elternTourRender(); }
+function elternTourNext(){ if(elternTourIdx<ELTERN_TOUR.length-1){elternTourIdx++;elternTourRender();}else elternTourClose(); }
+function elternTourPrev(){ if(elternTourIdx>0){elternTourIdx--;elternTourRender();} }
+function elternTourClose(){ try{localStorage.setItem("adler_eltern_tour","1");}catch(e){} document.getElementById("eltern-tour-ov")?.remove(); }
+function elternTourRender(){
+  document.getElementById("eltern-tour-ov")?.remove();
+  const s=ELTERN_TOUR[elternTourIdx]; if(!s){elternTourClose();return;}
+  const last=elternTourIdx===ELTERN_TOUR.length-1;
+  const ov=document.createElement("div"); ov.id="eltern-tour-ov";
+  ov.style.cssText="position:fixed;inset:0;z-index:10060;background:rgba(15,23,42,.78);display:flex;align-items:center;justify-content:center;padding:20px";
+  ov.innerHTML=`<div style="background:#fff;color:#1a1a2e;max-width:360px;width:100%;border-radius:18px;padding:22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.5)">
+    <div style="font-size:42px;line-height:1">${s.emo}</div>
+    <div style="font-size:18px;font-weight:800;margin:8px 0 8px">${esc(s.t)}</div>
+    <div style="font-size:13.5px;color:#475569;line-height:1.5;text-align:left">${esc(s.d)}</div>
+    <div style="display:flex;gap:6px;justify-content:center;margin:16px 0 4px">${ELTERN_TOUR.map((_,i)=>`<span style="width:7px;height:7px;border-radius:50%;background:${i===elternTourIdx?'#1e3a8a':'#cbd5e1'}"></span>`).join("")}</div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      ${elternTourIdx>0?`<button onclick="elternTourPrev()" style="padding:9px 14px;border:1.5px solid #cbd5e1;border-radius:10px;background:#fff;color:#334155;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Zurück</button>`:`<button onclick="elternTourClose()" style="padding:9px 14px;border:none;background:none;color:#64748b;font-family:inherit;font-size:13px;cursor:pointer">Überspringen</button>`}
+      <button onclick="elternTourNext()" style="margin-left:auto;padding:9px 16px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">${last?"Fertig 🚀":"Weiter"}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
 }
 // Adler-Karte des eigenen Kindes (Eltern-Sicht): Daten kommen aus der security-definer
 // RPC my_child_card (kein Direktzugriff auf geschützte Tabellen). Baut dieselbe d-Struktur
