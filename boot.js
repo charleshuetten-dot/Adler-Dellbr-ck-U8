@@ -401,14 +401,14 @@ function awRenderList(){
   const datum=document.getElementById("aw-date").value;
   const existing=AW_DATA[datum]||{};
   let html='<div class="card" style="overflow:hidden;margin-top:8px">';
+  // Die 3 Spieler-Sterne wurden nach "Einheit bewerten" verschoben (dort im Kontext der
+  // Einheit). Hier wird nur noch abgehakt, wer da war.
   KADER.forEach(k=>{
     const p=existing[k.name]||{da:false,qual:0};
     html+=`<div class="aw-row">
       <span class="aw-name">${esc(k.name)}</span>
       <button class="aw-toggle${p.da?" on":""}" onclick="awToggle(this,'${k.name}')" data-player="${k.name}"></button>
-      <div class="aw-qual" data-player="${k.name}">
-        ${[1,2,3].map(s=>`<button class="aw-star${p.qual>=s?" on":""}" onclick="awStar(this,'${k.name}',${s})">${p.qual>=s?"★":"☆"}</button>`).join("")}
-      </div>
+      ${p.qual?`<span class="aw-qual-ro" title="Bewertung aus „Einheit bewerten“" style="font-size:11px;color:#f59e0b;letter-spacing:1px">${"★".repeat(p.qual)}</span>`:""}
     </div>`;
   });
   html+='</div>';
@@ -420,26 +420,17 @@ function awToggle(btn,name){
   btn.classList.toggle("on");
 }
 
-function awStar(btn,name,val){
-  const row=btn.closest(".aw-qual");
-  const stars=row.querySelectorAll(".aw-star");
-  const current=Array.from(stars).filter(s=>s.classList.contains("on")).length;
-  const newVal=current===val?0:val;
-  stars.forEach((s,i)=>{
-    s.classList.toggle("on",i<newVal);
-    s.textContent=i<newVal?"★":"☆";
-  });
-}
-
 function awSave(){
   const datum=document.getElementById("aw-date").value;
   if(!datum){toast("Bitte Datum wählen","err");return;}
   const trainers=Array.from(document.querySelectorAll("#aw-trainer-checks input:checked")).map(c=>c.value);
   const data={_trainers:trainers};
+  const vorher=AW_DATA[datum]||{};
   KADER.forEach(k=>{
     const toggle=document.querySelector(`.aw-toggle[data-player="${k.name}"]`);
-    const stars=document.querySelectorAll(`.aw-qual[data-player="${k.name}"] .aw-star.on`);
-    data[k.name]={da:toggle?.classList.contains("on")||false,qual:stars.length};
+    // qual wird hier NICHT mehr erfasst (steht in "Einheit bewerten") – bestehenden Wert
+    // uebernehmen, sonst wuerde jedes Anwesenheits-Speichern die Sterne auf 0 setzen.
+    data[k.name]={da:toggle?.classList.contains("on")||false,qual:(vorher[k.name]||{}).qual||0};
   });
   AW_DATA[datum]=data;
   localStorage.setItem(AW_KEY,JSON.stringify(AW_DATA));
@@ -532,6 +523,7 @@ function awRenderTrainerStats(){
     const items=EVAL_DATA[d];
     if(!items)return;
     items.forEach(it=>{
+      if(it.skipped)return; // uebersprungen = nicht von diesem Trainer durchgefuehrt
       if(it.trainer&&trainerExercises[it.trainer]){
         trainerExercises[it.trainer].push(it.name);
       }
@@ -804,6 +796,7 @@ function tpOnSelectChange(sel){
   const histDiv=document.getElementById(sel.id+"-hist");
   if(histDiv&&sel.value) histDiv.innerHTML=tpExerciseHistoryHtml(parseInt(sel.value));
   else if(histDiv) histDiv.innerHTML="";
+  tpPlanSaveDebounced(); // Plan am Datum festhalten -> "Einheit bewerten" kennt ihn spaeter
 }
 
 function tpShowExFromSel(selId){
@@ -1145,17 +1138,16 @@ function addEvalSection(){
   evalRenderHistory();
 }
 
-function evalRenderList(){
-  const wrap=document.getElementById("tp-eval-list");
-  if(!wrap)return;
+/* Der geplante Zeitplan als Datenstruktur – frueher nur inline in evalRenderList.
+   Wird auch von tpPlanSave() gebraucht, damit "Einheit bewerten" spaeter weiss,
+   welche Uebungen an einem vergangenen Termin geplant waren. */
+function tpPlanEntries(){
   const allForms=tpAllForms();
-  const sels=document.querySelectorAll(".tp-form-sel");
   const trainers=tpGetCheckedTrainers();
   const entries=[];
-  sels.forEach(s=>{
+  document.querySelectorAll(".tp-form-sel").forEach(s=>{
     if(!s.value)return;
-    const id=s.id;
-    const match=id.match(/tp-form-(\d+)-(\d+)/);
+    const match=s.id.match(/tp-form-(\d+)-(\d+)/);
     if(!match)return;
     const slotIdx=parseInt(match[1]);
     const groupIdx=parseInt(match[2]);
@@ -1167,6 +1159,36 @@ function evalRenderList(){
     const formName=allForms[formIdx]?.name||"?";
     entries.push({formIdx,formName,trainer,slotLabel:slot?.label||"",key:`${formIdx}-${trainer}`});
   });
+  return entries;
+}
+/* Plan pro Datum sichern (debounced). Ohne Trainer-Token still ueberspringen –
+   der Plan ist trainer-only und darf offline nicht die Queue verstopfen. */
+let _tpPlanTimer=null;
+function tpPlanSaveDebounced(){ clearTimeout(_tpPlanTimer); _tpPlanTimer=setTimeout(tpPlanSave,1200); }
+async function tpPlanSave(){
+  if(!sbToken())return;
+  const datum=document.getElementById("tp-date")?.value; if(!datum)return;
+  const plan=tpPlanEntries(); if(!plan.length)return; // leeren Plan nie ueber einen vollen schreiben
+  try{
+    await fetch(`${SB_URL}/rest/v1/trainingsplan?on_conflict=datum`,{method:"POST",
+      headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify({datum,plan,updated_at:new Date().toISOString()})});
+  }catch(e){/* Plan ist Komfort, kein Muss */}
+}
+async function tpPlanLoad(datum){
+  if(!sbToken())return [];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/trainingsplan?datum=eq.${encodeURIComponent(datum)}&select=plan`,{headers:sbAuthHeaders()});
+    if(sbCheck401(r)||!r.ok)return [];
+    const rows=await r.json();
+    return (rows[0]&&rows[0].plan)||[];
+  }catch(e){return [];}
+}
+
+function evalRenderList(){
+  const wrap=document.getElementById("tp-eval-list");
+  if(!wrap)return;
+  const entries=tpPlanEntries();
   if(!entries.length){
     wrap.innerHTML='<div style="color:var(--text2);font-size:12px;padding:8px">Erst Übungen im Zeitplan zuweisen, dann hier bewerten. Tipp: "Auto-Plan" generiert einen Vorschlag.</div>';
     return;
@@ -1253,7 +1275,7 @@ function evalRenderHistory(){
       const trainerTag=it.trainer&&it.trainer!=="Alle"?` <span style="background:#e0e7ff;color:#3730a3;font-size:9px;padding:1px 4px;border-radius:3px">${it.trainer}</span>`:"";
       html+=`<div style="font-size:11px;padding:2px 0;color:var(--text2)">
         <strong style="color:var(--text)">${it.name}</strong>${trainerTag}:
-        Durchf. ${stars("Durchführung")} · Spaß ${stars("Spaßfaktor Kinder")} · Umgesetzt ${stars("Anforderung umgesetzt")}
+        ${it.skipped?'<em style="color:var(--text3)">übersprungen</em>':`Durchf. ${stars("Durchführung")} · Spaß ${stars("Spaßfaktor Kinder")} · Umgesetzt ${stars("Anforderung umgesetzt")}`}
         ${it.notiz?`<br><em>${it.notiz}</em>`:""}
       </div>`;
     });

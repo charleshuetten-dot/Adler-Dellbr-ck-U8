@@ -4207,7 +4207,7 @@ function teamStatsRender(){
   const evalDates=Object.keys(EVAL_DATA).sort().reverse();
   let evalTile='<div style="font-size:11px;color:var(--text3)">Noch keine Einheit bewertet</div>';
   if(evalDates.length){
-    const d=evalDates[0];const entries=EVAL_DATA[d]||[];
+    const d=evalDates[0];const entries=(EVAL_DATA[d]||[]).filter(e=>!e.skipped); // Übersprungene zählen nicht mit
     let sum=0,cnt=0;
     entries.forEach(e=>Object.entries(e).forEach(([k,v])=>{if(typeof v==="number"&&k!=="formIdx"){sum+=v;cnt++;}}));
     const avg=cnt?(sum/cnt).toFixed(1):"–";
