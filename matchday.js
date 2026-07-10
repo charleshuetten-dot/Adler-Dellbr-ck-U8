@@ -996,7 +996,7 @@ function kombiSetPos(key,value){
   renderLineupEditor();
 }
 function kombiFromSuggestion(){
-  const combos=calcBestCombos();
+  const combos=calcBestCombos(verfuegbareSpieler()); // nie abgesagte Spieler vorschlagen
   if(!combos){toast("Mindestens 4 bewertete Spieler nötig","err");return;}
   const b=combos[0];
   kombiLineup={tw:b.tw?b.tw.name:"",auf:b.aufpasser.name,fll:b.flitzer_l.name,flr:b.flitzer_r.name,jaeg:b.jaeger.name};
@@ -1256,7 +1256,7 @@ function taktikSetup(mode){
   let assign=[];
   // Nur 4+1 hat den passenden Rollen-Kombinator (aufpasser/flitzer/jäger) – siehe FORMATIONS.
   if(tbFormation==='4+1'){
-    const combo=calcBestCombos();
+    const combo=calcBestCombos(verfuegbareSpieler()); // nie abgesagte Spieler aufs Feld stellen
     if(combo&&combo[0]){
       const b=combo[0];
       assign=[b.tw?.name||twName, b.aufpasser.name, b.flitzer_l.name, b.flitzer_r.name, b.jaeger.name];
@@ -2376,7 +2376,9 @@ async function nomLoad(){
   await nomLoadRsvp();
   // Eltern-Zusagen automatisch übernehmen – außer wo der Trainer manuell überstimmt hat (nomOvr).
   Object.keys(nomRsvp).forEach(name=>{ if(!nomOvr.has(name)) nomStatus[name]=nomRsvp[name].status==="zugesagt"?"dabei":"nicht"; });
+  const nr=document.getElementById("nom-team-nr"); if(nr)nr.textContent=String(spieltagTeam);
   nomRender();
+  await teamsLoad();   // Einteilung gehört zum Datum, nicht zum einzelnen Team
   nomApplyToTools();
   if(document.getElementById("action-panel"))atInit(); // Aktionen fürs neue Datum laden
 }
@@ -2414,6 +2416,156 @@ function nomRender(){
       </div>`;
     }).join("");
 }
+/* ═══════════════════════════════════
+   TEAM-EINTEILUNG – aus den Eltern-Zusagen auf 1–3 Teams verteilen.
+   "Adler 1/2/3" waren bisher nur Etiketten: jedes Team uebernahm dieselben Zusagen,
+   also waren ueberall alle Kinder dabei. Jetzt wird EINMAL eingeteilt und die
+   Einteilung in die einzelnen Team-Nominierungen uebertragen; von dort greifen
+   Rotations-Timer, Aktions-Tracker und die Auto-Aufstellung.
+   Gespeichert in nominierungen unter dem Schluessel "<datum>__teams", damit die
+   Einteilung neben den drei Team-Zeilen liegt und Neuladen uebersteht.
+═══════════════════════════════════ */
+let TEAMS={}, TEAM_ANZAHL=1;
+function teamsKey(){ return spieltagRawDate()+"__teams"; }
+function teamFeldGroesse(){
+  const key=(typeof tbFormation!=="undefined"&&tbFormation)||"4+1";
+  const f=(typeof FORMATIONS!=="undefined"&&FORMATIONS[key])||{tw:true,fieldCount:4};
+  return f.fieldCount+(f.tw?1:0);
+}
+// Zugesagte Kinder. Ohne Rückmeldungen der ganze Kader – sonst könnte man gar nicht planen.
+function teamZusagen(){
+  const zu=KADER.map(k=>k.name).filter(n=>nomRsvp[n]&&nomRsvp[n].status==="zugesagt");
+  return zu.length?zu:KADER.map(k=>k.name);
+}
+function teamAnzahlVorschlag(){
+  const proTeam=teamFeldGroesse()+2;            // Feldspieler + zwei zum Wechseln
+  return Math.max(1,Math.min(3,Math.round(teamZusagen().length/proTeam)||1));
+}
+function teamStaerke(n){
+  const s=(typeof DB!=="undefined"&&DB[n]&&DB[n][DB[n].length-1])||null;
+  return (s&&s.total_score!=null)?s.total_score:-1;  // unbewertet ans Ende, wird zuletzt verteilt
+}
+/* Torwarte zuerst reihum (damit kein Team ohne dasteht), danach jedes Kind – stärkstes
+   zuerst – in das aktuell SCHWÄCHSTE Team, solange dort noch Platz ist. Das gleicht die
+   Vorabverteilung der Torwarte wieder aus; ein starres Reihum-Verfahren tat das nicht. */
+function teamsAuto(){
+  const pool=teamZusagen(), n=TEAM_ANZAHL;
+  TEAMS={};
+  if(n<=1){ pool.forEach(p=>{TEAMS[p]=1;}); teamsRender(); return; }
+  const wert=x=>Math.max(0,teamStaerke(x));      // unbewertet zählt als 0
+  const tw=pool.filter(x=>getKader(x)&&getKader(x).tw).sort((a,b)=>teamStaerke(b)-teamStaerke(a));
+  const rest=pool.filter(x=>tw.indexOf(x)<0).sort((a,b)=>teamStaerke(b)-teamStaerke(a));
+  const summe=new Array(n+1).fill(0), groesse=new Array(n+1).fill(0);
+  const kapazitaet=Math.ceil(pool.length/n);
+  const einsetzen=(name,t)=>{TEAMS[name]=t;summe[t]+=wert(name);groesse[t]++;};
+  tw.forEach((name,i)=>einsetzen(name,(i%n)+1));
+  rest.forEach(name=>{
+    let ziel=0;
+    for(let t=1;t<=n;t++){
+      if(groesse[t]>=kapazitaet)continue;                 // Teams gleich groß halten
+      if(!ziel||summe[t]<summe[ziel])ziel=t;
+    }
+    if(!ziel){ for(let t=1;t<=n;t++)if(!ziel||groesse[t]<groesse[ziel])ziel=t; } // Notnagel
+    einsetzen(name,ziel);
+  });
+  teamsRender();
+}
+function teamSetAnzahl(n){ TEAM_ANZAHL=Math.max(1,Math.min(3,parseInt(n)||1)); TEAMS={}; teamsRender(); }
+function teamSet(name,nr){ if(nr)TEAMS[name]=nr; else delete TEAMS[name]; teamsRender(); }
+
+async function teamsLoad(){
+  TEAMS={}; TEAM_ANZAHL=teamAnzahlVorschlag();
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/nominierungen?datum=eq.${encodeURIComponent(teamsKey())}&select=data`,{headers:sbAuthHeaders()});
+    if(!sbCheck401(r)&&r.ok){
+      const rows=await r.json();
+      if(rows.length&&rows[0].data){
+        const d={...rows[0].data};
+        if(d._anzahl)TEAM_ANZAHL=d._anzahl;
+        delete d._anzahl;
+        TEAMS=d;
+      }
+    }
+  }catch(e){}
+  teamsRender();
+}
+async function teamsSpeichern(){
+  try{
+    await fetch(`${SB_URL}/rest/v1/nominierungen?on_conflict=datum`,{method:"POST",
+      headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({datum:teamsKey(),data:{_anzahl:TEAM_ANZAHL,...TEAMS}})});
+  }catch(e){}
+}
+/* Einteilung -> die drei Team-Nominierungen. _ovr enthält alle Namen, sonst würde
+   nomLoad die Eltern-Zusagen wieder über die Einteilung legen und alle Kinder in
+   jedes Team schreiben – genau der Fehler, der das Feature bisher wirkungslos machte. */
+async function teamsAnwenden(){
+  if(!Object.keys(TEAMS).length){toast("Erst einteilen","err");return;}
+  if(!confirm(`Einteilung auf ${TEAM_ANZAHL} Team${TEAM_ANZAHL>1?"s":""} übertragen?\n\nDie Nominierung der betroffenen Teams wird überschrieben.`))return;
+  await teamsSpeichern();
+  const d=spieltagRawDate(), alle=KADER.map(k=>k.name);
+  for(let t=1;t<=TEAM_ANZAHL;t++){
+    const key=t>1?`${d}__t${t}`:d;
+    const data={_ovr:alle};
+    alle.forEach(n=>{ data[n]=(TEAMS[n]===t)?"dabei":"nicht"; });
+    try{
+      await fetch(`${SB_URL}/rest/v1/nominierungen?on_conflict=datum`,{method:"POST",
+        headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},
+        body:JSON.stringify({datum:key,data})});
+    }catch(e){ toast("Übertragen fehlgeschlagen","err"); return; }
+  }
+  toast(`Einteilung übertragen ✓`);
+  await nomLoad();   // aktuelles Team neu laden -> Rotation, Aktionen, Aufstellung ziehen nach
+}
+
+function teamsRender(){
+  const box=document.getElementById("team-panel");
+  if(!box)return;
+  const pool=teamZusagen();
+  const zusagen=KADER.map(k=>k.name).filter(n=>nomRsvp[n]&&nomRsvp[n].status==="zugesagt").length;
+  const vorschlag=teamAnzahlVorschlag();
+  const segBtn=(n)=>`<button class="seg-btn${TEAM_ANZAHL===n?" active":""}" onclick="teamSetAnzahl(${n})">${n}</button>`;
+  let html=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <span style="font-size:12px;font-weight:600">Anzahl Teams</span>
+      <div class="seg" style="flex:none;min-width:150px">${segBtn(1)}${segBtn(2)}${segBtn(3)}</div>
+      <span style="font-size:11px;color:var(--text3)">Vorschlag: ${vorschlag} · ${zusagen?zusagen+" Zusagen":"noch keine Zusagen"}</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <button class="btn btn-sm" onclick="teamsAuto()"><i class="ti ti-wand"></i>Automatisch einteilen</button>
+      <button class="btn btn-sm btn-p" onclick="teamsAnwenden()"><i class="ti ti-arrow-right"></i>In die Nominierungen übertragen</button>
+    </div>`;
+  if(!Object.keys(TEAMS).length){
+    html+=`<div style="font-size:11.5px;color:var(--text3)">Noch nicht eingeteilt. „Automatisch einteilen" verteilt die Zusagen gleichmäßig nach Stärke – Torwarte zuerst.</div>`;
+    box.innerHTML=html; return;
+  }
+  // Team-Übersicht (Größe + Ø-Stärke), damit man Schieflagen sofort sieht
+  const zeilen=[];
+  for(let t=1;t<=TEAM_ANZAHL;t++){
+    const m=pool.filter(n=>TEAMS[n]===t);
+    const bew=m.map(teamStaerke).filter(v=>v>=0);
+    const schnitt=bew.length?Math.round(bew.reduce((a,b)=>a+b,0)/bew.length):null;
+    const tw=m.filter(n=>getKader(n)&&getKader(n).tw).length;
+    zeilen.push(`<div style="flex:1;min-width:96px;background:var(--surface2);border-radius:var(--r);padding:8px">
+      <div style="font-size:11.5px;font-weight:700">Adler ${t}</div>
+      <div style="font-size:10.5px;color:var(--text2)">${m.length} Kinder · ${tw?"🥅 "+tw:"<span style='color:#dc2626'>kein TW</span>"}</div>
+      <div style="font-size:10.5px;color:var(--text2)">${schnitt!=null?"Ø "+schnitt+"%":"–"}</div>
+    </div>`);
+  }
+  html+=`<div style="display:flex;gap:6px;margin-bottom:10px">${zeilen.join("")}</div>`;
+  html+=pool.map(n=>{
+    const cur=TEAMS[n]||0;
+    const knoepfe=[];
+    for(let t=1;t<=TEAM_ANZAHL;t++)
+      knoepfe.push(`<button onclick="teamSet('${jsq(n)}',${t})" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;background:${cur===t?"var(--blue)":"var(--surface)"};color:${cur===t?"#fff":"var(--text2)"}">${t}</button>`);
+    knoepfe.push(`<button onclick="teamSet('${jsq(n)}',0)" title="Nicht dabei" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;font-size:12px;background:${cur?"var(--surface)":"var(--surface2)"};color:var(--text3)">–</button>`);
+    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+      <span style="flex:1;font-size:12.5px">${getKader(n)&&getKader(n).nr?getKader(n).nr+" ":""}${esc(n)}${getKader(n)&&getKader(n).tw?" 🥅":""}</span>
+      ${knoepfe.join("")}
+    </div>`;
+  }).join("");
+  box.innerHTML=html;
+}
+
 // Eltern-Zusagen werden automatisch übernommen (in nomLoad). Dieser Button verwirft die
 // Trainer-Overrides und koppelt die Nominierung wieder komplett an den aktuellen RSVP-Stand.
 function nomApplyRsvp(){

@@ -414,6 +414,16 @@ function generateInsights(tw, aufpasser, fl_l, fl_r, jaeger, score){
   return insights;
 }
 
+/* Wer steht heute zur Verfuegung? Die Aufstellung darf niemanden vorschlagen, der
+   abgesagt hat. Ist keine Nominierung geladen (Team-Reiter, reine Planung), bleibt es
+   beim ganzen Kader. calcBestCombos konnte das schon immer – es wurde nur nie genutzt. */
+function verfuegbareSpieler(){
+  if(typeof nominierteSpieler==="function"){
+    const s=nominierteSpieler();
+    if(s.length)return s;
+  }
+  return null; // null = keine Einschraenkung
+}
 function calcBestCombos(restrictNames){
   // restrictNames (optional): nur diese Spieler betrachten (z. B. die nominierten am Spieltag).
   const names=(restrictNames&&restrictNames.length)?restrictNames:Object.keys(DB);
@@ -471,7 +481,8 @@ function renderKombi(){
   setTimeout(()=>{_renderKombiInner(wrap);},30);
 }
 function _renderKombiInner(wrap){
-  const combos=calcBestCombos();
+  const nominiert=verfuegbareSpieler();
+  const combos=calcBestCombos(nominiert);
   if(!combos){wrap.innerHTML='<div class="empty"><i class="ti ti-users-group"></i>Mindestens 4 bewertete Spieler nötig</div>';return;}
 
   const best=combos[0];
@@ -484,7 +495,10 @@ function _renderKombiInner(wrap){
       <div class="kombi-title">⚽ Beste Aufstellung</div>
       <div class="kombi-score">${best.score}%</div>
     </div>
-    <div class="kombi-sub">Optimiert nach Rollenfit, Komplementarität & Teamdynamik</div>
+    <div class="kombi-sub">Optimiert nach Rollenfit, Komplementarität &amp; Teamdynamik</div>
+    <div class="kombi-sub" style="margin-top:2px">${nominiert
+      ? `Nur aus den <b>${nominiert.length} nominierten</b> Spielern des Spieltags.`
+      : `Aus <b>allen bewerteten</b> Spielern – am Spieltag nominieren, dann zählt nur, wer dabei ist.`}</div>
     <div class="kombi-raute">
       <div></div>
       <div class="kpos kpos-jaeg"><div class="kpos-lbl">Jäger</div><div class="kpos-name">${best.jaeger.name}</div><div class="kpos-score">${best.jaeger.total}%</div></div>
