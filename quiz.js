@@ -315,6 +315,40 @@ function tqPersonalize(text){
   return text.replace(/\bDein\b/g,tqPlayer+"s");
 }
 
+/* Wer spielt hier? tqPlayer ist eine Variable und damit bei jedem Betreten von ?quiz
+   wieder leer – das Kind wurde deshalb JEDES Mal nach seinem Namen gefragt, und zwar
+   aus dem ganzen Kader. Dabei weiss der Eltern-Zugang laengst, wessen Kind das ist.
+   Reihenfolge: eigene Kinder aus der Eltern-Sitzung → ein Kind = direkt starten,
+   mehrere = nur diese zur Wahl. Ohne Eltern-Sitzung (Trainer-Geraet) wie bisher. */
+const TQ_KIND_KEY="adler_quiz_kind";
+let TQ_EIGENE_KINDER=null;   // null = ganzer Kader
+
+async function tqEigeneKinder(){
+  if(typeof sbRead!=="function")return null;
+  const slot=sbRead();
+  if(!slot||slot.key!==SB_TOKEN_KEY_ELTERN)return null;   // nur die Eltern-Sitzung kennt "eigene" Kinder
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?select=kader(name)`,{headers:sbAuthHeaders()});
+    if(!r.ok)return null;
+    const namen=[...new Set((await r.json()).map(x=>x.kader&&x.kader.name).filter(Boolean))];
+    return namen.length?namen:null;
+  }catch(e){return null;}
+}
+// true = Spieler steht fest, die Namensauswahl entfaellt
+async function tqInitPlayer(){
+  let gemerkt=null; try{gemerkt=localStorage.getItem(TQ_KIND_KEY);}catch(e){}
+  const eigene=await tqEigeneKinder();
+  if(eigene){
+    TQ_EIGENE_KINDER=eigene;
+    if(eigene.length===1){tqSelectPlayer(eigene[0]);return true;}
+    if(gemerkt&&eigene.includes(gemerkt)){tqSelectPlayer(gemerkt);return true;}
+    return false;
+  }
+  if(gemerkt&&KADER.some(k=>k.name===gemerkt)){tqSelectPlayer(gemerkt);return true;}
+  return false;
+}
+function tqVergissKind(){ try{localStorage.removeItem(TQ_KIND_KEY);}catch(e){} tqPlayer=null; tqStart(); }
+
 function tqStart(){
   const panel=document.getElementById("tq-panel");
   panel.style.display="block";
@@ -325,10 +359,13 @@ function tqStart(){
   let html=`<div class="tq-panel">
     <div style="font-size:10px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">`;
   if(!tqPlayer){
+    const auswahl=TQ_EIGENE_KINDER
+      ? KADER.filter(k=>TQ_EIGENE_KINDER.includes(k.name))
+      : KADER;
     html+=`Wer bist du?</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Wähle deinen Namen, damit wir deinen Fortschritt speichern können!</div>
       <div class="tq-player-grid">`;
-    KADER.forEach(k=>{
+    auswahl.forEach(k=>{
       html+=`<div class="tq-player-btn" onclick="tqSelectPlayer('${k.name}')">
         <div class="tq-player-icon">⚽</div>
         <div class="tq-player-name">${esc(k.name)}</div>
@@ -338,7 +375,11 @@ function tqStart(){
     html+=`</div>${extern?"":'<button class="btn btn-sm" onclick="tqStop()" style="margin-top:8px"><i class="ti ti-x"></i>Abbrechen</button>'}`;
   } else {
     html+=`🧑 ${tqPlayer}${tqPlayerRole?" – "+tqPlayerRole:""}</div>
-      <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px">Wähle ein Quiz!</div>`;
+      <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px">Wähle ein Quiz!</div>`;
+    // Nur bei Geschwistern: ein dezenter Weg zurück zur Namenswahl.
+    if(TQ_EIGENE_KINDER&&TQ_EIGENE_KINDER.length>1)
+      html+=`<button onclick="tqVergissKind()" style="border:none;background:none;color:var(--text3);font-size:11px;text-decoration:underline;cursor:pointer;padding:0 0 8px">Nicht ${esc(tqPlayer)}? Name ändern</button>`;
+    else html+=`<div style="margin-bottom:8px"></div>`;
     html+=tqRenderTaktikLauncher(pp); // Taktik-Quiz hinter Button (aufgeräumt, wie das Wissensquiz)
     html+=wqRenderLauncher();         // Fußball-Wissensquiz
     html+=`<div id="tq-challenge"></div>`;
@@ -465,6 +506,7 @@ function tqRenderBarometer(){
 
 function tqSelectPlayer(name){
   tqPlayer=name;
+  try{localStorage.setItem(TQ_KIND_KEY,name);}catch(e){} // beim nächsten Mal nicht wieder fragen
   const snaps=typeof DB!=="undefined"&&DB[name];
   if(snaps&&snaps.length){
     const lat=snaps[snaps.length-1];

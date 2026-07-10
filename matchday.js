@@ -964,9 +964,9 @@ function renderTrainerUI(){
   if(tn)tn.innerHTML=TRAINER.map(t=>`<option value="${t}">${t}</option>`).join("");
   const tv=document.getElementById("tv-autor");
   if(tv)tv.innerHTML=TRAINER.map(t=>`<option value="${t}">${t}</option>`).join("");
-  // HOTFIX 1: Header-Zeile dynamisch aus TRAINER (statisches HTML liess Finn weg)
-  const lt=document.querySelector(".logo-t2");
-  if(lt)lt.textContent="SV Adler Dellbrück · 4+1 Raute · "+TRAINER.join(", ");
+  // Die Kopfzeile listete frueher die Trainernamen ("4+1 Raute · Sandy, …"). HOTFIX 1
+  // hatte das nur dynamisch gemacht, weil Finn fehlte – gebraucht hat es dort niemand.
+  // Jetzt steht im Untertitel der naechste Termin (topbarNaechsterTermin in views.js).
 }
 renderTrainerUI();
 

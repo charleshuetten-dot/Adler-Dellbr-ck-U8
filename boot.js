@@ -1055,7 +1055,13 @@ async function pinCheck(){
       back.style.cssText="position:fixed;bottom:12px;left:12px;z-index:9990;padding:10px 14px;border:none;border-radius:12px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.35)";
       document.body.appendChild(back);
     }
-    setTimeout(()=>tqStart(),100);
+    // Erst klaeren, WER spielt (eigenes Kind aus der Eltern-Sitzung / gemerkter Name).
+    // Nur wenn das misslingt, erscheint ueberhaupt eine Namensauswahl.
+    setTimeout(async()=>{
+      let steht=false;
+      try{ steht=await tqInitPlayer(); }catch(e){}
+      if(!steht)tqStart();
+    },100);
     setTimeout(()=>{if(typeof kidsIntroMaybe==="function")kidsIntroMaybe();},250); // einmalige Federn/Karten-Erklärung
     setTimeout(pwaInstallNudge,1800); // UX 1: Soft-Install-Nudge für die Kids
     return;

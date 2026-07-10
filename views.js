@@ -2103,9 +2103,30 @@ async function adlerWeltOpen(){
   modal.appendChild(c);document.body.appendChild(modal);
   active.forEach(k=>{xpTotal(k.id).then(t=>{const el=document.getElementById("aw-fed-"+k.id);if(el){const b=xpBadge(t);el.textContent=`${XP_ICON} ${t} · ${b.emo} ${b.t}`;}}).catch(()=>{});});
 }
+/* Kopfzeile: statt einer veralteten Trainer-Liste der nächste Termin.
+   Fällt still auf "U9 I · Trainerstab" zurück (offline, kein Termin, kein Login). */
+async function topbarNaechsterTermin(){
+  const el=document.getElementById("topbar-sub");
+  if(!el||!sbToken())return;
+  const heute=new Date().toISOString().slice(0,10);
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?datum=gte.${heute}&select=datum,uhrzeit,typ,ort,platz&order=datum.asc&limit=1`,{headers:sbAuthHeaders()});
+    if(!r.ok)return;
+    const t=(await r.json())[0];
+    if(!t)return;
+    const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ};
+    const d=new Date(t.datum+"T00:00:00");
+    const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+    const zeit=t.uhrzeit?" · "+String(t.uhrzeit).slice(0,5)+" Uhr":"";
+    const ort=t.platz?" · "+t.platz:(t.ort?" · "+t.ort:"");
+    el.textContent=`Nächstes: ${m.icon} ${m.label} ${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit}${ort}`;
+  }catch(e){/* Kopfzeile ist Beiwerk – niemals stören */}
+}
+
 async function renderHome(){
   const box=document.getElementById("home-content");
   if(!box)return;
+  if(!window._topbarChecked){window._topbarChecked=true;topbarNaechsterTermin();}
   if(!window._tourChecked){window._tourChecked=true;setTimeout(tourMaybe,700);} // Feature-Tour beim ersten Start
   const heute=new Date().toISOString().slice(0,10);
   const card=(inner,accent)=>`<div style="background:var(--surface);border:var(--border-s);${accent?`border-left:3px solid ${accent};`:""}border-radius:var(--rl);padding:12px 14px;margin-bottom:10px">${inner}</div>`;
