@@ -151,6 +151,19 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .kader-t td{padding:9px 10px;border-bottom:var(--border);vertical-align:middle}
 .kader-t tr:last-child td{border-bottom:none}
 .kader-t tr:hover td{background:var(--surface2)}
+/* Am Handy war die Tabelle 664px breit bei 343px Platz – die Aktions-Spalte
+   (Bearbeiten/Löschen) lag komplett ausserhalb. Die Detail-Spalten stehen ohnehin
+   ausfuehrlicher im Profil, hier bleiben Spieler, Rolle, Gesamt, Potenzial, Aktionen. */
+.kader-hint{display:none;font-size:10.5px;color:var(--text3);margin-top:6px}
+@media(max-width:560px){
+  .kader-t th:nth-child(3),.kader-t td:nth-child(3),
+  .kader-t th:nth-child(4),.kader-t td:nth-child(4),
+  .kader-t th:nth-child(5),.kader-t td:nth-child(5),
+  .kader-t th:nth-child(6),.kader-t td:nth-child(6),
+  .kader-t th:nth-child(9),.kader-t td:nth-child(9){display:none}
+  .kader-t th,.kader-t td{padding:9px 6px}
+  .kader-hint{display:block}
+}
 .rbadge{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:10px;font-size:10.5px;font-weight:600}
 .rb-auf{background:#e8f0fe;color:#1e40af}
 .rb-links{background:#fffbeb;color:#92400e}
@@ -266,9 +279,10 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   .mgrid{grid-template-columns:1fr 1fr}
   .s3{grid-column:span 2}
 
-  /* Kader table: scrollable */
+  /* Kader-Tabelle: am Handy zeigen wir nur noch 5 Spalten (siehe .kader-t-Media-Query),
+     das erzwungene min-width:600px machte daraus wieder eine Scroll-Tabelle und schob
+     die Aktions-Spalte aus dem Bild. */
   .kader-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .kader-t{min-width:600px}
 
   /* Fazit textarea kleiner */
   .fta{min-height:220px;font-size:11.5px}

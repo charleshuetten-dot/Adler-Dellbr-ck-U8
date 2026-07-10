@@ -315,7 +315,7 @@ function kaderEditRow(k,i){
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
       <input class="ke-name" value="${esc(k.name||'')}" placeholder="Name" style="flex:1;min-width:80px;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit">
       <input class="ke-nr" type="number" value="${k.nr!=null?k.nr:''}" placeholder="Nr" style="width:56px;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit">
-      <button onclick="kaderEditDelete(this,'${esc(k.name||'')}','${k._id||''}')" title="Spieler löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:15px"><i class="ti ti-trash"></i></button>
+      <button onclick="kaderEditDelete(this,'${esc(k.name||'')}','${k._id||''}')" aria-label="Spieler aus dem Kader entfernen" title="Spieler entfernen" style="flex:none;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid #fca5a5;border-radius:10px;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:16px"><i class="ti ti-trash"></i></button>
     </div>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
       <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input class="ke-tw" type="checkbox" ${k.tw?"checked":""}>🥅 TW</label>
@@ -368,7 +368,7 @@ function kaderEditOpen(){
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   modal.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:440px;width:100%;margin:auto">
-    <div style="font-weight:700;margin-bottom:4px">Kader verwalten</div>
+    <div style="font-weight:700;margin-bottom:4px">Spieler verwalten</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Geburtstag & Medical-Hinweise sind nur für Trainer sichtbar (nicht für Eltern).</div>
     <div id="kader-edit-list">${KADER.map((k,i)=>kaderEditRow(k,i)).join("")}</div>
     <button class="btn btn-sm" onclick="kaderEditAdd()" style="margin-bottom:12px"><i class="ti ti-plus"></i>Spieler hinzufügen</button>
@@ -747,7 +747,8 @@ function renderKader(){
     </tr>`;
   });
   html+="</tbody></table>";
-  wrap.innerHTML='<div class="kader-wrap">'+html+'</div>';
+  wrap.innerHTML='<div class="kader-wrap">'+html+'</div>'
+    +'<div class="kader-hint">Technik, Wahrnehmung und Physis stehen je Spieler im <b>Profil</b>.</div>';
   renderRauteMap(names);
 }
 
@@ -1606,7 +1607,7 @@ const TABS={
     {key:"home",    label:"Dashboard", icon:"ti-home"},
   ]},
   team:    {sections:[
-    {key:"kader",   label:"Kader",    icon:"ti-users"},
+    {key:"kader",   label:"Übersicht", icon:"ti-users"},   // Bewertungs-Tabelle, nicht die Spielerverwaltung
     {key:"profil",  label:"Profil",   icon:"ti-user"},
     {key:"bew",     label:"Bewerten", icon:"ti-clipboard-list"},
     {key:"verlauf", label:"Verlauf",  icon:"ti-chart-line"},
