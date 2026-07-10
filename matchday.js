@@ -923,7 +923,7 @@ function elternPortalTrainerNotice(root){
     <div style="font-size:40px">🧑‍🏫</div>
     <div style="font-size:16px;font-weight:800;margin-top:8px">Du bist als Trainer angemeldet</div>
     <div style="font-size:13px;color:#64748b;margin:8px 0 16px">Dieser Bereich ist für Eltern. Öffne die Trainer-App ohne <code>?portal</code> in der Adresse.</div>
-    <a href="${location.origin+location.pathname}" style="display:inline-block;padding:11px 18px;background:#1e3a8a;color:#fff;border-radius:10px;text-decoration:none;font-weight:700">Zur Trainer-App</a>
+    <a href="${appRoot()}trainer/" style="display:inline-block;padding:11px 18px;background:#1e3a8a;color:#fff;border-radius:10px;text-decoration:none;font-weight:700">Zur Trainer-App</a>
     <button onclick="elternPortalLogout()" style="display:block;width:100%;margin-top:12px;border:none;background:none;color:#64748b;font-size:12px;cursor:pointer">Abmelden</button>
   </div>`;
 }
@@ -2059,7 +2059,7 @@ async function rsvpOverviewOpen(terminId){
   const d=new Date(t.datum+"T00:00:00"), wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
   const datumStr=wtag+" "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
   const zeitStr=t.uhrzeit?String(t.uhrzeit).slice(0,5):"";
-  const deepLink=location.origin+location.pathname+"?portal&rsvp="+terminId;
+  const deepLink=appRoot()+"?portal&rsvp="+terminId;
   const waText=`🦅 SV Adler U9 – bitte kurz rückmelden fürs nächste ${m.label}:\n${t.titel||m.label} am ${datumStr}${zeitStr?" um "+zeitStr+" Uhr":""}\nNoch offen: ${groups.offen.length} Kind(er)\n👉 Zu-/absagen: ${deepLink}`;
   document.getElementById("rsvp-ov-modal")?.remove();
   const modal=document.createElement("div");
@@ -2108,7 +2108,7 @@ function tmCard(t){
   // Rueckmeldung. Fuellt nur die Nachricht vor; Absenden/Empfaenger waehlt der Trainer selbst.
   let remindBtn="";
   if(t.datum>=new Date().toISOString().slice(0,10)){
-    const deepLink=location.origin+location.pathname+"?portal&rsvp="+t.id;
+    const deepLink=appRoot()+"?portal&rsvp="+t.id;
     const waText=`🦅 SV Adler U9 – bitte kurz rückmelden fürs nächste ${m.label}:\n${t.titel||m.label} am ${datumStr}${zeitStr?" um "+zeitStr+" Uhr":""}${t.ort?" ("+t.ort+")":""}\n👉 Zu-/absagen: ${deepLink}`;
     remindBtn=`<a class="btn btn-sm" href="https://wa.me/?text=${encodeURIComponent(waText)}" target="_blank" rel="noopener noreferrer"><i class="ti ti-bell"></i>Erinnerung</a>`;
   }
@@ -2560,7 +2560,7 @@ function tickerToggle(){
 async function tickerShareViewLink(){
   const key=spieltagKey();
   try{ await fetch(`${SB_URL}/rest/v1/matchday?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({datum:key})}); }catch(e){}
-  const url=location.origin+location.pathname+"?ticker="+encodeURIComponent(key);
+  const url=appRoot()+"?ticker="+encodeURIComponent(key);
   const teamTxt=spieltagTeam>1?` (Adler ${spieltagTeam})`:"";
   const text=`📣 Liveticker U9${teamTxt}:\n${url}`;
   if(navigator.share){navigator.share({title:"Liveticker U9",text,url}).catch(()=>{});}
@@ -2587,7 +2587,7 @@ async function tickerShareDelegateLink(){
     }catch(e){}
   }
   if(!mcDelegateToken){toast("Konnte Helfer-Link nicht erzeugen","err");return;}
-  const url=location.origin+location.pathname+"?delegate="+encodeURIComponent(mcDelegateToken);
+  const url=appRoot()+"?delegate="+encodeURIComponent(mcDelegateToken);
   const text=`⚽ Liveticker-Helfer U9:\n${url}`;
   if(navigator.share){navigator.share({title:"Ticker-Helfer",text,url}).catch(()=>{});}
   else{navigator.clipboard?.writeText(url).then(()=>toast("Helfer-Link kopiert ✓"),()=>prompt("Helfer-Link:",url));}
@@ -2967,8 +2967,8 @@ async function renderElternView(datum){
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin:16px 0 8px;text-align:center">Für Eltern</div>
       <button onclick="elternKalenderIcs()" style="width:100%;margin-bottom:10px;background:#1e3a8a;color:#fff;border:none;padding:14px;border-radius:12px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer">🗓️ Termine in meinen Kalender</button>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <a href="${location.origin+location.pathname}?heft" style="text-align:center;background:#fff;border:1.5px solid #1e3a8a;color:#1e3a8a;padding:13px 8px;border-radius:12px;text-decoration:none;font-weight:700;font-size:13px">📰 Adler Horst</a>
-        <a href="${location.origin+location.pathname}?portal" style="text-align:center;background:#fff;border:1.5px solid #1e3a8a;color:#1e3a8a;padding:13px 8px;border-radius:12px;text-decoration:none;font-weight:700;font-size:13px">👨‍👩‍👧 Mein Kind</a>
+        <a href="${appRoot()}?heft" style="text-align:center;background:#fff;border:1.5px solid #1e3a8a;color:#1e3a8a;padding:13px 8px;border-radius:12px;text-decoration:none;font-weight:700;font-size:13px">📰 Adler Horst</a>
+        <a href="${appRoot()}?portal" style="text-align:center;background:#fff;border:1.5px solid #1e3a8a;color:#1e3a8a;padding:13px 8px;border-radius:12px;text-decoration:none;font-weight:700;font-size:13px">👨‍👩‍👧 Mein Kind</a>
       </div>
       <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:16px">SV Adler Dellbrück e.V. · Angaben ohne Gewähr</div></div>`;
     if(istTraining){edLoad(m.datum);fgLoad(m.datum);}
@@ -3275,7 +3275,7 @@ async function mdSave(datum,typ,btn){
   }catch(e){toast("Netzwerkfehler","err");}
 }
 function mdShareLink(datum){
-  const url=location.origin+location.pathname+"?match="+encodeURIComponent(datum);
+  const url=appRoot()+"?match="+encodeURIComponent(datum);
   const text=`⚽ Spieltag-Infos U9 (${datum}):\n${url}`;
   if(navigator.share){navigator.share({title:"Spieltag U9",text,url}).catch(()=>{});}
   else{navigator.clipboard?.writeText(url).then(()=>toast("Eltern-Link kopiert ✓"),()=>prompt("Eltern-Link:",url));}

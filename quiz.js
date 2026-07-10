@@ -164,7 +164,7 @@ async function tqLoadProgressFromSupabase(){
 tqLoadProgressFromSupabase();
 
 function tqShareQuiz(){
-  const url=window.location.origin+window.location.pathname+"?quiz";
+  const url=appRoot()+"?quiz";
   const text="⚽ Adler U9 Taktik-Quiz – Teste dein Wissen über die Raute!\n"+url;
   if(navigator.share){
     navigator.share({title:"Adler U9 Taktik-Quiz",text:"Teste dein Wissen über die Raute!",url:url}).catch(()=>{});

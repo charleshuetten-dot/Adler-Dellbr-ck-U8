@@ -1,7 +1,10 @@
-const CACHE="u9i-adler-v194";
+const CACHE="u9i-adler-v196";
 const PRECACHE=[
   "./",
   "./index.html",
+  "./trainer/",          // Einstiegsseite der Trainer-App (eigener Manifest-Scope)
+  "./eltern/",           // Einstiegsseite des Eltern-Bereichs
+  "./shell.html",        // gemeinsames Seitengeruest beider Einstiegsseiten
   "./styles.css",
   "./data.js",
   "./core.js",
@@ -60,6 +63,14 @@ self.addEventListener("activate",e=>{
   );
 });
 
+// Welche Einstiegsseite gehoert zu dieser Navigation? (Cache-Schluessel + Offline-Fallback)
+function einstiegFuer(url){
+  const pfad=new URL(url).pathname;
+  if(pfad.includes("/eltern/"))return "./eltern/";
+  if(pfad.includes("/trainer/"))return "./trainer/";
+  return "./index.html"; // die Weiche in der Wurzel
+}
+
 self.addEventListener("fetch",e=>{
   const url=e.request.url;
   if(url.includes("supabase.co"))return;
@@ -76,17 +87,19 @@ self.addEventListener("fetch",e=>{
   const istSeite = e.request.mode==="navigate";
   const istManifest = /manifest-[a-z]+\.json$/.test(url);
   if(istSeite||istManifest){
+    // Jede App hat ihre eigene Einstiegsseite; ?portal/?quiz/?heft sind dieselbe Datei.
+    const seitenKey = istSeite ? einstiegFuer(url) : e.request;
     e.respondWith((async()=>{
       try{
         const net=await fetch(e.request);
         if(net&&net.ok){
-          const clone=net.clone();
-          // Navigationen unter der App-Shell ablegen (?portal/?quiz sind dieselbe Datei)
-          caches.open(CACHE).then(c=>c.put(istSeite?"./index.html":e.request,clone));
+          // Klon SOFORT ziehen: nach dem return ist der Body angezapft und clone() scheitert
+          const kopie=net.clone();
+          caches.open(CACHE).then(c=>c.put(seitenKey,kopie)).catch(()=>{});
         }
         return net;
       }catch(err){
-        const cached=await caches.match(istSeite?"./index.html":e.request,{ignoreSearch:istSeite});
+        const cached=await caches.match(seitenKey,{ignoreSearch:istSeite});
         return cached||new Response("Offline",{status:503,statusText:"Offline"});
       }
     })());

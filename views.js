@@ -417,7 +417,7 @@ function kontakteEditOpen(spielerId){
    kein Geheimnis – anmelden kann sich nur, wessen E-Mail in eltern_kinder steht
    (is_email_whitelisted + Einmal-Code). Der Trainer sieht den Text und sendet selbst. */
 function jsq(s){ return String(s==null?"":s).replace(/\\/g,"\\\\").replace(/'/g,"\\'"); }
-function elternPortalUrl(){ return location.origin+location.pathname+"?portal"; }
+function elternPortalUrl(){ return appRoot()+"?portal"; }
 function inviteText(email,kind){
   return `Hallo! 🦅\n\nHier ist dein Zugang zum Eltern-Bereich der U9 vom SV Adler Dellbrück`
     +`${kind?` – für ${kind}`:""}.\n\n${elternPortalUrl()}\n\n`
@@ -499,7 +499,7 @@ async function kindLinkShare(spielerId){
   let token=null, nm="";
   try{const r=await fetch(`${SB_URL}/rest/v1/kader?id=eq.${spielerId}&select=name,rsvp_token`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok){const row=(await r.json())[0];if(row){token=row.rsvp_token;nm=row.name||"";}}}catch(e){}
   if(!token){toast("Kein Link gefunden","err");return;}
-  const url=location.origin+location.pathname+"?kind="+encodeURIComponent(token);
+  const url=appRoot()+"?kind="+encodeURIComponent(token);
   const text=`⚽ Zu-/Absage für ${nm||"dein Kind"} (1 Tipp, kein Login):\n${url}`;
   if(navigator.share){navigator.share({title:"Zu-/Absage-Link "+nm,text,url}).catch(()=>{});}
   else{navigator.clipboard?.writeText(url).then(()=>toast("Link kopiert ✓"),()=>prompt("Link:",url));}

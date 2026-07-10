@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<!-- Eigener Ordner = eigener Manifest-Scope (/eltern/). Nur so erkennt Chrome den
+     Eltern-Bereich als zweite, unabhaengige App neben der Trainer-App. -->
+<base href="../">
+<meta name="theme-color" content="#1e3a8a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="U9 Eltern">
+<meta name="application-name" content="U9 Eltern">
+<link rel="manifest" id="pwa-manifest" href="manifest-eltern.json">
+<link rel="apple-touch-icon" id="apple-icon" href="icon-eltern.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eltern-Bereich – SV Adler Dellbrück U9</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="styles.css">
+<script>
+(function(){
+  // start_url ist "./eltern/" (ohne Query). boot.js erkennt den Eltern-Bereich aber an
+  // ?portal – also ergaenzen wir es, bevor irgendein Skript location.search liest.
+  // ABSOLUTER Pfad: relative URLs wuerden gegen <base href="../"> aufgeloest und die
+  // Seite aus ihrem eigenen Scope /eltern/ heraus in die Wurzel schieben.
+  if(!location.search){ try{ history.replaceState({},"",location.pathname+"?portal"); }catch(e){} }
+  // Nur-Lese-Ansichten und das Kinder-Quiz bieten keine Installation an.
+  var p=new URLSearchParams(location.search);
+  if(p.has("quiz")||p.has("heft")||p.has("ticker")||p.has("kind")||p.has("delegate")||p.has("match")){
+    document.getElementById("pwa-manifest").remove();
+  }
+})();
+</script>
+</head>
+<body>
+<script>
+/* Seitengeruest aus shell.html nachladen, dann die Skripte in genau der Reihenfolge
+   wie frueher im <body>. Die Skripte haengen sich an DOMContentLoaded – das ist beim
+   Nachladen laengst vorbei, deshalb loesen wir es am Ende einmal selbst aus. */
+(async function(){
+  const shell=await (await fetch("shell.html")).text();
+  document.body.insertAdjacentHTML("afterbegin",shell);
+  for(const datei of ["data.js","core.js","engine.js","views.js","quiz.js","matchday.js","boot.js"]){
+    await new Promise((fertig,fehler)=>{
+      const s=document.createElement("script");
+      s.src=datei; s.onload=fertig; s.onerror=()=>fehler(new Error(datei));
+      document.body.appendChild(s);
+    });
+  }
+  if(document.readyState!=="loading")document.dispatchEvent(new Event("DOMContentLoaded"));
+})().catch(e=>{
+  console.error(e);
+  document.body.innerHTML='<div style="font-family:system-ui;padding:32px;text-align:center;color:#334155">'
+    +'<div style="font-size:40px">🦅</div><p>Der Eltern-Bereich konnte nicht geladen werden.<br>Bitte die Seite neu laden.</p></div>';
+});
+</script>
+</body>
+</html>

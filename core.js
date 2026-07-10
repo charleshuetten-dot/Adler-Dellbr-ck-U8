@@ -21,6 +21,14 @@ const SB_KEY="sb_publishable_Gz7hGb1ecNWkLJZA-neK_w_El3huo41";
    ueberschrieb den anderen. Der PIN oeffnet nur die Oberflaeche – die Datenbank sah
    dann den Eltern-Token, is_trainer() war false und jeder Trainer-Schreibvorgang
    scheiterte mit "Konnte nicht speichern". Jetzt kann man beide Apps parallel nutzen. */
+/* Wurzel der App (…/Adler-Dellbr-ck-U8/). Die beiden Einstiegsseiten liegen in
+   /trainer/ bzw. /eltern/ – jede App braucht einen eigenen Manifest-Scope. Alle Links,
+   die WEITERGEGEBEN werden (Eltern-Einladung, Ticker, Stadionheft, Kind-Link), muessen
+   auf die Wurzel zeigen: die dortige Weiche schickt sie in den richtigen Ordner und
+   haelt alle frueher verschickten Links am Leben. */
+function appRoot(){
+  return location.origin+location.pathname.replace(/(?:trainer|eltern)\/(?:index\.html)?$/,"");
+}
 const SB_TOKEN_KEY="adler_sb_auth";          // Trainer (Name bleibt: bestehende Sitzungen)
 const SB_TOKEN_KEY_ELTERN="adler_sb_auth_eltern";
 // Welche Faecher gelten in diesem Kontext? Erstes = das, in das geschrieben wird.
