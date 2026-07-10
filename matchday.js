@@ -235,6 +235,7 @@ async function elternDashLoad(){
       ${rsvpRows}
       <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Deine Rückmeldung ist ein Hinweis für den Trainer – die endgültige Aufstellung entscheidet er.</div>
       ${termin.typ==="training"?'<div id="betreuung-card"></div>':""}
+      ${termin.typ==="turnier"?'<div id="turnierplan-card"></div>':""}
       ${elternTickerHtml(termin)}
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
         <button onclick="galerieOpen(${termin.id},'${(termin.titel||termin.gegner||m.label).replace(/'/g,'')}')" style="flex:1;min-width:130px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 Event-Fotos</button>
@@ -282,6 +283,7 @@ async function elternDashLoad(){
   body.innerHTML=html;
   if(termin&&termin.datum)wetterInto("wetter-eltern",termin.datum,termin.ort,termin.uhrzeit); // Wetter am Termin-Ort + Uhrzeit
   if(termin&&termin.typ==="training")elternBetreuungLoad(termin.id,kids); // wer bleibt vor Ort
+  if(termin&&termin.typ==="turnier")elternTurnierplanLoad(termin);        // Begegnungen, Turnierbaum, Aushang
   if(!window._eTourChecked){window._eTourChecked=true;setTimeout(elternTourMaybe,700);} // Eltern-Tour einmalig
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(!el)return;el.innerHTML=adlerkasseCardHtml(l)+(l?akShareBtnHtml():"");if(l)window._akLink=l;}).catch(()=>{});
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
@@ -5116,6 +5118,62 @@ function adlerkasseCardHtml(link){
     <a href="${esc(link)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#0070ba;color:#fff;border-radius:10px;padding:11px 22px;font-weight:800;font-size:14px;text-decoration:none">☕ Kleinigkeit spenden</a>
     <div style="font-size:9.5px;color:#cbd5e1;margin-top:8px">Zahlung läuft extern über PayPal. Die App fasst kein Geld an.</div>
   </div>`;
+}
+
+/* Turnierplan für die Eltern: Begegnungen, Link zum Turnierbaum, Aushang (Foto/PDF).
+   Der Plan liegt je Team unter "<datum>" bzw. "<datum>__t2/3" – wir holen alle
+   Varianten des Tages und gruppieren sie, damit Eltern von Adler 2 ihre Spiele finden. */
+async function elternTurnierplanLoad(termin){
+  const box=document.getElementById("turnierplan-card");
+  if(!box||!termin)return;
+  let plan=[], ergebnisse=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/turnier_plan?datum=like.${encodeURIComponent(termin.datum)}*&select=*&order=datum.asc,sort.asc,id.asc`,{headers:sbAuthHeaders()});
+    if(r.ok)plan=await r.json();
+  }catch(e){}
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/turnier_spiele?datum=like.${encodeURIComponent(termin.datum)}*&select=plan_id,tore,gegentore`,{headers:sbAuthHeaders()});
+    if(r.ok)ergebnisse=await r.json();
+  }catch(e){}
+  const erg={}; ergebnisse.forEach(x=>{ if(x.plan_id)erg[x.plan_id]=x; });
+
+  const knoepfe=[];
+  if(termin.turnierplan_url)knoepfe.push(`<a href="${esc(termin.turnierplan_url)}" target="_blank" rel="noopener noreferrer" style="flex:1;min-width:130px;text-align:center;padding:9px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-size:13px;font-weight:700;text-decoration:none">🔗 Turnierbaum</a>`);
+  if(termin.turnierplan_datei)knoepfe.push(`<button onclick="elternAushangOeffnen('${jsq(termin.turnierplan_datei)}')" style="flex:1;min-width:130px;padding:9px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📄 Aushang ansehen</button>`);
+
+  if(!plan.length&&!knoepfe.length){ box.innerHTML=""; return; }
+
+  let liste="";
+  if(plan.length){
+    const gruppen={};
+    plan.forEach(p=>{ const t=teamLabelFromKey(p.datum)||" · Adler 1"; (gruppen[t]=gruppen[t]||[]).push(p); });
+    const mehrere=Object.keys(gruppen).length>1;
+    liste=Object.entries(gruppen).map(([label,zeilen])=>
+      (mehrere?`<div style="font-size:11px;font-weight:700;color:#64748b;margin:8px 0 2px">${esc(label.replace(/^ · /,""))}</div>`:"")
+      +zeilen.map(p=>{
+        const e=erg[p.id];
+        const farbe=e?(e.tore>e.gegentore?"#059669":e.tore===e.gegentore?"#b45309":"#dc2626"):"#94a3b8";
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid #f1f5f9">
+          <span style="font-size:11.5px;color:#64748b;width:44px">${p.uhrzeit?esc(p.uhrzeit):"--:--"}</span>
+          <span style="flex:1;font-size:12.5px">${esc(p.gegner||"?")}${p.feld?`<span style="color:#94a3b8;font-size:10.5px"> · ${esc(p.feld)}</span>`:""}</span>
+          <span style="font-weight:800;font-size:13px;color:${farbe}">${e?`${e.tore}:${e.gegentore}`:"–"}</span>
+        </div>`;
+      }).join("")).join("");
+  }
+  box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
+    <div style="font-size:12.5px;font-weight:700;color:#1e3a8a;margin-bottom:2px">🏆 Turnierplan</div>
+    ${plan.length?`<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">Ergebnisse erscheinen, sobald der Trainer sie einträgt.</div>`:""}
+    ${liste}
+    ${knoepfe.length?`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">${knoepfe.join("")}</div>`:""}
+  </div>`;
+}
+// Der Bucket ist privat – Datei mit dem Eltern-Token holen und lokal öffnen.
+async function elternAushangOeffnen(pfad){
+  try{
+    const r=await fetch(`${SB_URL}/storage/v1/object/authenticated/termin_media/${pfad}`,{headers:{'Authorization':'Bearer '+sbToken()}});
+    if(!r.ok){toast("Aushang nicht gefunden","err");return;}
+    window.open(URL.createObjectURL(await r.blob()),"_blank","noopener");
+  }catch(e){toast("Netzwerkfehler","err");}
 }
 
 /* Fan-Link: Eltern geben den Spenden-Link an Oma, Opa & Fans weiter.
