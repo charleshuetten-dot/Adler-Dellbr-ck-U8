@@ -649,3 +649,26 @@ h1.print-header{display:none}
 .btn{min-height:48px}                 /* Haupt-Aktionen dick genug für den Platz */
 .nb{min-height:52px}                  /* Bottom-Nav = Thumb-Zone */
 button{touch-action:manipulation}     /* kein 300ms-Delay / Doppeltipp-Zoom */
+
+/* ── Fat-Finger, zweiter Durchgang ──
+   Messung am Handy (375 px): Planung 30/36, Bewerten 12/15, Anwesenheit 11/14 Bedien-
+   elemente unter 40 px. Die .btn-Regel oben hatte die NATIVEN Elemente und die eigenen
+   Chips nie erreicht. Hier zentral nachgezogen – ohne Eingriff in die Logik. */
+select,textarea,
+input[type="text"],input[type="email"],input[type="tel"],input[type="number"],
+input[type="search"],input[type="date"],input[type="time"]{min-height:44px}
+
+/* 13×13 px waren ein Drittel Fingerkuppe. Getippt wird meist auf die Beschriftung –
+   die bekommt deshalb die volle Daumen-Höhe (Inline-Styles einzelner Labels gewinnen). */
+input[type="checkbox"]{width:22px;height:22px;accent-color:var(--blue);cursor:pointer}
+label:has(> input[type="checkbox"]){min-height:44px}
+
+.ftag{min-height:40px;display:inline-flex;align-items:center}      /* Kader-Filter */
+.seg-btn{min-height:44px}                                          /* Umschalter */
+.print-btn{min-height:44px}
+.tp-info{min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px}
+.tp-slot .tp-remove{min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;padding:0}
+.tp-slot .tp-remove:hover{background:var(--red-bg)}
+
+/* Der Schalter bleibt optisch klein, die Trefferfläche wächst unsichtbar auf 44 px */
+.aw-toggle::before{content:'';position:absolute;top:-11px;bottom:-11px;left:-4px;right:-4px}

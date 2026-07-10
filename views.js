@@ -636,6 +636,7 @@ async function zieleToggle(id,newStatus,spielerId){
   zieleRender(spielerId);
 }
 async function zieleDelete(id,spielerId){
+  if(!confirm("Entwicklungs-Ziel wirklich löschen?"))return;
   let row=null;
   try{const r=await fetch(`${SB_URL}/rest/v1/entwicklungsziele?id=eq.${id}&select=*`,{headers:sbAuthHeaders()});if(r.ok)row=(await r.json())[0];}catch(e){}
   try{await fetch(`${SB_URL}/rest/v1/entwicklungsziele?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}

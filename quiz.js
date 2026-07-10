@@ -213,6 +213,13 @@ function tqDoReset(modal){
   if(!checks.length){toast("Niemand ausgewählt","err");return;}
   const p=tqGetProgress();
   const all=Array.from(checks).some(c=>c.value==="__ALL__");
+  // Das loescht den muehsam erspielten Fortschritt der Kinder – und laesst sich nicht rueckgaengig machen.
+  const wen=all?"ALLER Kinder":Array.from(checks).map(c=>c.value).join(", ");
+  if(!confirm(`Quiz-Fortschritt wirklich löschen?
+
+${wen}
+
+Das kann nicht rückgängig gemacht werden. Bereits verdiente Adler-Federn bleiben erhalten.`))return;
   if(all){
     localStorage.removeItem(TQ_PROGRESS_KEY);
     fetch(`${SB_URL}/rest/v1/quiz_progress?player=neq.`,{method:"DELETE",headers:sbAuthHeaders()}).then(r=>sbCheck401(r)).catch(()=>{});

@@ -759,7 +759,7 @@ async function kasseRender(){
     ${ledger.length?ledger.map(x=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:4px 0;border-bottom:1px solid var(--surface2)">
       <span style="flex:1">${esc(x.zweck||'—')} <span style="color:var(--text3);font-size:10.5px">${x.datum||''}</span></span>
       <span style="font-weight:700;color:${x.betrag<0?'#dc2626':'#059669'}">${x.betrag<0?'':'+'}${kEur(x.betrag)}</span>
-      <button onclick="kasseDelEntry(${x.id})" title="Löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer"><i class="ti ti-trash"></i></button>
+      <button onclick="kasseDelEntry(${x.id},'${jsq(x.zweck||"")}')" title="Löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer"><i class="ti ti-trash"></i></button>
     </div>`).join(""):'<div style="font-size:12px;color:var(--text3)">Noch keine Buchungen.</div>'}
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
@@ -807,7 +807,9 @@ async function kasseAddEntry(){
   try{const r=await fetch(`${SB_URL}/rest/v1/teamkasse`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({betrag:sign*val,zweck})});if(sbCheck401(r))return;if(!r.ok){toast("Fehler","err");return;}}catch(e){return;}
   kasseRender();
 }
-async function kasseDelEntry(id){ try{const r=await fetch(`${SB_URL}/rest/v1/teamkasse?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){} kasseRender(); }
+async function kasseDelEntry(id,zweck){ if(!confirm(`Kassen-Eintrag wirklich löschen?
+
+${zweck||""}`))return; try{const r=await fetch(`${SB_URL}/rest/v1/teamkasse?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){} kasseRender(); }
 async function kasseAddUmlage(){
   const titel=(document.getElementById("u-titel")?.value||"").trim();
   const betrag=parseFloat(document.getElementById("u-betrag")?.value)||0;
@@ -818,7 +820,7 @@ async function kasseAddUmlage(){
   kasseRender();
 }
 async function kasseToggleUmlage(id,aktiv){ try{const r=await fetch(`${SB_URL}/rest/v1/kasse_umlagen?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({aktiv})});if(sbCheck401(r))return;}catch(e){} kasseRender(); }
-async function kasseDelUmlage(id){ try{const r=await fetch(`${SB_URL}/rest/v1/kasse_umlagen?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){} kasseRender(); }
+async function kasseDelUmlage(id){ if(!confirm("Umlage wirklich löschen?"))return; try{const r=await fetch(`${SB_URL}/rest/v1/kasse_umlagen?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){} kasseRender(); }
 
 /* ═══════════════════════════════════
    KIDS-MODE "DIE KABINE" (Phase 11-P) – kindersicheres Vollbild (read-only), Exit nur
@@ -2003,6 +2005,12 @@ async function gegnerSave(){
   }catch(e){toast("Netzwerkfehler","err");}
 }
 async function gegnerDelete(id){
+  const g=(GEGNER_CACHE||[]).find(x=>x.id===id);
+  if(!confirm(`Gegner wirklich löschen?
+
+${g?g.name:""}
+
+Kontaktdaten und Historie gehen verloren.`))return;
   try{
     const r=await fetch(`${SB_URL}/rest/v1/gegner?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});
     if(sbCheck401(r))return;
@@ -2308,6 +2316,7 @@ async function turnierAdd(){
   turnierRender();
 }
 async function turnierDelete(id){
+  if(!confirm("Dieses Turnier-Spiel wirklich löschen?"))return;
   let row=null;
   try{const r=await fetch(`${SB_URL}/rest/v1/turnier_spiele?id=eq.${id}&select=*`,{headers:sbAuthHeaders()});if(r.ok)row=(await r.json())[0];}catch(e){}
   try{await fetch(`${SB_URL}/rest/v1/turnier_spiele?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}
@@ -2401,7 +2410,7 @@ function nomRender(){
       return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
         ${badge}
         <span style="flex:1;font-size:12.5px">${getKader(k.name)?.nr?getKader(k.name).nr+" ":""}${esc(k.name)}</span>
-        ${["dabei","nicht","verletzt"].map(s=>`<button onclick="nomSet('${k.name}','${s}')" style="min-height:36px;padding:5px 9px;font-size:11px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;background:${cur===s?stCfg[s].col:"var(--surface)"};color:${cur===s?"#fff":"var(--text2)"}">${stCfg[s].lbl}</button>`).join("")}
+        ${["dabei","nicht","verletzt"].map(s=>`<button onclick="nomSet('${k.name}','${s}')" style="min-height:44px;padding:5px 9px;font-size:11px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;background:${cur===s?stCfg[s].col:"var(--surface)"};color:${cur===s?"#fff":"var(--text2)"}">${stCfg[s].lbl}</button>`).join("")}
       </div>`;
     }).join("");
 }
@@ -2621,13 +2630,18 @@ async function tickerRenderFeed(){
     const rows=await r.json();
     box.innerHTML=rows.length?rows.map(e=>`<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--surface2)">
       <span style="flex:1">${e.minute?`<strong>${esc(e.minute)}</strong> `:""}${esc(e.text)}${e.source==="delegate"?' <span style="opacity:.6">(Eltern-Helfer)</span>':""}</span>
-      <button onclick="tickerDelete(${Number(e.id)})" title="Ticker-Eintrag löschen" aria-label="Löschen" style="border:none;background:transparent;cursor:pointer;color:#dc2626;font-size:13px;line-height:1;padding:2px 4px"><i class="ti ti-trash"></i></button>
+      <button onclick="tickerDelete(${Number(e.id)},'${jsq(e.text||"")}')" title="Ticker-Eintrag löschen" aria-label="Löschen" style="border:none;background:transparent;cursor:pointer;color:#dc2626;font-size:13px;line-height:1;padding:2px 4px"><i class="ti ti-trash"></i></button>
     </div>`).join(""):'<div style="color:var(--text3)">Noch keine Ticker-Einträge.</div>';
   }catch(e){}
 }
 // Ticker-Eintrag korrigieren = löschen (auch von Eltern-Helfern gesendete); der Eltern-Feed
 // zeigt danach beim nächsten Poll den bereinigten Stand.
-async function tickerDelete(id){
+async function tickerDelete(id,text){
+  if(!confirm(`Ticker-Eintrag löschen?
+
+„${text||""}"
+
+Eltern, die gerade mitlesen, sehen ihn dann nicht mehr.`))return;
   try{const r=await fetch(`${SB_URL}/rest/v1/ticker_events?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
   tickerRenderFeed();
 }
@@ -4091,6 +4105,7 @@ async function blitzLoadSaved(){
   }catch(e){}
 }
 async function blitzDelete(id){
+  if(!confirm("Blitz-Bewertung wirklich löschen?"))return;
   try{const r=await fetch(`${SB_URL}/rest/v1/blitz_ratings?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
   blitzLoadSaved();
   toast("Blitz-Bewertung gelöscht");

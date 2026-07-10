@@ -139,6 +139,7 @@ async function periodSave(){
   toast("Themenplan gespeichert ✓");periodListRender();periodLoad();
 }
 async function periodDelete(monat){
+  if(!confirm(`Monats-Schwerpunkt für ${monat} wirklich löschen?`))return;
   try{await fetch(`${SB_URL}/rest/v1/periodisierung?monat=eq.${encodeURIComponent(monat)}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}
   periodListRender();periodLoad();
 }
@@ -736,7 +737,7 @@ function tpRenderTimeline(){
           <select class="tp-form-sel" id="tp-form-${si}-0" onchange="tpOnSelectChange(this)" style="flex:1;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:11px;background:var(--surface);font-family:inherit">
             <option value="">— Übung wählen —</option>${formOpts}
           </select>
-          <button onclick="tpShowExFromSel('tp-form-${si}-0')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--primary)" title="Übung anzeigen">ℹ️</button>
+          <button class="tp-info" onclick="tpShowExFromSel('tp-form-${si}-0')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--primary)" title="Übung anzeigen">ℹ️</button>
           ${tpCoachSelect(`tp-form-${si}-0`)}
         </div>
         <div id="tp-form-${si}-0-hist" style="padding-left:60px"></div>
@@ -755,7 +756,7 @@ function tpRenderTimeline(){
         <select class="tp-form-sel" id="tp-form-${si}-0" onchange="tpOnSelectChange(this)" style="flex:1;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:11px;background:var(--surface);font-family:inherit">
           <option value="">— Übung wählen —</option>${formOpts}
         </select>
-        <button onclick="tpShowExFromSel('tp-form-${si}-0')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--primary)" title="Übung anzeigen">ℹ️</button>
+        <button class="tp-info" onclick="tpShowExFromSel('tp-form-${si}-0')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--primary)" title="Übung anzeigen">ℹ️</button>
         ${tpCoachSelect(`tp-form-${si}-0`)}
       </div>
       <div id="tp-form-${si}-0-hist" style="padding-left:60px"></div>`;
@@ -777,7 +778,7 @@ function tpRenderTimeline(){
         html+=`<select class="tp-form-sel" id="${selId}" onchange="tpOnSelectChange(this)" style="flex:1;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:11px;background:var(--surface);font-family:inherit">
             <option value="">— Übung wählen —</option>${formOpts}
           </select>
-          <button onclick="tpShowExFromSel('${selId}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--primary)" title="Übung anzeigen">ℹ️</button>
+          <button class="tp-info" onclick="tpShowExFromSel('${selId}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--primary)" title="Übung anzeigen">ℹ️</button>
           ${noGroups?"":tpCoachSelect(selId)}
         </div>
         <div id="${selId}-hist" style="padding-left:60px"></div>`;
