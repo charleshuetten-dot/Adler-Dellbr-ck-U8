@@ -1455,8 +1455,8 @@ async function adlerCardStats(name){
     const r=await fetch(`${SB_URL}/rest/v1/anwesenheit?select=data`,{headers:sbAuthHeaders()});
     if(r.ok){out.trainings=(await r.json()).filter(x=>x.data&&x.data[name]&&x.data[name].da===true).length;}
   }catch(e){}
-  try{ // Quiz läuft anonym über den Anon-Key – hier auch damit lesen (garantiert erlaubt)
-    const r=await fetch(`${SB_URL}/rest/v1/quiz_progress?player=eq.${enc}&select=score,block`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+  try{ // Quiz-Fortschritt ist seit v201 nur noch für Angemeldete lesbar (vorher: Anon-Key)
+    const r=await fetch(`${SB_URL}/rest/v1/quiz_progress?player=eq.${enc}&select=score,block`,{headers:sbAuthHeaders()});
     if(r.ok){const rows=await r.json();out.quizBloecke=rows.length;out.quizRichtig=rows.reduce((s,x)=>s+(x.score||0),0);}
   }catch(e){}
   return out;

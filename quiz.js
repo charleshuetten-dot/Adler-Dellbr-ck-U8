@@ -133,20 +133,24 @@ function tqSaveProgress(player,block,score,total){
   localStorage.setItem(TQ_PROGRESS_KEY,JSON.stringify(p));
   tqSyncToSupabase(player,block,p[player][block]);
 }
+/* Der Fortschritt braucht seit v201 eine Sitzung (vorher durfte "anon" beliebig
+   schreiben). Das Quiz laeuft in der Kabine des Eltern-Zugangs bzw. in der Trainer-App,
+   dort ist immer jemand angemeldet. Ohne Sitzung bleibt der Fortschritt lokal – die
+   Synchronisierung scheitert dann still, das Kind spielt trotzdem normal weiter. */
 async function tqSyncToSupabase(player,block,data){
+  if(!sbToken())return; // ohne Sitzung nur lokal – kein sinnloser 401
   try{
     await fetch(`${SB_URL}/rest/v1/quiz_progress?on_conflict=player,block`,{
       method:"POST",
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+      headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},
       body:JSON.stringify({player,block,score:data.score,total:data.total,date:data.date})
     });
   }catch(e){console.log("Quiz sync failed",e);}
 }
 async function tqLoadProgressFromSupabase(){
+  if(!sbToken())return;
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/quiz_progress?select=*`,{
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
-    });
+    const r=await fetch(`${SB_URL}/rest/v1/quiz_progress?select=*`,{headers:sbAuthHeaders()});
     if(!r.ok)return;
     const rows=await r.json();
     if(!rows.length)return;

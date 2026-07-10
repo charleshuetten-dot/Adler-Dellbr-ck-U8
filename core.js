@@ -14,7 +14,8 @@ const SB_KEY="sb_publishable_Gz7hGb1ecNWkLJZA-neK_w_El3huo41";
 /* ═══════════════════════════════════
    SUPABASE AUTH (Block I)
    Kinderdaten sind per RLS nur für authentifizierte Trainer les-/schreibbar.
-   Quiz-Sync (quiz_progress) läuft weiter über den Anon-Key.
+   Quiz-Sync (quiz_progress) braucht seit v201 ebenfalls eine Sitzung – das Quiz lebt
+   in der Kabine des Eltern-Zugangs. Ohne Sitzung bleibt der Fortschritt lokal.
 ═══════════════════════════════════ */
 /* ZWEI getrennte Sitzungs-Faecher. Vorher teilten sich Trainer-Login (Passwort) und
    Eltern-Login (Einmal-Code) EINEN localStorage-Key: wer sich zuletzt anmeldete,
