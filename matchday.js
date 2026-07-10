@@ -1856,7 +1856,8 @@ async function tmAdd(){
     saison: saisonForDate(datum),
     spielform: istSpiel?tmSpielform:null,
     gegner: istSpiel?(titel||null):null,
-    spieldauer_min: istSpiel?parseInt(document.getElementById("tm-dauer")?.value||"20"):20
+    spieldauer_min: istSpiel?parseInt(document.getElementById("tm-dauer")?.value||"20"):20,
+    halbzeiten: istSpiel?(parseInt(document.getElementById("tm-halbzeiten")?.value)||2):2
   };
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify(body)});
@@ -2188,6 +2189,10 @@ function tmEdit(id){
   const PLATZ=["Käfig","vorne links","vorne rechts","hinten links","hinten rechts","Halle"];
   const platzOpts=`<option value=""${!t.platz?" selected":""}>– kein Platz –</option>`+PLATZ.map(p=>`<option${p===t.platz?" selected":""}>${p}</option>`).join("");
   const sfOpts=["funino","4+1","5+1"].map(s=>`<option${s===t.spielform?" selected":""}>${s}</option>`).join("");
+  // Spieldauer war im Bearbeiten-Dialog gar nicht vorhanden: einmal angelegt, nie änderbar.
+  const hz=Number(t.halbzeiten)||2, dauer=Number(t.spieldauer_min)||20;
+  const hzOpts=[[1,"1 Spielzeit"],[2,"2 Halbzeiten"]].map(([v,l])=>`<option value="${v}"${v===hz?" selected":""}>${l}</option>`).join("");
+  const dauerOpts=[8,10,12,15,20,25,30].map(v=>`<option value="${v}"${v===dauer?" selected":""}>${v} Min.</option>`).join("");
   const m=TM_META[t.typ]||{icon:"📅",label:t.typ};
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:440px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
@@ -2200,6 +2205,11 @@ function tmEdit(id){
     <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Ort / Adresse<input id="te-ort" value="${esc(t.ort||'')}" style="${fld}"></label>
     ${isTraining?`<label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Platz<select id="te-platz" style="${fld}">${platzOpts}</select></label>`:''}
     ${isSpiel?`<label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Spielform<select id="te-sf" style="${fld}">${sfOpts}</select></label>`:''}
+    ${isSpiel?`<div style="margin-top:8px"><div style="font-size:11px;color:var(--text2);margin-bottom:3px">Spieldauer</div>
+      <div style="display:flex;gap:6px">
+        <select id="te-hz" style="${fld}">${hzOpts}</select>
+        <select id="te-dauer" style="${fld}">${dauerOpts}</select>
+      </div></div>`:''}
     <div style="display:flex;gap:8px;margin-top:14px">
       <button class="btn btn-p btn-sm" onclick="tmEditSave(${Number(t.id)})"><i class="ti ti-device-floppy"></i>Speichern</button>
       <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('tm-edit-modal').remove()">Abbrechen</button>
@@ -2216,6 +2226,8 @@ async function tmEditSave(id){
   if(g("te-titel")){const tt=(g("te-titel").value||"").trim()||null; body.titel=tt; body.gegner=isSpiel?tt:null;}
   if(g("te-platz"))body.platz=(g("te-platz").value||"").trim()||null;
   if(g("te-sf"))body.spielform=g("te-sf").value||null;
+  if(g("te-dauer"))body.spieldauer_min=parseInt(g("te-dauer").value)||20;
+  if(g("te-hz"))body.halbzeiten=parseInt(g("te-hz").value)||2;
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify(body)});
     if(sbCheck401(r))return;
@@ -3037,7 +3049,7 @@ function nomApplyToTools(){
    paused_ms. Jeder Client rechnet die verstrichene Zeit selbst aus dem Anker –
    kein Sekunden-Broadcast nötig. Speist später die Minute für den Eltern-Ticker.
 ═══════════════════════════════════ */
-let mcState=null, mcTickId=null, mcSpieldauer=20, mcTickerOpen=true, mcDelegateToken=null;
+let mcState=null, mcTickId=null, mcSpieldauer=20, mcHalbzeiten=2, mcTickerOpen=true, mcDelegateToken=null;
 function mcElapsedSec(mc){
   const paused=mc.paused_ms||0;
   if(mc.clock_status==="running"&&mc.started_at){
@@ -3045,14 +3057,16 @@ function mcElapsedSec(mc){
   }
   return paused/1000;
 }
-// Minute fürs Anzeigen/den späteren Ticker – gedeckelt auf die Halbzeitdauer ("20.+" statt "23.")
-function mcMinuteLabel(mc,dauer){
+/* Minute fürs Anzeigen/den Ticker – gedeckelt auf die Spielzeit ("20.+" statt "23.").
+   Bei EINER Spielzeit gibt es keinen Halbzeit-Versatz; mc.half bleibt dann immer 1. */
+function mcMinuteLabel(mc,dauer,halbzeiten){
   if(!mc||mc.clock_status==="idle")return "–";
   if(mc.clock_status==="halftime")return "Halbzeit";
   if(mc.clock_status==="ended")return "Abgepfiffen";
   const sec=mcElapsedSec(mc);
   const minIn=Math.floor(sec/60);
-  const offset=(mc.half||1)===2?dauer:0;
+  const zweite=(Number(halbzeiten)||2)===2&&(mc.half||1)===2;
+  const offset=zweite?dauer:0;
   if(minIn>=dauer) return (offset+dauer)+".+"; // Nachspielzeit
   return (offset+minIn+1)+".";
 }
@@ -3062,11 +3076,12 @@ async function mcLoad(){
   try{
     const [mdRes,tmRes]=await Promise.all([
       fetch(`${SB_URL}/rest/v1/matchday?datum=eq.${encodeURIComponent(datum)}&select=half,clock_status,started_at,paused_ms,ticker_open,delegate_token`,{headers:sbAuthHeaders()}),
-      fetch(`${SB_URL}/rest/v1/termine?datum=eq.${encodeURIComponent(realDate)}&select=spieldauer_min&order=id.desc&limit=1`,{headers:sbAuthHeaders()})
+      fetch(`${SB_URL}/rest/v1/termine?datum=eq.${encodeURIComponent(realDate)}&select=spieldauer_min,halbzeiten&order=id.desc&limit=1`,{headers:sbAuthHeaders()})
     ]);
     const mdRows=mdRes.ok?await mdRes.json():[];
     const tmRows=tmRes.ok?await tmRes.json():[];
     mcSpieldauer=(tmRows[0]&&tmRows[0].spieldauer_min)||20;
+    mcHalbzeiten=(tmRows[0]&&tmRows[0].halbzeiten)||2;
     mcState=mdRows[0]||{half:1,clock_status:"idle",started_at:null,paused_ms:0};
     mcTickerOpen=mdRows[0]?mdRows[0].ticker_open!==false:true;
     mcDelegateToken=(mdRows[0]&&mdRows[0].delegate_token)||null;
@@ -3087,7 +3102,8 @@ async function mcSave(patch){
 // Match-Uhr und Rotations-Timer laufen gekoppelt: EIN Button (Anpfiff) startet beide.
 // Der Rotations-Timer bleibt ueber sein eigenes Panel weiterhin manuell bedienbar
 // (z. B. kurze Trinkpause ohne offizielle Spielunterbrechung).
-function mcStart(){ mcSave({half:1,clock_status:"running",started_at:new Date().toISOString(),paused_ms:0,spieldauer_min:mcSpieldauer}); rotStart(); }
+// halbzeiten mitschreiben: der oeffentliche Ticker liest matchday anonym und kennt den Termin nicht
+function mcStart(){ mcSave({half:1,clock_status:"running",started_at:new Date().toISOString(),paused_ms:0,spieldauer_min:mcSpieldauer,halbzeiten:mcHalbzeiten}); rotStart(); }
 function mcPause(){
   if(!mcState||mcState.clock_status!=="running")return;
   const addMs=Date.now()-new Date(mcState.started_at).getTime();
@@ -3107,18 +3123,20 @@ function mcReset(){ mcSave({half:1,clock_status:"idle",started_at:null,paused_ms
 function mcRenderLive(){
   const box=document.getElementById("mc-panel");
   if(!box||!mcState)return;
-  const label=mcMinuteLabel(mcState,mcSpieldauer);
+  const label=mcMinuteLabel(mcState,mcSpieldauer,mcHalbzeiten);
   const s=mcState.clock_status;
+  const eineZeit=mcHalbzeiten===1;   // U9 spielt oft 1×8 oder 1×10 – dann gibt es keine Halbzeit
   let controls="";
   if(s==="idle") controls=`<button class="btn btn-p" onclick="mcStart()"><i class="ti ti-player-play"></i>Anpfiff</button>`;
   else if(s==="running") controls=`<button class="btn" onclick="mcPause()"><i class="ti ti-player-pause"></i>Unterbrechung</button>`+
-    (mcState.half===1?`<button class="btn" onclick="mcHalftimeStart()"><i class="ti ti-hourglass"></i>Halbzeit</button>`:`<button class="btn btn-d" onclick="mcEnd()"><i class="ti ti-flag"></i>Abpfiff</button>`);
+    ((!eineZeit&&mcState.half===1)?`<button class="btn" onclick="mcHalftimeStart()"><i class="ti ti-hourglass"></i>Halbzeit</button>`:`<button class="btn btn-d" onclick="mcEnd()"><i class="ti ti-flag"></i>Abpfiff</button>`);
   else if(s==="paused") controls=`<button class="btn btn-p" onclick="mcResume()"><i class="ti ti-player-play"></i>Weiter</button>`;
   else if(s==="halftime") controls=`<button class="btn btn-p" onclick="mcHalftimeEnd()"><i class="ti ti-player-play"></i>2. Halbzeit anpfeifen</button>`;
   else if(s==="ended") controls=`<button class="btn" onclick="mcReset()"><i class="ti ti-refresh"></i>Neu starten</button>`;
+  const phase=eineZeit?`Spielzeit · ${mcSpieldauer} Min.`:`${mcState.half===2?"2. Halbzeit":"1. Halbzeit"} · ${mcSpieldauer} Min./HZ`;
   box.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
     <div style="font-size:28px;font-weight:800;min-width:70px">${label}</div>
-    <div style="font-size:11px;color:var(--text2)">${mcState.half===2?"2. Halbzeit":"1. Halbzeit"} · ${mcSpieldauer} Min./HZ</div>
+    <div style="font-size:11px;color:var(--text2)">${phase}</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto">${controls}</div>
   </div>`;
 }
@@ -3150,7 +3168,7 @@ function tickerPhrase(typ,name){
 async function tickerPush(name,typ){
   if(mcTickerOpen===false)return; // Wolff-Fuss aktiv – nichts senden
   const datum=spieltagKey();
-  const minute=mcState?mcMinuteLabel(mcState,mcSpieldauer):"";
+  const minute=mcState?mcMinuteLabel(mcState,mcSpieldauer,mcHalbzeiten):"";
   const text=tickerPhrase(typ,name);
   // Offline-fest: matchday-Upsert (FK-Ziel) zuerst, dann ticker_events – bei Netzausfall
   // landen beide in Reihenfolge in der Sync-Queue und werden bei Netz nachgespielt.
@@ -3659,7 +3677,7 @@ async function renderDelegateView(token){
   const squad=KADER.map(k=>k.name); // KADER ist ohnehin oeffentlich im Client-Code enthalten
   function draw(){
     const dauer=m.spieldauer_min||20;
-    const minuteNow=mcMinuteLabel({half:m.half,clock_status:m.clock_status,started_at:m.started_at,paused_ms:m.paused_ms},dauer);
+    const minuteNow=mcMinuteLabel({half:m.half,clock_status:m.clock_status,started_at:m.started_at,paused_ms:m.paused_ms},dauer,m.halbzeiten||2);
     root.innerHTML=`
       <div style="text-align:center;margin:8px 0 16px">
         <img src="logo.png" style="width:56px;height:56px" alt="SV Adler Dellbrück">
@@ -3685,7 +3703,7 @@ async function renderDelegateView(token){
     const name=typ==="gegentor"?null:selected;
     const text=tickerPhrase(typ,name);
     const dauer=m.spieldauer_min||20;
-    const minute=mcMinuteLabel({half:m.half,clock_status:m.clock_status,started_at:m.started_at,paused_ms:m.paused_ms},dauer);
+    const minute=mcMinuteLabel({half:m.half,clock_status:m.clock_status,started_at:m.started_at,paused_ms:m.paused_ms},dauer,m.halbzeiten||2);
     const status=document.getElementById("dg-status");
     try{
       const r=await fetch(`${SB_URL}/rest/v1/rpc/ticker_post`,{method:"POST",headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_token:token,p_text:text,p_typ:typ,p_minute:minute})});
@@ -3709,14 +3727,14 @@ async function renderTickerView(key){
   let adlerkasseHtml=""; // FEAT Z: Spenden-Button, einmal geladen (draw() laeuft alle 15s)
   async function loadClock(){
     try{
-      const r=await fetch(`${SB_URL}/rest/v1/matchday?datum=eq.${encodeURIComponent(key)}&select=gegner,half,clock_status,started_at,paused_ms,ticker_open,spieldauer_min`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+      const r=await fetch(`${SB_URL}/rest/v1/matchday?datum=eq.${encodeURIComponent(key)}&select=gegner,half,clock_status,started_at,paused_ms,ticker_open,spieldauer_min,halbzeiten`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
       const rows=r.ok?await r.json():[];
       tickerViewClock=rows[0]||null;
     }catch(e){}
   }
   function minuteNow(){
     if(!tickerViewClock)return "";
-    return mcMinuteLabel({half:tickerViewClock.half,clock_status:tickerViewClock.clock_status,started_at:tickerViewClock.started_at,paused_ms:tickerViewClock.paused_ms},tickerViewClock.spieldauer_min||20);
+    return mcMinuteLabel({half:tickerViewClock.half,clock_status:tickerViewClock.clock_status,started_at:tickerViewClock.started_at,paused_ms:tickerViewClock.paused_ms},tickerViewClock.spieldauer_min||20,tickerViewClock.halbzeiten||2);
   }
   async function draw(){
     const wolffFuss=tickerViewClock&&tickerViewClock.ticker_open===false;
@@ -4049,7 +4067,7 @@ function rotMove(name){
 // HOTFIX 12: Ein-/Auswechslung in match_substitutions loggen (Fairness-Beweis). Best-effort.
 async function rotLogSub(spieler,richtung){
   const datum=spieltagKey();
-  const minute=(typeof mcState!=="undefined"&&mcState)?mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:20):"";
+  const minute=(typeof mcState!=="undefined"&&mcState)?mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:20,typeof mcHalbzeiten!=="undefined"?mcHalbzeiten:2):"";
   let tid=null; try{tid=await terminIdForDatum(datum);}catch(e){}
   sbQueuedPost("match_substitutions",{datum,termin_id:tid,spieler,richtung,minute,feld_sek:rotFieldSec[spieler]||0,bank_sek:rotBenchSec[spieler]||0});
 }
@@ -4552,7 +4570,7 @@ function atLiveOpen(){
   atLiveRender();
   atLoadGegentore().then(()=>atLiveRender()); // aktuellen Gegentor-Stand fürs Live-Ergebnis nachladen
   clearInterval(atLiveClockId);
-  atLiveClockId=setInterval(()=>{const el=document.getElementById("at-live-min");if(el&&typeof mcState!=="undefined"&&mcState)el.textContent=mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:20);},1000);
+  atLiveClockId=setInterval(()=>{const el=document.getElementById("at-live-min");if(el&&typeof mcState!=="undefined"&&mcState)el.textContent=mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:20,typeof mcHalbzeiten!=="undefined"?mcHalbzeiten:2);},1000);
 }
 function atLiveClose(){ clearInterval(atLiveClockId); document.getElementById("at-live")?.remove(); atLiveAction=null; if(document.getElementById("action-panel"))atRender(); }
 function atLiveRender(){
@@ -4565,7 +4583,7 @@ function atLiveRender(){
     <div style="font-size:11px;color:#94a3b8">🏆 ${done}/${teamQuests.length}</div>
     <button onclick="atLiveClose()" aria-label="Schließen" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:22px;cursor:pointer">×</button></div>`;
   // Fokus-Modus: Uhr (live) + Wechsel-Vorschlag direkt im Vollbild
-  const minute=(typeof mcState!=="undefined"&&mcState)?mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:20):"";
+  const minute=(typeof mcState!=="undefined"&&mcState)?mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:20,typeof mcHalbzeiten!=="undefined"?mcHalbzeiten:2):"";
   let subHint="";
   if(typeof rotBench!=="undefined"&&rotBench&&rotBench.length&&rotField&&rotField.length){
     const benchTop=[...rotBench].sort((a,b)=>(rotBenchSec[b]||0)-(rotBenchSec[a]||0))[0];
