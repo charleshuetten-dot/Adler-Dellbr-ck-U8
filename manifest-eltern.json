@@ -11,7 +11,7 @@
   "orientation": "portrait-primary",
   "icons": [
     { "src": "./icon-eltern.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "./icon-eltern.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "./icon-eltern-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "categories": ["sports", "lifestyle"],
   "lang": "de"

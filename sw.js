@@ -1,4 +1,4 @@
-const CACHE="u9i-adler-v196";
+const CACHE="u9i-adler-v197";
 const PRECACHE=[
   "./",
   "./index.html",
@@ -15,7 +15,9 @@ const PRECACHE=[
   "./boot.js",
   "./logo.png",
   "./icon-trainer.png",
+  "./icon-trainer-maskable.png",
   "./icon-eltern.png",
+  "./icon-eltern-maskable.png",
   "./manifest-trainer.json",
   "./manifest-eltern.json",
   "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",

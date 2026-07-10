@@ -11,7 +11,7 @@
   "orientation": "portrait-primary",
   "icons": [
     { "src": "./icon-trainer.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "./icon-trainer.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "./icon-trainer-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "categories": ["sports", "productivity"],
   "lang": "de"
