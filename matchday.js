@@ -2700,16 +2700,32 @@ function istTorwart(n){ const k=getKader(n); return !!(k&&k.tw); }
 function teamZusagen(){
   return KADER.map(k=>k.name).filter(n=>nomRsvp[n]&&nomRsvp[n].status==="zugesagt");
 }
-// Volle Teams: abgerundet. Wer nicht mehr in ein volles Team passt, pausiert.
+/* Kleinste sinnvolle Teamgröße: alle auf dem Feld plus ein Kind zum Wechseln.
+   Darunter steht ein Kind 60 Minuten durch – das ist keine Alternative zum Pausieren. */
+function teamMindestKader(){
+  const key=(typeof tbFormation!=="undefined"&&tbFormation)||"4+1";
+  const f=(typeof FORMATIONS!=="undefined"&&FORMATIONS[key])||{tw:true,fieldCount:4};
+  const aufDemFeld=f.fieldCount+(f.tw?1:0);
+  return Math.min(teamKader().gesamt, aufDemFeld+1);
+}
+/* Die Kadergröße ist ein ZIEL, keine harte Obergrenze: lieber ein Kind mehr im Team als
+   ein Kind auf der Tribüne. Ein Team darf deshalb um eins über die Sollgröße gehen.
+   Beispiel 5+1 (Soll 8) mit 15 Zusagen: 8 + 7 statt 8 und sieben Zuschauer. */
+function teamPlatzProTeam(n){
+  const kd=teamKader(), z=teamZusagen().length;
+  n=n||TEAM_ANZAHL||1;
+  return Math.max(1,Math.min(kd.gesamt+1,Math.ceil(z/n)));
+}
 function teamAnzahlVorschlag(){
-  const g=teamKader().gesamt, z=teamZusagen().length;
+  const kd=teamKader(), z=teamZusagen().length;
   if(!z)return 1;
-  return Math.max(1,Math.min(3,Math.floor(z/g)||1));
+  let n=Math.min(3,Math.ceil(z/(kd.gesamt+1)));   // so wenige Teams wie möglich, ohne jemanden auszuschließen
+  while(n>1&&Math.floor(z/n)<teamMindestKader())n--; // aber nie unter die spielfähige Größe
+  return Math.max(1,n);
 }
 function teamUeberzaehlig(){
-  const g=teamKader().gesamt, z=teamZusagen().length;
-  const platz=TEAM_ANZAHL*g;
-  return Math.max(0,z-platz);
+  const z=teamZusagen().length;
+  return Math.max(0,z-TEAM_ANZAHL*teamPlatzProTeam());
 }
 
 /* Zwei Kennzahlen, damit die Auswahl "wer pausiert" begründbar ist:
@@ -2775,9 +2791,10 @@ function teamsAuto(){
   let pool=teamZusagen();
   TEAMS={};
   if(!pool.length){ teamsRender(); return; }
+  const kap=teamPlatzProTeam(n);          // Sollgröße, ggf. +1 damit niemand zusehen muss
 
   // 1) Überzählige bestimmen – Torwarte nur opfern, wenn danach noch genug bleiben
-  const ueber=Math.max(0,pool.length-n*kd.gesamt);
+  const ueber=Math.max(0,pool.length-n*kap);
   if(ueber>0){
     const raus=[];
     for(const name of teamPausenReihenfolge(pool)){
@@ -2794,7 +2811,7 @@ function teamsAuto(){
   const wert=x=>Math.max(0,teamStaerke(x));           // unbewertet zählt als 0
   const summe=new Array(n+1).fill(0);
   const twPlatz=new Array(n+1).fill(kd.tw);
-  const feldPlatz=new Array(n+1).fill(kd.feld);
+  const feldPlatz=new Array(n+1).fill(kap-kd.tw);     // Feldplätze = Kapazität minus Torwart
   const einsetzen=(name,t,alsTw)=>{TEAMS[name]=t;summe[t]+=wert(name);if(alsTw)twPlatz[t]--;else feldPlatz[t]--;};
 
   // 2) Torwarte: pro Team einer, stärkster zuerst
@@ -2922,7 +2939,7 @@ function teamsRender(){
       <div class="seg" style="flex:none;min-width:150px">${segBtn(1)}${segBtn(2)}${segBtn(3)}</div>
       <span style="font-size:11px;color:var(--text3)">Vorschlag: ${vorschlag}</span>
     </div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${esc(form)}: ${kd.tw?"1 Torwart + ":""}${kd.feld} Feldspieler = ${kd.gesamt} pro Team · ${pool.length} Zusage${pool.length===1?"":"n"}</div>`;
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${esc(form)}: ${kd.tw?"1 Torwart + ":""}${kd.feld} Feldspieler = ${kd.gesamt} pro Team · ${pool.length} Zusage${pool.length===1?"":"n"}${teamPlatzProTeam()>kd.gesamt?" · ein Team nimmt ein Kind mehr auf, damit niemand zusehen muss":""}</div>`;
 
   if(!pool.length){
     box.innerHTML=html+`<div style="font-size:11.5px;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px">Noch keine Zusage. Eingeteilt wird ausschließlich, wer zugesagt hat.</div>`;
@@ -2946,17 +2963,18 @@ function teamsRender(){
     box.innerHTML=html; return;
   }
 
-  // Team-Übersicht: Sollgröße, Torwart, Ø-Stärke
+  // Team-Übersicht: Größe, Torwart, Ø-Stärke
   const zeilen=[];
+  const mindest=teamMindestKader();
   for(let t=1;t<=TEAM_ANZAHL;t++){
     const m=pool.filter(n=>TEAMS[n]===t);
     const bew=m.map(teamStaerke).filter(v=>v>=0);
     const schnitt=bew.length?Math.round(bew.reduce((a,b)=>a+b,0)/bew.length):null;
     const tw=m.filter(istTorwart).length;
-    const voll=m.length===kd.gesamt;
+    const spielfaehig=m.length>=mindest;
     zeilen.push(`<div style="flex:1;min-width:98px;background:var(--surface2);border-radius:var(--r);padding:8px">
       <div style="font-size:11.5px;font-weight:700">Adler ${t}</div>
-      <div style="font-size:10.5px;color:${voll?"var(--text2)":"#b45309"}">${m.length}/${kd.gesamt} Kinder</div>
+      <div style="font-size:10.5px;color:${spielfaehig?"var(--text2)":"#dc2626"}" title="Sollgröße ${kd.gesamt}, mindestens ${mindest}">${m.length} Kinder${spielfaehig?"":" – zu wenige"}</div>
       <div style="font-size:10.5px">${kd.tw?(tw?"🥅 ok":"<span style='color:#dc2626'>kein TW</span>"):"<span style='color:var(--text3)'>ohne TW</span>"}</div>
       <div style="font-size:10.5px;color:var(--text2)">${schnitt!=null?"Ø "+schnitt+"%":"–"}</div>
     </div>`);
