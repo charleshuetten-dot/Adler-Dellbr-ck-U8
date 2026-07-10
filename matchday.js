@@ -285,6 +285,7 @@ async function elternDashLoad(){
   if(termin&&termin.typ==="training")elternBetreuungLoad(termin.id,kids); // wer bleibt vor Ort
   if(termin&&termin.typ==="turnier")elternTurnierplanLoad(termin);        // Begegnungen, Turnierbaum, Aushang
   if(!window._eTourChecked){window._eTourChecked=true;setTimeout(elternTourMaybe,700);} // Eltern-Tour einmalig
+  kabineCodeHash().catch(()=>{});   // Hash vorladen, damit die Kabine auch offline wieder aufgeht
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(!el)return;el.innerHTML=adlerkasseCardHtml(l)+(l?akShareBtnHtml():"");if(l)window._akLink=l;}).catch(()=>{});
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
   let backToKabine=false; try{backToKabine=sessionStorage.getItem("adler_open_kabine")==="1";sessionStorage.removeItem("adler_open_kabine");}catch(e){}
@@ -915,11 +916,31 @@ function galleryCardData(g){
     counts:{trainings:g.trainings||0,tore:null,paraden:null,aktionen:null,spiele:null,quizRichtig:0,quizBloecke:0}};
 }
 // Erwachsenen-Gate der Kabine: fester Code statt Rechenaufgabe (die war für U9 zu leicht).
-const KABINE_CODE="1922";
-function kabineExit(){
+/* Kabinen-Code: der SHA-256 liegt in team_config.kabine_code_hash, nicht im Quelltext
+   (das Repo ist oeffentlich) und ist ohne Deploy aenderbar. Gegen ein hartnaeckiges
+   Kind ist das trotzdem nur eine Huerde, kein Schutz – ein vierstelliger Code laesst
+   sich in Millisekunden durchprobieren. Die echte Zugriffskontrolle macht die RLS.
+   Der Hash wird zwischengespeichert, damit die Kabine auch ohne Netz aufgeht. */
+const KABINE_HASH_KEY="adler_kabine_hash";
+const KABINE_HASH_FALLBACK="2c1f3f5f6523af84fde4af934caa1126ae6bcebacd36e397fbddcb8a620c1d73"; // "1922", nur bis zum ersten Laden
+async function kabineCodeHash(){
+  if(sbToken()){
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/team_config?id=eq.1&select=kabine_code_hash`,{headers:sbAuthHeaders()});
+      if(r.ok){
+        const h=((await r.json())[0]||{}).kabine_code_hash;
+        if(h){ try{localStorage.setItem(KABINE_HASH_KEY,h);}catch(e){} return h; }
+      }
+    }catch(e){/* offline: gleich der Zwischenspeicher */}
+  }
+  try{ const c=localStorage.getItem(KABINE_HASH_KEY); if(c)return c; }catch(e){}
+  return KABINE_HASH_FALLBACK;
+}
+async function kabineExit(){
   const ans=prompt("Nur für Erwachsene 🔒\nBitte den Code eingeben:");
   if(ans===null)return;
-  if(String(ans).trim()===KABINE_CODE){ isKidsMode=false; document.getElementById("kabine")?.remove(); }
+  const [eingabe,soll]=await Promise.all([hashPin(String(ans).trim()),kabineCodeHash()]);
+  if(eingabe===soll){ isKidsMode=false; document.getElementById("kabine")?.remove(); }
   else { toast("Falscher Code – die Kabine bleibt zu.","err"); }
 }
 function elternPortalTrainerNotice(root){

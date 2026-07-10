@@ -2099,10 +2099,40 @@ async function adlerWeltOpen(){
     <button class="btn btn-p btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();wochenChallengeOpen()"><i class="ti ti-trophy"></i>Wochen-Challenge setzen / bearbeiten</button>
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 0">Spieler · ${XP_ICON} Federn</div>
     ${rows||'<div style="font-size:12px;color:var(--text3);padding:8px 0">Kein Kader geladen.</div>'}
+    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🔒 Kabinen-Code</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Mit diesem Code verlassen die Eltern den Kinder-Modus. Er bremst ein Kind – ein Schutz ist er nicht.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <input id="aw-kabinencode" type="text" inputmode="numeric" autocomplete="off" placeholder="Neuer Code (min. 4 Zeichen)" style="flex:1;min-width:150px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text)">
+      <button class="btn btn-sm" onclick="kabineCodeSave(this)"><i class="ti ti-device-floppy"></i>Code ändern</button>
+    </div>
     <button class="btn btn-sm" style="margin-top:12px;width:100%" onclick="document.getElementById('aw-modal').remove()">Schließen</button>`;
   modal.appendChild(c);document.body.appendChild(modal);
   active.forEach(k=>{xpTotal(k.id).then(t=>{const el=document.getElementById("aw-fed-"+k.id);if(el){const b=xpBadge(t);el.textContent=`${XP_ICON} ${t} · ${b.emo} ${b.t}`;}}).catch(()=>{});});
 }
+/* Kabinen-Code ändern: gespeichert wird NUR der SHA-256, der Klartext verlässt das
+   Trainer-Gerät nie. team_config ist für alle Angemeldeten lesbar – auch für das Kind
+   auf dem Elternhandy –, deshalb dort kein Klartext. */
+async function kabineCodeSave(btn){
+  const el=document.getElementById("aw-kabinencode");
+  const code=(el?.value||"").trim();
+  if(code.length<4){toast("Mindestens 4 Zeichen","err");return;}
+  const hash=await hashPin(code);
+  // Trainer-PIN und Kabinen-Code sind ab Werk beide "1922". Wer den einen kennt, kennt den anderen.
+  if(typeof PIN_HASH!=="undefined"&&hash===PIN_HASH){
+    if(!confirm("Das ist derselbe Code wie der Trainer-PIN.\n\nWer ihn kennt, kommt damit auch in die Trainer-App.\nTrotzdem verwenden?"))return;
+  }
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/team_config?id=eq.1`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({kabine_code_hash:hash,updated_at:new Date().toISOString()})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  try{localStorage.setItem(KABINE_HASH_KEY,hash);}catch(e){}   // eigenes Gerät sofort aktuell
+  if(el)el.value="";
+  toast("Kabinen-Code geändert ✓ Sag ihn den Eltern.");
+}
+
 /* Kopfzeile: statt einer veralteten Trainer-Liste der nächste Termin.
    Fällt still auf "U9 I · Trainerstab" zurück (offline, kein Termin, kein Login). */
 async function topbarNaechsterTermin(){
