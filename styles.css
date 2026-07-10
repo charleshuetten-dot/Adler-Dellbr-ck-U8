@@ -330,6 +330,21 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .tp-slot-label{font-weight:700;color:var(--text)}
 .tp-slot-time{color:var(--text2);font-size:11px}
 .tp-slot select{padding:4px 8px;border:var(--border-s);border-radius:var(--r);font-size:12px;background:var(--surface);font-family:inherit;flex:1}
+
+/* Eine Karte je Station: wer, welche Kategorie, welche Übung – untereinander statt
+   in einer Zeile, die am Handy in fünf Teile zerbricht. */
+.tp-station{background:var(--surface2);border:var(--border-s);border-radius:var(--r);padding:10px;margin-top:8px}
+.tp-station-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.tp-station-nr{width:26px;height:26px;flex:none;border-radius:50%;background:var(--blue);color:#fff;font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+.tp-station-titel{flex:1;font-size:12.5px;font-weight:700;color:var(--text)}
+.tp-station .tp-coach-sel{flex:none;max-width:46%}
+.tp-feld{margin-bottom:8px}
+.tp-feld>label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text2);margin-bottom:3px}
+.tp-feld select{width:100%}
+.tp-feld-zeile{display:flex;align-items:center;gap:6px}
+.tp-feld-zeile select{flex:1;min-width:0}
+.tp-info{flex:none;background:none;border:var(--border-s);cursor:pointer;font-size:15px}
+.tp-info:hover{background:var(--surface)}
 .tp-slot .tp-remove{border:none;background:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px}
 
 /* TAKTIK BOARD */

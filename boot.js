@@ -689,12 +689,16 @@ function tpShowExercise(formIdx){
 
 // Stationen-Board: Trainer-Zuweisung pro Übungs-Station (wer macht was)
 let tpCoaches={};
-function tpSetCoach(stationId,name){tpCoaches[stationId]=name;}
+function tpSetCoach(stationId,name){
+  tpCoaches[stationId]=name;
+  tpPlanSaveDebounced();                        // Zuordnung am Datum festhalten
+  if(typeof evalRenderList==="function")evalRenderList(); // Bewertungs-Liste zieht nach
+}
 function tpCoachSelect(stationId){
   const avail=tpGetCheckedTrainers();
   const list=avail.length?avail:TRAINER;
   const cur=tpCoaches[stationId]||"";
-  return `<select class="tp-coach-sel" data-station="${stationId}" onchange="tpSetCoach('${stationId}',this.value)" title="Trainer für diese Station" style="min-width:90px;padding:5px 6px;border:var(--border-s);border-radius:var(--r);font-size:10px;background:var(--surface);font-family:inherit">
+  return `<select class="tp-coach-sel" data-station="${stationId}" onchange="tpSetCoach('${stationId}',this.value)" aria-label="Trainer für diese Station" title="Wer leitet diese Station?">
     <option value="">👤 Trainer?</option>${list.map(t=>`<option value="${t}"${t===cur?" selected":""}>${t}</option>`).join("")}
   </select>`;
 }
@@ -732,56 +736,67 @@ function tpRenderTimeline(){
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
           ${twPlayers.map(k=>`<label class="tp-check"><input type="checkbox" value="${k.name}" class="tp-tw-player" data-slot="${si}" checked><span>${k.name}${k.twPrio===1?" ⭐":""}</span></label>`).join("")}
         </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:10px;color:var(--text2);min-width:55px">Übung</span>
-          <select class="tp-form-sel" id="tp-form-${si}-0" onchange="tpOnSelectChange(this)" style="flex:1;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:11px;background:var(--surface);font-family:inherit">
-            <option value="">— Übung wählen —</option>${formOpts}
-          </select>
-          <button class="tp-info" onclick="tpShowExFromSel('tp-form-${si}-0')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--primary)" title="Übung anzeigen">ℹ️</button>
-          ${tpCoachSelect(`tp-form-${si}-0`)}
+        <div class="tp-feld"><label for="tp-form-${si}-0">Übung</label>
+          <div class="tp-feld-zeile">
+            <select class="tp-form-sel" id="tp-form-${si}-0" onchange="tpOnSelectChange(this)">
+              <option value="">— Übung wählen —</option>${formOpts}
+            </select>
+            <button class="tp-info" onclick="tpShowExFromSel('tp-form-${si}-0')" aria-label="Übung ansehen" title="Übung ansehen">ℹ️</button>
+          </div>
         </div>
-        <div id="tp-form-${si}-0-hist" style="padding-left:60px"></div>
+        <div class="tp-feld"><label>Trainer</label>${tpCoachSelect(`tp-form-${si}-0`)}</div>
+        <div id="tp-form-${si}-0-hist"></div>
       </div>`;
     } else if(typ==="individual"){
       const playerOpts=KADER.map(k=>`<option value="${k.name}">${k.name}</option>`).join("");
-      html+=`<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
-        <span style="font-size:10px;color:var(--text2);min-width:55px">Spieler</span>
-        <select id="tp-ind-player-${si}" onchange="tpIndPlayerChange(${si})" style="flex:1;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:11px;background:var(--surface);font-family:inherit">
+      html+=`<div class="tp-feld"><label for="tp-ind-player-${si}">Spieler</label>
+        <select id="tp-ind-player-${si}" onchange="tpIndPlayerChange(${si})">
           <option value="">— Spieler wählen —</option>${playerOpts}
         </select>
       </div>
-      <div id="tp-ind-reco-${si}" style="margin-top:4px"></div>
-      <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
-        <span style="font-size:10px;color:var(--text2);min-width:55px">Übung</span>
-        <select class="tp-form-sel" id="tp-form-${si}-0" onchange="tpOnSelectChange(this)" style="flex:1;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:11px;background:var(--surface);font-family:inherit">
-          <option value="">— Übung wählen —</option>${formOpts}
-        </select>
-        <button class="tp-info" onclick="tpShowExFromSel('tp-form-${si}-0')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--primary)" title="Übung anzeigen">ℹ️</button>
-        ${tpCoachSelect(`tp-form-${si}-0`)}
+      <div id="tp-ind-reco-${si}" style="margin-bottom:8px"></div>
+      <div class="tp-feld"><label for="tp-form-${si}-0">Übung</label>
+        <div class="tp-feld-zeile">
+          <select class="tp-form-sel" id="tp-form-${si}-0" onchange="tpOnSelectChange(this)">
+            <option value="">— Übung wählen —</option>${formOpts}
+          </select>
+          <button class="tp-info" onclick="tpShowExFromSel('tp-form-${si}-0')" aria-label="Übung ansehen" title="Übung ansehen">ℹ️</button>
+        </div>
       </div>
-      <div id="tp-form-${si}-0-hist" style="padding-left:60px"></div>`;
+      <div class="tp-feld"><label>Trainer</label>${tpCoachSelect(`tp-form-${si}-0`)}</div>
+      <div id="tp-form-${si}-0-hist"></div>`;
     } else {
       const trainers=tpGetCheckedTrainers();
       for(let p=0;p<parallelSlots;p++){
         const selId=`tp-form-${si}-${p}`;
-        const groupLabel=noGroups?"Alle Kinder":(trainers[p]||`Trainer ${p+1}`);
         if(!tpCoaches[selId]&&!noGroups&&trainers[p])tpCoaches[selId]=trainers[p]; // Station standardmäßig dem Gruppen-Trainer zuweisen
         const isMain=typ==="main";
         const catOpts=isMain?TP_MAIN_CATS.map(c=>`<option value="${c.key}">${c.label}</option>`).join(""):"";
-        html+=`<div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap">
-          <span style="font-size:10px;color:var(--text2);min-width:55px;font-weight:600">${groupLabel}</span>`;
+        // Eine Karte je Station. Frueher stand hier eine einzige Zeile, die am Handy in
+        // fuenf Elemente umbrach – man sah nicht mehr, welches Feld zu welcher Gruppe gehoert.
+        // Der Trainername stand doppelt: einmal als Etikett, einmal im (funktionslosen) Dropdown.
+        html+=`<div class="tp-station">
+          <div class="tp-station-head">
+            <span class="tp-station-nr">${noGroups?"👥":p+1}</span>
+            <span class="tp-station-titel">${noGroups?"Alle Kinder":`Gruppe ${p+1}`}</span>
+            ${noGroups?"":tpCoachSelect(selId)}
+          </div>`;
         if(isMain){
-          html+=`<select id="tp-cat-${si}-${p}" onchange="tpOnCatChange('${selId}',${si},${p})" style="width:120px;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:10px;background:var(--surface);font-family:inherit">
-            <option value="">Alle Kategorien</option>${catOpts}
-          </select>`;
+          html+=`<div class="tp-feld"><label for="tp-cat-${si}-${p}">Kategorie</label>
+            <select id="tp-cat-${si}-${p}" onchange="tpOnCatChange('${selId}',${si},${p})">
+              <option value="">Alle Kategorien</option>${catOpts}
+            </select></div>`;
         }
-        html+=`<select class="tp-form-sel" id="${selId}" onchange="tpOnSelectChange(this)" style="flex:1;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:11px;background:var(--surface);font-family:inherit">
-            <option value="">— Übung wählen —</option>${formOpts}
-          </select>
-          <button class="tp-info" onclick="tpShowExFromSel('${selId}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--primary)" title="Übung anzeigen">ℹ️</button>
-          ${noGroups?"":tpCoachSelect(selId)}
-        </div>
-        <div id="${selId}-hist" style="padding-left:60px"></div>`;
+        html+=`<div class="tp-feld"><label for="${selId}">Übung</label>
+            <div class="tp-feld-zeile">
+              <select class="tp-form-sel" id="${selId}" onchange="tpOnSelectChange(this)">
+                <option value="">— Übung wählen —</option>${formOpts}
+              </select>
+              <button class="tp-info" onclick="tpShowExFromSel('${selId}')" aria-label="Übung ansehen" title="Übung ansehen">ℹ️</button>
+            </div>
+          </div>
+          <div id="${selId}-hist"></div>
+        </div>`;
       }
     }
     html+='</div>';
@@ -1151,7 +1166,10 @@ function tpPlanEntries(){
     const slot=tpSlots[slotIdx];
     const typ=slot?.typ||"main";
     const noGrp=typ==="warmup"||typ==="abschluss"||typ==="tw";
-    const trainer=noGrp?"Alle":(trainers[groupIdx]||`Trainer ${groupIdx+1}`);
+    // tpCoaches wurde bisher nur GESCHRIEBEN: das Dropdown "Trainer für diese Station"
+    // hatte keinerlei Wirkung. Jetzt entscheidet es, wem die Übung zugerechnet wird
+    // (Trainer-Statistik und "Einheit bewerten"). Fällt auf den Gruppen-Trainer zurück.
+    const trainer=noGrp?"Alle":(tpCoaches[s.id]||trainers[groupIdx]||`Trainer ${groupIdx+1}`);
     const formIdx=parseInt(s.value);
     const formName=allForms[formIdx]?.name||"?";
     entries.push({formIdx,formName,trainer,slotLabel:slot?.label||"",key:`${formIdx}-${trainer}`});
