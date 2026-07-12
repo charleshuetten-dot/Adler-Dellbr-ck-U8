@@ -2098,6 +2098,12 @@ async function adlerWeltOpen(){
     <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Federn, Karten, Abzeichen & Challenge – ansehen und verwalten.</div>
     <button class="btn btn-p btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();wochenChallengeOpen()"><i class="ti ti-trophy"></i>Wochen-Challenge setzen / bearbeiten</button>
     <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('aw-modal').remove();skillWocheOpen()"><i class="ti ti-video"></i>🎬 Skill der Woche setzen</button>
+    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🎵 Kabinen-Playlist</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Spotify-Link zur U9-Playlist. Die Kinder hören sie in der Kabine.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <input id="aw-spotify" type="url" placeholder="https://open.spotify.com/playlist/…" style="flex:1;min-width:150px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text)">
+      <button class="btn btn-sm" onclick="spotifySave(this)"><i class="ti ti-device-floppy"></i>Speichern</button>
+    </div>
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 0">Spieler · ${XP_ICON} Federn</div>
     ${rows||'<div style="font-size:12px;color:var(--text3);padding:8px 0">Kein Kader geladen.</div>'}
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🔒 Kabinen-Code</div>
@@ -2112,6 +2118,20 @@ async function adlerWeltOpen(){
     <button class="btn btn-sm" style="margin-top:12px;width:100%" onclick="document.getElementById('aw-modal').remove()">Schließen</button>`;
   modal.appendChild(c);document.body.appendChild(modal);
   active.forEach(k=>{xpTotal(k.id).then(t=>{const el=document.getElementById("aw-fed-"+k.id);if(el){const b=xpBadge(t);el.textContent=`${XP_ICON} ${t} · ${b.emo} ${b.t}`;}}).catch(()=>{});});
+  // aktuelle Spotify-Playlist vorbefüllen
+  fetch(`${SB_URL}/rest/v1/team_config?id=eq.1&select=spotify_playlist`,{headers:sbAuthHeaders()}).then(r=>r.ok?r.json():[]).then(rows=>{const el=document.getElementById("aw-spotify");if(el&&rows[0]&&rows[0].spotify_playlist)el.value=rows[0].spotify_playlist;}).catch(()=>{});
+}
+async function spotifySave(btn){
+  const url=(document.getElementById("aw-spotify")?.value||"").trim();
+  if(url&&!/open\.spotify\.com\/(playlist|album|track)\//.test(url)){toast("Bitte einen Spotify-Playlist-Link","err");return;}
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/team_config?on_conflict=id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({id:1,spotify_playlist:url||null,updated_at:new Date().toISOString()})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  toast(url?"Playlist gespeichert ✓":"Playlist entfernt");
 }
 /* Kabinen-Code ändern: gespeichert wird NUR der SHA-256, der Klartext verlässt das
    Trainer-Gerät nie. team_config ist für alle Angemeldeten lesbar – auch für das Kind
