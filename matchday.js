@@ -3653,12 +3653,33 @@ function matchReportShow(text,opts){
   ta.style.cssText="width:100%;min-height:280px;font-family:inherit;font-size:13px;line-height:1.5;border:var(--border-s);border-radius:10px;padding:12px;resize:vertical;background:var(--surface2);color:var(--text);box-sizing:border-box";
   const bar=document.createElement("div");
   bar.style.cssText="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:12px";
-  bar.innerHTML=`<button class="btn btn-sm" onclick="reportGenerate(true)"><i class="ti ti-refresh"></i>Neu würfeln</button>
+  const radioBtn='speechSynthesis' in window
+    ?`<button id="adler-radio-btn" class="btn btn-sm" style="background:#7c3aed;color:#fff;border-color:#7c3aed" onclick="adlerRadioToggle(this)"><i class="ti ti-volume"></i>📻 Adler Radio</button>`:"";
+  bar.innerHTML=`${radioBtn}<button class="btn btn-sm" onclick="reportGenerate(true)"><i class="ti ti-refresh"></i>Neu würfeln</button>
     <button class="btn btn-p" onclick="matchReportCopy()"><i class="ti ti-copy"></i>Kopieren</button>
-    <button class="btn btn-sm" onclick="document.getElementById('report-modal').remove()">Schließen</button>`;
+    <button class="btn btn-sm" onclick="adlerRadioStop();document.getElementById('report-modal').remove()">Schließen</button>`;
   card.appendChild(ta);card.appendChild(bar);
   modal.appendChild(card);
   document.body.appendChild(modal);
+}
+/* Adler Radio (Phase 22.4): den Spielbericht vorlesen – für Kinder, die den Text noch
+   nicht flüssig lesen. Nutzt die Web Speech API mit einer deutschen Stimme, etwas
+   flotter/heller für Kommentator-Energie. Toggle: nochmal tippen = Stopp. */
+function adlerRadioStop(){ try{ if("speechSynthesis" in window)speechSynthesis.cancel(); }catch(e){}
+  const b=document.getElementById("adler-radio-btn"); if(b)b.innerHTML='<i class="ti ti-volume"></i>📻 Adler Radio'; }
+function adlerRadioToggle(btn){
+  if(!("speechSynthesis" in window))return;
+  if(speechSynthesis.speaking||speechSynthesis.pending){ adlerRadioStop(); return; }
+  const ta=document.getElementById("report-text");
+  const text=(ta?ta.value:"").replace(/🦅|📰/g,"").trim();
+  if(!text)return;
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang="de-DE"; u.rate=1.05; u.pitch=1.15;
+  const de=speechSynthesis.getVoices().find(v=>/de[-_]/i.test(v.lang));
+  if(de)u.voice=de;
+  u.onend=u.onerror=()=>{const b=document.getElementById("adler-radio-btn"); if(b)b.innerHTML='<i class="ti ti-volume"></i>📻 Adler Radio';};
+  speechSynthesis.speak(u);
+  if(btn)btn.innerHTML='<i class="ti ti-player-stop"></i>⏹ Stopp';
 }
 function matchReportCopy(){
   const ta=document.getElementById("report-text");if(!ta)return;
