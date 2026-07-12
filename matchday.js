@@ -274,6 +274,7 @@ async function elternDashLoad(){
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🧦 Fundbüro</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Trinkflasche verschwunden? Jacke gefunden? Hier sammelt das Team.</div>
     <button onclick="fundbueroOpen()" style="width:100%;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Fundbüro öffnen</button>`);
+  html+=`<div id="event-kasse-slot"></div>`; // Event-Töpfe (async, nur wenn welche existieren)
   // Teamkasse (read-only): Saldo + offene Umlagen über RPC, PayPal nur als Link
   let kasse=null;
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kasse_summary`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)kasse=await r.json();}catch(e){}
@@ -296,6 +297,7 @@ async function elternDashLoad(){
   if(!window._eTourChecked){window._eTourChecked=true;setTimeout(elternTourMaybe,700);} // Eltern-Tour einmalig
   kabineCodeHash().catch(()=>{});   // Hash vorladen, damit die Kabine auch offline wieder aufgeht
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(!el)return;el.innerHTML=adlerkasseCardHtml(l)+(l?akShareBtnHtml():"");if(l)window._akLink=l;}).catch(()=>{});
+  elternEventKasseLoad();  // Grillfest-Töpfe: Fortschritt + eigenes Kind
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
   let backToKabine=false; try{backToKabine=sessionStorage.getItem("adler_open_kabine")==="1";sessionStorage.removeItem("adler_open_kabine");}catch(e){}
   if(backToKabine)setTimeout(kabineOpen,50);
@@ -737,6 +739,117 @@ async function elternFotoUpload(spielerId,input){
    Trainer verwaltet Buchungen + Umlagen; Eltern sehen nur Saldo + Umlagen (RPC).
 ═══════════════════════════════════ */
 const kEur=n=>Number(n||0).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+/* Event-Kasse (Phase 21.2): Töpfe mit Ziel + Fortschrittsbalken. Kein echtes Geld –
+   der Trainer hakt bezahlende Kinder ab, die Eltern sehen den Gesamtstand.
+   Betraege intern in Cent. */
+const euro=c=>((c||0)/100).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+let TOEPFE=[], TOPF_BEITRAEGE={};
+async function toepfeOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("toepfe-modal")?.remove();
+  const modal=document.createElement("div");
+  modal.id="toepfe-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Event-Kasse");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.id="toepfe-card";
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  modal.appendChild(c);document.body.appendChild(modal);
+  await toepfeLoad();
+}
+async function toepfeLoad(){
+  TOEPFE=[]; TOPF_BEITRAEGE={};
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kassen_topf?select=*&order=created_at.desc`,{headers:sbAuthHeaders()});
+    if(sbCheck401(r))return;
+    if(r.ok)TOEPFE=await r.json();
+    if(TOEPFE.length){
+      const ids=TOEPFE.map(t=>t.id).join(",");
+      const rb=await fetch(`${SB_URL}/rest/v1/kassen_beitrag?topf_id=in.(${ids})&select=topf_id,spieler_id,bezahlt`,{headers:sbAuthHeaders()});
+      if(rb.ok)(await rb.json()).forEach(b=>{ if(b.bezahlt)(TOPF_BEITRAEGE[b.topf_id]=TOPF_BEITRAEGE[b.topf_id]||new Set()).add(b.spieler_id); });
+    }
+  }catch(e){}
+  toepfeRender();
+}
+function toepfeRender(){
+  const c=document.getElementById("toepfe-card"); if(!c)return;
+  const fld="padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
+  const kinder=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
+  const toepfeHtml=TOEPFE.map(t=>{
+    const bezahltSet=TOPF_BEITRAEGE[t.id]||new Set();
+    const summe=bezahltSet.size*(t.beitrag_cent||0);
+    const pct=t.ziel_cent>0?Math.min(100,Math.round(summe/t.ziel_cent*100)):0;
+    const reihen=kinder.map(k=>{
+      const on=bezahltSet.has(k._id);
+      return `<button onclick="topfToggle(${t.id},${k._id})" style="display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:6px 8px;border:none;border-bottom:1px solid var(--surface2);background:transparent;color:var(--text);font-family:inherit;font-size:12.5px;cursor:pointer;text-align:left">
+        <span style="width:22px;height:22px;flex:none;border-radius:6px;border:2px solid ${on?"#16a34a":"var(--text3)"};background:${on?"#16a34a":"transparent"};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:14px">${on?"✓":""}</span>
+        <span style="flex:1">${k.nr!=null?`<span style="color:var(--text3)">#${k.nr}</span> `:""}${esc(k.name)}</span>
+      </button>`;
+    }).join("");
+    return `<div style="border:var(--border-s);border-radius:12px;padding:12px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1;font-weight:800;font-size:14px">${esc(t.titel)}</div>
+        <button onclick="topfDelete(${t.id},'${jsq(t.titel)}')" aria-label="Topf löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;min-width:36px;min-height:36px"><i class="ti ti-trash"></i></button>
+      </div>
+      ${t.beschreibung?`<div style="font-size:11.5px;color:var(--text2);margin-bottom:6px">${esc(t.beschreibung)}</div>`:""}
+      <div style="font-size:12px;color:var(--text2);margin:4px 0">${euro(summe)} von ${euro(t.ziel_cent)} · ${bezahltSet.size}/${kinder.length} Familien · ${euro(t.beitrag_cent)}/Kind</div>
+      <div style="height:10px;background:var(--surface2);border-radius:5px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:${pct}%;background:${pct>=100?"#16a34a":"#2563eb"};border-radius:5px;transition:width .3s"></div></div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin:6px 0 2px">Wer hat bezahlt?</div>
+      <div style="max-height:220px;overflow-y:auto;border:var(--border-s);border-radius:8px">${reihen||'<div style="padding:8px;font-size:12px;color:var(--text3)">Kein Kader geladen.</div>'}</div>
+    </div>`;
+  }).join("");
+  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🍖 Event-Kasse</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Töpfe fürs Grillfest & Co. Reines Abhaken – die App verwaltet kein Geld.</div>
+    ${toepfeHtml||'<div style="font-size:12px;color:var(--text3);margin-bottom:10px">Noch kein Topf. Leg unten den ersten an.</div>'}
+    <div style="border-top:var(--border);padding-top:12px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">Neuer Topf</div>
+      <input id="topf-titel" placeholder="z. B. Grillfest 17. Juli" style="width:100%;margin-bottom:6px;${fld}">
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <label style="flex:1;font-size:10px;color:var(--text2)">Ziel (€)<input id="topf-ziel" type="number" min="0" step="1" value="150" style="width:100%;${fld}"></label>
+        <label style="flex:1;font-size:10px;color:var(--text2)">pro Kind (€)<input id="topf-beitrag" type="number" min="0" step="0.5" value="10" style="width:100%;${fld}"></label>
+      </div>
+      <input id="topf-besch" placeholder="Hinweis (optional)" style="width:100%;margin-bottom:8px;${fld}">
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-p btn-sm" onclick="topfAdd(this)"><i class="ti ti-plus"></i>Topf anlegen</button>
+        <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('toepfe-modal').remove()">Schließen</button>
+      </div>
+    </div>`;
+}
+async function topfAdd(btn){
+  const titel=(document.getElementById("topf-titel")?.value||"").trim();
+  if(!titel){toast("Bitte einen Titel","err");return;}
+  const ziel=Math.round((parseFloat(document.getElementById("topf-ziel")?.value)||0)*100);
+  const beitrag=Math.round((parseFloat(document.getElementById("topf-beitrag")?.value)||0)*100);
+  const besch=(document.getElementById("topf-besch")?.value||"").trim()||null;
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kassen_topf`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({titel,ziel_cent:ziel,beitrag_cent:beitrag,beschreibung:besch})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht anlegen"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  toast("Topf angelegt ✓");
+  toepfeLoad();
+}
+async function topfToggle(topfId,spielerId){
+  const set=TOPF_BEITRAEGE[topfId]=TOPF_BEITRAEGE[topfId]||new Set();
+  const neu=!set.has(spielerId);
+  if(neu)set.add(spielerId);else set.delete(spielerId);
+  toepfeRender(); // sofort sichtbar
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kassen_beitrag?on_conflict=topf_id,spieler_id`,{method:"POST",
+      headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify({topf_id:topfId,spieler_id:spielerId,bezahlt:neu,updated_at:new Date().toISOString()})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");if(neu)set.delete(spielerId);else set.add(spielerId);toepfeRender();}
+  }catch(e){toast("Netzwerkfehler","err");if(neu)set.delete(spielerId);else set.add(spielerId);toepfeRender();}
+}
+async function topfDelete(id,titel){
+  if(!confirm(`Topf „${titel||""}" wirklich löschen?\n\nDie Bezahl-Häkchen gehen mit verloren.`))return;
+  try{const r=await fetch(`${SB_URL}/rest/v1/kassen_topf?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
+  toepfeLoad();
+}
+
 async function kasseOpen(){
   if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
   document.getElementById("kasse-modal")?.remove();
@@ -5415,6 +5528,40 @@ const FAIRPLAY_REGELN=[
   {emo:"🤝", t:"Ergebnis ist Nebensache", d:"Bei der U9 zählt Spaß, Bewegung und Dazulernen. Die Tabelle merkt sich in fünf Jahren keiner – das Gefühl schon."},
   {emo:"🚗", t:"Wir sind ein Team – auch abseits", d:"Pünktlich sein, Fahrgemeinschaften teilen, mit anpacken. Was wir vorleben, lernen die Kinder."}
 ];
+/* Event-Kasse bei den Eltern: pro aktivem Topf eine Karte mit Fortschrittsbalken und
+   dem Status des EIGENEN Kindes. Fremde Namen bekommt die RPC gar nicht heraus. */
+async function elternEventKasseLoad(){
+  const slot=document.getElementById("event-kasse-slot"); if(!slot)return;
+  let toepfe=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kassen_topf?aktiv=eq.true&select=id&order=created_at.desc`,{headers:sbAuthHeaders()});
+    if(r.ok)toepfe=await r.json();
+  }catch(e){}
+  if(!toepfe.length){ slot.innerHTML=""; return; }
+  const karten=[];
+  for(const t of toepfe){
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/rpc/kassen_topf_stand`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_topf:t.id})});
+      if(!r.ok)continue;
+      const s=await r.json();
+      if(!s||!s.ok)continue;
+      const pct=s.ziel_cent>0?Math.min(100,Math.round(s.summe_cent/s.ziel_cent*100)):0;
+      const e=c=>((c||0)/100).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+      const meine=(s.meine||[]).map(m=>`<div style="display:flex;align-items:center;gap:6px;font-size:12.5px;margin-top:4px">
+        <span style="flex:1">${esc(m.name)}</span>
+        <span style="font-weight:700;color:${m.bezahlt?"#059669":"#b45309"}">${m.bezahlt?"✓ bezahlt":"noch offen"}</span></div>`).join("");
+      karten.push(`<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">
+        <div style="font-weight:700;margin-bottom:2px">🍖 ${esc(s.titel||"Event-Kasse")}</div>
+        ${s.beschreibung?`<div style="font-size:12px;color:#64748b;margin-bottom:6px">${esc(s.beschreibung)}</div>`:""}
+        <div style="font-size:12.5px;color:#475569;margin:4px 0"><b>${e(s.summe_cent)}</b> von ${e(s.ziel_cent)} · ${s.bezahlt}/${s.gesamt} Familien dabei</div>
+        <div style="height:12px;background:#eef2f7;border-radius:6px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${pct>=100?"#059669":"#2563eb"};border-radius:6px;transition:width .4s"></div></div>
+        ${meine?`<div style="margin-top:8px;border-top:1px solid #f1f5f9;padding-top:8px">${meine}<div style="font-size:10.5px;color:#94a3b8;margin-top:6px">Bezahlung läuft wie immer direkt beim Trainer – die App verwaltet kein Geld.</div></div>`:""}
+      </div>`);
+    }catch(e){}
+  }
+  slot.innerHTML=karten.join("");
+}
+
 /* Fairplay-Quiz für die Eltern (Phase 18.3): fester Fragensatz rund um den Codex.
    Bestehen bringt dem Kind 50 Federn – genau EINMAL, serverseitig über xp_award_event
    dedupliziert. Wiederholen zum Üben ist erlaubt, Federn gibt es nur beim ersten Mal. */
