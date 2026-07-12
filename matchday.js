@@ -274,6 +274,7 @@ async function elternDashLoad(){
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🧦 Fundbüro</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Trinkflasche verschwunden? Jacke gefunden? Hier sammelt das Team.</div>
     <button onclick="fundbueroOpen()" style="width:100%;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Fundbüro öffnen</button>`);
+  html+=`<div id="waesche-slot"></div>`;      // Trikot-Wäsche-Rotator
   html+=`<div id="event-kasse-slot"></div>`; // Event-Töpfe (async, nur wenn welche existieren)
   // Teamkasse (read-only): Saldo + offene Umlagen über RPC, PayPal nur als Link
   let kasse=null;
@@ -298,6 +299,7 @@ async function elternDashLoad(){
   kabineCodeHash().catch(()=>{});   // Hash vorladen, damit die Kabine auch offline wieder aufgeht
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(!el)return;el.innerHTML=adlerkasseCardHtml(l)+(l?akShareBtnHtml():"");if(l)window._akLink=l;}).catch(()=>{});
   elternEventKasseLoad();  // Grillfest-Töpfe: Fortschritt + eigenes Kind
+  elternWaescheLoad(kids); // Trikot-Wäsche-Rotator
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
   let backToKabine=false; try{backToKabine=sessionStorage.getItem("adler_open_kabine")==="1";sessionStorage.removeItem("adler_open_kabine");}catch(e){}
   if(backToKabine)setTimeout(kabineOpen,50);
@@ -5614,6 +5616,53 @@ const FAIRPLAY_REGELN=[
   {emo:"🤝", t:"Ergebnis ist Nebensache", d:"Bei der U9 zählt Spaß, Bewegung und Dazulernen. Die Tabelle merkt sich in fünf Jahren keiner – das Gefühl schon."},
   {emo:"🚗", t:"Wir sind ein Team – auch abseits", d:"Pünktlich sein, Fahrgemeinschaften teilen, mit anpacken. Was wir vorleben, lernen die Kinder."}
 ];
+/* Trikot-Wäsche-Rotator (Phase 21.1) bei den Eltern: wer wäscht als Nächstes?
+   Meldet sich eine Familie, bekommt das Kind 100 Federn. Anstupsen, wenn die eigene
+   Familie lange nicht dran war. Bezahlung/Wäsche läuft real – die App trackt nur.  */
+async function elternWaescheLoad(kids){
+  const slot=document.getElementById("waesche-slot"); if(!slot)return;
+  let log=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/waesche_log?select=datum,spieler_id,kader(name)&order=datum.desc,id.desc&limit=8`,{headers:sbAuthHeaders()});
+    if(r.ok)log=await r.json();
+  }catch(e){}
+  const meineIds=(kids||[]).map(k=>k.spieler_id);
+  // Wann war die eigene Familie zuletzt dran?
+  const meinLetzter=log.find(x=>meineIds.includes(x.spieler_id));
+  const tageHer=meinLetzter?Math.floor((Date.now()-new Date(meinLetzter.datum).getTime())/864e5):null;
+  const langeNichtDran=tageHer===null||tageHer>49; // ~7 Wochen oder noch nie
+  const fmt=d=>new Date(d+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+  const verlauf=log.length
+    ? log.slice(0,5).map(x=>`<div style="display:flex;gap:6px;font-size:12px;padding:3px 0;border-top:1px solid #f1f5f9"><span style="color:#94a3b8;width:44px">${fmt(x.datum)}</span><span>${esc((x.kader&&x.kader.name)||"—")}s Familie</span></div>`).join("")
+    : `<div style="font-size:12px;color:#94a3b8;padding:4px 0">Noch niemand eingetragen.</div>`;
+  const kidBtns=(kids||[]).map(k=>`<button onclick="waescheUebernehmen(${k.spieler_id},'${jsq((k.kader&&k.kader.name)||"")}')" style="flex:1;min-width:130px;min-height:44px;padding:9px;border:1.5px solid #2563eb;border-radius:10px;background:#fff;color:#1d4ed8;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🧺 ${esc((k.kader&&k.kader.name)||"Kind")} übernimmt</button>`).join("");
+  slot.innerHTML=`<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">
+    <div style="font-weight:700;margin-bottom:2px">🧺 Trikot-Wäsche</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Wer nimmt die Trikots mit? Übernimmt deine Familie, gibt's ${XP_ICON} <b>100 Federn</b> fürs Kind.</div>
+    ${langeNichtDran?`<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:8px 10px;font-size:12px;color:#1e40af;margin-bottom:8px">👋 ${tageHer===null?"Ihr wart noch nicht dran":"Ihr wart lange nicht dran"} – mögt ihr diesmal?</div>`:""}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">${kidBtns}</div>
+    <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;margin-bottom:2px">Zuletzt gewaschen</div>
+    ${verlauf}
+  </div>`;
+}
+async function waescheUebernehmen(spielerId,name){
+  if(!confirm(`${name||"Dein Kind"}s Familie übernimmt die nächste Wäsche?\n\nDanke! Es gibt 100 Federn fürs Kind.`))return;
+  const heute=new Date().toISOString().slice(0,10);
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/waesche_log`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({spieler_id:spielerId,datum:heute})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht eintragen"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  // 100 Federn – pro Wasch-Termin (quelle_id = Datum) einmal, Server dedupliziert.
+  let neu=0;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/xp_award_event`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler_id:spielerId,p_quelle:'waesche',p_quelle_id:heute})});
+    if(r.ok){const d=await r.json(); if(d>0)neu=d;}
+  }catch(e){}
+  toast(neu>0?`Danke! 🪶 +${neu} Federn fürs Kind`:"Eingetragen – danke!");
+  if(typeof elternDashLoad==="function")elternDashLoad();
+}
+
 /* Event-Kasse bei den Eltern: pro aktivem Topf eine Karte mit Fortschrittsbalken und
    dem Status des EIGENEN Kindes. Fremde Namen bekommt die RPC gar nicht heraus. */
 async function elternEventKasseLoad(){
