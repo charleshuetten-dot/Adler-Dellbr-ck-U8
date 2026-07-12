@@ -2097,6 +2097,7 @@ async function adlerWeltOpen(){
   c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🪶 Adler-Welt</div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Federn, Karten, Abzeichen & Challenge – ansehen und verwalten.</div>
     <button class="btn btn-p btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();wochenChallengeOpen()"><i class="ti ti-trophy"></i>Wochen-Challenge setzen / bearbeiten</button>
+    <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('aw-modal').remove();skillWocheOpen()"><i class="ti ti-video"></i>🎬 Skill der Woche setzen</button>
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 0">Spieler · ${XP_ICON} Federn</div>
     ${rows||'<div style="font-size:12px;color:var(--text3);padding:8px 0">Kein Kader geladen.</div>'}
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🔒 Kabinen-Code</div>

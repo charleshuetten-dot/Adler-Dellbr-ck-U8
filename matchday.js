@@ -274,6 +274,7 @@ async function elternDashLoad(){
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🧦 Fundbüro</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Trinkflasche verschwunden? Jacke gefunden? Hier sammelt das Team.</div>
     <button onclick="fundbueroOpen()" style="width:100%;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Fundbüro öffnen</button>`);
+  html+=`<div id="skill-slot"></div>`;        // Skill der Woche
   html+=`<div id="waesche-slot"></div>`;      // Trikot-Wäsche-Rotator
   html+=`<div id="event-kasse-slot"></div>`; // Event-Töpfe (async, nur wenn welche existieren)
   // Teamkasse (read-only): Saldo + offene Umlagen über RPC, PayPal nur als Link
@@ -300,6 +301,7 @@ async function elternDashLoad(){
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(!el)return;el.innerHTML=adlerkasseCardHtml(l)+(l?akShareBtnHtml():"");if(l)window._akLink=l;}).catch(()=>{});
   elternEventKasseLoad();  // Grillfest-Töpfe: Fortschritt + eigenes Kind
   elternWaescheLoad(kids); // Trikot-Wäsche-Rotator
+  elternSkillLoad(kids);   // Skill der Woche
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
   let backToKabine=false; try{backToKabine=sessionStorage.getItem("adler_open_kabine")==="1";sessionStorage.removeItem("adler_open_kabine");}catch(e){}
   if(backToKabine)setTimeout(kabineOpen,50);
@@ -979,8 +981,26 @@ function kabineHome(){
       <button onclick="kabineQuiz('wissen')" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🧠</span>Fußball-Wissen</button>
       <button onclick="kabineShowGallery()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🖼️</span>Team-Galerie</button>
       <button onclick="kabineShowQuests()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🏆</span>Missionen</button>
+      <button onclick="kabineSkillWoche()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px;grid-column:span 2"><span style="font-size:44px">🎬</span>Skill der Woche</button>
     </div>
     <button onclick="kabineExit()" style="margin:0 16px 18px;padding:12px;border:none;border-radius:14px;background:rgba(0,0,0,.25);color:#fff;font-family:inherit;font-size:14px;cursor:pointer">🔒 Für Erwachsene: Kabine verlassen</button>`;
+}
+// Skill der Woche im Kinder-Modus: aktive Challenge holen und das Video zeigen.
+async function kabineSkillWoche(){
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  b.innerHTML=`<div style="text-align:center;padding:60px 16px;opacity:.85;color:#fff">Lade …</div>`;
+  let sk=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/skill_woche?aktiv=eq.true&select=*&order=created_at.desc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)sk=(await r.json())[0]||null;}catch(e){}
+  const head=`<div style="display:flex;align-items:center;gap:10px;padding:12px 16px">
+      <button onclick="kabineHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
+      <div style="flex:1;font-size:16px;font-weight:800;color:#fff">🎬 Skill der Woche</div></div>`;
+  if(!sk){ b.innerHTML=head+'<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#fff;opacity:.85;padding:20px;text-align:center">Diese Woche gibt es keine neue Challenge.<br>Schau bald wieder rein! 💪</div>'; return; }
+  b.innerHTML=head+`<div style="flex:1;padding:16px;color:#fff;display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px">
+    <div style="font-size:22px;font-weight:900;margin-top:10px">${esc(sk.titel)}</div>
+    ${sk.beschreibung?`<div style="font-size:14px;opacity:.95;line-height:1.5;max-width:420px">${esc(sk.beschreibung)}</div>`:""}
+    ${sk.video_url?`<a href="${esc(sk.video_url)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:16px 28px;border-radius:16px;background:#fff;color:#0b2f4d;font-weight:800;font-size:16px;text-decoration:none">▶️ Video ansehen</a>`:""}
+    <div style="font-size:13px;opacity:.85;max-width:420px;margin-top:6px">Übe zuhause – wenn du es schaffst, geben deine Eltern die Federn frei! 🪶</div>
+  </div>`;
 }
 // mode: "taktik" | "wissen" – springt nach der Namenswahl direkt ins gewählte Quiz.
 // from=kabine blendet im Quiz einen „Zurück zur Kabine"-Button ein.
@@ -5616,6 +5636,76 @@ const FAIRPLAY_REGELN=[
   {emo:"🤝", t:"Ergebnis ist Nebensache", d:"Bei der U9 zählt Spaß, Bewegung und Dazulernen. Die Tabelle merkt sich in fünf Jahren keiner – das Gefühl schon."},
   {emo:"🚗", t:"Wir sind ein Team – auch abseits", d:"Pünktlich sein, Fahrgemeinschaften teilen, mit anpacken. Was wir vorleben, lernen die Kinder."}
 ];
+/* Skill der Woche (Phase 22.2): Trainer setzt eine Heim-Challenge mit Video-Link. */
+async function skillWocheOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("skw-modal")?.remove();
+  let cur=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/skill_woche?aktiv=eq.true&select=*&order=created_at.desc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)cur=(await r.json())[0]||null;}catch(e){}
+  const modal=document.createElement("div");
+  modal.id="skw-modal";modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const fld="width:100%;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:440px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🎬 Skill der Woche</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Kurze Heim-Challenge mit Video-Link. Schafft es das Kind, geben die Eltern 50 Federn frei.</div>
+    ${cur?`<div style="font-size:11px;color:var(--text2);background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:10px">Aktuell: <b>${esc(cur.titel)}</b></div>`:""}
+    <label style="font-size:11px;color:var(--text2)">Titel<input id="skw-titel" value="${esc(cur?.titel||"")}" placeholder="z. B. 10× Ball hochhalten" style="${fld}"></label>
+    <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Video-Link (YouTube o. ä.)<input id="skw-url" value="${esc(cur?.video_url||"")}" placeholder="https://…" style="${fld}"></label>
+    <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Beschreibung (optional)<textarea id="skw-besch" rows="2" style="${fld};resize:vertical">${esc(cur?.beschreibung||"")}</textarea></label>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-p btn-sm" onclick="skillWocheSave(this)"><i class="ti ti-device-floppy"></i>Als aktuelle Challenge setzen</button>
+      <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('skw-modal').remove()">Schließen</button>
+    </div>`;
+  modal.appendChild(c);document.body.appendChild(modal);
+}
+async function skillWocheSave(btn){
+  const titel=(document.getElementById("skw-titel")?.value||"").trim();
+  if(!titel){toast("Bitte einen Titel","err");return;}
+  const url=(document.getElementById("skw-url")?.value||"").trim();
+  if(url&&!/^https?:\/\//i.test(url)){toast("Bitte einen vollständigen Link (https://…)","err");return;}
+  const besch=(document.getElementById("skw-besch")?.value||"").trim()||null;
+  if(btn)btn.disabled=true;
+  try{
+    // alte deaktivieren, neue als aktiv einfügen (Historie bleibt, neue Challenge = neue Federn)
+    await fetch(`${SB_URL}/rest/v1/skill_woche?aktiv=eq.true`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({aktiv:false})});
+    const r=await fetch(`${SB_URL}/rest/v1/skill_woche`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({titel,video_url:url||null,beschreibung:besch,aktiv:true})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  toast("Skill der Woche gesetzt ✓");
+  document.getElementById("skw-modal")?.remove();
+}
+
+/* Skill der Woche bei den Eltern: aktive Challenge + "Geschafft" (50 Federn fürs Kind). */
+async function elternSkillLoad(kids){
+  const slot=document.getElementById("skill-slot"); if(!slot)return;
+  let sk=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/skill_woche?aktiv=eq.true&select=*&order=created_at.desc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)sk=(await r.json())[0]||null;}catch(e){}
+  if(!sk){ slot.innerHTML=""; return; }
+  const kidBtns=(kids||[]).map(k=>`<button onclick="skillGeschafft(${sk.id},${k.spieler_id},'${jsq((k.kader&&k.kader.name)||"")}')" style="flex:1;min-width:130px;min-height:44px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#6d28d9;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🎉 ${esc((k.kader&&k.kader.name)||"Kind")} hat's geschafft</button>`).join("");
+  slot.innerHTML=`<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">
+    <div style="font-weight:700;margin-bottom:2px">🎬 Skill der Woche</div>
+    <div style="font-size:14px;font-weight:700;color:#6d28d9;margin:2px 0">${esc(sk.titel)}</div>
+    ${sk.beschreibung?`<div style="font-size:12.5px;color:#475569;margin-bottom:8px">${esc(sk.beschreibung)}</div>`:""}
+    ${sk.video_url?`<a href="${esc(sk.video_url)}" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;padding:11px;border:1.5px solid #7c3aed;border-radius:10px;background:#faf5ff;color:#6d28d9;font-weight:700;font-size:13px;text-decoration:none;margin-bottom:8px">▶️ Video ansehen</a>`:""}
+    <div style="font-size:11px;color:#64748b;margin-bottom:8px">Zuhause geübt und geschafft? Dann Federn freigeben:</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${kidBtns}</div>
+  </div>`;
+}
+async function skillGeschafft(skillId,spielerId,name){
+  if(!confirm(`${name||"Dein Kind"} hat den Skill geschafft?\n\nEs gibt 50 Federn fürs Kind.`))return;
+  let neu=0;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/xp_award_event`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler_id:spielerId,p_quelle:'skillwoche',p_quelle_id:String(skillId)})});
+    if(r.ok){const d=await r.json(); if(d>0)neu=d;}
+    else if(r.status===403){toast("Nur fürs eigene Kind","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  toast(neu>0?`Stark! 🪶 +${neu} Federn fürs Kind`:"Diesen Skill hattet ihr schon – gut geübt! 💪");
+}
+
 /* Trikot-Wäsche-Rotator (Phase 21.1) bei den Eltern: wer wäscht als Nächstes?
    Meldet sich eine Familie, bekommt das Kind 100 Federn. Anstupsen, wenn die eigene
    Familie lange nicht dran war. Bezahlung/Wäsche läuft real – die App trackt nur.  */
