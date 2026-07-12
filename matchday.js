@@ -194,6 +194,7 @@ async function elternDashLoad(){
     try{const ids=kids.map(k=>k.spieler_id).join(",");const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${termin.id}&spieler_id=in.(${ids})&select=spieler_id,status,kommentar`,{headers:sbAuthHeaders()});if(r.ok){(await r.json()).forEach(x=>rsvp[x.spieler_id]=x);}}catch(e){}
   }
   let html="";
+  if(termin&&termin.platz_status)html+=elternPlatzAmpelBanner(termin);   // ganz oben: findet statt / Ausweich / fällt aus
   if(termin&&(termin.typ==="spiel"||termin.typ==="turnier"))html+='<div id="pause-card"></div>';  // ganz oben, noch vor dem Termin
   if(!termin){
     html+=card('<div style="font-weight:700;margin-bottom:2px">📅 Nächster Termin</div><div style="color:#64748b;font-size:13px">Aktuell ist kein Termin geplant.</div>');
@@ -2116,6 +2117,48 @@ async function rsvpOverviewOpen(terminId){
     </div>`;
   modal.appendChild(card);document.body.appendChild(modal);
 }
+/* Platz-Ampel: drei Fat-Finger-Buttons je Termin. Setzt termine.platz_status live;
+   die Eltern sehen den Status oben im Dashboard. Optionaler kurzer Zusatz (z. B.
+   "Halle 2" beim Ausweichplatz oder der Grund bei Absage). */
+const PLATZ_AMPEL={
+  normal:  {emo:"🟢", lbl:"Findet statt", col:"#16a34a"},
+  ausweich:{emo:"🟡", lbl:"Ausweichplatz", col:"#d97706"},
+  abgesagt:{emo:"🔴", lbl:"Fällt aus",     col:"#dc2626"}
+};
+function platzAmpelTrainer(t){
+  const cur=t.platz_status||null;
+  const btns=Object.keys(PLATZ_AMPEL).map(k=>{
+    const a=PLATZ_AMPEL[k], on=cur===k;
+    return `<button onclick="platzAmpelSet(${Number(t.id)},'${k}')" style="flex:1;min-width:96px;min-height:46px;border:2px solid ${a.col};border-radius:10px;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:800;background:${on?a.col:"var(--surface)"};color:${on?"#fff":a.col}">${a.emo} ${a.lbl}</button>`;
+  }).join("");
+  const zusatz=cur?`<input id="pa-note-${t.id}" value="${esc(t.platz_status_note||"")}" placeholder="${cur==="ausweich"?"Wohin? z. B. Halle 2":cur==="abgesagt"?"Grund (optional)":"Hinweis (optional)"}" onchange="platzAmpelNote(${Number(t.id)},this.value)" style="width:100%;min-height:40px;margin-top:6px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:12px;background:var(--surface2);color:var(--text);box-sizing:border-box">`:"";
+  return `<div style="margin:8px 0;padding:8px;background:var(--surface2);border-radius:10px">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin-bottom:5px">📣 Platz-Status für die Eltern</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>${zusatz}
+  </div>`;
+}
+async function platzAmpelSet(id,status){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),
+      body:JSON.stringify({platz_status:status,platz_status_at:new Date().toISOString()})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht setzen"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  const t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(id)); if(t){t.platz_status=status;t.platz_status_at=new Date().toISOString();}
+  try{navigator.vibrate&&navigator.vibrate(20);}catch(e){}
+  toast(`Eltern sehen jetzt: ${PLATZ_AMPEL[status].emo} ${PLATZ_AMPEL[status].lbl}`);
+  tmLoad();  // Liste neu rendern → aktiver Button + Hinweisfeld
+}
+async function platzAmpelNote(id,val){
+  const note=(val||"").trim()||null;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({platz_status_note:note})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  const t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(id)); if(t)t.platz_status_note=note;
+  toast("Hinweis gespeichert ✓");
+}
 function tmCard(t){
   const m=TM_META[t.typ]||TM_META.training;
   const d=new Date(t.datum+"T00:00:00");
@@ -2153,6 +2196,7 @@ function tmCard(t){
     </div>
     ${t.ort?`<div style="font-size:11px;color:var(--text2)"><i class="ti ti-map-pin" style="font-size:11px"></i> ${mapsAnchor(t.ort)}</div>`:""}
     ${t.platz?`<div style="font-size:11px;color:var(--text2)">🏟️ Platz: ${esc(t.platz)}</div>`:""}
+    ${t.datum>=new Date().toISOString().slice(0,10)?platzAmpelTrainer(t):""}
     <div id="wx-tm-${t.id}"></div>
     ${t.datum>=new Date().toISOString().slice(0,10)?`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px">
       <span style="font-size:10px;color:var(--text3);font-weight:700">Trainer dabei?</span>
@@ -5352,6 +5396,23 @@ function adlerkasseCardHtml(link){
     <div style="font-size:12px;color:#64748b;margin:4px 0 10px">Danke, dass du unsere Jungs anfeuerst! Jeder Euro fließt direkt in die Mannschaft – fürs Eis nach dem Sieg 🍦, den Ausflug, die nächste Belohnung.</div>
     <a href="${esc(link)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#0070ba;color:#fff;border-radius:10px;padding:11px 22px;font-weight:800;font-size:14px;text-decoration:none">☕ Kleinigkeit spenden</a>
     <div style="font-size:9.5px;color:#cbd5e1;margin-top:8px">Zahlung läuft extern über PayPal. Die App fasst kein Geld an.</div>
+  </div>`;
+}
+
+/* Platz-Ampel-Banner für die Eltern – nur wenn der Trainer einen Status gesetzt hat.
+   Farben aus der gemeinsamen PLATZ_AMPEL-Definition, kontrastreich für draußen. */
+function elternPlatzAmpelBanner(termin){
+  const s=termin.platz_status; const a=(typeof PLATZ_AMPEL!=="undefined"&&PLATZ_AMPEL[s]);
+  if(!a)return "";
+  const bg=s==="abgesagt"?"#dc2626":s==="ausweich"?"#d97706":"#16a34a";
+  const wann=termin.platz_status_at?new Date(termin.platz_status_at).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"";
+  const text=s==="abgesagt"?"Der Termin fällt heute aus."
+            :s==="ausweich"?"Heute auf den Ausweichplatz."
+            :"Der Termin findet statt.";
+  return `<div style="background:${bg};color:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 4px 16px ${bg}55">
+    <div style="font-size:18px;font-weight:900;display:flex;align-items:center;gap:8px">${a.emo} ${esc(a.lbl)}</div>
+    <div style="font-size:13.5px;opacity:.97;margin-top:4px">${text}${termin.platz_status_note?` <b>${esc(termin.platz_status_note)}</b>`:""}</div>
+    ${wann?`<div style="font-size:10.5px;opacity:.8;margin-top:6px">Aktualisiert ${wann} Uhr vom Trainer</div>`:""}
   </div>`;
 }
 
