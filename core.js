@@ -54,6 +54,11 @@ function sbToken(){
   return null;
 }
 function sbClearToken(){ const s=sbRead(); localStorage.removeItem(s?s.key:sbWriteKey()); }
+// Eigene User-ID aus dem JWT (sub-Claim) – z. B. um "von mir reserviert" zu erkennen.
+function sbUserId(){
+  const t=sbToken(); if(!t)return null;
+  try{ const p=JSON.parse(atob(t.split(".")[1].replace(/-/g,"+").replace(/_/g,"/"))); return p.sub||null; }catch(e){ return null; }
+}
 /* 403 = die RLS hat abgelehnt (z. B. Eltern-Token in der Trainer-App). Das ist kein
    "Speicherfehler" und muss anders klingen, sonst sucht man an der falschen Stelle. */
 function sbDeniedMsg(res,fallback){

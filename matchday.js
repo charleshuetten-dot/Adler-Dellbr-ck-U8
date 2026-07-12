@@ -270,6 +270,10 @@ async function elternDashLoad(){
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Die Regeln, damit der Spielfeldrand ein guter Ort für die Kinder bleibt.</div>
     <button onclick="fairplayOpen()" style="width:100%;padding:11px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">Codex ansehen</button>
     <button onclick="fairplayQuizStart(window._elternKids||[])" style="width:100%;margin-top:8px;padding:11px;border:1.5px solid #16a34a;border-radius:10px;background:#fff;color:#15803d;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🏅 Fairplay-Quiz spielen · ${XP_ICON} 50 Federn fürs Kind</button>`);
+  // Adler-Börse (Phase 23.1): interner Flohmarkt
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">🛍️ Adler-Börse</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Zu kleine Schuhe oder Trikots? Gib sie an ein anderes Adler-Kind weiter.</div>
+    <button onclick="boerseOpen()" style="width:100%;padding:11px;border:1.5px solid #2563eb;border-radius:10px;background:#fff;color:#1d4ed8;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Börse öffnen</button>`);
   // FEAT Y: Fundbüro – Board + Upload für alle eingeloggten Eltern
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🧦 Fundbüro</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Trinkflasche verschwunden? Jacke gefunden? Hier sammelt das Team.</div>
@@ -5657,6 +5661,117 @@ const FAIRPLAY_REGELN=[
   {emo:"🤝", t:"Ergebnis ist Nebensache", d:"Bei der U9 zählt Spaß, Bewegung und Dazulernen. Die Tabelle merkt sich in fünf Jahren keiner – das Gefühl schon."},
   {emo:"🚗", t:"Wir sind ein Team – auch abseits", d:"Pünktlich sein, Fahrgemeinschaften teilen, mit anpacken. Was wir vorleben, lernen die Kinder."}
 ];
+/* Adler-Börse (Phase 23.1): interner Flohmarkt. Preise sind Freitext ("Zu verschenken").
+   Fotos im vorhandenen fundbuero-Bucket (privat, nur Angemeldete), Prefix "boerse/". */
+async function boerseOpen(){
+  document.getElementById("boerse-modal")?.remove();
+  const modal=document.createElement("div");
+  modal.id="boerse-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Adler-Börse");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.id="boerse-card";
+  c.style.cssText="background:var(--surface,#fff);color:var(--text,#0f172a);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  modal.appendChild(c);document.body.appendChild(modal);
+  await boerseRender();
+}
+async function boerseRender(){
+  const c=document.getElementById("boerse-card"); if(!c)return;
+  const meineId=(typeof sbUserId==="function")?sbUserId():null;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/boerse_listings?select=*&order=created_at.desc`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)rows=await r.json();}catch(e){}
+  const fld="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box;background:#fff;color:#0f172a";
+  const liste=rows.map(x=>{
+    const meins=x.created_by===meineId;
+    const reserviert=!!x.reserviert_von;
+    const vonMir=x.reserviert_von===meineId;
+    let aktion;
+    if(meins)aktion=`<button onclick="boerseDelete(${x.id})" style="min-height:40px;padding:6px 12px;border:1.5px solid #fca5a5;border-radius:10px;background:#fef2f2;color:#dc2626;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">Entfernen</button>`;
+    else if(vonMir)aktion=`<button onclick="boerseFreigeben(${x.id})" style="min-height:40px;padding:6px 12px;border:1.5px solid #94a3b8;border-radius:10px;background:#f8fafc;color:#475569;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">✓ von dir – freigeben</button>`;
+    else if(reserviert)aktion=`<span style="font-size:12px;color:#b45309;font-weight:700">reserviert</span>`;
+    else aktion=`<button onclick="boerseReservieren(${x.id})" style="min-height:40px;padding:6px 14px;border:none;border-radius:10px;background:#059669;color:#fff;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer">Nehme ich</button>`;
+    return `<div style="display:flex;gap:10px;padding:10px 0;border-top:1px solid #f1f5f9">
+      ${x.foto_path?`<img id="bo-img-${x.id}" alt="" style="width:56px;height:56px;flex:none;border-radius:10px;object-fit:cover;background:#f1f5f9">`:`<div style="width:56px;height:56px;flex:none;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:24px">🛍️</div>`}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13.5px;font-weight:700">${esc(x.titel)}</div>
+        <div style="font-size:11.5px;color:#64748b">${x.groesse?"Gr. "+esc(x.groesse)+" · ":""}${esc(x.preis||"")}</div>
+        <div style="margin-top:6px">${aktion}</div>
+      </div>
+    </div>`;
+  }).join("");
+  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🛍️ Adler-Börse</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:12px">Zu klein geworden? Hier findet es ein neues Adler-Kind. Preis frei (z. B. „Zu verschenken").</div>
+    ${liste||'<div style="font-size:12px;color:#94a3b8;padding:6px 0">Noch nichts drin. Stell das Erste ein!</div>'}
+    <div style="border-top:1px solid #e2e8f0;margin-top:12px;padding-top:12px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin-bottom:6px">Etwas anbieten</div>
+      <input id="bo-titel" placeholder="Was? z. B. Fußballschuhe blau" style="width:100%;margin-bottom:6px;${fld}">
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="bo-groesse" placeholder="Größe" style="flex:1;${fld}">
+        <input id="bo-preis" placeholder="Preis / „Zu verschenken“" style="flex:2;${fld}">
+      </div>
+      <input id="bo-foto" type="file" accept="image/jpeg,image/png,image/webp" style="width:100%;margin-bottom:8px;font-size:11px">
+      <div style="display:flex;gap:8px">
+        <button onclick="boerseAdd(this)" style="min-height:44px;padding:0 14px;border:none;border-radius:10px;background:#2563eb;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Einstellen</button>
+        <button onclick="document.getElementById('boerse-modal').remove()" style="margin-left:auto;min-height:44px;padding:0 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;cursor:pointer">Schließen</button>
+      </div>
+    </div>`;
+  rows.forEach(x=>{ if(x.foto_path)boerseFoto(x.id,x.foto_path); });
+}
+async function boerseFoto(id,path){
+  try{
+    const r=await fetch(`${SB_URL}/storage/v1/object/authenticated/fundbuero/${path}`,{headers:{'Authorization':'Bearer '+sbToken()}});
+    if(!r.ok)return;
+    const img=document.getElementById("bo-img-"+id);
+    if(img)img.src=URL.createObjectURL(await r.blob());
+  }catch(e){}
+}
+async function boerseAdd(btn){
+  const titel=(document.getElementById("bo-titel")?.value||"").trim();
+  if(!titel){toast("Bitte kurz beschreiben, was du anbietest","err");return;}
+  const groesse=(document.getElementById("bo-groesse")?.value||"").trim()||null;
+  const preis=(document.getElementById("bo-preis")?.value||"").trim()||null;
+  const input=document.getElementById("bo-foto");
+  const file=input&&input.files&&input.files[0];
+  if(btn)btn.disabled=true;
+  try{
+    let path=null;
+    if(file){
+      const blob=await fotoCompress(file,800);
+      path="boerse/"+((window.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now()))+".jpg";
+      const up=await fetch(`${SB_URL}/storage/v1/object/fundbuero/${path}`,{method:"POST",headers:{'Authorization':'Bearer '+sbToken(),'Content-Type':'image/jpeg'},body:blob});
+      if(!up.ok){toast("Foto-Upload fehlgeschlagen","err");return;}
+    }
+    const r=await fetch(`${SB_URL}/rest/v1/boerse_listings`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({titel,groesse,preis,foto_path:path})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht einstellen"),"err");return;}
+  }catch(e){toast("Foto konnte nicht verarbeitet werden","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  toast("Eingestellt ✓");
+  boerseRender();
+}
+async function boerseReservieren(id){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/boerse_reservieren`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_id:id,p_frei:false})});
+    if(sbCheck401(r))return;
+    const d=await r.json().catch(()=>({}));
+    if(d&&d.ok&&d.von_mir)toast("Für euch reserviert ✓ Beim nächsten Training abholen.");
+    else if(d&&d.ok)toast("Schon vergeben – jemand war schneller.","err");
+  }catch(e){toast("Netzwerkfehler","err");}
+  boerseRender();
+}
+async function boerseFreigeben(id){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/boerse_reservieren`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_id:id,p_frei:true})});
+    if(sbCheck401(r))return;
+  }catch(e){}
+  boerseRender();
+}
+async function boerseDelete(id){
+  if(!confirm("Dieses Angebot entfernen?"))return;
+  try{const r=await fetch(`${SB_URL}/rest/v1/boerse_listings?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht entfernen"),"err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  boerseRender();
+}
+
 /* Skill der Woche (Phase 22.2): Trainer setzt eine Heim-Challenge mit Video-Link. */
 async function skillWocheOpen(){
   if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
