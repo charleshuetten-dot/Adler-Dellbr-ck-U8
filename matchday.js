@@ -2813,6 +2813,60 @@ async function recoveryLoad(){
     Object.keys(nomRsvp).forEach(n=>{ if(nomRsvp[n]&&nomRsvp[n].status==="krank")RECOVERY.delete(n); });
   }catch(e){}
 }
+
+/* Kapitäns-Tracker (Phase 17.2): jedes Kind soll mal die Binde tragen. Die App führt
+   Buch (Zählung über alle Spiele) und meldet den Kapitän live in den Eltern-Ticker.
+   Kapitän = match_actions-Zeile aktion='kapitaen'; genau einer je Spiel. */
+let matchKapitaen=null, KAP_COUNT={};
+async function kapitaenLoad(){
+  matchKapitaen=null; KAP_COUNT={};
+  const datum=spieltagKey();
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/match_actions?aktion=eq.kapitaen&select=spieler,datum&order=created_at.desc`,{headers:sbAuthHeaders()});
+    if(sbCheck401(r)||!r.ok)return;
+    (await r.json()).forEach(x=>{
+      KAP_COUNT[x.spieler]=(KAP_COUNT[x.spieler]||0)+1;
+      if(x.datum===datum&&!matchKapitaen)matchKapitaen=x.spieler; // jüngster für dieses Spiel
+    });
+  }catch(e){}
+}
+async function kapitaenSet(name){
+  if(!name)return;
+  const datum=spieltagKey();
+  // genau ein Kapitän je Spiel: alten Eintrag dieses Datums entfernen
+  try{ await fetch(`${SB_URL}/rest/v1/match_actions?datum=eq.${encodeURIComponent(datum)}&aktion=eq.kapitaen`,{method:"DELETE",headers:sbAuthHeaders()}); }catch(e){}
+  if(KAP_COUNT[matchKapitaen])KAP_COUNT[matchKapitaen]--; // Zähler des alten zurück
+  matchKapitaen=name;
+  KAP_COUNT[name]=(KAP_COUNT[name]||0)+1;
+  try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
+  terminIdForDatum(datum).then(tid=>sbQueuedPost("match_actions",{datum,spieler:name,aktion:"kapitaen",termin_id:tid}));
+  tickerPush(name,"kapitaen");   // Highlight für die Eltern
+  toast(`©️ ${name} ist heute Kapitän`);
+  rotRenderLive();
+}
+// Kapitäns-Zeile für die Live-Ansicht: aktueller Kapitän + faire Auswahl mit Zählung.
+function kapitaenRow(){
+  // fairste Wahl zuerst: aufsteigend nach bisheriger Kapitäns-Zahl
+  const squad=[...rotField,...rotBench,...(rotTW?[rotTW]:[])].sort((a,b)=>(KAP_COUNT[a]||0)-(KAP_COUNT[b]||0));
+  if(matchKapitaen){
+    const n=KAP_COUNT[matchKapitaen]||1;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:var(--r);font-size:12.5px;color:#3730a3;margin-bottom:10px">
+      ©️ <strong>Kapitän: ${esc(matchKapitaen)}</strong><span style="font-size:10px;color:#6366f1">${n}. Mal</span>
+      <select onchange="if(this.value)kapitaenSet(this.value)" style="margin-left:auto;padding:6px 8px;border:var(--border-s);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--surface)">
+        <option value="">wechseln…</option>${squad.filter(n=>n!==matchKapitaen).map(kapitaenOpt).join("")}
+      </select></div>`;
+  }
+  return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f5f3ff;border:1px dashed #c7d2fe;border-radius:var(--r);font-size:12.5px;color:#4338ca;margin-bottom:10px">
+    ©️ <strong>Kapitän heute:</strong>
+    <select onchange="if(this.value)kapitaenSet(this.value)" style="flex:1;padding:6px 8px;border:var(--border-s);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--surface)">
+      <option value="">— wählen (fair: wer noch nie dran war) —</option>${squad.map(kapitaenOpt).join("")}
+    </select></div>`;
+}
+function kapitaenOpt(n){
+  const c=KAP_COUNT[n]||0;
+  const label=c===0?"noch nie ⭐":c+"×";
+  return `<option value="${esc(n)}">${getKader(n)?.nr?getKader(n).nr+" ":""}${esc(n)} · ${label}</option>`;
+}
 async function nomLoad(){
   const datum=spieltagKey();
   nomStatus={}; nomOvr=new Set();
@@ -2825,6 +2879,7 @@ async function nomLoad(){
   KADER.forEach(k=>{if(!nomStatus[k.name])nomStatus[k.name]="offen";});
   await nomLoadRsvp();
   await recoveryLoad();   // Return-to-Play: kürzlich krank gemeldete Kinder markieren
+  await kapitaenLoad();   // Kapitän dieses Spiels + Fairness-Zählung
   // Eltern-Zusagen automatisch übernehmen – außer wo der Trainer manuell überstimmt hat (nomOvr).
   Object.keys(nomRsvp).forEach(name=>{ if(!nomOvr.has(name)) nomStatus[name]=nomRsvp[name].status==="zugesagt"?"dabei":"nicht"; });
   const nr=document.getElementById("nom-team-nr"); if(nr)nr.textContent=String(spieltagTeam);
@@ -3344,7 +3399,8 @@ const TICKER_PHRASES={
   heraus:["{name} klärt mutig vor dem Tor!","{name} behält die Nerven im Zweikampf!"],
   tor:["TOOOR für die Adler durch {name}!","{name} trifft ins Schwarze!","Was für ein Tor von {name}!"],
   aktion:["{name} war richtig aktiv!","Starke Szene von {name}!","{name} zeigt vollen Einsatz!"],
-  gegentor:["Adler kämpfen weiter!","Kopf hoch, Team – weiter geht's!","Nächster Angriff, Adler!"]
+  gegentor:["Adler kämpfen weiter!","Kopf hoch, Team – weiter geht's!","Nächster Angriff, Adler!"],
+  kapitaen:["©️ {name} führt die Adler heute als Kapitän aufs Feld!","©️ Heute trägt {name} die Kapitänsbinde – viel Erfolg!","©️ {name} ist heute unser Kapitän!"]
 };
 function tickerPhrase(typ,name){
   const arr=TICKER_PHRASES[typ]||["Die Adler waren aktiv!"];
@@ -4238,6 +4294,7 @@ function rotRenderLive(){
   live.innerHTML=`
     <div style="text-align:center;font-size:30px;font-weight:800;color:${rest<=10?"#dc2626":"var(--text)"};margin-bottom:8px">${fmtSec(Math.max(0,rest))}</div>
     ${twRow}
+    ${kapitaenRow()}
     ${recoHinweis}
     ${sugg}
     <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--text2);margin-bottom:4px">Feld (${rotField.length}/${rotFieldSize()})</div>
