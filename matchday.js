@@ -5413,26 +5413,107 @@ const FAIRPLAY_REGELN=[
   {emo:"🤝", t:"Ergebnis ist Nebensache", d:"Bei der U9 zählt Spaß, Bewegung und Dazulernen. Die Tabelle merkt sich in fünf Jahren keiner – das Gefühl schon."},
   {emo:"🚗", t:"Wir sind ein Team – auch abseits", d:"Pünktlich sein, Fahrgemeinschaften teilen, mit anpacken. Was wir vorleben, lernen die Kinder."}
 ];
-function fairplayOpen(){
+// Regeln aus der DB laden; leer/offline → die fest verdrahteten als Fallback.
+async function fairplayRegelnLaden(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/fairplay_regeln?select=emoji,titel,text&order=sort.asc,id.asc`,{headers:sbAuthHeaders()});
+    if(r.ok){
+      const rows=await r.json();
+      if(rows.length)return rows.map(x=>({emo:x.emoji||"•",t:x.titel||"",d:x.text||""}));
+    }
+  }catch(e){}
+  return FAIRPLAY_REGELN;
+}
+async function fairplayOpen(){
   document.getElementById("fairplay-ov")?.remove();
   const ov=document.createElement("div");
   ov.id="fairplay-ov";
   ov.style.cssText="position:fixed;inset:0;z-index:10050;background:linear-gradient(160deg,#065f46,#064e3b);color:#fff;overflow-y:auto;font-family:inherit;-webkit-overflow-scrolling:touch";
+  ov.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:80px 18px;text-align:center;opacity:.85">Lade Codex …</div>`;
+  document.body.appendChild(ov);
+  const regeln=await fairplayRegelnLaden();
+  if(!document.getElementById("fairplay-ov"))return; // zwischenzeitlich geschlossen
   ov.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:24px 18px 40px">
     <div style="text-align:center;margin-bottom:6px;font-size:40px">🦅</div>
     <div style="text-align:center;font-size:22px;font-weight:900;letter-spacing:.3px">Unser Fairplay-Codex</div>
     <div style="text-align:center;font-size:13px;opacity:.9;margin:6px 0 20px">SV Adler Dellbrück · U9 – für einen guten Spielfeldrand</div>
-    ${FAIRPLAY_REGELN.map((r,i)=>`<div style="display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:16px;margin-bottom:12px">
-      <div style="font-size:30px;line-height:1">${r.emo}</div>
+    ${regeln.map((r,i)=>`<div style="display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:16px;margin-bottom:12px">
+      <div style="font-size:30px;line-height:1">${esc(r.emo)}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:16px;font-weight:800">${i+1}. ${r.t}</div>
-        <div style="font-size:13.5px;opacity:.95;line-height:1.55;margin-top:3px">${r.d}</div>
+        <div style="font-size:16px;font-weight:800">${i+1}. ${esc(r.t)}</div>
+        <div style="font-size:13.5px;opacity:.95;line-height:1.55;margin-top:3px">${esc(r.d)}</div>
       </div>
     </div>`).join("")}
     <div style="text-align:center;font-size:13px;opacity:.9;margin:16px 0 20px">Danke, dass ihr das mittragt. 💚</div>
     <button onclick="document.getElementById('fairplay-ov').remove()" style="width:100%;min-height:52px;border:none;border-radius:14px;background:#fff;color:#065f46;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer">Verstanden 👍</button>
   </div>`;
-  document.body.appendChild(ov);
+}
+
+/* Trainer-Editor für den Fairplay-Codex. Der Trainer pflegt die Regeln, die Eltern
+   sehen sie im Overlay. Gespeichert wird als komplette Liste (delete-all + insert) –
+   die Datenmenge ist winzig und das erspart id-Jonglieren beim Umsortieren. */
+let FP_EDIT=[];
+async function fairplayEditOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("fpe-modal")?.remove();
+  FP_EDIT=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/fairplay_regeln?select=emoji,titel,text&order=sort.asc,id.asc`,{headers:sbAuthHeaders()});
+    if(r.ok)FP_EDIT=(await r.json()).map(x=>({emo:x.emoji||"",titel:x.titel||"",text:x.text||""}));
+  }catch(e){}
+  if(!FP_EDIT.length)FP_EDIT=FAIRPLAY_REGELN.map(r=>({emo:r.emo,titel:r.t,text:r.d}));
+  const modal=document.createElement("div");
+  modal.id="fpe-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Fairplay-Codex bearbeiten");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.id="fpe-card";
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  modal.appendChild(c);document.body.appendChild(modal);
+  fairplayEditRender();
+}
+function fairplayEditRender(){
+  const c=document.getElementById("fpe-card"); if(!c)return;
+  const fld="padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
+  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🤝 Fairplay-Codex bearbeiten</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Diese Regeln sehen die Eltern im Codex-Overlay. Reihenfolge mit den Pfeilen.</div>
+    ${FP_EDIT.map((r,i)=>`<div style="border:var(--border-s);border-radius:10px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <input value="${esc(r.emo)}" oninput="FP_EDIT[${i}].emo=this.value" maxlength="4" style="width:52px;text-align:center;font-size:18px;${fld}">
+        <input value="${esc(r.titel)}" oninput="FP_EDIT[${i}].titel=this.value" placeholder="Titel der Regel" style="flex:1;font-weight:700;${fld}">
+      </div>
+      <textarea oninput="FP_EDIT[${i}].text=this.value" rows="2" placeholder="Kurze Erklärung (optional)" style="width:100%;resize:vertical;${fld}">${esc(r.text)}</textarea>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn btn-sm" onclick="fairplayEditMove(${i},-1)" ${i===0?"disabled":""} title="nach oben"><i class="ti ti-arrow-up"></i></button>
+        <button class="btn btn-sm" onclick="fairplayEditMove(${i},1)" ${i===FP_EDIT.length-1?"disabled":""} title="nach unten"><i class="ti ti-arrow-down"></i></button>
+        <button class="btn btn-sm btn-d" style="margin-left:auto" onclick="fairplayEditDel(${i})"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`).join("")}
+    <button class="btn btn-sm" style="width:100%;margin-bottom:12px" onclick="fairplayEditAdd()"><i class="ti ti-plus"></i>Regel hinzufügen</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-p btn-sm" onclick="fairplayEditSave(this)"><i class="ti ti-device-floppy"></i>Speichern</button>
+      <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('fpe-modal').remove()">Schließen</button>
+    </div>`;
+}
+function fairplayEditAdd(){ FP_EDIT.push({emo:"⭐",titel:"",text:""}); fairplayEditRender(); }
+function fairplayEditDel(i){ FP_EDIT.splice(i,1); fairplayEditRender(); }
+function fairplayEditMove(i,dir){ const j=i+dir; if(j<0||j>=FP_EDIT.length)return; const t=FP_EDIT[i];FP_EDIT[i]=FP_EDIT[j];FP_EDIT[j]=t; fairplayEditRender(); }
+async function fairplayEditSave(btn){
+  const rows=FP_EDIT.map((r,i)=>({sort:i,emoji:(r.emo||"").trim()||null,titel:(r.titel||"").trim(),text:(r.text||"").trim()||null}))
+                    .filter(r=>r.titel); // Regeln ohne Titel verwerfen
+  if(!rows.length){toast("Mindestens eine Regel mit Titel","err");return;}
+  if(btn)btn.disabled=true;
+  try{
+    // Ganze Liste ersetzen: erst leeren, dann neu einfügen.
+    const del=await fetch(`${SB_URL}/rest/v1/fairplay_regeln?id=gt.0`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(sbCheck401(del))return;
+    if(!del.ok){toast(sbDeniedMsg(del,"Konnte nicht speichern"),"err");return;}
+    const ins=await fetch(`${SB_URL}/rest/v1/fairplay_regeln`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify(rows)});
+    if(!ins.ok){toast("Speichern fehlgeschlagen","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  toast("Codex gespeichert ✓ Die Eltern sehen ihn sofort.");
+  document.getElementById("fpe-modal")?.remove();
 }
 
 /* Platz-Ampel-Banner für die Eltern – nur wenn der Trainer einen Status gesetzt hat.

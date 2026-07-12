@@ -2105,6 +2105,9 @@ async function adlerWeltOpen(){
       <input id="aw-kabinencode" type="text" inputmode="numeric" autocomplete="off" placeholder="Neuer Code (min. 4 Zeichen)" style="flex:1;min-width:150px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text)">
       <button class="btn btn-sm" onclick="kabineCodeSave(this)"><i class="ti ti-device-floppy"></i>Code ändern</button>
     </div>
+    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🤝 Fairplay-Codex</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Die Regeln für den Spielfeldrand, die die Eltern in ihrem Bereich sehen.</div>
+    <button class="btn btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();fairplayEditOpen()"><i class="ti ti-edit"></i>Codex bearbeiten</button>
     <button class="btn btn-sm" style="margin-top:12px;width:100%" onclick="document.getElementById('aw-modal').remove()">Schließen</button>`;
   modal.appendChild(c);document.body.appendChild(modal);
   active.forEach(k=>{xpTotal(k.id).then(t=>{const el=document.getElementById("aw-fed-"+k.id);if(el){const b=xpBadge(t);el.textContent=`${XP_ICON} ${t} · ${b.emo} ${b.t}`;}}).catch(()=>{});});
