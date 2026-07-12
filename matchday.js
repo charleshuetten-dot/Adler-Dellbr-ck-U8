@@ -1424,6 +1424,24 @@ function taktikSetFormation(f,btn){
 }
 function taktikInit(){taktikSetup("auto");}
 function taktikReset(mode){taktikSetup(mode);}
+/* Pro-Modus (17.4): Board auf Vollbild maximieren + feste Bank rechts. Reiner CSS-State
+   (body.taktik-pro), zusätzlich best-effort echtes Fullscreen fürs Tablet an der Linie. */
+function taktikProToggle(){
+  const on=document.body.classList.toggle("taktik-pro");
+  document.getElementById("tb-pro-btn")?.classList.toggle("btn-p",on);
+  try{
+    if(on){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{});}
+    else if(document.fullscreenElement){document.exitFullscreen&&document.exitFullscreen().catch(()=>{});}
+  }catch(e){}
+  try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
+}
+// Verlässt der Trainer das Fullscreen per ESC/Systemgeste, den Pro-State mitziehen.
+document.addEventListener("fullscreenchange",()=>{
+  if(!document.fullscreenElement&&document.body.classList.contains("taktik-pro")){
+    document.body.classList.remove("taktik-pro");
+    document.getElementById("tb-pro-btn")?.classList.remove("btn-p");
+  }
+});
 
 // Aufstellung als sauberes PNG rendern und per Web Share API teilen (Fallback: Download).
 // Zeichnet Feld + Tokens auf ein Canvas – kein html2canvas o.ä. nötig.

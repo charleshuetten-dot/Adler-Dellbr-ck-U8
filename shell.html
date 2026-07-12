@@ -233,6 +233,7 @@
     <button class="btn btn-sm" onclick="ttOpen()" title="Gespeicherte Übungen laden"><i class="ti ti-books"></i>Bibliothek</button>
     <button class="btn btn-sm" onclick="kiCoachOpen()" title="KI schlägt altersgerechte Übungen vor"><i class="ti ti-sparkles"></i>KI-Coach</button>
     <button class="btn btn-sm" onclick="vtbOpen()"><i class="ti ti-video"></i>Video</button>
+    <button class="btn btn-sm" id="tb-pro-btn" onclick="taktikProToggle()" title="Pro-Modus: Feld maximieren + feste Auswechselbank (ideal am Tablet)"><i class="ti ti-device-tablet"></i>Pro-Modus</button>
   </div>
   <div id="dw-toolbar" style="display:none;gap:6px;margin-bottom:8px;flex-wrap:wrap">
     <button class="btn btn-sm" id="dw-pass" onclick="dwSetMode('pass',this)">╌ Pass</button>
@@ -257,9 +258,11 @@
       <div id="taktik-tokens"></div>
       <canvas id="tb-draw" style="position:absolute;inset:0;width:100%;height:100%;z-index:22;pointer-events:none;touch-action:none"></canvas>
     </div>
-    <div style="font-size:10px;color:var(--text2);text-align:center;margin-top:4px">Ziehen = verschieben · Antippen = Position wechseln (TW → Aufpasser → Flitzer L → Flitzer R → Jäger)</div>
-    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:12px 0 6px">Auswechselbank</div>
-    <div class="tb-bench-area" id="taktik-bench"></div>
+    <div class="tb-hint" style="font-size:10px;color:var(--text2);text-align:center;margin-top:4px">Ziehen = verschieben · Antippen = Position wechseln (TW → Aufpasser → Flitzer L → Flitzer R → Jäger)</div>
+    <div class="tb-side">
+      <div class="tb-bench-label" style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:12px 0 6px">Auswechselbank</div>
+      <div class="tb-bench-area" id="taktik-bench"></div>
+    </div>
   </div>
 </div>
 
