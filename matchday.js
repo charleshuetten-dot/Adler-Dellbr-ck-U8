@@ -186,6 +186,7 @@ async function elternDashLoad(){
   let kids=[], termin=null;
   try{const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?select=spieler_id,label,kader(id,name,nr)`,{headers:sbAuthHeaders()});if(r.ok)kids=await r.json();}catch(e){}
   if(!kids.length){ body.innerHTML=card('<div style="color:#475569;font-size:13px;line-height:1.6">Dein Trainer hat diese E-Mail noch <b>keinem Kind</b> zugeordnet.<br>Bitte gib ihm die E-Mail-Adresse, mit der du dich hier angemeldet hast.</div>'); return; }
+  window._elternKids=kids;   // fürs Fairplay-Quiz (Federn fürs eigene Kind)
   let termineListe=[]; // UX 6: Timeline – die nächsten Termine, nicht nur der eine
   try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc&limit=12`,{headers:sbAuthHeaders()});if(r.ok){termineListe=await r.json();termin=termineListe[0]||null;}}catch(e){}
   ELTERN_TERMINE=termineListe; // für den „Alle Termine"-Dialog + Kalender-Export
@@ -266,8 +267,9 @@ async function elternDashLoad(){
     <a href="${location.pathname}?heft" style="display:block;text-align:center;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;text-decoration:none">📰 Adler Horst öffnen</a>`);
   // Fairplay-Codex (Phase 18.3) – die goldenen Regeln fürs Verhalten am Spielfeldrand
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🤝 Unser Fairplay-Codex</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Sechs einfache Regeln, damit der Spielfeldrand ein guter Ort für die Kinder bleibt.</div>
-    <button onclick="fairplayOpen()" style="width:100%;padding:11px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">Codex ansehen</button>`);
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Die Regeln, damit der Spielfeldrand ein guter Ort für die Kinder bleibt.</div>
+    <button onclick="fairplayOpen()" style="width:100%;padding:11px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">Codex ansehen</button>
+    <button onclick="fairplayQuizStart(window._elternKids||[])" style="width:100%;margin-top:8px;padding:11px;border:1.5px solid #16a34a;border-radius:10px;background:#fff;color:#15803d;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🏅 Fairplay-Quiz spielen · ${XP_ICON} 50 Federn fürs Kind</button>`);
   // FEAT Y: Fundbüro – Board + Upload für alle eingeloggten Eltern
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🧦 Fundbüro</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Trinkflasche verschwunden? Jacke gefunden? Hier sammelt das Team.</div>
@@ -5413,6 +5415,103 @@ const FAIRPLAY_REGELN=[
   {emo:"🤝", t:"Ergebnis ist Nebensache", d:"Bei der U9 zählt Spaß, Bewegung und Dazulernen. Die Tabelle merkt sich in fünf Jahren keiner – das Gefühl schon."},
   {emo:"🚗", t:"Wir sind ein Team – auch abseits", d:"Pünktlich sein, Fahrgemeinschaften teilen, mit anpacken. Was wir vorleben, lernen die Kinder."}
 ];
+/* Fairplay-Quiz für die Eltern (Phase 18.3): fester Fragensatz rund um den Codex.
+   Bestehen bringt dem Kind 50 Federn – genau EINMAL, serverseitig über xp_award_event
+   dedupliziert. Wiederholen zum Üben ist erlaubt, Federn gibt es nur beim ersten Mal. */
+const FAIRPLAY_QUIZ=[
+  {q:"Dein Kind vertändelt den Ball kurz vorm Tor. Was hilft ihm am meisten?",
+   opts:["Weiter anfeuern und Mut machen","Laut schimpfen","Genervt den Kopf schütteln"],correct:0,
+   fun:"Mut machen! Kinder trauen sich mehr, wenn sie sich sicher fühlen."},
+  {q:"Der Schiri pfeift ein Foul, das keins war. Wie reagierst du am Rand?",
+   opts:["Ruhig bleiben, Entscheidung akzeptieren","Lautstark protestieren","Auf den Schiri zeigen und meckern"],correct:0,
+   fun:"Die Kinder schauen sich genau ab, wie wir mit Fehlern umgehen."},
+  {q:"Ein Kind der gegnerischen Mannschaft macht ein tolles Tor. Und jetzt?",
+   opts:["Ruhig anerkennen – das war stark","Still bleiben, ist ja der Gegner","Buhen"],correct:0,
+   fun:"Ein gutes Tor ist ein gutes Tor – egal welches Trikot."},
+  {q:"Vom Spielfeldrand Taktik-Kommandos ins Spiel rufen – gute Idee?",
+   opts:["Nein, das Coachen macht der Trainer","Ja, je lauter desto besser","Nur bei wichtigen Spielen"],correct:0,
+   fun:"Zu viele Rufe verwirren die Kinder. Anfeuern ja, anweisen nein."},
+  {q:"Euer Team verliert deutlich. Was tut der Heimweg dem Kind gut?",
+   opts:["Positives hervorheben, Spaß betonen","Jeden Fehler durchgehen","Schweigen und schlechte Laune"],correct:0,
+   fun:"Bei der U9 zählt das Gefühl, nicht das Ergebnis."},
+  {q:"Ein Mitspieler deines Kindes weint nach einem Fehler. Was ist stark?",
+   opts:["Ihn aufmuntern – Kopf hoch!","Ihm sagen, er soll sich zusammenreißen","Weggucken"],correct:0,
+   fun:"Ein Team hält zusammen – auch am Spielfeldrand."}
+];
+let FQ_IDX=0, FQ_RICHTIG=0, FQ_KIDS=[];
+function fairplayQuizStart(kids){
+  FQ_IDX=0; FQ_RICHTIG=0; FQ_KIDS=(kids||[]).slice();
+  document.getElementById("fq-ov")?.remove();
+  const ov=document.createElement("div");
+  ov.id="fq-ov";
+  ov.style.cssText="position:fixed;inset:0;z-index:10055;background:linear-gradient(160deg,#0e3a5f,#0b2f4d);color:#fff;overflow-y:auto;font-family:inherit";
+  document.body.appendChild(ov);
+  fairplayQuizRender();
+}
+function fairplayQuizRender(){
+  const ov=document.getElementById("fq-ov"); if(!ov)return;
+  const q=FAIRPLAY_QUIZ[FQ_IDX];
+  // Antworten mischen, damit die richtige nicht immer oben steht
+  const order=q.opts.map((t,i)=>({t,i})).sort(()=>Math.random()-0.5);
+  ov.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:24px 18px 40px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:800;opacity:.9">🤝 Fairplay-Quiz</div>
+      <button onclick="document.getElementById('fq-ov').remove()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div style="height:6px;background:rgba(255,255,255,.2);border-radius:3px;overflow:hidden;margin-bottom:16px"><div style="height:100%;width:${Math.round(FQ_IDX/FAIRPLAY_QUIZ.length*100)}%;background:#38bdf8;border-radius:3px;transition:width .3s"></div></div>
+    <div style="font-size:11px;opacity:.8;margin-bottom:6px">Frage ${FQ_IDX+1} von ${FAIRPLAY_QUIZ.length}</div>
+    <div style="font-size:18px;font-weight:800;line-height:1.4;margin-bottom:18px">${esc(q.q)}</div>
+    <div id="fq-opts" style="display:flex;flex-direction:column;gap:10px">
+      ${order.map(o=>`<button onclick="fairplayQuizAnswer(${o.i},this)" style="text-align:left;padding:15px 16px;min-height:56px;border:2px solid rgba(255,255,255,.25);border-radius:14px;background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:14.5px;font-weight:600;cursor:pointer">${esc(o.t)}</button>`).join("")}
+    </div>
+    <div id="fq-feedback" style="margin-top:16px"></div>
+  </div>`;
+}
+function fairplayQuizAnswer(i,btn){
+  const q=FAIRPLAY_QUIZ[FQ_IDX];
+  document.querySelectorAll("#fq-opts button").forEach(b=>b.disabled=true);
+  const richtig=i===q.correct;
+  if(richtig)FQ_RICHTIG++;
+  btn.style.borderColor=richtig?"#22c55e":"#ef4444";
+  btn.style.background=richtig?"rgba(34,197,94,.25)":"rgba(239,68,68,.25)";
+  try{navigator.vibrate&&navigator.vibrate(richtig?20:[40,40,40]);}catch(e){}
+  document.getElementById("fq-feedback").innerHTML=`<div style="background:rgba(255,255,255,.1);border-radius:12px;padding:12px 14px">
+    <div style="font-size:14px;font-weight:800">${richtig?"👍 Genau!":"💡 Fast – so geht's fairer:"}</div>
+    <div style="font-size:13px;opacity:.95;margin-top:3px">${esc(q.fun)}</div>
+    <button onclick="fairplayQuizNext()" style="width:100%;min-height:48px;margin-top:12px;border:none;border-radius:12px;background:#fff;color:#0b2f4d;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">${FQ_IDX<FAIRPLAY_QUIZ.length-1?"Weiter":"Fertig 🎉"}</button>
+  </div>`;
+}
+function fairplayQuizNext(){
+  if(FQ_IDX<FAIRPLAY_QUIZ.length-1){FQ_IDX++;fairplayQuizRender();}
+  else fairplayQuizResult();
+}
+async function fairplayQuizResult(){
+  const ov=document.getElementById("fq-ov"); if(!ov)return;
+  ov.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:60px 18px;text-align:center;opacity:.85">Federn werden gutgeschrieben …</div>`;
+  // Federn fürs eigene Kind – genau einmal (Server dedupliziert). Bei mehreren Kindern jedes.
+  let neu=0, schonGehabt=false;
+  for(const k of FQ_KIDS){
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/rpc/xp_award_event`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},
+        body:JSON.stringify({p_spieler_id:k.spieler_id,p_quelle:'fairplay_quiz',p_quelle_id:'done'})});
+      if(r.ok){const d=await r.json(); if(d>0)neu+=d; else schonGehabt=true;}
+    }catch(e){}
+  }
+  if(!document.getElementById("fq-ov"))return;
+  try{navigator.vibrate&&navigator.vibrate([100,50,100,50,200]);}catch(e){}
+  const federnZeile=neu>0
+    ? `<div style="font-size:17px;font-weight:900;color:#fde047">🪶 +${neu} Federn fürs Kind!</div>`
+    : (schonGehabt?`<div style="font-size:14px;opacity:.92">Die Federn hattet ihr schon – aber Üben schadet nie. 💚</div>`
+                  :`<div style="font-size:13px;opacity:.85">Melde dich an, damit die Federn beim Kind landen.</div>`);
+  ov.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:40px 18px;text-align:center">
+    <div style="font-size:56px">🏅</div>
+    <div style="font-size:24px;font-weight:900;margin-top:8px">${FQ_RICHTIG} von ${FAIRPLAY_QUIZ.length} richtig</div>
+    <div style="font-size:14px;opacity:.9;margin:8px 0 16px">Danke, dass ihr Fairplay vorlebt – die Kinder schauen es sich ab.</div>
+    ${federnZeile}
+    <button onclick="document.getElementById('fq-ov').remove()" style="width:100%;min-height:52px;margin-top:22px;border:none;border-radius:14px;background:#fff;color:#0b2f4d;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer">Schließen</button>
+  </div>`;
+}
+
 // Regeln aus der DB laden; leer/offline → die fest verdrahteten als Fallback.
 async function fairplayRegelnLaden(){
   try{
