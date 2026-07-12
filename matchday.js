@@ -2790,6 +2790,29 @@ async function nomLoadRsvp(){
     (await rr.json()).forEach(x=>{const k=KADER.find(kk=>kk._id===x.spieler_id); if(k)nomRsvp[k.name]={status:x.status,kommentar:x.kommentar};});
   }catch(e){}
 }
+
+/* Return-to-Play-Ampel (Phase 18.2): Kinder, die in den letzten 14 Tagen ein Training
+   oder Spiel mit "krank" abgesagt haben und heute wieder dabei sind, werden in der
+   Live-Aufstellung mit 🩹 markiert – Signal an den Trainer: heute Belastung dosieren. */
+let RECOVERY=new Set();
+function istRecovery(n){ return RECOVERY.has(n); }
+async function recoveryLoad(){
+  RECOVERY=new Set();
+  const heute=spieltagRawDate();
+  const grenze=new Date(Date.now()-14*864e5).toISOString().slice(0,10);
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?status=eq.krank&select=spieler_id,termine(datum)`,{headers:sbAuthHeaders()});
+    if(sbCheck401(r)||!r.ok)return;
+    (await r.json()).forEach(x=>{
+      const d=x.termine&&x.termine.datum;
+      if(!d||d<grenze||d>heute)return;           // nur die letzten 14 Tage
+      const k=KADER.find(kk=>kk._id===x.spieler_id);
+      if(k)RECOVERY.add(k.name);
+    });
+    // Wer HEUTE krank gemeldet ist, ist nicht "zurück" – der spielt ja gar nicht.
+    Object.keys(nomRsvp).forEach(n=>{ if(nomRsvp[n]&&nomRsvp[n].status==="krank")RECOVERY.delete(n); });
+  }catch(e){}
+}
 async function nomLoad(){
   const datum=spieltagKey();
   nomStatus={}; nomOvr=new Set();
@@ -2801,6 +2824,7 @@ async function nomLoad(){
   // Gesetzte (gespeichert / Eltern-Zusage / Trainer-Override) sind dabei; der Rest bleibt "offen".
   KADER.forEach(k=>{if(!nomStatus[k.name])nomStatus[k.name]="offen";});
   await nomLoadRsvp();
+  await recoveryLoad();   // Return-to-Play: kürzlich krank gemeldete Kinder markieren
   // Eltern-Zusagen automatisch übernehmen – außer wo der Trainer manuell überstimmt hat (nomOvr).
   Object.keys(nomRsvp).forEach(name=>{ if(!nomOvr.has(name)) nomStatus[name]=nomRsvp[name].status==="zugesagt"?"dabei":"nicht"; });
   const nr=document.getElementById("nom-team-nr"); if(nr)nr.textContent=String(spieltagTeam);
@@ -4089,10 +4113,10 @@ function rotFieldSpatialHtml(){
   const slots=form.slots||[];
   const fieldSlots=slots.filter(s=>s.rk!=="tw");
   const twSlot=slots.find(s=>s.rk==="tw");
-  const chipF=(n,x,y,tw)=>`<button onclick="${tw?'rotClearTW()':`rotMove('${n.replace(/'/g,"")}')`}" title="${tw?'Torwart entfernen':'Auf die Bank'}" style="position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;border:2px solid #fff;background:${tw?'#f59e0b':'#1e3a8a'};color:#fff;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;padding:0;font-family:inherit">
-    <span style="font-size:11px">${getKader(n)?.nr!=null?getKader(n).nr:(tw?"🥅":"")}</span>
+  const chipF=(n,x,y,tw)=>{const reco=!tw&&istRecovery(n);return `<button onclick="${tw?'rotClearTW()':`rotMove('${n.replace(/'/g,"")}')`}" title="${tw?'Torwart entfernen':(reco?'Kürzlich krank – heute Belastung dosieren':'Auf die Bank')}" style="position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;border:${reco?'3px solid #f97316':'2px solid #fff'};background:${tw?'#f59e0b':'#1e3a8a'};color:#fff;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;padding:0;font-family:inherit">
+    <span style="font-size:11px">${reco?"🩹":(getKader(n)?.nr!=null?getKader(n).nr:(tw?"🥅":""))}</span>
     <span style="max-width:42px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px">${esc((n||"").split(" ").slice(-1)[0])}</span>
-    <span style="font-size:7px;color:#bbf7d0">${fmtSec(rotFieldSec[n]||0)}</span></button>`;
+    <span style="font-size:7px;color:#bbf7d0">${fmtSec(rotFieldSec[n]||0)}</span></button>`;};
   let h='<div style="position:relative;width:100%;max-width:300px;margin:0 auto 4px;aspect-ratio:3/4;background:linear-gradient(#2d7d2d,#256b25);border-radius:12px;border:2px solid rgba(255,255,255,.35);overflow:hidden">';
   h+='<div style="position:absolute;left:6%;right:6%;top:50%;height:1px;background:rgba(255,255,255,.3)"></div>';
   h+='<div style="position:absolute;left:50%;top:50%;width:46px;height:46px;border:1px solid rgba(255,255,255,.25);border-radius:50%;transform:translate(-50%,-50%)"></div>';
@@ -4194,7 +4218,9 @@ function rotRenderLive(){
   const chip=(n,onField)=>{
     const sek=onField?(rotFieldSec[n]||0):(rotBenchSec[n]||0);
     const tcol=onField?"#15803d":"#dc2626";
-    return `<button onclick="rotMove('${n.replace(/'/g,"")}')" style="font-size:12.5px;padding:8px 10px;min-height:44px;border:var(--border-s);border-radius:16px;background:${onField?"var(--blue-bg)":"var(--surface2)"};cursor:pointer;font-family:inherit">${getKader(n)?.nr?getKader(n).nr+" ":""}${esc(n)} <span style="color:${tcol};font-size:10px;font-weight:700">${fmtSec(sek)}</span></button>`;
+    const reco=istRecovery(n);
+    const rand=reco?"2px solid #f97316":"var(--border-s)"; // orangener Rand: kürzlich krank
+    return `<button onclick="rotMove('${n.replace(/'/g,"")}')" title="${reco?'Kürzlich krank – heute Belastung dosieren':''}" style="font-size:12.5px;padding:8px 10px;min-height:44px;border:${rand};border-radius:16px;background:${onField?"var(--blue-bg)":"var(--surface2)"};cursor:pointer;font-family:inherit">${reco?"🩹 ":""}${getKader(n)?.nr?getKader(n).nr+" ":""}${esc(n)} <span style="color:${tcol};font-size:10px;font-weight:700">${fmtSec(sek)}</span></button>`;
   };
   // HOTFIX 11: "Torwart (Fest)" – nur bei Spielformen mit TW; leer = Auswahl, gesetzt = Anzeige + Entfernen.
   const rotForm=(typeof FORMATIONS!=="undefined"&&FORMATIONS[tbFormation])||{tw:true};
@@ -4207,9 +4233,12 @@ function rotRenderLive(){
       twRow=`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fffbeb;border:1px dashed #fcd34d;border-radius:var(--r);font-size:12.5px;color:#854d0e;margin-bottom:10px">🥅 <strong>Torwart (Fest):</strong><select onchange="rotSetTW(this.value)" style="flex:1;padding:6px 8px;border:var(--border-s);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--surface)"><option value="">— Torwart wählen —</option>${opts}</select></div>`;
     }
   }
+  const recoNamen=[...rotField,...rotBench].filter(istRecovery);
+  const recoHinweis=recoNamen.length?`<div style="padding:8px 10px;background:#fff7ed;border:1px solid #fdba74;border-radius:var(--r);font-size:12px;color:#9a3412;margin-bottom:10px">🩹 <strong>${recoNamen.map(esc).join(", ")}</strong> ${recoNamen.length===1?"war":"waren"} kürzlich krank – heute Einsatzzeit bewusst dosieren.</div>`:"";
   live.innerHTML=`
     <div style="text-align:center;font-size:30px;font-weight:800;color:${rest<=10?"#dc2626":"var(--text)"};margin-bottom:8px">${fmtSec(Math.max(0,rest))}</div>
     ${twRow}
+    ${recoHinweis}
     ${sugg}
     <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--text2);margin-bottom:4px">Feld (${rotField.length}/${rotFieldSize()})</div>
     ${rotFieldSpatialHtml()}
