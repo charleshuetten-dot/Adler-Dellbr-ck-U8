@@ -3641,7 +3641,8 @@ function matchReportShow(text,opts){
   bar.style.cssText="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:12px";
   const radioBtn='speechSynthesis' in window
     ?`<button id="adler-radio-btn" class="btn btn-sm" style="background:#7c3aed;color:#fff;border-color:#7c3aed" onclick="adlerRadioToggle(this)"><i class="ti ti-volume"></i>📻 Adler Radio</button>`:"";
-  bar.innerHTML=`${radioBtn}<button class="btn btn-sm" onclick="reportGenerate(true)"><i class="ti ti-refresh"></i>Neu würfeln</button>
+  const diaryBtn=`<button class="btn btn-sm" style="background:#0891b2;color:#fff;border-color:#0891b2" onclick="voiceDiaryOpen(typeof spieltagKey==='function'?spieltagKey():null)" title="Gedanken nach Abpfiff als Sprach-/Textnotiz festhalten"><i class="ti ti-microphone"></i>🎤 Notiz</button>`;
+  bar.innerHTML=`${radioBtn}${diaryBtn}<button class="btn btn-sm" onclick="reportGenerate(true)"><i class="ti ti-refresh"></i>Neu würfeln</button>
     <button class="btn btn-p" onclick="matchReportCopy()"><i class="ti ti-copy"></i>Kopieren</button>
     <button class="btn btn-sm" onclick="adlerRadioStop();document.getElementById('report-modal').remove()">Schließen</button>`;
   card.appendChild(ta);card.appendChild(bar);
@@ -4783,6 +4784,94 @@ function voiceStart(){
 }
 function voiceStop(){ try{voiceRec&&voiceRec.stop();}catch(e){} voiceOn=false;voiceBtnUpdate(); }
 function voiceToggle(){ voiceOn?voiceStop():voiceStart(); }
+
+/* ═══════════════════════════════════
+   VOICE DIARY (Phase 18.1) – der Trainer diktiert/tippt nach Abpfiff seine Gedanken.
+   Landet in trainer_notes (nur Trainer); der Adler-Coach (KI) kann sie auf Wunsch
+   einbeziehen. Freies Diktat (continuous), im Gegensatz zum Voice-to-Action-Tracker.
+   Spracheingabe ist Bonus: ohne SpeechRecognition bleibt das Textfeld voll nutzbar. */
+let vdRec=null, vdOn=false, vdBase="";
+function vdMicUpdate(){
+  const b=document.getElementById("vd-mic"); if(!b)return;
+  b.innerHTML=vdOn?'<i class="ti ti-microphone-2"></i>Hört zu … (tippen = Stopp)':'<i class="ti ti-microphone"></i>Aufnehmen';
+  b.classList.toggle("btn-p",vdOn);
+  const iv=document.getElementById("vd-interim"); if(iv&&!vdOn)iv.textContent="";
+}
+function vdMicToggle(){
+  if(vdOn){ vdOn=false; try{vdRec&&vdRec.stop();}catch(e){} vdMicUpdate(); return; }
+  if(!voiceSupported){toast("Spracheingabe wird auf diesem Gerät nicht unterstützt – bitte tippen.","err");return;}
+  try{
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    vdRec=new SR(); vdRec.lang="de-DE"; vdRec.interimResults=true; vdRec.continuous=true; vdRec.maxAlternatives=1;
+    const ta=document.getElementById("vd-text"); vdBase=ta?ta.value:"";
+    vdRec.onresult=e=>{
+      let interim="",fin="";
+      for(let i=e.resultIndex;i<e.results.length;i++){ const r=e.results[i]; if(r.isFinal)fin+=r[0].transcript; else interim+=r[0].transcript; }
+      if(fin)vdBase=(vdBase?vdBase.trim()+" ":"")+fin.trim();
+      if(ta)ta.value=vdBase+(interim?(vdBase?" ":"")+interim:"");
+      const iv=document.getElementById("vd-interim"); if(iv)iv.textContent=interim?"… "+interim:"";
+    };
+    vdRec.onerror=ev=>{ vdOn=false; vdMicUpdate(); if(ev.error==="not-allowed"||ev.error==="service-not-allowed")toast("Mikrofon-Zugriff nötig – bitte erlauben.","err"); else if(ev.error!=="no-speech"&&ev.error!=="aborted")toast("Sprachfehler – bitte tippen.","err"); };
+    vdRec.onend=()=>{ if(vdOn){ try{vdRec.start();}catch(e){ vdOn=false; vdMicUpdate(); } } else { const ta2=document.getElementById("vd-text"); if(ta2)ta2.value=vdBase; vdMicUpdate(); } };
+    vdOn=true; vdMicUpdate(); vdRec.start();
+  }catch(err){ vdOn=false; vdMicUpdate(); toast("Sprachstart fehlgeschlagen – bitte tippen.","err"); }
+}
+function voiceDiaryOpen(datum){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  datum=datum||null;
+  document.getElementById("vd-modal")?.remove();
+  const modal=document.createElement("div");
+  modal.id="vd-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Trainer-Notiz");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal){vdOn=false;try{vdRec&&vdRec.stop();}catch(e){}modal.remove();}};
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  const micBtn=voiceSupported
+    ?`<button id="vd-mic" class="btn btn-sm" onclick="vdMicToggle()"><i class="ti ti-microphone"></i>Aufnehmen</button>`
+    :`<span style="font-size:11px;color:var(--text3)">🎤 Spracheingabe auf diesem Gerät nicht verfügbar – bitte tippen.</span>`;
+  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🎤 Trainer-Notiz</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Direkt nach Abpfiff festhalten, bevor Details weg sind. Der Adler-Coach (KI) kann deine Notizen später einbeziehen.</div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">${micBtn}<span id="vd-interim" style="font-size:12px;color:var(--text3);flex:1"></span></div>
+    <textarea id="vd-text" rows="5" placeholder="z. B. Umschaltspiel war heute mies – wir standen nach Ballverlust zu offen." style="width:100%;box-sizing:border-box;padding:10px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;line-height:1.5;background:var(--surface2);color:var(--text);resize:vertical"></textarea>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btn-p btn-sm" onclick="vdSave(${datum?`'${jsq(datum)}'`:"null"})"><i class="ti ti-device-floppy"></i>Notiz speichern</button>
+      <button class="btn btn-sm" style="margin-left:auto" onclick="vdOn=false;try{vdRec&&vdRec.stop()}catch(e){};document.getElementById('vd-modal').remove()">Schließen</button>
+    </div>
+    <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin:14px 0 4px">Letzte Notizen</div>
+    <div id="vd-list"><div style="font-size:12px;color:var(--text3)">Lade …</div></div>`;
+  modal.appendChild(c);document.body.appendChild(modal);
+  vdListLoad();
+}
+async function vdListLoad(){
+  const box=document.getElementById("vd-list"); if(!box)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/trainer_notes?select=id,datum,text,created_at&order=created_at.desc&limit=6`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)rows=await r.json();}catch(e){}
+  if(!rows.length){box.innerHTML='<div style="font-size:12px;color:var(--text3)">Noch keine Notizen.</div>';return;}
+  const fmt=d=>{const t=new Date(d);return t.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})+" "+t.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});};
+  box.innerHTML=rows.map(n=>`<div style="display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--surface2)">
+    <div style="flex:1"><div style="font-size:13px;line-height:1.45">${esc(n.text)}</div><div style="font-size:10px;color:var(--text3);margin-top:2px">${fmt(n.created_at)}${n.datum?" · Spieltag "+esc(n.datum):""}</div></div>
+    <button onclick="vdDelete(${n.id})" aria-label="Notiz löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;min-width:32px;min-height:32px"><i class="ti ti-trash"></i></button>
+  </div>`).join("");
+}
+async function vdSave(datum){
+  const ta=document.getElementById("vd-text");
+  const text=(ta&&ta.value||"").trim();
+  if(!text){toast("Bitte erst etwas notieren","err");return;}
+  if(vdOn){vdOn=false;try{vdRec&&vdRec.stop();}catch(e){}vdMicUpdate();}
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/trainer_notes`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({datum:datum||null,text})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Notiz gespeichert ✓");
+  if(ta)ta.value=""; vdBase="";
+  vdListLoad();
+}
+async function vdDelete(id){
+  if(!confirm("Diese Notiz löschen?"))return;
+  try{const r=await fetch(`${SB_URL}/rest/v1/trainer_notes?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht löschen"),"err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  vdListLoad();
+}
 function atCount(sp,ak){return (atCounts[sp]&&atCounts[sp][ak])||0;}
 function atSummary(sp){ if(!atCounts[sp])return ""; return Object.keys(atCounts[sp]).map(k=>atCounts[sp][k]?(AT_EMO[k]||"•")+atCounts[sp][k]:"").filter(Boolean).join(" "); }
 async function atInit(){
@@ -6305,10 +6394,26 @@ function kiCoachOpen(){
     <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Beschreibe, was du trainieren willst – der Coach schlägt altersgerechte U8/U9-Übungen vor. Du entscheidest, was in die Bibliothek kommt.</div>
     <textarea id="ki-prompt" rows="2" placeholder="z. B. 2 Übungen für Zweikampfhärte" style="width:100%;box-sizing:border-box;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px"></textarea>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${chip("Dribbling & Ballführung")}${chip("Passspiel in der Raute")}${chip("Torschuss mit Spaß")}${chip("Zweikampf & Mut")}</div>
-    <button id="ki-gen-btn" class="btn btn-p btn-sm" onclick="kiCoachGenerate()"><i class="ti ti-sparkles"></i>Übungen vorschlagen</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button id="ki-gen-btn" class="btn btn-p btn-sm" onclick="kiCoachGenerate()"><i class="ti ti-sparkles"></i>Übungen vorschlagen</button>
+      <button class="btn btn-sm" onclick="kiCoachInsertNotes()" title="Deine letzten Trainer-Notizen als Kontext einfügen"><i class="ti ti-notes"></i>📓 Aus meinen Notizen</button>
+    </div>
     <div id="ki-result" style="margin-top:12px"></div>
   </div>`;
   document.body.appendChild(m);
+}
+/* KI-Loop (18.1): der Trainer holt seine letzten Voice-Diary-Notizen als Kontext in den
+   Prompt – bewusst per Klick (Trainer-in-the-Loop), nicht serverseitig-automatisch, damit
+   der LLM-Key serverseitig bleibt und der Trainer sieht/steuert, was an die KI geht. */
+async function kiCoachInsertNotes(){
+  let notes=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/trainer_notes?select=text,datum&order=created_at.desc&limit=3`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)notes=await r.json();}catch(e){}
+  if(!notes.length){toast("Noch keine Trainer-Notizen vorhanden","err");return;}
+  const ta=document.getElementById("ki-prompt"); if(!ta)return;
+  const ctx="Meine Beobachtungen aus dem letzten Spiel/Training: "+notes.map(n=>n.text.trim()).filter(Boolean).join(" • ")+". Leite daraus passende Übungen ab.";
+  ta.value=(ta.value.trim()?ta.value.trim()+"\n\n":"")+ctx;
+  ta.focus();
+  toast("Notizen eingefügt – ergänze bei Bedarf");
 }
 async function kiCoachGenerate(){
   const prompt=(document.getElementById("ki-prompt")?.value||"").trim();
