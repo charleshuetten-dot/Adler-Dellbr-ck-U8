@@ -264,6 +264,10 @@ async function elternDashLoad(){
   html+=card(`<div style="font-weight:700;margin-bottom:6px">📰 Mehr vom Team</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Das digitale Stadionheft mit Neuigkeiten, Ergebnissen und Geburtstagen.</div>
     <a href="${location.pathname}?heft" style="display:block;text-align:center;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;text-decoration:none">📰 Adler Horst öffnen</a>`);
+  // Fairplay-Codex (Phase 18.3) – die goldenen Regeln fürs Verhalten am Spielfeldrand
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">🤝 Unser Fairplay-Codex</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Sechs einfache Regeln, damit der Spielfeldrand ein guter Ort für die Kinder bleibt.</div>
+    <button onclick="fairplayOpen()" style="width:100%;padding:11px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">Codex ansehen</button>`);
   // FEAT Y: Fundbüro – Board + Upload für alle eingeloggten Eltern
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🧦 Fundbüro</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Trinkflasche verschwunden? Jacke gefunden? Hier sammelt das Team.</div>
@@ -5397,6 +5401,38 @@ function adlerkasseCardHtml(link){
     <a href="${esc(link)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#0070ba;color:#fff;border-radius:10px;padding:11px 22px;font-weight:800;font-size:14px;text-decoration:none">☕ Kleinigkeit spenden</a>
     <div style="font-size:9.5px;color:#cbd5e1;margin-top:8px">Zahlung läuft extern über PayPal. Die App fasst kein Geld an.</div>
   </div>`;
+}
+
+/* Fairplay-Codex (Phase 18.3): statisches Vollbild-Overlay mit den goldenen Regeln
+   für den Spielfeldrand. Kontrastreich (draußen lesbar), kein Backend, kein DSGVO-Thema. */
+const FAIRPLAY_REGELN=[
+  {emo:"👏", t:"Anfeuern statt anweisen", d:"Coachen ist Trainer-Sache. Ihr feuert an – das gibt den Kindern Rückenwind, ohne sie zu verwirren."},
+  {emo:"🎉", t:"Jedes Kind bejubeln", d:"Ein gutes Dribbling ist ein gutes Dribbling – egal, welches Trikot. Auch die Gegner sind Kinder."},
+  {emo:"🙌", t:"Fehler gehören dazu", d:"Ein Fehlpass ist kein Drama. Mut machen statt meckern – so trauen sich die Kinder etwas."},
+  {emo:"⚖️", t:"Der Schiri hat immer recht", d:"Auch wenn er mal irrt. Respekt vor der Entscheidung – die Kinder schauen sich genau ab, wie wir reagieren."},
+  {emo:"🤝", t:"Ergebnis ist Nebensache", d:"Bei der U9 zählt Spaß, Bewegung und Dazulernen. Die Tabelle merkt sich in fünf Jahren keiner – das Gefühl schon."},
+  {emo:"🚗", t:"Wir sind ein Team – auch abseits", d:"Pünktlich sein, Fahrgemeinschaften teilen, mit anpacken. Was wir vorleben, lernen die Kinder."}
+];
+function fairplayOpen(){
+  document.getElementById("fairplay-ov")?.remove();
+  const ov=document.createElement("div");
+  ov.id="fairplay-ov";
+  ov.style.cssText="position:fixed;inset:0;z-index:10050;background:linear-gradient(160deg,#065f46,#064e3b);color:#fff;overflow-y:auto;font-family:inherit;-webkit-overflow-scrolling:touch";
+  ov.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:24px 18px 40px">
+    <div style="text-align:center;margin-bottom:6px;font-size:40px">🦅</div>
+    <div style="text-align:center;font-size:22px;font-weight:900;letter-spacing:.3px">Unser Fairplay-Codex</div>
+    <div style="text-align:center;font-size:13px;opacity:.9;margin:6px 0 20px">SV Adler Dellbrück · U9 – für einen guten Spielfeldrand</div>
+    ${FAIRPLAY_REGELN.map((r,i)=>`<div style="display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:16px;margin-bottom:12px">
+      <div style="font-size:30px;line-height:1">${r.emo}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:16px;font-weight:800">${i+1}. ${r.t}</div>
+        <div style="font-size:13.5px;opacity:.95;line-height:1.55;margin-top:3px">${r.d}</div>
+      </div>
+    </div>`).join("")}
+    <div style="text-align:center;font-size:13px;opacity:.9;margin:16px 0 20px">Danke, dass ihr das mittragt. 💚</div>
+    <button onclick="document.getElementById('fairplay-ov').remove()" style="width:100%;min-height:52px;border:none;border-radius:14px;background:#fff;color:#065f46;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer">Verstanden 👍</button>
+  </div>`;
+  document.body.appendChild(ov);
 }
 
 /* Platz-Ampel-Banner für die Eltern – nur wenn der Trainer einen Status gesetzt hat.
