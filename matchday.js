@@ -492,7 +492,8 @@ async function elternCardShow(d){
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:10001;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;overflow-y:auto";
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   canvas.style.cssText="max-width:100%;width:300px;height:auto;border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.5)";
-  modal.appendChild(canvas);
+  const cardWrap=cardHoloWrap(canvas); // FUT 2.0: Foil-Overlay über der Karte
+  modal.appendChild(cardWrap);
   cardApplyGlow(canvas, d.counts&&d.counts.trainings); // Meilenstein-Glanz (Zähler kommen aus der RPC)
   const bar=document.createElement("div");
   bar.style.cssText="display:flex;gap:8px;flex-wrap:wrap;justify-content:center";
@@ -500,8 +501,8 @@ async function elternCardShow(d){
     <button class="btn" onclick="document.getElementById('adler-card-modal').remove()">Schließen</button>`;
   modal.appendChild(bar);
   document.body.appendChild(modal);
-  // Federn-Stand → Karten-Skin (in render() gebacken) + Skin-Galerie unter der Karte
-  if(d.spielerId){ xpTotal(d.spielerId).then(f=>{ if(document.getElementById("adler-card-modal")){ d.federn=f; render(); modal.appendChild(cardSkinGalleryEl(f)); } }).catch(()=>{}); }
+  // Federn-Stand → Karten-Skin (in render() gebacken) + Foil-Tier + Unboxing-Feier + Skin-Galerie
+  if(d.spielerId){ xpTotal(d.spielerId).then(f=>{ if(document.getElementById("adler-card-modal")){ d.federn=f; render(); cardHoloSetTier(cardWrap,cardSkinFor(f)); cardTierCelebrateMaybe(cardWrap,d.spielerId,f); modal.appendChild(cardSkinGalleryEl(f)); } }).catch(()=>{}); }
   if(d.fotoPath){ const img=await fotoLoadImage(d.fotoPath); if(img&&document.getElementById("adler-card-modal")){ rawPhoto=img; render(); } }
 }
 /* ═══════════════════════════════════

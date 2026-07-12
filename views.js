@@ -1222,14 +1222,16 @@ function cardMilestoneTheme(trainings){ const t=Number(trainings)||0; return CAR
    Extra-Speicher, keine RLS-Änderung. Der höchste erreichte Skin wird automatisch auf die
    Karte gebacken (Rahmen-Akzent + Emblem-Pill), zusätzlich zum Dim-/Meilenstein-Theme.
    Schließt die Federn-Schleife: Lernen (z. B. Wissensquiz) → Federn → neues Karten-Design. */
+/* FUT 2.0: jeder Tier färbt die GANZE Karte (wash = metallischer Voll-Verlauf, ins PNG
+   gebacken) und bekommt on-screen eine animierte Foil-Sheen (holo=holografisch). */
 const CARD_SKINS=[
-  {min:0,    name:"Küken-Adler",   emo:"🐣", border:null},
-  {min:60,   name:"Bronze-Adler",  emo:"🥉", border:"#cd7f32"},
-  {min:150,  name:"Silber-Adler",  emo:"🥈", border:"#cbd5e1"},
-  {min:300,  name:"Gold-Adler",    emo:"🥇", border:"#facc15"},
-  {min:500,  name:"Feuer-Adler",   emo:"🔥", border:"#f97316"},
-  {min:800,  name:"Eis-Adler",     emo:"❄️", border:"#38bdf8"},
-  {min:1200, name:"Diamant-Adler", emo:"💎", border:"#a78bfa"}
+  {min:0,    name:"Küken-Adler",   emo:"🐣", border:null,      wash:null},
+  {min:60,   name:"Bronze-Adler",  emo:"🥉", border:"#cd7f32", wash:["#7c4a1e","#e39a4e"]},
+  {min:150,  name:"Silber-Adler",  emo:"🥈", border:"#cbd5e1", wash:["#4b5563","#d7dee7"]},
+  {min:300,  name:"Gold-Adler",    emo:"🥇", border:"#facc15", wash:["#7a5c0a","#fde047"]},
+  {min:500,  name:"Feuer-Adler",   emo:"🔥", border:"#f97316", wash:["#7c2d12","#fb923c"]},
+  {min:800,  name:"Eis-Adler",     emo:"❄️", border:"#38bdf8", wash:["#0c4a6e","#7dd3fc"]},
+  {min:1200, name:"Diamant-Adler", emo:"💎", border:"#a78bfa", wash:["#4c1d95","#c4b5fd"], holo:true}
 ];
 function cardSkinFor(federn){ const f=Number(federn)||0; return CARD_SKINS.filter(s=>f>=s.min).pop()||CARD_SKINS[0]; }
 // Skin-Galerie fürs Modal (nicht ins PNG gebacken): zeigt alle Designs, freie in Farbe,
@@ -1263,6 +1265,85 @@ function cardApplyGlow(canvas,trainings){
     document.head.appendChild(st);
   }
   canvas.style.animation=(ms.medal==="hero"?"cardGlowHero 1.8s":"cardGlowGold 2.4s")+" ease-in-out infinite";
+}
+/* ── FUT 2.0: Holo-Foil-Overlay (on-screen, nicht im PNG) + Unboxing-Celebration ── */
+function cardEnsureFXStyle(){
+  if(document.getElementById("card-fx-style"))return;
+  const st=document.createElement("style");st.id="card-fx-style";
+  st.textContent=`
+  .card-holo{position:relative;display:inline-block;line-height:0}
+  .card-holo .foil{position:absolute;inset:0;border-radius:20px;pointer-events:none;opacity:0;mix-blend-mode:overlay;
+    background:linear-gradient(115deg,transparent 22%,rgba(255,255,255,.55) 38%,rgba(255,255,255,.12) 47%,transparent 62%);
+    background-size:250% 250%}
+  .card-holo.tier-on .foil{opacity:1;animation:cardFoil 3.2s linear infinite}
+  .card-holo.tier-holo .foil{mix-blend-mode:screen;
+    background:linear-gradient(115deg,transparent 12%,rgba(240,171,252,.5) 28%,rgba(103,232,249,.5) 40%,rgba(253,224,71,.5) 50%,rgba(134,239,172,.5) 60%,transparent 74%);
+    background-size:250% 250%}
+  @keyframes cardFoil{0%{background-position:130% 0}100%{background-position:-40% 0}}
+  @keyframes cardFlash{0%{opacity:0}18%{opacity:.92}100%{opacity:0}}
+  @keyframes cardBanner{0%{opacity:0;transform:translateX(-50%) translateY(-10px) scale(.9)}12%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}82%{opacity:1}100%{opacity:0}}
+  `;
+  document.head.appendChild(st);
+}
+function cardHoloWrap(canvas){
+  cardEnsureFXStyle();
+  const w=document.createElement("div");w.className="card-holo";
+  w.appendChild(canvas);
+  const foil=document.createElement("div");foil.className="foil";w.appendChild(foil);
+  return w;
+}
+function cardHoloSetTier(wrap,sk){
+  if(!wrap)return;
+  wrap.classList.remove("tier-on","tier-holo");
+  if(sk&&sk.border){ wrap.classList.add("tier-on"); if(sk.holo)wrap.classList.add("tier-holo"); }
+}
+// Selbst gemaltes Konfetti (keine externe Library → offline-tauglich).
+function confettiBurst(ms){
+  const cv=document.createElement("canvas");
+  cv.style.cssText="position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:10009";
+  cv.width=window.innerWidth;cv.height=window.innerHeight;
+  document.body.appendChild(cv);
+  const ctx=cv.getContext("2d");
+  const cols=["#f97316","#facc15","#38bdf8","#a78bfa","#22c55e","#ec4899","#ffffff"];
+  const parts=[];
+  for(let i=0;i<150;i++)parts.push({x:Math.random()*cv.width,y:-20-Math.random()*cv.height*.4,
+    vx:(Math.random()-.5)*3,vy:2+Math.random()*4,s:4+Math.random()*6,rot:Math.random()*6.28,vr:(Math.random()-.5)*.3,c:cols[i%cols.length]});
+  const start=performance.now();
+  (function frame(t){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.03;p.rot+=p.vr;
+      ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);ctx.fillStyle=p.c;ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*.6);ctx.restore();});
+    if(t-start<ms&&document.body.contains(cv))requestAnimationFrame(frame);else cv.remove();
+  })(start);
+  // Sicherheits-Aufräumung: rAF pausiert im Hintergrund-Tab → Overlay sonst hängen bleiben.
+  setTimeout(()=>{ if(document.body.contains(cv))cv.remove(); }, ms+500);
+}
+// Der große Moment: neuer Tier erreicht → Haptik + Blitz + Puls + Konfetti + Banner.
+function cardCelebrate(wrap,sk,label){
+  try{navigator.vibrate&&navigator.vibrate([100,50,100,50,200]);}catch(e){}
+  if(wrap){
+    const flash=document.createElement("div");
+    flash.style.cssText="position:absolute;inset:0;border-radius:20px;background:#fff;pointer-events:none;z-index:2;animation:cardFlash .7s ease-out forwards";
+    wrap.appendChild(flash);setTimeout(()=>flash.remove(),750);
+    if(wrap.animate)wrap.animate([{transform:"scale(1)"},{transform:"scale(1.06)"},{transform:"scale(1)"}],{duration:600,easing:"ease-out"});
+  }
+  confettiBurst(3000);
+  const modal=document.getElementById("adler-card-modal");
+  if(modal){
+    const b=document.createElement("div");
+    b.style.cssText="position:fixed;top:12%;left:50%;z-index:10010;background:"+((sk&&sk.border)||"#facc15")+";color:#1a1205;font-weight:900;font-size:16px;padding:10px 18px;border-radius:30px;box-shadow:0 8px 30px rgba(0,0,0,.45);animation:cardBanner 2.8s ease-out forwards";
+    b.textContent=(sk&&sk.emo?sk.emo+" ":"🎉 ")+"Level-Up: "+label+"!";
+    modal.appendChild(b);setTimeout(()=>b.remove(),2900);
+  }
+}
+/* Feiert genau dann, wenn das Kind (auf diesem Gerät) erstmals einen höheren Tier zeigt.
+   localStorage merkt sich den zuletzt gefeierten Tier-Index pro Kind – kein Server nötig. */
+function cardTierCelebrateMaybe(wrap,spielerId,federn){
+  const sk=cardSkinFor(federn), idx=CARD_SKINS.indexOf(sk);
+  const key="adler_ctier_"+spielerId; let prev=-1;
+  try{const v=localStorage.getItem(key); if(v!=null)prev=parseInt(v,10);}catch(e){}
+  if(sk&&sk.border&&idx>Math.max(prev,0))cardCelebrate(wrap,sk,sk.name.replace("-Adler",""));
+  try{localStorage.setItem(key,String(idx));}catch(e){}
 }
 // Position ausschreiben: "Flitzer R" -> "Rechter Flitzer", Codes -> Klartext.
 function cardPosLabel(pos){
@@ -1307,6 +1388,23 @@ function adlerCardDraw(ctx,W,H,d,photoImg){
   ctx.globalAlpha=medal?.22:.08;ctx.fillStyle="#fff";ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(W*.6,0);ctx.lineTo(0,H*.5);ctx.closePath();ctx.fill();
   if(medal){ctx.globalAlpha=.13;ctx.beginPath();ctx.moveTo(W,H*.22);ctx.lineTo(W,H*.44);ctx.lineTo(0,H*.92);ctx.lineTo(0,H*.7);ctx.closePath();ctx.fill();}
   ctx.globalAlpha=1;ctx.restore();
+  // ── FUT 2.0 Tier-Wash: der Feder-Skin färbt die GANZE Karte metallisch (ins PNG gebacken) ──
+  const washSk=cardSkinFor(d.federn);
+  if(washSk&&washSk.wash){
+    ctx.save();tbRoundRect(ctx,10,10,W-20,H-20,28);ctx.clip();
+    const wg=ctx.createLinearGradient(0,0,W,H);
+    wg.addColorStop(0,washSk.wash[0]);wg.addColorStop(1,washSk.wash[1]);
+    ctx.globalAlpha=medal?.16:.34; // bei Gold-/Hero-Meilenstein dezenter (eigenes Theme hat Vorrang)
+    ctx.fillStyle=wg;ctx.fillRect(0,0,W,H);
+    if(washSk.holo){ // Diamant: holografische Farbbänder
+      ctx.globalAlpha=.10;
+      ["#f0abfc","#67e8f9","#fde047","#86efac"].forEach((c,i)=>{
+        const y=H*(.12+i*.22);ctx.fillStyle=c;ctx.beginPath();
+        ctx.moveTo(0,y);ctx.lineTo(W,y-H*.14);ctx.lineTo(W,y-H*.02);ctx.lineTo(0,y+H*.12);ctx.closePath();ctx.fill();
+      });
+    }
+    ctx.globalAlpha=1;ctx.restore();
+  }
   // Rahmen – Meilenstein: metallischer Doppelrahmen + Siegel oben mittig
   if(medal){
     ctx.lineWidth=6;ctx.strokeStyle=ms.border;tbRoundRect(ctx,11,11,W-22,H-22,27);ctx.stroke();
@@ -1363,11 +1461,14 @@ function adlerCardDraw(ctx,W,H,d,photoImg){
 
   // ── Name + Alter/Fuß ──
   const nameY=cy+rad+44;
+  const washOn=!!(washSk&&washSk.wash);
+  if(washOn){ctx.shadowColor="rgba(0,0,0,.4)";ctx.shadowBlur=4;ctx.shadowOffsetY=1;} // Lesbarkeit auf metallischem Wash
   ctx.textAlign="center";ctx.fillStyle="#fff";ctx.font="800 33px Arial";
   ctx.fillText(d.name||"", W/2, nameY);
   ctx.font="600 15px Arial";ctx.fillStyle="rgba(255,255,255,.9)";
   const sub=[d.spitzname?'„'+d.spitzname+'“':"",d.alter?d.alter+" Jahre":"",d.fuss||""].filter(Boolean).join("  ·  ");
   if(sub)ctx.fillText(sub,W/2,nameY+24);
+  if(washOn){ctx.shadowColor="transparent";ctx.shadowBlur=0;ctx.shadowOffsetY=0;}
 
   // ── Einsatz-Zähler (Fleiß statt Skill-Ranking): positionsgerecht (TW → Paraden) ──
   const c=d.counts||null;
@@ -1508,15 +1609,16 @@ async function adlerCardOpen(nameArg){
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:10002;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;overflow-y:auto";
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   canvas.style.cssText="max-width:100%;width:300px;height:auto;border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.5)";
-  modal.appendChild(canvas);
+  const cardWrap=cardHoloWrap(canvas); // FUT 2.0: Foil-Overlay über der Karte
+  modal.appendChild(cardWrap);
   const bar=document.createElement("div");
   bar.style.cssText="display:flex;gap:8px;flex-wrap:wrap;justify-content:center";
   bar.innerHTML=`<button class="btn btn-p" onclick="adlerCardShare()"><i class="ti ti-share"></i>Karte teilen</button>
     <button class="btn" onclick="document.getElementById('adler-card-modal').remove()">Schließen</button>`;
   modal.appendChild(bar);
   document.body.appendChild(modal);
-  // Federn-Stand → Karten-Skin (wird in render() gebacken) + Skin-Galerie unter der Karte
-  if(d.spielerId){ xpTotal(d.spielerId).then(f=>{ if(document.getElementById("adler-card-modal")){ d.federn=f; render(); modal.appendChild(cardSkinGalleryEl(f)); } }).catch(()=>{}); }
+  // Federn-Stand → Karten-Skin (wird in render() gebacken) + Foil-Tier + Skin-Galerie
+  if(d.spielerId){ xpTotal(d.spielerId).then(f=>{ if(document.getElementById("adler-card-modal")){ d.federn=f; render(); cardHoloSetTier(cardWrap,cardSkinFor(f)); modal.appendChild(cardSkinGalleryEl(f)); } }).catch(()=>{}); }
   // Einsatz-Zähler laden und neu zeichnen (Modal-Guard gegen Race, falls schon geschlossen)
   adlerCardStats(name).then(c=>{ if(document.getElementById("adler-card-modal")){ d.counts=c; render(); cardApplyGlow(canvas,c.trainings); } });
   // Foto (falls vorhanden) laden und neu zeichnen
