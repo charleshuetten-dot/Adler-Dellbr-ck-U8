@@ -120,7 +120,7 @@ async function elternPortalVerify(){
 }
 function elternPortalLogout(){ localStorage.removeItem(SB_TOKEN_KEY_ELTERN); document.getElementById("eltern-portal")?.remove(); renderElternPortal(); }
 function elternPortalDashboard(root){
-  root.innerHTML=`<div style="max-width:440px;margin:0 auto">
+  root.innerHTML=`<div class="ep-wrap">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px 12px">
       <div style="font-size:18px;font-weight:800">🦅 Eltern-Bereich</div>
       <div style="display:flex;align-items:center;gap:10px">

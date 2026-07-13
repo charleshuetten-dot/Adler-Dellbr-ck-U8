@@ -33,6 +33,20 @@
 }
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
 .app{max-width:920px;margin:0 auto;padding:16px 16px 100px}
+.ep-wrap{max-width:440px;margin:0 auto}
+
+/* Querformat-Tablet (>=1024px): die Ansicht nutzt die volle Breite statt eines schmalen
+   Streifens. Trainer-App breiter + Dashboard-Karten in 2 Spalten (Masonry via CSS-columns,
+   break-inside:avoid haelt jede Karte zusammen). Ebenso der Eltern-Bereich. Hochformat
+   (Breite < 1024) bleibt einspaltig wie bisher. */
+@media(min-width:1024px){
+  .app{max-width:1200px}
+  #home-content{column-count:2;column-gap:16px}
+  #home-content>div{break-inside:avoid}
+  .ep-wrap{max-width:1000px}
+  #ep-dash-body{column-count:2;column-gap:16px}
+  #ep-dash-body>*{break-inside:avoid}
+}
 
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 0 15px;border-bottom:2px solid var(--club-accent);margin-bottom:18px} /* L7 */
 #club-logo{width:38px;height:38px;border-radius:var(--r);object-fit:contain;flex-shrink:0}
