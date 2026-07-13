@@ -677,6 +677,69 @@ function toggleTheme(){
 document.addEventListener("DOMContentLoaded",()=>{ try{ applyTheme(localStorage.getItem("adler_theme")); }catch(e){} }); // Button-Icon setzen
 if(window.matchMedia){ try{ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{ if(!localStorage.getItem("adler_theme"))applyTheme(null); }); }catch(e){} }
 
+/* ═══ Web-Push-Benachrichtigungen ═══
+   Öffentlicher VAPID-Schlüssel (der private liegt nur in der Edge Function push-send).
+   Subscriptions in push_subscriptions (RLS: eigene). Senden macht der Trainer -> Edge Function. */
+const VAPID_PUBLIC="BEC5hAYJQ3IBA0HHrPttPTH_OeH-pdTRx5Q88W1thcJ1e23Ia7MWGB1Y4BUPg_uqt3sdiVcDa6TwPy8odLuD4J0";
+function pushSupported(){ return ("serviceWorker" in navigator)&&("PushManager" in window)&&("Notification" in window); }
+function _urlB64ToU8(b64){
+  const pad="=".repeat((4-b64.length%4)%4);
+  const s=(b64+pad).replace(/-/g,"+").replace(/_/g,"/");
+  const raw=atob(s), u=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++)u[i]=raw.charCodeAt(i);
+  return u;
+}
+async function pushCurrentSub(){
+  if(!pushSupported())return null;
+  try{ const reg=await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); }catch(e){ return null; }
+}
+async function pushSubscribe(rolle){
+  if(!pushSupported()){toast("Benachrichtigungen werden hier nicht unterstützt","err");return false;}
+  if(!sbToken()){toast("Bitte zuerst anmelden","err");return false;}
+  let perm=Notification.permission;
+  if(perm==="default")perm=await Notification.requestPermission();
+  if(perm!=="granted"){toast("Benachrichtigungen wurden nicht erlaubt","err");return false;}
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:_urlB64ToU8(VAPID_PUBLIC)});
+    const j=sub.toJSON();
+    const r=await fetch(`${SB_URL}/rest/v1/push_subscriptions?on_conflict=endpoint`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({endpoint:sub.endpoint,p256dh:j.keys.p256dh,auth:j.keys.auth,rolle:rolle||"parent"})});
+    if(sbCheck401(r))return false;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht aktivieren"),"err");return false;}
+    toast("🔔 Benachrichtigungen aktiviert");
+    return true;
+  }catch(e){ toast("Konnte nicht aktivieren","err"); return false; }
+}
+async function pushUnsubscribe(){
+  try{
+    const sub=await pushCurrentSub();
+    if(sub){ try{await fetch(`${SB_URL}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(sub.endpoint)}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){} try{await sub.unsubscribe();}catch(e){} }
+    toast("Benachrichtigungen ausgeschaltet");
+  }catch(e){}
+}
+// Status-abhängigen An/Aus-Button in einen Slot rendern (rolle: 'parent' | 'trainer').
+async function pushRenderInto(elId, rolle){
+  const el=document.getElementById(elId); if(!el)return;
+  if(!pushSupported()){ el.innerHTML=""; return; }
+  const sub=await pushCurrentSub();
+  const on=!!sub && (typeof Notification!=="undefined"&&Notification.permission==="granted");
+  const base="width:100%;min-height:48px;padding:12px;border-radius:10px;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer";
+  el.innerHTML=on
+    ? `<button onclick="pushUnsubscribe().then(()=>pushRenderInto('${elId}','${rolle}'))" style="${base};border:1.5px solid #16a34a;background:#f0fdf4;color:#15803d">🔔 Benachrichtigungen an ✓ · zum Ausschalten tippen</button>`
+    : `<button onclick="pushSubscribe('${rolle}').then(ok=>{if(ok)pushRenderInto('${elId}','${rolle}');})" style="${base};border:none;background:linear-gradient(135deg,#0ea5e9,#2563eb);color:#fff">🔔 Benachrichtigungen aktivieren</button>`;
+}
+// Trainer: Push an alle (subscribed) Eltern senden – via Edge Function push-send.
+async function pushSendToParents(title, body, url){
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/push-send`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({audience:"parents",title,body,url:url||"./"})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){toast(d.error||"Push fehlgeschlagen","err");return false;}
+    toast(`🔔 Push an ${d.sent||0} Eltern gesendet`);
+    return true;
+  }catch(e){toast("Netzwerkfehler","err");return false;}
+}
+
 /* A11y: Esc schließt das oberste offene Overlay (mit korrektem Cleanup für Spezial-Overlays). */
 document.addEventListener("keydown",e=>{
   if(e.key!=="Escape")return;

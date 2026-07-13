@@ -1,4 +1,4 @@
-const CACHE="u9i-adler-v256";
+const CACHE="u9i-adler-v257";
 const PRECACHE=[
   "./",
   "./index.html",
@@ -130,4 +130,26 @@ self.addEventListener("fetch",e=>{
     }
     return new Response("Offline",{status:503,statusText:"Offline"});
   })());
+});
+
+// ── Web-Push: eingehende Benachrichtigung anzeigen ──
+self.addEventListener("push",e=>{
+  let d={};
+  try{ d=e.data?e.data.json():{}; }catch(_){ try{d={body:e.data.text()};}catch(__){} }
+  const title=d.title||"SV Adler Dellbrück U9";
+  const opts={
+    body:d.body||"", icon:"./logo.png", badge:"./logo.png",
+    data:{url:d.url||"./"}, tag:d.tag||"adler", renotify:true,
+    vibrate:[40,60,40]
+  };
+  e.waitUntil(self.registration.showNotification(title,opts));
+});
+// Klick auf die Benachrichtigung: vorhandenes Fenster fokussieren/navigieren oder neu öffnen.
+self.addEventListener("notificationclick",e=>{
+  e.notification.close();
+  const url=(e.notification.data&&e.notification.data.url)||"./";
+  e.waitUntil(clients.matchAll({type:"window",includeUncontrolled:true}).then(cs=>{
+    for(const c of cs){ if("focus" in c){ try{c.navigate(url);}catch(_){} return c.focus(); } }
+    return clients.openWindow(url);
+  }));
 });

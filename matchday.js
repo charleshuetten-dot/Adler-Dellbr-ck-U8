@@ -317,6 +317,10 @@ async function elternDashLoad(){
   // Mitbringliste (Events) + Büdchendienst (Heimspiele) bewusst weit oben – das sind To-dos.
   html+=`<div id="mitbring-slot"></div>`;     // Event-Mitbringliste (async, nur bei kommenden Events)
   html+=`<div id="buedchen-slot"></div>`;     // Büdchen-Einteilung bei Heimspielen (async)
+  // Push-Benachrichtigungen aktivieren (nur wenn der Browser sie unterstützt)
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">🔔 Benachrichtigungen</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Erinnerungen an Termine, offene Rückmeldungen und Neuigkeiten direkt aufs Handy.</div>
+    <div id="push-slot-eltern"></div>`);
   // ── Kabine (Kinder-Modus) – das Quiz lebt ausschließlich hier ──
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🎮 Für die Kinder</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Die Kabine ist der Kinder-Modus: Team-Galerie, Missionen und das Fußball-Quiz (${XP_ICON} Federn sammeln).</div>
@@ -392,6 +396,7 @@ async function elternDashLoad(){
   elternPollLoad();                            // Terminvorschläge des Trainers (Elterngespräch-Doodle)
   fairplayCommitLoad();                        // Fairplay-Codex: Commitment-Status / Bestätigung
   if(termin)elternTickerLoad(termin);          // Liveticker: Team des Kindes automatisch erkennen
+  if(typeof pushRenderInto==="function")pushRenderInto("push-slot-eltern","parent"); // Push-An/Aus
   if(WAESCHE_AKTIV)elternWaescheLoad(kids);    // Trikot-Wäsche-Rotator (aktuell ausgeblendet)
   elternSkillLoad(kids);   // Skill der Woche
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
@@ -2645,11 +2650,17 @@ async function rsvpOverviewOpen(terminId){
     ${sec("Zusagen",groups.zugesagt,"#059669","👍")}
     ${sec("Absagen",groups.abgesagt,"#dc2626","👎")}
     ${sec("Krank",groups.krank,"#d97706","🤒")}
-    <div style="display:flex;gap:8px;margin-top:14px">
-      ${groups.offen.length?`<a class="btn btn-p btn-sm" href="https://wa.me/?text=${encodeURIComponent(waText)}" target="_blank" rel="noopener"><i class="ti ti-brand-whatsapp"></i>Erinnerung senden</a>`:""}
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      ${groups.offen.length?`<a class="btn btn-p btn-sm" href="https://wa.me/?text=${encodeURIComponent(waText)}" target="_blank" rel="noopener"><i class="ti ti-brand-whatsapp"></i>WhatsApp</a>`:""}
+      ${groups.offen.length?`<button class="btn btn-sm" onclick="rsvpPushErinnern(${terminId},'${(t.titel||m.label).replace(/'/g,'')}','${datumStr}${zeitStr?' '+zeitStr+' Uhr':''}')"><i class="ti ti-bell"></i>Als Push</button>`:""}
       <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('rsvp-ov-modal').remove()">Schließen</button>
     </div>`;
   modal.appendChild(card);document.body.appendChild(modal);
+}
+// Push-Erinnerung an die (subscribten) Eltern – gleicher Deep-Link wie die WhatsApp-Erinnerung.
+async function rsvpPushErinnern(terminId, titel, wann){
+  const url=appRoot()+"?portal&rsvp="+terminId;
+  await pushSendToParents("🦅 Bitte kurz rückmelden", `${titel} · ${wann} – bitte zu- oder absagen.`, url);
 }
 /* Platz-Ampel: drei Fat-Finger-Buttons je Termin. Setzt termine.platz_status live;
    die Eltern sehen den Status oben im Dashboard. Optionaler kurzer Zusatz (z. B.

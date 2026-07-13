@@ -2736,6 +2736,7 @@ async function renderHome(){
     </div>
     <div class="sl nt" style="margin-top:18px"><i class="ti ti-clipboard-heart"></i>Team-Status</div>
     <div id="home-rsvp"></div>
+    <div id="push-slot-trainer" style="margin-bottom:10px"></div>
     ${gebHtml}
     <div id="eg-trainer"></div>
     ${stale>0?`<div onclick="go('bew')" class="card" style="padding:12px 14px;margin-bottom:10px;border-left:3px solid #dc2626;cursor:pointer;display:flex;align-items:center;gap:8px">
@@ -2765,6 +2766,7 @@ async function renderHome(){
   window._radarLoaded=false; // Radar erst beim Aufklappen des Team-Checks laden
   elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche
   homeRsvpNudge(); // "wer hat noch nicht geantwortet" für den nächsten Termin
+  if(typeof pushRenderInto==="function")pushRenderInto("push-slot-trainer","trainer"); // Push-An/Aus
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc,uhrzeit.asc.nullslast&limit=10`,{headers:sbAuthHeaders()});
