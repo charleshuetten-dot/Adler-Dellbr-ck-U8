@@ -147,25 +147,60 @@ async function tqSyncToSupabase(player,block,data){
     });
   }catch(e){console.log("Quiz sync failed",e);}
 }
+let _tqLoaded=false;
 async function tqLoadProgressFromSupabase(){
-  if(!sbToken())return;
+  if(_tqLoaded||!sbToken())return false;
   try{
     const r=await fetch(`${SB_URL}/rest/v1/quiz_progress?select=*`,{headers:sbAuthHeaders()});
-    if(!r.ok)return;
+    if(!r.ok)return false;
     const rows=await r.json();
-    if(!rows.length)return;
-    const p=tqGetProgress();
+    _tqLoaded=true; // nur nach erfolgreichem Laden: initialer Parse-Call ohne Sitzung darf es nicht sperren
+    if(!rows.length)return false;
+    const p=tqGetProgress(); let changed=false;
     rows.forEach(row=>{
       if(!p[row.player])p[row.player]={};
       const prev=p[row.player][row.block];
       if(!prev||row.score>prev.score){
         p[row.player][row.block]={score:row.score,total:row.total,date:row.date};
+        changed=true;
       }
     });
-    localStorage.setItem(TQ_PROGRESS_KEY,JSON.stringify(p));
-  }catch(e){console.log("Quiz load from Supabase failed",e);}
+    if(changed)localStorage.setItem(TQ_PROGRESS_KEY,JSON.stringify(p));
+    return changed;
+  }catch(e){console.log("Quiz load from Supabase failed",e);return false;}
 }
 tqLoadProgressFromSupabase();
+/* Server-Wahrheit fuer den Wissensquiz: die richtig beantworteten Frage-IDs stecken
+   im punkte_log (quelle='wissensquiz') und werden per RPC wq_done geholt. Behebt den
+   Desync „Federn da, aber Fortschritt (localStorage) auf diesem Geraet leer". */
+let _wqLoaded={};
+async function wqLoadFromServer(){
+  if(!tqPlayer||!sbToken()||_wqLoaded[tqPlayer])return false;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kader?select=id&name=eq.${encodeURIComponent(tqPlayer)}&limit=1`,{headers:sbAuthHeaders()});
+    if(!r.ok)return false;
+    const rows=await r.json(); if(!rows.length)return false;
+    const rr=await fetch(`${SB_URL}/rest/v1/rpc/wq_done`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler_id:rows[0].id})});
+    if(!rr.ok)return false;
+    _wqLoaded[tqPlayer]=true;
+    const ids=(await rr.json())||[];
+    if(!ids.length)return false;
+    const p=wqGetProgress(); if(!p[tqPlayer])p[tqPlayer]={}; let changed=false;
+    ids.forEach(id=>{ if(id&&!p[tqPlayer][id]){p[tqPlayer][id]=1;changed=true;} });
+    if(changed)try{localStorage.setItem(WQ_PROGRESS_KEY,JSON.stringify(p));}catch(e){}
+    return changed;
+  }catch(e){return false;}
+}
+/* Beide Quiz-Fortschritte vom Server nachziehen und – nur bei Aenderung – die aktuell
+   offene Ansicht neu zeichnen. Die _*Loaded-Guards verhindern eine Endlosschleife. */
+function quizRefreshFromServer(view){
+  Promise.all([tqLoadProgressFromSupabase(),wqLoadFromServer()]).then(res=>{
+    if(!res.some(Boolean))return;
+    if(view==="blocks"){ if(document.getElementById("tq-blocks-grid"))tqBlocksShow(); }
+    else if(view==="wq"){ if(document.body.classList.contains("wq-active"))wqRenderCats(); }
+    else tqStart();
+  }).catch(()=>{});
+}
 
 function tqShareQuiz(){
   const url=appRoot()+"?quiz";
@@ -389,7 +424,7 @@ function tqStart(){
   }
   html+=`</div>`;
   panel.innerHTML=html;
-  if(tqPlayer)tqChallengeLoad(); // Wochen-Challenge im Spieler-Kontext nachladen
+  if(tqPlayer){ tqChallengeLoad(); quizRefreshFromServer("start"); } // Challenge + Server-Fortschritt nachladen
 }
 // Taktik-Quiz-Einstieg als Karte (wie wqRenderLauncher) – klappt die 10 Blöcke auf.
 function tqRenderTaktikLauncher(pp){
@@ -428,15 +463,18 @@ function tqBlocksShow(){
     <div style="font-size:10px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🎯 Taktik-Quiz · ${esc(tqPlayer)}</div>
     <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:2px">Wähle einen Block!</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Jeder Block hat 10 Fragen. Dein Fortschritt wird gespeichert.</div>
-    <div style="display:flex;flex-direction:column;gap:8px">`;
+    <div id="tq-blocks-grid" style="display:flex;flex-direction:column;gap:8px">`;
   TQ_BLOCKS.forEach((b,i)=>{
     const bp=pp[i];
     const pct=bp?Math.round(bp.score/bp.total*100):0;
-    const medaille=bp?(bp.score>=9?" 🥇":bp.score>=7?" 🥈":bp.score>=5?" 🥉":""):"";
+    // gemeistert (>=7) = Medaille; angefangen (1..6) = klarer Hinweis, damit gespielte
+    // Bloecke nicht "unberuehrt" aussehen (Bugfix: Federn da, Block sah leer aus).
+    const medaille=bp?(bp.score>=9?" 🥇":bp.score>=7?" 🥈":bp.score>=5?" 🥉":bp.score>=1?" ▶":""):"";
+    const status=bp?(bp.score>=7?"":" · angefangen"):"";
     html+=quizChoiceCard({
       icon:`<i class="ti ${b.icon}" style="color:var(--purple)"></i>`,
       titel:`${b.name}${medaille}`, fertig:!!(bp&&bp.score>=7), pct, col:"var(--purple)",
-      sub:`Block ${i+1}${bp?" · "+bp.score+"/"+bp.total+" richtig":" · 10 Fragen"}`,
+      sub:`Block ${i+1}${bp?" · "+bp.score+"/"+bp.total+" richtig"+status:" · 10 Fragen"}`,
       onclick:`tqStartBlock(${i})`
     });
   });
@@ -446,6 +484,7 @@ function tqBlocksShow(){
   html+=`<button class="btn btn-sm" style="margin-top:12px" onclick="tqStart()"><i class="ti ti-arrow-left"></i>Zurück zur Quiz-Auswahl</button>`;
   html+=`</div>`;
   panel.innerHTML=html;
+  quizRefreshFromServer("blocks"); // Server-Fortschritt nachziehen + neu zeichnen
 }
 // Wochen-Challenge im Quiz: aktive Aufgabe anzeigen + "Geschafft" -> Federn fürs gewählte Kind.
 async function tqChallengeLoad(){
@@ -1000,7 +1039,12 @@ function wqStart(){
   if(!tqPlayer){tqStart();return;}
   document.body.classList.add("wq-active");
   if("speechSynthesis" in window)speechSynthesis.cancel();
-  const panel=document.getElementById("tq-panel"); panel.style.display="block";
+  wqRenderCats();
+  quizRefreshFromServer("wq"); // Fortschritt vom Server nachziehen (geraeteuebergreifend)
+}
+function wqRenderCats(){
+  const panel=document.getElementById("tq-panel"); if(!panel)return;
+  panel.style.display="block";
   const prog=(wqGetProgress()[tqPlayer])||{};
   let html=`<div class="tq-panel">
     <div style="font-size:10px;font-weight:700;color:#0ea5e9;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🧠 Fußball-Wissen · ${esc(tqPlayer)}</div>
