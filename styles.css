@@ -150,7 +150,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .btn:hover{background:var(--surface2)}
 .btn-p{background:var(--blue);color:#fff;border-color:var(--blue);box-shadow:0 2px 6px rgba(26,86,219,.3)}
 .btn-p:hover{background:var(--blue-dark)}
-.btn-sm{padding:5px 10px;font-size:11px;box-shadow:none}
+.btn-sm{padding:8px 12px;font-size:12.5px;box-shadow:none}
 .btn-d{background:var(--red-bg);color:var(--red);border-color:#fca5a5}.btn-d:hover{background:#fee2e2}
 .status{padding:10px 14px;border-radius:var(--r);font-size:12.5px;margin:6px 0;display:none;font-weight:500}
 .status.show{display:block}

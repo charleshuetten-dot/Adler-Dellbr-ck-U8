@@ -2650,35 +2650,12 @@ async function renderHome(){
     ${onboardHtml}
     <div id="home-next">${card('<div style="font-size:12px;color:var(--text3)">Lade nächsten Termin...</div>')}</div>
     <div id="home-carousel"></div>
-    ${gebHtml}
-    ${stale>0?`<div onclick="go('bew')" class="card" style="padding:10px 14px;margin-bottom:10px;border-left:3px solid #dc2626;cursor:pointer;display:flex;align-items:center;gap:8px">
-      <span style="font-size:18px">⏰</span>
-      <span style="flex:1;font-size:12.5px"><strong style="color:#dc2626">${stale} ${stale===1?"Spieler":"Spieler"} überfällig</strong> – seit über 6 Wochen nicht bewertet.</span>
-      <span style="font-size:11px;font-weight:800;color:var(--blue)">ansehen ›</span>
-    </div>`:""}
-    <div class="card" style="padding:0;margin-bottom:10px;overflow:hidden">
-      <button onclick="toggleTeamCheck()" style="width:100%;display:flex;align-items:center;gap:8px;padding:11px 14px;border:none;background:transparent;font-family:inherit;cursor:pointer;color:var(--text)">
-        <span style="font-size:15px">🩺</span>
-        <span style="flex:1;text-align:left;font-size:12.5px;font-weight:700">Team-Check</span>
-        <span style="font-size:11px;color:var(--text2)">${KADER.length} im Kader · ${bewertet} bewertet${stale>0?` · <span style="color:#dc2626">${stale} überfällig</span>`:""}</span>
-        <span id="tc-caret" style="font-size:12px;color:var(--text3)">▾</span>
-      </button>
-      <div id="team-check-body" style="display:none;padding:0 14px 14px">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          ${statTile(KADER.length,"Kader","var(--blue)","go('kader')")}
-          ${statTile(bewertet+"/"+KADER.length,"bewertet","#059669","go('bew')")}
-          ${statTile(stale,"überfällig >6 Wo","#dc2626","go('bew')")}
-        </div>
-        <div id="home-radar"></div>
-      </div>
-    </div>
-    <div id="eg-trainer"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-p" style="flex:1;min-height:46px" onclick="openTab('spieltag')"><i class="ti ti-whistle"></i>Spieltag</button>
-      <button class="btn" style="flex:1;min-height:46px" onclick="go('anwesenheit')"><i class="ti ti-checkbox"></i>Anwesenheit</button>
-      <button class="btn" style="flex:1;min-height:46px" onclick="go('termine')"><i class="ti ti-calendar-plus"></i>Termin</button>
+      <button class="btn btn-p" style="flex:1;min-height:48px" onclick="openTab('spieltag')"><i class="ti ti-whistle"></i>Spieltag</button>
+      <button class="btn" style="flex:1;min-height:48px" onclick="go('anwesenheit')"><i class="ti ti-checkbox"></i>Anwesenheit</button>
+      <button class="btn" style="flex:1;min-height:48px" onclick="go('termine')"><i class="ti ti-calendar-plus"></i>Termin</button>
     </div>
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin:14px 0 6px">Werkzeuge</div>
+    <div class="sl nt" style="margin-top:18px"><i class="ti ti-tools"></i>Werkzeuge</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
       ${homeTool("⭐ Einheit bewerten","einheitBewertenOpen()")}
       ${homeTool("📊 Anwesenheits-Quote","anwesenheitOpen()")}
@@ -2691,8 +2668,32 @@ async function renderHome(){
       ${homeTool("📰 Adler Nest","stadionheftOpen()")}
       ${homeTool("🪶 Adler-Welt","adlerWeltOpen()")}
     </div>
+    <div class="sl nt" style="margin-top:18px"><i class="ti ti-clipboard-heart"></i>Team-Status</div>
+    ${gebHtml}
+    <div id="eg-trainer"></div>
+    ${stale>0?`<div onclick="go('bew')" class="card" style="padding:12px 14px;margin-bottom:10px;border-left:3px solid #dc2626;cursor:pointer;display:flex;align-items:center;gap:8px">
+      <span style="font-size:18px">⏰</span>
+      <span style="flex:1;font-size:12.5px"><strong style="color:#dc2626">${stale} Spieler überfällig</strong> – seit über 6 Wochen nicht bewertet.</span>
+      <span style="font-size:11px;font-weight:800;color:var(--blue)">ansehen ›</span>
+    </div>`:""}
+    <div class="card" style="padding:0;margin-bottom:10px;overflow:hidden">
+      <button onclick="toggleTeamCheck()" style="width:100%;display:flex;align-items:center;gap:8px;padding:13px 14px;min-height:48px;border:none;background:transparent;font-family:inherit;cursor:pointer;color:var(--text)">
+        <span style="font-size:16px">🩺</span>
+        <span style="flex:1;text-align:left;font-size:13px;font-weight:700">Team-Check</span>
+        <span style="font-size:11px;color:var(--text2)">${KADER.length} im Kader · ${bewertet} bewertet${stale>0?` · <span style="color:#dc2626">${stale} überfällig</span>`:""}</span>
+        <span id="tc-caret" style="font-size:12px;color:var(--text3)">▾</span>
+      </button>
+      <div id="team-check-body" style="display:none;padding:0 14px 14px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          ${statTile(KADER.length,"Kader","var(--blue)","go('kader')")}
+          ${statTile(bewertet+"/"+KADER.length,"bewertet","#059669","go('bew')")}
+          ${statTile(stale,"überfällig >6 Wo","#dc2626","go('bew')")}
+        </div>
+        <div id="home-radar"></div>
+      </div>
+    </div>
     <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;margin-top:12px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>
-    <button onclick="pwChangeOpen()" style="width:100%;min-height:44px;margin-top:12px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text2);background:var(--surface)">🔑 Mein Passwort ändern</button>`;
+    <button onclick="pwChangeOpen()" style="width:100%;min-height:48px;margin-top:12px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text2);background:var(--surface)">🔑 Mein Passwort ändern</button>`;
 
   window._radarLoaded=false; // Radar erst beim Aufklappen des Team-Checks laden
   elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche

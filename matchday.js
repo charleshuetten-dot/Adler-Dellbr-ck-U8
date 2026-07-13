@@ -280,8 +280,9 @@ async function elternDashLoad(){
   // Fairplay-Codex (Phase 18.3) – die goldenen Regeln fürs Verhalten am Spielfeldrand
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🤝 Unser Fairplay-Codex</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Die Regeln, damit der Spielfeldrand ein guter Ort für die Kinder bleibt.</div>
-    <button onclick="fairplayOpen()" style="width:100%;padding:11px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">Codex ansehen</button>
-    <button onclick="fairplayQuizStart(window._elternKids||[])" style="width:100%;margin-top:8px;padding:11px;border:1.5px solid #16a34a;border-radius:10px;background:#fff;color:#15803d;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🏅 Fairplay-Quiz spielen · ${XP_ICON} 50 Federn fürs Kind</button>`);
+    <button onclick="fairplayOpen()" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">Codex ansehen</button>
+    <div id="fp-commit-slot" style="margin-top:10px"></div>
+    <button onclick="fairplayQuizStart(window._elternKids||[])" style="width:100%;min-height:48px;margin-top:10px;padding:13px;border:1.5px solid #16a34a;border-radius:10px;background:#fff;color:#15803d;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">🏅 Fairplay-Quiz spielen · ${XP_ICON} 50 Federn fürs Kind</button>`);
   // Elterngespräch anfragen – signalisiert dem Trainer den Bedarf
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🗣️ Elterngespräch</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Du möchtest mit dem Trainer über dein Kind sprechen? Sag kurz Bescheid – der Trainer meldet sich zur Terminabstimmung.</div>
@@ -326,6 +327,7 @@ async function elternDashLoad(){
   elternBuedchenLoad(termineListe,kids);       // Büdchen-Einteilung bei Heimspielen
   elternGespraechStatus();                     // laufende Elterngespräch-Anfrage anzeigen
   elternPollLoad();                            // Terminvorschläge des Trainers (Elterngespräch-Doodle)
+  fairplayCommitLoad();                        // Fairplay-Codex: Commitment-Status / Bestätigung
   if(WAESCHE_AKTIV)elternWaescheLoad(kids);    // Trikot-Wäsche-Rotator (aktuell ausgeblendet)
   elternSkillLoad(kids);   // Skill der Woche
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
@@ -2181,6 +2183,18 @@ function saisonForDate(datum){
   const y=d.getFullYear(), start=d.getMonth()>=6?y:y-1;
   return start+"/"+String(start+1).slice(2);
 }
+// Platz-/Spielfeld-Auswahl: beim Training das ganze Vereinsgelände granular; bei Spiel/Turnier
+// ist der Platz mit anderen Teams geteilt -> nur die zwei realen Aufteilungen.
+const PLATZ_TRAINING=["Käfig","vorne links","vorne rechts","hinten links","hinten rechts","Halle"];
+const PLATZ_SPIEL=["links + Käfig","vorne rechts"];
+function tmPlatzDefault(typ){ return (typ==="spiel"||typ==="turnier")?"links + Käfig":"vorne links"; }
+function tmPlatzFill(typ){
+  const sel=document.getElementById("tm-platz"); if(!sel)return;
+  const istSpiel=(typ==="spiel"||typ==="turnier");
+  const opts=istSpiel?PLATZ_SPIEL:PLATZ_TRAINING, def=tmPlatzDefault(typ);
+  sel.innerHTML=`<option value="">– kein Platz –</option>`+opts.map(p=>`<option${p===def?" selected":""}>${esc(p)}</option>`).join("");
+  const lbl=document.getElementById("tm-platz-lbl"); if(lbl)lbl.textContent=istSpiel?"Spielfeld-Aufteilung":"Platz (Training)";
+}
 function tmSetTyp(t,btn){
   tmTyp=t;
   if(btn){btn.parentElement.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active"));btn.classList.add("active");}
@@ -2188,15 +2202,16 @@ function tmSetTyp(t,btn){
   const disp=(id,on)=>{const el=document.getElementById(id);if(el)el.style.display=on?"block":"none";};
   disp("tm-titel-row", t!=="training");                 // Training braucht keinen Titel/Gegner
   const lbl=document.getElementById("tm-titel-lbl"); if(lbl)lbl.textContent=t==="event"?"Titel (z. B. Saisonabschluss, Weihnachtsfeier)":"Gegner / Titel";
-  const platzRow=document.getElementById("tm-platz")?.closest(".mg"); if(platzRow)platzRow.style.display=t==="training"?"block":"none";
+  // Platz gibt es bei Training UND Spiel/Turnier (jeweils eigene Optionen) – nur beim Event nicht.
+  const platzRow=document.getElementById("tm-platz")?.closest(".mg"); if(platzRow)platzRow.style.display=(t==="training"||istSpiel)?"block":"none";
   disp("tm-spielform-row", istSpiel);
   disp("tm-dauer-row", istSpiel);
   disp("tm-heim-row", istSpiel);                          // Heim/Auswärts nur bei Spiel/Turnier
   const gdb=document.getElementById("tm-gegnerdb-btn"); if(gdb)gdb.style.display=istSpiel?"inline-flex":"none"; // Gegner-DB nur bei Spiel/Turnier (nicht bei Training/Event)
-  const zeit=document.getElementById("tm-zeit"), platz=document.getElementById("tm-platz"), datum=document.getElementById("tm-datum"), ort=document.getElementById("tm-ort");
+  const zeit=document.getElementById("tm-zeit"), datum=document.getElementById("tm-datum"), ort=document.getElementById("tm-ort");
+  tmPlatzFill(t);                                         // Optionen + Vorbelegung passend zum Typ
   if(t==="training"){
     if(zeit)zeit.value="16:45";                          // Mo & Fr 16:45–18:00
-    if(platz)platz.value="vorne links";
     if(ort)ort.value=VEREIN_ADRESSE;                     // Training immer auf dem Vereinsgelände
     if(datum&&!datum.value)datum.value=tmNextTrainingDate();
   } else if(istSpiel){
@@ -2472,17 +2487,29 @@ function tmCarouselHtml(rows){
     <div style="display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px">${cards}</div>
   </div>`;
 }
-// Karussell-Klick: zur Detailkarte springen. Vom Dashboard aus erst in den Termine-Tab wechseln.
+// Karussell-Klick: ist die Detailkarte auf der Seite (Termine-Tab), dorthin scrollen.
+// Sonst – z. B. von der Startseite – das Termin-Detailfenster öffnen.
 function tmCarouselJump(id){
   const el=document.getElementById("tm-card-"+id);
   if(el){el.scrollIntoView({behavior:"smooth",block:"start"});return;}
-  if(typeof go==="function")go("termine");
-  let tries=0;
-  const t=setInterval(()=>{
-    const c=document.getElementById("tm-card-"+id);
-    if(c){clearInterval(t);c.scrollIntoView({behavior:"smooth",block:"start"});}
-    else if(++tries>25)clearInterval(t);
-  },120);
+  tmDetailOpen(id);
+}
+// Trainer-Termin-Detailfenster: zeigt die volle Terminkarte (mit allen Aktionen) als Overlay.
+function tmDetailOpen(id){
+  const t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(id));
+  if(!t){ if(typeof go==="function")go("termine"); return; }
+  document.getElementById("tmd-modal")?.remove();
+  const modal=document.createElement("div");
+  modal.id="tmd-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Termin-Details");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10040;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.style.cssText="max-width:460px;width:100%;margin:auto";
+  c.innerHTML=`<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="document.getElementById('tmd-modal').remove()" aria-label="Schließen" style="border:none;background:rgba(255,255,255,.92);width:40px;height:40px;border-radius:50%;font-size:22px;color:#334155;cursor:pointer;line-height:1">×</button></div>${tmCard(t)}`;
+  modal.appendChild(c);document.body.appendChild(modal);
+  // Nachlader wie in der Terminliste anstoßen (Wetter + Büdchen füllen ihre Slots per id).
+  try{ wetterInto("wx-tm-"+t.id,t.datum,t.ort,t.uhrzeit); }catch(e){}
+  if(t.heim===true&&(t.typ==="spiel"||t.typ==="turnier")){ try{ buedchenTrainerFill(t); }catch(e){} }
 }
 // Archiv (vergangene Termine) ein-/ausklappen – standardmäßig zu, damit nur Kommendes im Fokus ist.
 function tmToggleArchiv(){
@@ -2663,8 +2690,9 @@ function tmEdit(id){
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const fld="width:100%;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
-  const PLATZ=["Käfig","vorne links","vorne rechts","hinten links","hinten rechts","Halle"];
-  const platzOpts=`<option value=""${!t.platz?" selected":""}>– kein Platz –</option>`+PLATZ.map(p=>`<option${p===t.platz?" selected":""}>${p}</option>`).join("");
+  const PLATZ=isSpiel?PLATZ_SPIEL:PLATZ_TRAINING;
+  const platzCur=t.platz||(isSpiel?tmPlatzDefault(t.typ):""); // Spiele ohne Eintrag: sinnvolle Vorbelegung
+  const platzOpts=`<option value=""${!platzCur?" selected":""}>– kein Platz –</option>`+PLATZ.map(p=>`<option${p===platzCur?" selected":""}>${p}</option>`).join("");
   const sfOpts=["funino","4+1","5+1"].map(s=>`<option${s===t.spielform?" selected":""}>${s}</option>`).join("");
   // Spieldauer war im Bearbeiten-Dialog gar nicht vorhanden: einmal angelegt, nie änderbar.
   const hz=Number(t.halbzeiten)||2, dauer=Number(t.spieldauer_min)||20;
@@ -2680,7 +2708,7 @@ function tmEdit(id){
     </div>
     ${!isTraining?`<label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Gegner / Titel<input id="te-titel" value="${esc(t.titel||'')}" style="${fld}"></label>`:''}
     <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Ort / Adresse<input id="te-ort" value="${esc(t.ort||'')}" style="${fld}"></label>
-    ${isTraining?`<label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Platz<select id="te-platz" style="${fld}">${platzOpts}</select></label>`:''}
+    ${(isTraining||isSpiel)?`<label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">${isSpiel?"Spielfeld-Aufteilung":"Platz"}<select id="te-platz" style="${fld}">${platzOpts}</select></label>`:''}
     ${isSpiel?`<label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Spielform<select id="te-sf" style="${fld}">${sfOpts}</select></label>`:''}
     ${isSpiel?`<div style="margin-top:8px"><div style="font-size:11px;color:var(--text2);margin-bottom:3px">Spieldauer</div>
       <div style="display:flex;gap:6px">
@@ -6653,6 +6681,61 @@ async function fairplayRegelnLaden(){
   }catch(e){}
   return FAIRPLAY_REGELN;
 }
+/* Fairplay-Commitment: die Eltern haken den Codex bewusst ab („verstanden und ich bin dabei").
+   Serverseitig je Elternteil eine Zeile (fairplay_commit) – ein klares, festgehaltenes Ja. */
+async function fairplayCommitCheck(){
+  if(!sbToken())return null;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/fairplay_commit?select=committed_at&limit=1`,{headers:sbAuthHeaders()});
+    if(r.ok){const rows=await r.json(); if(rows&&rows.length)return rows[0].committed_at;}
+  }catch(e){}
+  return null;
+}
+async function fairplayCommitLoad(){
+  const slot=document.getElementById("fp-commit-slot"); if(!slot)return;
+  if(!sbToken()){slot.innerHTML="";return;} // nur eingeloggte Eltern
+  const committed=await fairplayCommitCheck();
+  if(committed){
+    const d=new Date(committed);
+    slot.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid #16a34a;border-radius:10px;background:#f0fdf4">
+      <span style="font-size:20px">✅</span>
+      <div style="font-size:12.5px;color:#15803d;font-weight:700">Verstanden und dabei${isNaN(d)?"":` · seit ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})}`}<div style="font-weight:500;color:#166534;font-size:11.5px;margin-top:1px">Danke, dass du unseren Codex mitträgst! 💚</div></div>
+    </div>`;
+  }else{
+    slot.innerHTML=`<label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1.5px dashed #16a34a;border-radius:10px;background:#f0fdf4;cursor:pointer">
+      <input type="checkbox" id="fp-commit-cb" onchange="fairplayCommitDo(this)" style="margin-top:2px;flex:none">
+      <span style="font-size:12.5px;color:#15803d">Ich habe den Codex gelesen – <b>verstanden und ich bin dabei.</b></span>
+    </label>`;
+  }
+}
+async function fairplayCommitDo(cb){
+  if(cb&&!cb.checked)return;              // nur das Abhaken zählt als Zusage
+  if(cb)cb.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/fairplay_commit?on_conflict=user_id`,{method:"POST",headers:sbAuthHeaders({'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify({committed_at:new Date().toISOString()})});
+    if(sbCheck401(r)){if(cb){cb.disabled=false;cb.checked=false;}return;}
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");if(cb){cb.disabled=false;cb.checked=false;}return;}
+  }catch(e){toast("Netzwerkfehler","err");if(cb){cb.disabled=false;cb.checked=false;}return;}
+  toast("Danke – dein Ja zum Fairplay-Codex ist notiert! 💚");
+  try{navigator.vibrate&&navigator.vibrate([20,30,20]);}catch(e){}
+  fairplayCommitLoad(); // Karte im Eltern-Bereich auf die Bestätigung umschalten
+  if(document.getElementById("fp-modal-commit"))fairplayModalCommitRender(true); // Codex-Fenster mitziehen
+}
+// Commitment-Block im Codex-Fenster (unter den Regeln) – Häkchen + „ich bin dabei".
+function fairplayModalCommitRender(committed){
+  const box=document.getElementById("fp-modal-commit"); if(!box)return;
+  if(committed){
+    box.innerHTML=`<div style="display:flex;align-items:center;gap:10px;justify-content:center;padding:14px;border-radius:14px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28)">
+      <span style="font-size:22px">✅</span><span style="font-size:14px;font-weight:800">Du bist dabei – danke! 💚</span></div>
+      <button onclick="document.getElementById('fairplay-ov').remove()" style="width:100%;min-height:52px;margin-top:12px;border:none;border-radius:14px;background:#fff;color:#065f46;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer">Schließen</button>`;
+  }else{
+    box.innerHTML=`<label style="display:flex;align-items:flex-start;gap:12px;padding:14px;border-radius:14px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);cursor:pointer;text-align:left">
+        <input type="checkbox" id="fp-modal-cb" onchange="fairplayCommitDo(this)" style="margin-top:2px;flex:none;width:24px;height:24px">
+        <span style="font-size:14.5px;font-weight:700;line-height:1.4">Ich habe den Codex gelesen – <u>verstanden und ich bin dabei.</u></span>
+      </label>
+      <button onclick="document.getElementById('fairplay-ov').remove()" style="width:100%;min-height:48px;margin-top:10px;border:1.5px solid rgba(255,255,255,.6);border-radius:14px;background:transparent;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Später</button>`;
+  }
+}
 async function fairplayOpen(){
   document.getElementById("fairplay-ov")?.remove();
   const ov=document.createElement("div");
@@ -6673,9 +6756,10 @@ async function fairplayOpen(){
         <div style="font-size:13.5px;opacity:.95;line-height:1.55;margin-top:3px">${esc(r.d)}</div>
       </div>
     </div>`).join("")}
-    <div style="text-align:center;font-size:13px;opacity:.9;margin:16px 0 20px">Danke, dass ihr das mittragt. 💚</div>
-    <button onclick="document.getElementById('fairplay-ov').remove()" style="width:100%;min-height:52px;border:none;border-radius:14px;background:#fff;color:#065f46;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer">Verstanden 👍</button>
+    <div style="text-align:center;font-size:13px;opacity:.9;margin:16px 0 14px">Danke, dass ihr das mittragt. 💚</div>
+    <div id="fp-modal-commit"></div>
   </div>`;
+  fairplayCommitCheck().then(c=>fairplayModalCommitRender(!!c));
 }
 
 /* Trainer-Editor für den Fairplay-Codex. Der Trainer pflegt die Regeln, die Eltern
