@@ -1005,11 +1005,46 @@ const WQ_QUESTIONS=[
   {id:"fp_spass",cat:"fairplay",q:"Was zählt am Ende oft mehr als das Gewinnen?",opts:["Spaß und Fairness","Nur der Pokal","Angeben","Gegner ärgern"],correct:0,fun:"Spaß, Fairness und Freunde – dafür spielen wir Fußball!"},
   {id:"fp_teilen",cat:"fairplay",q:"Ein Mitspieler hat sein Wasser vergessen. Was tust du?",opts:["Teilen","Auslachen","Verstecken","Alles selbst trinken"],correct:0,fun:"Teilen ist Teamgeist – heute er, morgen du."},
   {id:"fp_puenktlich",cat:"fairplay",q:"Warum kommst du pünktlich zum Training?",opts:["Aus Respekt vor dem Team","Ist egal","Damit andere warten","Nur wenn ich Lust habe"],correct:0,fun:"Pünktlich sein zeigt: Dir ist dein Team wichtig."},
-  {id:"fp_gruessen",cat:"fairplay",q:"Wie begrüßt du deine Trainer und Mitspieler?",opts:["Freundlich Hallo sagen","Ignorieren","Anrempeln","Weglaufen"],correct:0,fun:"Ein freundliches Hallo startet jedes Training gut."}
+  {id:"fp_gruessen",cat:"fairplay",q:"Wie begrüßt du deine Trainer und Mitspieler?",opts:["Freundlich Hallo sagen","Ignorieren","Anrempeln","Weglaufen"],correct:0,fun:"Ein freundliches Hallo startet jedes Training gut."},
+  // ── WM & EM · Runde 3 (schwer, zeitlose Fakten) ──
+  {id:"wm_t3_wm1974",cat:"wm",q:"Gegen welches Land gewann Deutschland das WM-Finale 1974?",opts:["Niederlande 🇳🇱","Brasilien 🇧🇷","England 🏴","Italien 🇮🇹"],correct:0,fun:"1974 gewann Deutschland zuhause gegen die Niederlande."},
+  {id:"wm_t3_maradona86",cat:"wm",q:"Welcher Star führte Argentinien 1986 zum WM-Titel?",opts:["Diego Maradona","Lionel Messi","Pelé","Cristiano Ronaldo"],correct:0,fun:"Diego Maradona war 1986 der überragende Spieler."},
+  {id:"wm_t3_brasilien5",cat:"wm",q:"Welches Land wurde als einziges schon 5-mal Weltmeister?",opts:["Brasilien 🇧🇷","Deutschland 🇩🇪","Italien 🇮🇹","Argentinien 🇦🇷"],correct:0,fun:"Brasilien ist mit 5 Titeln Rekord-Weltmeister."},
+  {id:"wm_t3_wm2010land",cat:"wm",q:"In welchem Land war 2010 die erste WM in Afrika?",opts:["Südafrika 🇿🇦","Ägypten 🇪🇬","Nigeria 🇳🇬","Marokko 🇲🇦"],correct:0,fun:"2010 war die WM zum ersten Mal in Afrika – in Südafrika."},
+  {id:"wm_t3_wm2010sieger",cat:"wm",q:"Welches Land wurde 2010 Weltmeister?",opts:["Spanien 🇪🇸","Niederlande 🇳🇱","Deutschland 🇩🇪","Brasilien 🇧🇷"],correct:0,fun:"Spanien gewann 2010 zum ersten Mal die WM."},
+  {id:"wm_t3_vize2018",cat:"wm",q:"Welches kleine Land war 2018 überraschend Vize-Weltmeister?",opts:["Kroatien 🇭🇷","Belgien 🇧🇪","Schweden 🇸🇪","Dänemark 🇩🇰"],correct:0,fun:"Kroatien stand 2018 sensationell im Finale."},
+  {id:"wm_t3_em1996",cat:"wm",q:"Wann wurden die deutschen Männer zuletzt Europameister?",opts:["1996","2008","1980","2016"],correct:0,fun:"1996 in England holte Deutschland den letzten EM-Titel der Männer."},
+  {id:"wm_t3_emtitel",cat:"wm",q:"Wie oft wurden die deutschen Männer schon Europameister?",opts:["3-mal","1-mal","5-mal","noch nie"],correct:0,fun:"3 EM-Titel: 1972, 1980 und 1996."},
+  {id:"wm_t3_italien4",cat:"wm",q:"Wie oft wurde Italien schon Fußball-Weltmeister?",opts:["4-mal","2-mal","6-mal","1-mal"],correct:0,fun:"Italien ist 4-facher Weltmeister – zuletzt 2006."},
+  {id:"wm_t3_goldengoal",cat:"wm",q:"Wie hieß früher ein Siegtor in der Verlängerung, das das Spiel sofort beendete?",opts:["Golden Goal","Silber-Tor","Blitz-Tor","Super-Tor"],correct:0,fun:"Das 'Golden Goal' beendete früher sofort das Spiel – heute gibt es die Regel nicht mehr."}
 ];
 
+/* Schwierigkeits-Zuordnung je Frage (Runde 1 leicht · 2 mittel · 3 schwer). Wird nach
+   dem Array angewandt, weil die Fragen im Array nach Kategorien VERSTREUT liegen – so
+   bleibt eine Kategorie an einer Stelle pflegbar. Nicht gelistete Kategorien nutzen den
+   Reihenfolge-Fallback in wqRoundQs, bis sie hier auf 30 (10/10/10) migriert sind.
+   IDs sind stabil (nie umbenennen → sonst Doppel-Federn). */
+const WQ_TIER={
+  // WM & EM (30: 10/10/10)
+  wm_alle4:1, wm_pokal:1, wm_pokalheld:1, wm_emkont:1, wm_kontinent:1, wm_wm2014:1, wm_sterne:1, wm_2014land:1, wm_elfmeterschiessen:1, wm_finaledauer:1,
+  wm_gastgeber2006:2, wm_goetze2014:2, wm_argentinien2022:2, wm_messi_wm:2, wm_2018:2, wm_klose:2, wm_7_1:2, wm_frauen2003:2, wm_1954:2, wm_erste:2,
+  wm_t3_wm1974:3, wm_t3_maradona86:3, wm_t3_brasilien5:3, wm_t3_wm2010land:3, wm_t3_wm2010sieger:3, wm_t3_vize2018:3, wm_t3_em1996:3, wm_t3_emtitel:3, wm_t3_italien4:3, wm_t3_goldengoal:3
+};
+WQ_QUESTIONS.forEach(q=>{ if(WQ_TIER[q.id]!=null)q.tier=WQ_TIER[q.id]; });
+
 const WQ_PROGRESS_KEY="adler_wq_progress";
-let wqCat="",wqQs=[],wqIdx=0,wqScore=0,wqAnsweredNow=false;
+let wqCat="",wqQs=[],wqIdx=0,wqScore=0,wqAnsweredNow=false,wqTier=1,wqJokerUsed=false;
+/* Schwierigkeits-Runden (Phase Quiz-3.0): jede Kategorie hat 3 Runden à 10 Fragen mit
+   steigender Schwierigkeit. Fragen tragen q.tier=1|2|3. Kategorien, die noch nicht auf
+   30 Fragen migriert sind, werden ersatzweise nach Reihenfolge in 3 Runden geteilt. */
+const WQ_TIERS=[{t:1,name:"Leicht",star:"⭐"},{t:2,name:"Mittel",star:"⭐⭐"},{t:3,name:"Schwer",star:"⭐⭐⭐"}];
+function wqCatQs(key){ return WQ_QUESTIONS.filter(q=>q.cat===key); }
+function wqRoundQs(key,tier){
+  const all=wqCatQs(key);
+  if(all.some(q=>q.tier)) return all.filter(q=>q.tier===tier);
+  const per=Math.ceil(all.length/3)||1; // Fallback für noch nicht migrierte Kategorien
+  return all.slice((tier-1)*per, tier*per);
+}
 
 function wqGetProgress(){ try{return JSON.parse(localStorage.getItem(WQ_PROGRESS_KEY)||"{}");}catch(e){return{};} }
 function wqSaveCorrect(player,qid){
@@ -1065,10 +1100,36 @@ function wqRenderCats(){
   panel.innerHTML=html;
 }
 
-function wqStartCat(key){
-  wqCat=key; wqIdx=0; wqScore=0;
+// Kategorie öffnen → Runden-Auswahl (3 Schwierigkeitsstufen).
+function wqStartCat(key){ wqCatRounds(key); }
+function wqCatRounds(key){
+  wqCat=key;
+  const cat=WQ_CATS.find(c=>c.key===key)||{name:"Quiz",icon:"🧠",col:"#0ea5e9"};
   const prog=(wqGetProgress()[tqPlayer])||{};
-  const qs=WQ_QUESTIONS.filter(q=>q.cat===key).slice();
+  const panel=document.getElementById("tq-panel"); if(!panel)return; panel.style.display="block";
+  let html=`<div class="tq-panel">
+    <div style="font-size:10px;font-weight:700;color:${cat.col};text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${cat.icon} ${esc(cat.name)}</div>
+    <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:2px">Wähle eine Runde!</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:12px">3 Runden mit steigendem Schwierigkeitsgrad. In jeder Runde hast du einen 🦅 50/50-Joker.</div>
+    <div style="display:flex;flex-direction:column;gap:8px">`;
+  WQ_TIERS.forEach(ti=>{
+    const qs=wqRoundQs(key,ti.t);
+    if(!qs.length)return;
+    const done=qs.filter(q=>prog[q.id]).length, pct=Math.round(done/qs.length*100);
+    html+=quizChoiceCard({
+      icon:ti.star, titel:`Runde ${ti.t} · ${ti.name}`, fertig:done>=qs.length, pct, col:cat.col,
+      sub:`${done}/${qs.length} richtig`, onclick:`wqStartRound('${key}',${ti.t})`
+    });
+  });
+  html+=`</div>
+    <button class="btn btn-sm" style="margin-top:12px" onclick="wqStart()"><i class="ti ti-arrow-left"></i>Zurück zu den Kategorien</button>
+  </div>`;
+  panel.innerHTML=html;
+}
+function wqStartRound(key,tier){
+  wqCat=key; wqTier=tier; wqIdx=0; wqScore=0; wqJokerUsed=false;
+  const prog=(wqGetProgress()[tqPlayer])||{};
+  const qs=wqRoundQs(key,tier).slice();
   qs.sort((a,b)=>(prog[a.id]?1:0)-(prog[b.id]?1:0)); // noch nicht gelernte Fragen zuerst
   wqQs=qs;
   wqRenderQ();
@@ -1082,17 +1143,32 @@ function wqRenderQ(){
   const opts=q.opts.map((t,i)=>({t,ok:i===q.correct}));
   for(let i=opts.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[opts[i],opts[j]]=[opts[j],opts[i]];} // Fisher-Yates
   const panel=document.getElementById("tq-panel"); panel.style.display="block";
+  const star=(WQ_TIERS.find(t=>t.t===wqTier)||{}).star||"";
+  const jokerBtn=(!wqJokerUsed&&opts.length>2)
+    ? `<button id="wq-joker" onclick="wqJoker()" style="margin-top:10px;width:100%;min-height:44px;border:2px solid #f59e0b;border-radius:10px;background:#fffbeb;color:#b45309;font-family:inherit;font-weight:800;font-size:13.5px;cursor:pointer">🦅 50/50-Joker – zwei falsche Antworten weg</button>`
+    : "";
   panel.innerHTML=`<div class="tq-panel">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div style="font-size:10px;font-weight:700;color:#0ea5e9;text-transform:uppercase;letter-spacing:.5px">${cat.icon} ${cat.name} · ${wqIdx+1}/${wqQs.length}</div>
+      <div style="font-size:10px;font-weight:700;color:#0ea5e9;text-transform:uppercase;letter-spacing:.5px">${cat.icon} ${cat.name} ${star} · ${wqIdx+1}/${wqQs.length}</div>
       <div class="tq-score">✅ ${wqScore}/${wqIdx}</div>
     </div>
     <div class="wq-question">${esc(q.q)}</div>
     <div class="wq-opts">
       ${opts.map(o=>`<button class="wq-opt" data-ok="${o.ok?1:0}" onclick="wqAnswer(this)">${esc(o.t)}</button>`).join("")}
     </div>
+    ${jokerBtn}
     <div id="wq-feedback"></div>
   </div>`;
+}
+// 50/50-Adler-Joker: blendet zwei falsche Antworten aus. Einer pro 10er-Runde.
+function wqJoker(){
+  if(wqJokerUsed||wqAnsweredNow)return;
+  wqJokerUsed=true;
+  const wrong=[...document.querySelectorAll('.wq-opt[data-ok="0"]')].filter(b=>b.style.display!=="none");
+  for(let i=wrong.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[wrong[i],wrong[j]]=[wrong[j],wrong[i]];}
+  wrong.slice(0,2).forEach(b=>{b.style.display="none";});
+  const jb=document.getElementById("wq-joker"); if(jb)jb.remove();
+  try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
 }
 
 function wqAnswer(el){
@@ -1135,16 +1211,20 @@ function wqNext(){
 function wqResult(){
   const total=wqQs.length, pct=total?Math.round(wqScore/total*100):0;
   const cat=WQ_CATS.find(c=>c.key===wqCat)||{name:"Quiz"};
+  const tier=WQ_TIERS.find(t=>t.t===wqTier)||{name:"",star:""};
   const msg=pct>=80?{e:"🏆🦅🏆",t:"WISSENS-PROFI!"}:pct>=60?{e:"🌟⚽🌟",t:"RICHTIG GUT!"}:pct>=40?{e:"💪⚡💪",t:"GUT GEMACHT!"}:{e:"🦅🔥🦅",t:"WEITER SO!"};
+  const hatNaechste=wqTier<3&&wqRoundQs(wqCat,wqTier+1).length>0;
+  const naechste=hatNaechste?`<button class="btn btn-p btn-sm" onclick="wqStartRound('${wqCat}',${wqTier+1})">⭐ Nächste Runde (schwerer)</button>`:"";
   const panel=document.getElementById("tq-panel");
   panel.innerHTML=`<div class="tq-panel" id="wq-result-panel" style="text-align:center;position:relative;overflow:hidden">
     <div style="font-size:36px;margin-bottom:4px">${msg.e}</div>
     <div style="font-size:20px;font-weight:800;color:var(--text);margin-bottom:2px">${msg.t}</div>
     <div style="font-size:16px;font-weight:600;color:var(--text)">${wqScore} von ${total} richtig!</div>
-    <div style="font-size:12px;color:var(--text2);margin:4px 0 12px">Kategorie: ${cat.name}</div>
+    <div style="font-size:12px;color:var(--text2);margin:4px 0 12px">${cat.name} · Runde ${wqTier} ${tier.star}</div>
     <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-      <button class="btn btn-p btn-sm" onclick="wqStartCat('${wqCat}')"><i class="ti ti-refresh"></i>Nochmal</button>
-      <button class="btn btn-sm" onclick="wqStart()"><i class="ti ti-layout-grid"></i>Andere Kategorie</button>
+      ${naechste}
+      <button class="btn ${hatNaechste?"btn-sm":"btn-p btn-sm"}" onclick="wqStartRound('${wqCat}',${wqTier})"><i class="ti ti-refresh"></i>Nochmal</button>
+      <button class="btn btn-sm" onclick="wqCatRounds('${wqCat}')"><i class="ti ti-stack-2"></i>Runden</button>
       <button class="btn btn-sm" onclick="wqExit()">Fertig</button>
     </div>
   </div>`;
