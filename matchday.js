@@ -287,6 +287,7 @@ async function elternDashLoad(){
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Du möchtest mit dem Trainer über dein Kind sprechen? Sag kurz Bescheid – der Trainer meldet sich zur Terminabstimmung.</div>
     <div id="eg-slot"></div>
     <button onclick="elternGespraechOpen()" style="width:100%;padding:11px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Elterngespräch anfragen</button>`);
+  html+=`<div id="eltern-poll-slot"></div>`; // Terminvorschläge des Trainers fürs Elterngespräch
   // Adler-Börse (Phase 23.1): interner Flohmarkt
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🛍️ Adler-Börse</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Zu kleine Schuhe oder Trikots? Gib sie an ein anderes Adler-Kind weiter.</div>
@@ -324,6 +325,7 @@ async function elternDashLoad(){
   elternMitbringLoad(kids);                    // Event-Mitbringliste: wer bringt was mit
   elternBuedchenLoad(termineListe,kids);       // Büdchen-Einteilung bei Heimspielen
   elternGespraechStatus();                     // laufende Elterngespräch-Anfrage anzeigen
+  elternPollLoad();                            // Terminvorschläge des Trainers (Elterngespräch-Doodle)
   if(WAESCHE_AKTIV)elternWaescheLoad(kids);    // Trikot-Wäsche-Rotator (aktuell ausgeblendet)
   elternSkillLoad(kids);   // Skill der Woche
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
@@ -6399,6 +6401,45 @@ async function elternGespraechSave(btn){
   document.getElementById("eg-modal")?.remove();
   toast("Anfrage gesendet – der Trainer meldet sich 🗣️");
   elternGespraechStatus();
+}
+/* Elterngespräch-Doodle (Eltern-Seite): der Trainer hat Termine vorgeschlagen –
+   die Familie stimmt je Termin ab. RLS zeigt nur die eigenen Polls. */
+async function elternPollLoad(){
+  const slot=document.getElementById("eltern-poll-slot"); if(!slot)return;
+  let polls=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_poll?select=*&order=created_at.desc&limit=5`,{headers:sbAuthHeaders()});if(r.ok)polls=await r.json();}catch(e){}
+  if(!polls.length){slot.innerHTML="";return;}
+  const pids=polls.map(p=>p.id);
+  let slots=[],votes=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_poll_slot?poll_id=in.(${pids.join(",")})&select=*&order=datum.asc,uhrzeit.asc.nullslast`,{headers:sbAuthHeaders()});if(r.ok)slots=await r.json();}catch(e){}
+  const sids=slots.map(s=>s.id);
+  if(sids.length){try{const r=await fetch(`${SB_URL}/rest/v1/eltern_poll_vote?slot_id=in.(${sids.join(",")})&select=slot_id,voter,status`,{headers:sbAuthHeaders()});if(r.ok)votes=await r.json();}catch(e){}}
+  let uid=""; try{uid=sbUserId()||"";}catch(e){}
+  const byPoll={}; slots.forEach(s=>{(byPoll[s.poll_id]=byPoll[s.poll_id]||[]).push(s);});
+  const bySlot={}; votes.forEach(v=>{(bySlot[v.slot_id]=bySlot[v.slot_id]||[]).push(v);});
+  slot.innerHTML=polls.map(p=>{
+    const ss=byPoll[p.id]||[]; if(!ss.length)return "";
+    const rows=ss.map(s=>{
+      const dstr=new Date(s.datum+"T00:00:00").toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"});
+      const zstr=s.uhrzeit?" · "+String(s.uhrzeit).slice(0,5)+" Uhr":"";
+      const decided=p.decided_slot_id===s.id;
+      if(p.status==="entschieden")return decided?`<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px;margin-top:6px;font-size:13px;font-weight:700;color:#15803d">✅ Termin: ${dstr}${zstr}</div>`:"";
+      const mine=((bySlot[s.id]||[]).find(v=>v.voter===uid)||{}).status||null;
+      const btns=["ja","vielleicht","nein"].map(st=>{const on=mine===st;const c=st==="ja"?{e:"👍",col:"#16a34a",l:"Passt"}:st==="vielleicht"?{e:"🤔",col:"#ca8a04",l:"Evtl."}:{e:"👎",col:"#dc2626",l:"Nein"};
+        return `<button onclick="epollVote(${s.id},'${st}')" style="flex:1;min-width:60px;padding:8px 4px;border-radius:9px;border:1.5px solid ${on?c.col:"#e2e8f0"};background:${on?c.col:"#fff"};color:${on?"#fff":"#334155"};font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer">${c.e} ${c.l}</button>`;}).join("");
+      return `<div style="margin-top:8px"><div style="font-size:12.5px;font-weight:700;margin-bottom:4px">${dstr}${zstr}</div><div style="display:flex;gap:5px">${btns}</div></div>`;
+    }).join("");
+    return `<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05);border:2px solid #7c3aed">
+      <div style="font-weight:700;margin-bottom:2px">🗓️ ${esc(p.titel||"Elterngespräch")}</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:6px">${p.status==="entschieden"?"Der Termin steht:":"Der Trainer schlägt Termine vor – wann passt es dir?"}</div>
+      ${rows}
+    </div>`;
+  }).join("");
+}
+async function epollVote(slotId,status){
+  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_poll_vote?on_conflict=slot_id,voter`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({slot_id:slotId,status})});if(sbCheck401(r))return;if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht abstimmen"),"err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Danke für deine Rückmeldung ✓");
+  elternPollLoad();
 }
 // Trainer-Terminliste: die eingeteilten Büdchen-Familien je Heimspiel nachladen (plant bei Bedarf).
 async function buedchenTrainerFill(t){

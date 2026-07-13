@@ -1867,19 +1867,22 @@ function homeGebTage(geb){ // Tage bis zum nächsten Geburtstag (0 = heute)
 async function elterngespraecheTrainerLoad(){
   const box=document.getElementById("eg-trainer"); if(!box)return;
   let rows=[];
-  try{const r=await fetch(`${SB_URL}/rest/v1/elterngespraech_wunsch?status=eq.offen&select=id,thema,created_at,kader(name)&order=created_at.asc`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)rows=await r.json();}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/elterngespraech_wunsch?status=eq.offen&select=id,thema,created_at,spieler_id,kader(name)&order=created_at.asc`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)rows=await r.json();}catch(e){}
   if(!rows.length){box.innerHTML="";return;}
   box.innerHTML=`<div class="card" style="border-left:3px solid #7c3aed;padding:12px 14px;margin-top:10px">
-    <div style="font-weight:800;font-size:13.5px;margin-bottom:6px">🗣️ Elterngespräch-Wünsche (${rows.length})</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="flex:1;font-weight:800;font-size:13.5px">🗣️ Elterngespräch-Wünsche (${rows.length})</div>
+      <button onclick="epollTrainerOpen()" class="btn btn-sm">🗓️ Terminfindungen</button></div>
     ${rows.map(w=>`<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:var(--border-s)">
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:700">${esc((w.kader&&w.kader.name)||"Ein Elternteil")}</div>
         ${w.thema?`<div style="font-size:11.5px;color:var(--text2);line-height:1.4">${esc(w.thema)}</div>`:`<div style="font-size:11.5px;color:var(--text3)">Kein Thema angegeben</div>`}
         <div style="font-size:10px;color:var(--text3);margin-top:2px">${new Date(w.created_at).toLocaleDateString("de-DE")}</div>
       </div>
-      <button onclick="elterngespraechErledigt(${w.id})" class="btn btn-sm" style="flex:none">Erledigt</button>
+      <div style="display:flex;flex-direction:column;gap:4px;flex:none">
+        ${w.spieler_id?`<button onclick="epollTrainerOpen(${w.spieler_id})" class="btn btn-sm">🗓️ Termine</button>`:""}
+        <button onclick="elterngespraechErledigt(${w.id})" class="btn btn-sm">Erledigt</button>
+      </div>
     </div>`).join("")}
-    <div style="font-size:10.5px;color:var(--text3);margin-top:6px">Tipp: Für die Terminabstimmung kannst du eine Elterngespräch-Umfrage starten (Doodle).</div>
   </div>`;
 }
 async function elterngespraechErledigt(id){
@@ -1986,6 +1989,102 @@ async function tpollDelete(id,titel){
   if(!confirm(`Meeting „${titel||""}" wirklich löschen?`))return;
   try{const r=await fetch(`${SB_URL}/rest/v1/trainer_poll?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
   tpollRender();
+}
+
+/* Elterngespräch-Doodle (Trainer-Seite): einer Familie Termine vorschlagen, die
+   Rückmeldung der Eltern sehen, festlegen. Eltern antworten in ihrem Bereich. */
+async function epollTrainerOpen(prefillSpieler){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("ep-poll-modal")?.remove();
+  const m=document.createElement("div");m.id="ep-poll-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  const c=document.createElement("div");c.id="ep-poll-card";
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.innerHTML='<div style="text-align:center;padding:30px;color:var(--text3)">Lade …</div>';
+  m.appendChild(c);document.body.appendChild(m);
+  epollTrainerRender(prefillSpieler);
+}
+async function epollTrainerRender(prefillSpieler){
+  const c=document.getElementById("ep-poll-card"); if(!c)return;
+  const FLD="padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
+  let polls=[],slots=[],votes=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_poll?select=*,kader(name)&order=created_at.desc`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)polls=await r.json();}catch(e){}
+  const pids=polls.map(p=>p.id);
+  if(pids.length){
+    try{const r=await fetch(`${SB_URL}/rest/v1/eltern_poll_slot?poll_id=in.(${pids.join(",")})&select=*&order=datum.asc,uhrzeit.asc.nullslast`,{headers:sbAuthHeaders()});if(r.ok)slots=await r.json();}catch(e){}
+    const sids=slots.map(s=>s.id);
+    if(sids.length){try{const r=await fetch(`${SB_URL}/rest/v1/eltern_poll_vote?slot_id=in.(${sids.join(",")})&select=slot_id,status`,{headers:sbAuthHeaders()});if(r.ok)votes=await r.json();}catch(e){}}
+  }
+  const byPoll={}; slots.forEach(s=>{(byPoll[s.poll_id]=byPoll[s.poll_id]||[]).push(s);});
+  const bySlot={}; votes.forEach(v=>{(bySlot[v.slot_id]=bySlot[v.slot_id]||[]).push(v);});
+  const pollHtml=polls.map(p=>{
+    const ss=byPoll[p.id]||[];
+    const slotHtml=ss.map(s=>{
+      const vs=bySlot[s.id]||[];
+      const ja=vs.filter(v=>v.status==="ja").length, viel=vs.filter(v=>v.status==="vielleicht").length, nein=vs.filter(v=>v.status==="nein").length;
+      const dstr=new Date(s.datum+"T00:00:00").toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"});
+      const zstr=s.uhrzeit?" · "+String(s.uhrzeit).slice(0,5):"";
+      const decided=p.decided_slot_id===s.id;
+      const antwort=vs.length?`👍 ${ja} · 🤔 ${viel} · 👎 ${nein}`:'<span style="color:var(--text3)">noch keine Antwort</span>';
+      return `<div style="border:var(--border-s);${decided?"border-color:#16a34a;background:#f0fdf4;":""}border-radius:10px;padding:8px 10px;margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div style="flex:1;min-width:110px;font-size:12.5px;font-weight:700">${dstr}${zstr}${decided?' <span style="color:#16a34a">✅</span>':""}</div>
+        <div style="font-size:11px;color:var(--text2)">${antwort}</div>
+        ${p.status!=="entschieden"?`<button onclick="epollDecide(${p.id},${s.id})" class="btn btn-sm">festlegen</button>`:""}
+      </div>`;
+    }).join("");
+    return `<div style="border:var(--border-s);border-radius:12px;padding:12px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;font-weight:800;font-size:14px">🗓️ ${esc((p.kader&&p.kader.name)||"Familie")}${p.titel&&p.titel!=="Elterngespräch"?" · "+esc(p.titel):""}</div>
+        <button onclick="epollDelete(${p.id})" aria-label="löschen" style="border:none;background:none;color:#dc2626;cursor:pointer;min-width:32px;min-height:32px"><i class="ti ti-trash"></i></button></div>
+      ${p.status==="entschieden"?'<div style="font-size:11px;color:#16a34a;font-weight:700">Termin steht ✓</div>':'<div style="font-size:11px;color:var(--text3)">Warte auf die Rückmeldung der Eltern.</div>'}
+      ${slotHtml||'<div style="font-size:11px;color:var(--text3)">Keine Termine.</div>'}
+    </div>`;
+  }).join("");
+  const kinder=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
+  const kidOpts=kinder.map(k=>`<option value="${k._id!=null?k._id:k.id}"${(prefillSpieler&&(k._id===prefillSpieler||k.id===prefillSpieler))?" selected":""}>${esc(k.name)}</option>`).join("");
+  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🗓️ Elterngespräch-Termine</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Einer Familie Termine vorschlagen. Die Eltern antworten in ihrem Bereich, du legst fest.</div>
+    ${pollHtml||'<div style="font-size:12px;color:var(--text3);margin-bottom:10px">Noch keine Terminfindung.</div>'}
+    <div style="border-top:var(--border);padding-top:12px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">Neuer Terminvorschlag</div>
+      <label style="font-size:10px;color:var(--text3)">Familie / Kind<select id="epoll-kid" style="width:100%;margin-bottom:6px;${FLD}">${kidOpts}</select></label>
+      <input id="epoll-titel" placeholder="Thema (optional, z. B. Entwicklung)" style="width:100%;margin-bottom:6px;${FLD}">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Terminvorschläge (Datum + Uhrzeit):</div>
+      ${[0,1,2,3].map(i=>`<div style="display:flex;gap:6px;margin-bottom:4px"><input type="date" id="epoll-d${i}" style="flex:2;${FLD}"><input type="time" id="epoll-t${i}" style="flex:1;${FLD}"></div>`).join("")}
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-p btn-sm" onclick="epollCreate(this)"><i class="ti ti-plus"></i>Vorschlagen</button>
+        <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('ep-poll-modal').remove()">Schließen</button>
+      </div>
+    </div>`;
+}
+async function epollCreate(btn){
+  const kidSel=document.getElementById("epoll-kid");
+  const spielerId=kidSel?Number(kidSel.value):null;
+  if(!spielerId){toast("Bitte ein Kind wählen","err");return;}
+  const titel=(document.getElementById("epoll-titel")?.value||"").trim()||"Elterngespräch";
+  const slots=[0,1,2,3].map(i=>({datum:document.getElementById("epoll-d"+i)?.value,uhrzeit:document.getElementById("epoll-t"+i)?.value||null})).filter(s=>s.datum);
+  if(!slots.length){toast("Mindestens einen Terminvorschlag","err");return;}
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/eltern_poll`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=representation'},body:JSON.stringify({spieler_id:spielerId,titel})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht anlegen"),"err");return;}
+    const poll=(await r.json())[0];
+    await fetch(`${SB_URL}/rest/v1/eltern_poll_slot`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify(slots.map(s=>({poll_id:poll.id,datum:s.datum,uhrzeit:s.uhrzeit})))});
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  toast("Termine vorgeschlagen ✓ – die Eltern bekommen sie im Eltern-Bereich.");
+  epollTrainerRender();
+}
+async function epollDecide(pollId,slotId){
+  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_poll?id=eq.${pollId}`,{method:"PATCH",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({status:"entschieden",decided_slot_id:slotId})});if(sbCheck401(r))return;if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht festlegen"),"err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Termin festgelegt ✓");
+  epollTrainerRender();
+}
+async function epollDelete(id){
+  if(!confirm("Diese Terminfindung löschen?"))return;
+  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_poll?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
+  epollTrainerRender();
 }
 async function homeRadarLoad(){
   const box=document.getElementById("home-radar"); if(!box)return;
