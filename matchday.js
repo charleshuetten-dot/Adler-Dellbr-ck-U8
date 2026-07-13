@@ -271,12 +271,12 @@ async function elternDashLoad(){
       <button onclick="abzeichenOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #f59e0b;border-radius:10px;background:#fffbeb;color:#b45309;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🎖️ Technik-Abzeichen</button>
       <button onclick="childWrappedShare(${k.spieler_id})" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🎬 Saison-Rückblick (Wrapped)</button>
       <button onclick="elternFanfactsOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #64748b;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">✏️ Fan-Fakten &amp; Foto</button>
-      <div style="font-size:10.5px;color:#94a3b8;margin-top:6px">Foto: Unter „Fan-Fakten &amp; Foto" steuerst du selbst, ob das Bild deines Kindes im „Adler Horst" und in der Team-Galerie erscheint.</div>`);
+      <div style="font-size:10.5px;color:#94a3b8;margin-top:6px">Foto: Unter „Fan-Fakten &amp; Foto" steuerst du selbst, ob das Bild deines Kindes im „Adler Nest" und in der Team-Galerie erscheint.</div>`);
   }).join("");
   // Mehr vom Team: Stadionheft (öffentliche Leseansicht)
   html+=card(`<div style="font-weight:700;margin-bottom:6px">📰 Mehr vom Team</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Das digitale Stadionheft mit Neuigkeiten, Ergebnissen und Geburtstagen.</div>
-    <a href="${location.pathname}?heft" style="display:block;text-align:center;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;text-decoration:none">📰 Adler Horst öffnen</a>`);
+    <a href="${location.pathname}?heft" style="display:block;text-align:center;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;text-decoration:none">📰 Adler Nest öffnen</a>`);
   // Fairplay-Codex (Phase 18.3) – die goldenen Regeln fürs Verhalten am Spielfeldrand
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🤝 Unser Fairplay-Codex</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Die Regeln, damit der Spielfeldrand ein guter Ort für die Kinder bleibt.</div>
@@ -473,8 +473,8 @@ const ELTERN_TOUR=[
   {emo:"👍", t:"Zu- & Absagen", d:"Melde dein Kind direkt oben am nächsten Termin zu oder ab. Tippst du den aktiven Status nochmal an, wird die Rückmeldung wieder entfernt. Über „Alle Termine\" siehst du alles Kommende und kannst es in deinen Kalender laden."},
   {emo:"🙋", t:"Alles rund um den Termin", d:"In derselben Karte findest du Wetter, Treffpunkt und Fahrgemeinschaften. Beim Training gibst du an, ob du vor Ort bleibst – so seht ihr alle, dass immer jemand da ist. Bei Spielen und Turnieren führt dich der 📣 Liveticker zum Spielstand, auch wenn du nicht dabei sein kannst."},
   {emo:"🎮", t:"Die Kabine (Kinder-Modus)", d:"Gib dein Handy bedenkenlos weiter: In der Kabine spielt dein Kind das Taktik- und das Fußball-Quiz, sammelt 🪶 Federn und stöbert in Team-Galerie und Missionen. Zurück in den Eltern-Bereich geht es nur mit einem Code."},
-  {emo:"🃏", t:"Für dein Kind", d:"Sammelkarte, Technik-Abzeichen (die hakst du zuhause ab), Saison-Rückblick und Fan-Fakten. Dort entscheidest du auch, ob das Foto deines Kindes im „Adler Horst\" und in der Team-Galerie erscheinen darf – ohne dein Häkchen bleiben es nur die Initialen."},
-  {emo:"📰", t:"Team, Heft & Adler-Kasse", d:"Der „Adler Horst\" ist unser digitales Stadionheft. Und über „Fan-Link teilen\" schickst du Oma, Opa und Fans den Spenden-Link zur Mannschaftskasse. Viel Spaß! 🎉"},
+  {emo:"🃏", t:"Für dein Kind", d:"Sammelkarte, Technik-Abzeichen (die hakst du zuhause ab), Saison-Rückblick und Fan-Fakten. Dort entscheidest du auch, ob das Foto deines Kindes im „Adler Nest\" und in der Team-Galerie erscheinen darf – ohne dein Häkchen bleiben es nur die Initialen."},
+  {emo:"📰", t:"Team, Heft & Adler-Kasse", d:"Der „Adler Nest\" ist unser digitales Stadionheft. Und über „Fan-Link teilen\" schickst du Oma, Opa und Fans den Spenden-Link zur Mannschaftskasse. Viel Spaß! 🎉"},
 ];
 let elternTourIdx=0;
 function elternTourMaybe(){ try{if(localStorage.getItem("adler_eltern_tour"))return;}catch(e){} elternTourStart(); }
@@ -3946,7 +3946,7 @@ async function renderElternView(datum){
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin:16px 0 8px;text-align:center">Für Eltern</div>
       <button onclick="elternKalenderIcs()" style="width:100%;margin-bottom:10px;background:#1e3a8a;color:#fff;border:none;padding:14px;border-radius:12px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer">🗓️ Termine in meinen Kalender</button>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <a href="${appRoot()}?heft" style="text-align:center;background:#fff;border:1.5px solid #1e3a8a;color:#1e3a8a;padding:13px 8px;border-radius:12px;text-decoration:none;font-weight:700;font-size:13px">📰 Adler Horst</a>
+        <a href="${appRoot()}?heft" style="text-align:center;background:#fff;border:1.5px solid #1e3a8a;color:#1e3a8a;padding:13px 8px;border-radius:12px;text-decoration:none;font-weight:700;font-size:13px">📰 Adler Nest</a>
         <a href="${appRoot()}?portal" style="text-align:center;background:#fff;border:1.5px solid #1e3a8a;color:#1e3a8a;padding:13px 8px;border-radius:12px;text-decoration:none;font-weight:700;font-size:13px">👨‍👩‍👧 Mein Kind</a>
       </div>
       <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:16px">SV Adler Dellbrück e.V. · Angaben ohne Gewähr</div></div>`;

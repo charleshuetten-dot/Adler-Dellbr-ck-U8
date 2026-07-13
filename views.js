@@ -342,7 +342,7 @@ function kaderEditRow(k,i){
     </div>
     <label style="display:flex;align-items:flex-start;gap:6px;margin-bottom:6px;font-size:11px;color:var(--text2)" title="Nur mit ausdrücklicher Eltern-Zustimmung. Ohne Häkchen erscheinen überall nur die Initialen.">
       <input class="ke-fotook" type="checkbox" ${k.foto_stadionheft_ok?"checked":""} style="margin-top:1px">
-      <span>📰 Foto freigegeben für <b>„Adler Horst" &amp; Team-Galerie</b> <span style="color:var(--text3)">(Eltern-Einwilligung eingeholt)</span></span>
+      <span>📰 Foto freigegeben für <b>„Adler Nest" &amp; Team-Galerie</b> <span style="color:var(--text3)">(Eltern-Einwilligung eingeholt)</span></span>
     </label>
     <input class="ke-medical" value="${esc(k.medical||'')}" placeholder="Medical-Hinweis (z. B. Asthma, Allergie…)" style="width:100%;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
     ${k._id?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
@@ -2098,7 +2098,7 @@ const HELP=[
   {cat:"📅 Orga & Eltern", items:[
     {t:"Termine", d:"Anlegen/bearbeiten · Platz · Trainer-Verfügbarkeit · Wetter · Kalender-Export.", go:"termine"},
     {t:"Gegner-Datenbank", d:"Adresse, Ansprechpartner, Telefon/WhatsApp, bisherige Spiele.", run:"gegnerManageOpen()"},
-    {t:"Adler Horst", d:"Digitales Stadionheft erstellen & drucken.", run:"stadionheftOpen()"},
+    {t:"Adler Nest", d:"Digitales Stadionheft erstellen & drucken.", run:"stadionheftOpen()"},
     {t:"Pinnwand", d:"Team-Notizen fürs Trainerteam.", go:"team"},
     {t:"Eltern-Bereich", d:"Eltern melden sich per Link/Einmal-Code an: RSVP, Karte, Quiz, Betreuung vor Ort."},
   ]},
@@ -2395,7 +2395,7 @@ async function renderHome(){
     <button onclick="ausruestungGrid()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">👕 Team-Ausrüstung</button>
     <button onclick="anwesenheitOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">📊 Anwesenheits-Quote</button>
     <button onclick="einheitBewertenOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">⭐ Einheit bewerten</button>
-    <button onclick="stadionheftOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">📰 Adler Horst erstellen & drucken</button>
+    <button onclick="stadionheftOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">📰 Adler Nest erstellen & drucken</button>
     <button onclick="adlerWeltOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🪶 Adler-Welt · Federn, Karten, Abzeichen, Challenge</button>
     <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;margin-top:12px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>
     <button onclick="pwChangeOpen()" style="width:100%;min-height:44px;margin-top:12px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text2);background:var(--surface)">🔑 Mein Passwort ändern</button>`;
@@ -2470,7 +2470,7 @@ async function heftFotoDataUrl(path){
    heftBuildHtml(cfg,{mask}) baut das Heft rein – die Nachnamen-Maskierung ist
    bereits eingebaut (Aktivierung folgt in der DSGVO-Etappe). ═══ */
 let heftKader=[], heftFanfacts={}, heftTermin=null, heftFotos=[];
-let heftCfg={titel:"Adler Horst · U9", einleitung:"", fokusId:"", fokusText:"", kommentar:""};
+let heftCfg={titel:"Adler Nest · U9", einleitung:"", fokusId:"", fokusText:"", kommentar:""};
 function heftCfgLoad(){ try{const s=JSON.parse(localStorage.getItem("adler_heft_cfg")||"null"); if(s&&typeof s==="object")heftCfg=Object.assign(heftCfg,s);}catch(e){} }
 function heftCfgSave(){ try{localStorage.setItem("adler_heft_cfg",JSON.stringify(heftCfg));}catch(e){} }
 // DSGVO: Nachname zu Initiale kürzen ("Max Mustermann" -> "Max M."); Einzelnamen bleiben.
@@ -2516,7 +2516,7 @@ function heftBuildHtml(cfg,opts){
     <div class="heft-head">
       <img src="logo.png" alt="SV Adler Dellbrück">
       <div class="heft-club">SV ADLER DELLBRÜCK e.V.</div>
-      <div class="heft-title">${esc(cfg.titel||"Adler Horst")}</div>
+      <div class="heft-title">${esc(cfg.titel||"Adler Nest")}</div>
       <div style="font-size:11px;color:#64748b;font-weight:600;letter-spacing:.5px">Das Vereinsheft der jungen Adler 🪺</div>
       <div class="heft-club">Saison ${typeof saisonLabel==="function"?saisonLabel():""} · unsere Mannschaft</div>
     </div>
@@ -2531,7 +2531,7 @@ function heftBuildHtml(cfg,opts){
 }
 async function stadionheftOpen(){
   if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
-  toast("📰 Adler Horst wird geladen…");
+  toast("📰 Adler Nest wird geladen…");
   heftKader=[];heftFanfacts={};heftTermin=null;heftFotos=[];
   try{const r=await fetch(`${SB_URL}/rest/v1/kader?select=id,name,nr,foto_path,lieblingsposition,tw,aktiv&order=nr.asc.nullslast`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)heftKader=(await r.json()).filter(k=>k.aktiv!==false);}catch(e){}
   if(!heftKader.length){toast("Kein Kader gefunden","err");return;}
@@ -2578,7 +2578,7 @@ async function heftAutoContent(){
 function heftRenderEditor(){
   const old=document.getElementById("heft-modal");if(old)old.remove();
   const modal=document.createElement("div");
-  modal.id="heft-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Adler-Horst-Editor");
+  modal.id="heft-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Adler-Nest-Editor");
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;flex-direction:column;padding:12px;overflow-y:auto";
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const kaderOpts=`<option value="">— keiner —</option>`+heftKader.map(k=>`<option value="${esc(k.id)}"${String(heftCfg.fokusId)===String(k.id)?" selected":""}>${esc(k.name)}${k.nr!=null?" (#"+esc(k.nr)+")":""}</option>`).join("");
@@ -2586,7 +2586,7 @@ function heftRenderEditor(){
   const card=document.createElement("div");
   card.style.cssText="background:var(--surface);color:var(--text);max-width:900px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   card.innerHTML=`
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div style="font-weight:800;font-size:16px">📰 Adler-Horst-Editor</div><span style="font-size:11px;color:var(--text2)">frei bearbeiten · Vorschau live · Texte werden gemerkt</span></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div style="font-weight:800;font-size:16px">📰 Adler-Nest-Editor</div><span style="font-size:11px;color:var(--text2)">frei bearbeiten · Vorschau live · Texte werden gemerkt</span></div>
     <button id="heft-ai-btn" onclick="heftAutoContent()" class="btn" style="width:100%;margin-bottom:4px;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;border:none;min-height:44px;font-weight:800"><i class="ti ti-sparkles"></i> Auto-Entwurf aus den letzten Wochen (KI)</button>
     <div style="font-size:10.5px;color:var(--text2);margin:0 0 12px;text-align:center">Zieht Trainings, Ergebnisse & Geburtstage – kindgerecht formuliert, danach frei änderbar.</div>
     <div style="display:grid;grid-template-columns:1fr;gap:16px">
@@ -2632,7 +2632,7 @@ function heftRenderEditor(){
 // HOTFIX 19 digital: Editor-Inhalt in die stadionheft-Tabelle schreiben (+ Veröffentlichen-Status).
 async function heftSaveDb(){
   if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
-  const payload={team:"adler1",titel:heftCfg.titel||"Adler Horst",einleitung:heftCfg.einleitung||"",fokus_spieler_id:heftCfg.fokusId?Number(heftCfg.fokusId):null,fokus_text:heftCfg.fokusText||"",kommentar:heftCfg.kommentar||"",published:!!heftCfg.published,updated_at:new Date().toISOString()};
+  const payload={team:"adler1",titel:heftCfg.titel||"Adler Nest",einleitung:heftCfg.einleitung||"",fokus_spieler_id:heftCfg.fokusId?Number(heftCfg.fokusId):null,fokus_text:heftCfg.fokusText||"",kommentar:heftCfg.kommentar||"",published:!!heftCfg.published,updated_at:new Date().toISOString()};
   try{
     const r=await fetch(`${SB_URL}/rest/v1/stadionheft?on_conflict=team`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(payload)});
     if(sbCheck401(r))return;
@@ -2658,14 +2658,14 @@ async function renderStadionheftView(){
   const root=document.createElement("div");
   root.style.cssText="max-width:460px;margin:0 auto;padding:16px;font-family:inherit;min-height:100vh;background:#f1f5f9";
   document.body.appendChild(root);
-  root.innerHTML=(typeof elternLoader==="function")?elternLoader("Adler Horst wird geladen …"):'<div style="text-align:center;padding:48px;color:#64748b">Lade Adler Horst…</div>';
+  root.innerHTML=(typeof elternLoader==="function")?elternLoader("Adler Nest wird geladen …"):'<div style="text-align:center;padding:48px;color:#64748b">Lade Adler Nest…</div>';
   let d=null;
   try{
     const r=await fetch(`${SB_URL}/functions/v1/stadionheft-view`,{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({team:"adler1"})});
     d=r.ok?await r.json():null;
   }catch(e){}
   if(!d||!d.published){
-    root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b"><img src="logo.png" style="width:56px;height:56px" alt=""><div style="margin-top:12px">Aktuell ist kein <b>Adler Horst</b> veröffentlicht.<br>Schau bald wieder rein! 🦅</div></div>';
+    root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b"><img src="logo.png" style="width:56px;height:56px" alt=""><div style="margin-top:12px">Aktuell ist kein <b>Adler Nest</b> veröffentlicht.<br>Schau bald wieder rein! 🦅</div></div>';
     return;
   }
   const h=d.heft||{};
@@ -2689,7 +2689,7 @@ async function renderStadionheftView(){
     <div style="text-align:center;margin:8px 0 14px">
       <img src="logo.png" style="width:56px;height:56px" alt="SV Adler Dellbrück">
       <div style="font-size:12px;color:#64748b;font-weight:600;letter-spacing:.5px">SV ADLER DELLBRÜCK e.V.</div>
-      <div style="font-size:22px;font-weight:900;color:#1a56db;margin:2px 0">${elternEsc(h.titel||"Adler Horst")}</div>
+      <div style="font-size:22px;font-weight:900;color:#1a56db;margin:2px 0">${elternEsc(h.titel||"Adler Nest")}</div>
       <div style="font-size:11px;color:#94a3b8">Das Vereinsheft der jungen Adler 🪺</div>
     </div>
     ${h.einleitung?`<div style="background:#fff;border-left:3px solid #1a56db;border-radius:8px;padding:10px 12px;font-size:13px;color:#334155;line-height:1.5;margin-bottom:12px">${elternEsc(h.einleitung).replace(/\n/g,"<br>")}</div>`:""}
