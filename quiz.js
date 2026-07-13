@@ -11,16 +11,16 @@
 ═══════════════════════════════════ */
 
 const TQ_BLOCKS=[
-  {name:"Grundlagen der Raute",icon:"ti-diamond"},
-  {name:"ADLER & IGEL",icon:"ti-arrows-exchange"},
-  {name:"Umschalten & Pressing",icon:"ti-bolt"},
-  {name:"Spielaufbau",icon:"ti-arrow-up-right"},
-  {name:"Flügel & Konter",icon:"ti-run"},
-  {name:"Standards & Spielsituationen",icon:"ti-star"},
-  {name:"Torwartspiel",icon:"ti-shield-check"},
-  {name:"Ballbesitz & Geduld",icon:"ti-clock"},
-  {name:"Verteidigen als Team",icon:"ti-shield"},
-  {name:"Spielverständnis",icon:"ti-brain"}
+  {name:"Grundlagen der Raute",icon:"ti-diamond",col:"#2563eb"},
+  {name:"ADLER & IGEL",icon:"ti-arrows-exchange",col:"#7c3aed"},
+  {name:"Umschalten & Pressing",icon:"ti-bolt",col:"#dc2626"},
+  {name:"Spielaufbau",icon:"ti-arrow-up-right",col:"#0891b2"},
+  {name:"Flügel & Konter",icon:"ti-run",col:"#ea580c"},
+  {name:"Standards & Spielsituationen",icon:"ti-star",col:"#ca8a04"},
+  {name:"Torwartspiel",icon:"ti-shield-check",col:"#059669"},
+  {name:"Ballbesitz & Geduld",icon:"ti-clock",col:"#0d9488"},
+  {name:"Verteidigen als Team",icon:"ti-shield",col:"#4f46e5"},
+  {name:"Spielverständnis",icon:"ti-brain",col:"#db2777"}
 ];
 const TQ_PROGRESS_KEY="adler_quiz_progress";
 let tqActive=false,tqIdx=0,tqScore=0,tqTotal=0,tqChecked=false;
@@ -472,8 +472,8 @@ function tqBlocksShow(){
     const medaille=bp?(bp.score>=9?" 🥇":bp.score>=7?" 🥈":bp.score>=5?" 🥉":bp.score>=1?" ▶":""):"";
     const status=bp?(bp.score>=7?"":" · angefangen"):"";
     html+=quizChoiceCard({
-      icon:`<i class="ti ${b.icon}" style="color:var(--purple)"></i>`,
-      titel:`${b.name}${medaille}`, fertig:!!(bp&&bp.score>=7), pct, col:"var(--purple)",
+      icon:`<i class="ti ${b.icon}" style="color:${b.col||"var(--purple)"}"></i>`,
+      titel:`${b.name}${medaille}`, fertig:!!(bp&&bp.score>=7), pct, col:b.col||"var(--purple)",
       sub:`Block ${i+1}${bp?" · "+bp.score+"/"+bp.total+" richtig"+status:" · 10 Fragen"}`,
       onclick:`tqStartBlock(${i})`
     });
@@ -706,11 +706,14 @@ function tqCheck(){
     fb.innerHTML=`<div class="tq-feedback wrong"><div style="font-size:20px;margin-bottom:4px">${enc}</div><strong>${hits}/${total} richtig.</strong><br>${sc.explain.wrong}</div>`;
     tqShowSolution(sc);
   }
-  fb.innerHTML+=`<button class="btn btn-p btn-sm" style="margin-top:8px" onclick="tqNext()"><i class="ti ti-arrow-right"></i>Weiter</button>`;
+  fb.innerHTML+=`<button class="btn btn-p" style="margin-top:10px;width:100%;min-height:50px;font-size:15px" onclick="tqNext()"><i class="ti ti-arrow-right"></i>Weiter</button>`;
   const checkBtn=document.querySelector('#tq-panel button[onclick="tqCheck()"]');
   if(checkBtn){checkBtn.disabled=true;checkBtn.style.opacity=".4";checkBtn.style.pointerEvents="none";}
   const skipBtn=document.getElementById("tq-skip-btn"); // B3: Überspringen nach Prüfen ebenfalls sperren
   if(skipBtn){skipBtn.disabled=true;skipBtn.style.opacity=".4";skipBtn.style.pointerEvents="none";}
+  // UX-Fix: nach dem Prüfen liegen Antwort + „Weiter" oben – automatisch dorthin scrollen,
+  // damit das Kind nach dem Schieben auf dem Board nicht erst wieder hochscrollen muss.
+  setTimeout(()=>{ try{ fb.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){ try{fb.scrollIntoView();}catch(_){} } },60);
 }
 
 // K7: bei voll richtig gleiten die Ziel-Tokens sanft in die exakten Zielzentren, danach Puls
