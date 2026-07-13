@@ -5995,7 +5995,16 @@ const FAIRPLAY_REGELN=[
   {emo:"🙌", t:"Fehler gehören dazu", d:"Ein Fehlpass ist kein Drama. Mut machen statt meckern – so trauen sich die Kinder etwas."},
   {emo:"⚖️", t:"Der Schiri hat immer recht", d:"Auch wenn er mal irrt. Respekt vor der Entscheidung – die Kinder schauen sich genau ab, wie wir reagieren."},
   {emo:"🤝", t:"Ergebnis ist Nebensache", d:"Bei der U9 zählt Spaß, Bewegung und Dazulernen. Die Tabelle merkt sich in fünf Jahren keiner – das Gefühl schon."},
-  {emo:"🚗", t:"Wir sind ein Team – auch abseits", d:"Pünktlich sein, Fahrgemeinschaften teilen, mit anpacken. Was wir vorleben, lernen die Kinder."}
+  {emo:"🚗", t:"Wir sind ein Team – auch abseits", d:"Pünktlich sein, Fahrgemeinschaften teilen, mit anpacken. Was wir vorleben, lernen die Kinder."},
+  {emo:"🚧", t:"Abstand zum Spielfeld halten", d:"Bleibt hinter der Linie oder Bande. Die Kinder brauchen ihren Raum – und der Schiri freie Sicht."},
+  {emo:"🗣️", t:"Eine ruhige Stimme statt Stimmengewirr", d:"Wenige, positive Worte kommen an. Zu viele Zurufe von allen Seiten verwirren die Kinder."},
+  {emo:"🤗", t:"Trösten geht vor Analyse", d:"Nach einem Patzer oder einer Niederlage hilft ein Lächeln und eine Umarmung mehr als eine Manöverkritik."},
+  {emo:"⏳", t:"Geduld mit der Entwicklung", d:"Jedes Kind wächst im eigenen Tempo. Vergleiche bremsen, Zutrauen beflügelt – gebt ihnen Zeit."},
+  {emo:"📵", t:"Handy weg, Kind im Blick", d:"Die schönsten Momente passieren live. Eure Aufmerksamkeit zeigt jedem Kind: Du bist mir wichtig."},
+  {emo:"🧃", t:"Beim Büdchen & Co. mit anpacken", d:"Aufgaben teilen, helfen, aufräumen. Das Team lebt davon, dass alle mitmachen – nicht immer dieselben."},
+  {emo:"👋", t:"Gegner und Gasteltern freundlich behandeln", d:"Ein Gruß, ein Handschlag, ein Danke an den Gastgeber. Wir treten fair und gastfreundlich auf."},
+  {emo:"🎯", t:"Einsatz loben, nicht nur Tore", d:"Mut, Teamgeist und Anstrengung verdienen genauso Applaus wie ein Treffer. Das prägt fürs Leben."},
+  {emo:"🌧️", t:"Verlässlich dabei sein", d:"Rechtzeitig zu- oder absagen, bei jedem Wetter erscheinen. Planbarkeit hilft dem ganzen Team."}
 ];
 /* Adler-Börse (Phase 23.1): interner Flohmarkt. Preise sind Freitext ("Zu verschenken").
    Fotos im vorhandenen fundbuero-Bucket (privat, nur Angemeldete), Prefix "boerse/". */
