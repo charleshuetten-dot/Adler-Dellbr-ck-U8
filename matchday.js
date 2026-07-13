@@ -2418,10 +2418,32 @@ async function tmLoad(){
     const kommend=rows.filter(t=>t.datum>=heute);
     const vergangen=rows.filter(t=>t.datum<heute).reverse();
     up.innerHTML=kommend.length?kommend.map(tmCard).join(""):'<div style="font-size:11px;color:var(--text3);padding:6px">Keine kommenden Termine.</div>';
+    const car=document.getElementById("tm-carousel"); if(car)car.innerHTML=tmCarouselHtml(kommend); // Karussell der nächsten Termine
     pa.innerHTML=vergangen.length?vergangen.slice(0,20).map(tmCard).join(""):'<div style="font-size:11px;color:var(--text3);padding:6px">Noch keine vergangenen Termine.</div>';
     kommend.forEach(t=>wetterInto("wx-tm-"+t.id,t.datum,t.ort,t.uhrzeit)); // Wetter je Termin (stundengenau, self-limitiert)
     kommend.filter(t=>t.heim===true&&(t.typ==="spiel"||t.typ==="turnier")).forEach(buedchenTrainerFill); // Büdchen je Heimspiel
   }catch(e){up.innerHTML='<div style="font-size:11px;color:var(--text3)">Offline</div>';}
+}
+// Karussell der nächsten Termine (Trainer): kompakte, chronologische Karten; Klick springt zur Detailkarte.
+function tmCarouselHtml(rows){
+  const up=(rows||[]).slice(0,10);
+  if(up.length<2)return "";
+  const cards=up.map(t=>{
+    const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"#1e3a8a"};
+    const d=new Date(t.datum+"T00:00:00");
+    const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+    const zeit=t.uhrzeit?String(t.uhrzeit).slice(0,5)+" Uhr":"";
+    const hb=heimLabel(t);
+    return `<div onclick="document.getElementById('tm-card-${t.id}')?.scrollIntoView({behavior:'smooth',block:'start'})" style="min-width:180px;max-width:200px;flex:none;scroll-snap-align:start;background:var(--surface2);border:var(--border-s);border-left:3px solid ${m.col};border-radius:12px;padding:10px;cursor:pointer">
+      <div style="font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.icon} ${esc(t.titel||m.label)}</div>
+      <div style="font-size:10.5px;color:var(--text2);margin-top:2px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""}</div>
+      ${hb?`<div style="font-size:10px;font-weight:700;margin-top:3px;color:${t.heim?"#15803d":"#b45309"}">${hb}</div>`:""}
+    </div>`;
+  }).join("");
+  return `<div style="margin-bottom:12px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text2);margin-bottom:6px">📅 Nächste Termine · wischen & antippen zum Anspringen →</div>
+    <div style="display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px">${cards}</div>
+  </div>`;
 }
 // Archiv (vergangene Termine) ein-/ausklappen – standardmäßig zu, damit nur Kommendes im Fokus ist.
 function tmToggleArchiv(){
@@ -2557,7 +2579,7 @@ function tmCard(t){
     const waText=`🦅 SV Adler U9 – bitte kurz rückmelden fürs nächste ${m.label}:\n${t.titel||m.label} am ${datumStr}${zeitStr?" um "+zeitStr+" Uhr":""}${t.ort?" ("+t.ort+")":""}\n👉 Zu-/absagen: ${deepLink}`;
     remindBtn=`<a class="btn btn-sm" href="https://wa.me/?text=${encodeURIComponent(waText)}" target="_blank" rel="noopener noreferrer"><i class="ti ti-bell"></i>Erinnerung</a>`;
   }
-  return `<div style="background:var(--surface);border:var(--border-s);border-left:3px solid ${m.col};border-radius:var(--rl);padding:10px 12px;margin-bottom:8px">
+  return `<div id="tm-card-${t.id}" style="background:var(--surface);border:var(--border-s);border-left:3px solid ${m.col};border-radius:var(--rl);padding:10px 12px;margin-bottom:8px;scroll-margin-top:60px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
       <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;flex-wrap:wrap">${m.icon} ${esc(t.titel||m.label)}${hBadge}${sfBadge}</div>
       <div style="font-size:11px;color:var(--text2);white-space:nowrap">${datumStr}${zeitStr?" · "+zeitStr:""}</div>
