@@ -119,8 +119,59 @@ function onPlayerSelect(){
 function showBewSticky(name){
   const bar=document.getElementById("bew-sticky");
   const nm=document.getElementById("bs-name");
-  if(nm)nm.textContent=name||"";
+  if(nm)nm.textContent=(name||"")+(BEW_RUNDE.active?` · Spieler ${BEW_RUNDE.idx+1}/${BEW_RUNDE.queue.length}`:"");
   if(bar)bar.style.display=name?"flex":"none";
+}
+
+/* Bewertungsrunde (Trainermeeting alle 6 Wochen): alle Spieler nacheinander bewerten.
+   Startet mit den am längsten nicht bewerteten zuerst; nach dem Speichern rückt der Modus
+   automatisch zum nächsten Spieler (Hook in savePlayer). */
+let BEW_RUNDE={active:false, queue:[], idx:0};
+function bewRundeStart(){
+  const players=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false).map(k=>k.name);
+  if(!players.length){toast("Kein Kader geladen","err");return;}
+  players.sort((a,b)=>{
+    const da=(DB[a]&&DB[a].length)?DB[a][DB[a].length-1].datum:"0000";
+    const db=(DB[b]&&DB[b].length)?DB[b][DB[b].length-1].datum:"0000";
+    return String(da).localeCompare(String(db)); // am längsten nicht bewertet zuerst
+  });
+  BEW_RUNDE={active:true, queue:players, idx:0};
+  toast(`📋 Bewertungsrunde gestartet · ${players.length} Spieler`);
+  bewRundeLoad();
+}
+function bewRundeLoad(){
+  if(!BEW_RUNDE.active)return;
+  const name=BEW_RUNDE.queue[BEW_RUNDE.idx];
+  const sel=document.getElementById("p-name");
+  if(sel){ sel.value=name; onPlayerSelect(); }
+  bewRundeBarRender();
+  try{window.scrollTo({top:0,behavior:"smooth"});}catch(e){try{window.scrollTo(0,0);}catch(_){} }
+}
+function bewRundeAdvance(){
+  if(!BEW_RUNDE.active)return;
+  BEW_RUNDE.idx++;
+  if(BEW_RUNDE.idx>=BEW_RUNDE.queue.length){ bewRundeFinish(); return; }
+  bewRundeLoad();
+}
+function bewRundeSkip(){ bewRundeAdvance(); }
+function bewRundeFinish(){
+  const n=BEW_RUNDE.queue.length;
+  BEW_RUNDE={active:false, queue:[], idx:0};
+  bewRundeBarRender();
+  toast(`✅ Bewertungsrunde fertig – ${n} Spieler durch!`);
+  try{navigator.vibrate&&navigator.vibrate([40,60,40,60,120]);}catch(e){}
+}
+function bewRundeStop(){ if(confirm("Bewertungsrunde beenden?")){ BEW_RUNDE={active:false,queue:[],idx:0}; bewRundeBarRender(); } }
+function bewRundeBarRender(){
+  const bar=document.getElementById("bew-runde-bar"); if(!bar)return;
+  if(!BEW_RUNDE.active){
+    bar.innerHTML=`<button class="btn btn-sm" onclick="bewRundeStart()" style="width:100%;border-color:var(--club-accent);color:var(--club-accent)"><i class="ti ti-clipboard-list"></i>📋 Bewertungsrunde starten (alle nacheinander)</button>`;
+    return;
+  }
+  const pos=BEW_RUNDE.idx+1, tot=BEW_RUNDE.queue.length, name=BEW_RUNDE.queue[BEW_RUNDE.idx];
+  bar.innerHTML=`<div style="flex:1;min-width:150px;font-size:12.5px;font-weight:800;color:var(--club-accent)">📋 Runde · Spieler ${pos}/${tot}: ${esc(name)}</div>
+    <button class="btn btn-sm" onclick="bewRundeSkip()">Überspringen ›</button>
+    <button class="btn btn-sm" onclick="bewRundeStop()" style="color:#dc2626">Beenden</button>`;
 }
 
 /* ═══════════════════════════════════
@@ -2332,7 +2383,7 @@ async function renderHome(){
   // ── Quick-Stats (sofort, aus lokalen Daten) ──
   const names=Object.keys(DB||{});
   const bewertet=names.filter(n=>DB[n]&&DB[n].length).length;
-  const cutoff=new Date(Date.now()-56*86400000).toISOString().slice(0,10); // 8 Wochen
+  const cutoff=new Date(Date.now()-42*86400000).toISOString().slice(0,10); // 6 Wochen (Bewertung alle 6 Wochen im Trainermeeting)
   const stale=KADER.filter(k=>{
     const s=DB[k.name];
     if(!s||!s.length)return true;
@@ -2383,7 +2434,7 @@ async function renderHome(){
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       ${statTile(KADER.length,"Kader","var(--blue)","go('kader')")}
       ${statTile(bewertet+"/"+KADER.length,"bewertet","#059669","go('bew')")}
-      ${statTile(stale,"überfällig >8 Wo","#dc2626","go('bew')")}
+      ${statTile(stale,"überfällig >6 Wo","#dc2626","go('bew')")}
     </div>
     <div id="home-radar"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">

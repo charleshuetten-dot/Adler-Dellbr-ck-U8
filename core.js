@@ -322,6 +322,7 @@ async function savePlayer(){
       showSt("save-status",`${meta.name} gespeichert – ${result.tw?"TW+":""}${result.rolle?.primLabel} (${result.total}%) – ${meta.trainer}`,"ok");
       try{navigator.vibrate&&navigator.vibrate(50);}catch(e){} // 1C: haptische Bestätigung auf dem Platz
       await loadDB();
+      if(typeof bewRundeAdvance==="function")bewRundeAdvance(); // Bewertungsrunde: automatisch zum nächsten Spieler
     } else {
       let errMsg="Cloud-Fehler "+res.status;
       try{const errBody=await res.json();errMsg+=" – "+(errBody.message||errBody.error||JSON.stringify(errBody).slice(0,80));}catch(e){}
@@ -433,6 +434,7 @@ function refreshSelects(){
     });
     if(cur&&dbNames.includes(cur))sel.value=cur;
   });
+  if(typeof bewRundeBarRender==="function")bewRundeBarRender(); // Bewertungsrunde-Leiste (Trainermeeting)
 }
 
 /* ═══════════════════════════════════
