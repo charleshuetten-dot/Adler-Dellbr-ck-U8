@@ -408,6 +408,14 @@ function elternTermineCarouselHtml(rows,kids,rsvpAll){
 /* Großes Termin-Fenster (Eltern): alle Infos zu einem Termin – Adresse, Spielform,
    Rückmeldung je Kind, Betreuung (Training), Büdchen-Einteilung (Heimspiel),
    Nominierungsstatus, Wetter. Aktionen zeichnen das Fenster frisch (terminDetailOpen). */
+// Adresse fürs Eltern-Detailfenster: echte Adresse als Karten-Link; beim Heimspiel ohne
+// Eintrag die Vereinsadresse; beim Auswärtsspiel ohne Eintrag ein klarer Hinweis.
+function tdAdresse(t){
+  if(t.ort)return mapsAnchor(t.ort);
+  if(t.heim===true)return mapsAnchor(VEREIN_ADRESSE);
+  if((t.typ==="spiel"||t.typ==="turnier")&&t.heim===false)return '<span style="color:#b45309">folgt – bitte beim Trainer erfragen</span>';
+  return "";
+}
 async function terminDetailOpen(id){
   const t=(ELTERN_TERMINE||[]).find(x=>Number(x.id)===Number(id)); if(!t){toast("Termin nicht gefunden","err");return;}
   const kids=window._elternKids||[];
@@ -443,8 +451,8 @@ async function terminDetailOpen(id){
     </div>
     <div style="font-size:12.5px;color:#64748b;margin-bottom:10px">${wtag} ${d.toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})}${zeit?" · "+zeit:""}</div>
     <div id="td-wetter" style="margin-bottom:6px"></div>
-    ${heimLabel(t)?infoRow(t.heim?"🏠":"✈️","Spielort",heimLabel(t)):""}
-    ${infoRow("📍","Adresse", t.ort?mapsAnchor(t.ort):"")}
+    ${istSpiel?infoRow(t.heim===true?"🏠":t.heim===false?"✈️":"❓","Spielort", t.heim===true?"🏠 Heimspiel":t.heim===false?"✈️ Auswärtsspiel":'<span style="color:#b45309">Heim/Auswärts trägt der Trainer noch nach</span>'):""}
+    ${infoRow("📍","Adresse", tdAdresse(t))}
     ${infoRow("🏟️","Platz", t.platz?esc(t.platz):"")}
     ${infoRow("⚽","Spielform", spielformLbl)}
     <div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
@@ -479,16 +487,26 @@ async function tdNomLoad(t,kids){
   if(t.typ!=="spiel"&&t.typ!=="turnier"){box.innerHTML="";return;}
   const zeilen=[];
   for(const k of (kids||[])){
+    const nm=esc((k.kader&&k.kader.name)||"Kind");
     try{
       const r=await fetch(`${SB_URL}/rest/v1/rpc/kind_nominierungsstatus`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler:k.spieler_id,p_datum:t.datum})});
       if(!r.ok)continue; const s=await r.json();
-      if(s&&s.ok&&s.eingeteilt){
-        const nom=s.nominiert;
-        zeilen.push(`<div style="font-size:12.5px;padding:3px 0">${esc((k.kader&&k.kader.name)||"Kind")}: <b style="color:${nom?"#059669":"#b45309"}">${nom?"✅ nominiert (dabei)":"😌 diesmal pausiert"}</b>${(!nom&&s.grund)?`<div style="font-size:11px;color:#64748b">${esc(s.grund)}</div>`:""}</div>`);
+      if(!s||!s.ok)continue;
+      let html;
+      if(s.eingeteilt){
+        // Trainer hat final entschieden.
+        if(s.nominiert)          html=`<b style="color:#059669">✅ nominiert – dabei!</b>`;
+        else if(s.status==="verletzt") html=`<b style="color:#dc2626">🩹 verletzt – diesmal Pause</b>`;
+        else                     html=`<b style="color:#b45309">😌 diesmal pausiert</b>`;
+        if(!s.nominiert&&s.grund) html+=`<div style="font-size:11px;color:#64748b">${esc(s.grund)}</div>`;
+      }else{
+        // Noch keine Entscheidung – nicht als "pausiert" darstellen.
+        html=`<span style="color:#64748b">📋 Aufstellung wählt der Trainer noch${s.zugesagt?` · <span style="color:#059669;font-weight:700">deine Zusage liegt vor 👍</span>`:``}</span>`;
       }
+      zeilen.push(`<div style="font-size:12.5px;padding:3px 0">${nm}: ${html}</div>`);
     }catch(e){}
   }
-  box.innerHTML=zeilen.length?`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px"><div style="font-weight:700;font-size:13.5px;margin-bottom:2px">📋 Kader-Nominierung</div>${zeilen.join("")}</div>`:"";
+  box.innerHTML=zeilen.length?`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px"><div style="font-weight:700;font-size:13.5px;margin-bottom:2px">📋 Kader-Nominierung</div>${zeilen.join("")}<div style="font-size:10.5px;color:#94a3b8;margin-top:5px">Deine Zusage zeigt dem Trainer, wer verfügbar ist. Den endgültigen Kader stellt er daraus zusammen.</div></div>`:"";
 }
 async function tdBetreuungLoad(t,kids){
   const box=document.getElementById("td-betreuung"); if(!box)return;
