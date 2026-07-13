@@ -2602,6 +2602,7 @@ async function renderHome(){
   if(!window._tourChecked){window._tourChecked=true;setTimeout(tourMaybe,700);} // Feature-Tour beim ersten Start
   const heute=new Date().toISOString().slice(0,10);
   const card=(inner,accent)=>`<div style="background:var(--surface);border:var(--border-s);${accent?`border-left:3px solid ${accent};`:""}border-radius:var(--rl);padding:12px 14px;margin-bottom:10px">${inner}</div>`;
+  const homeTool=(label,fn)=>`<button onclick="${fn}" style="flex:1 1 calc(50% - 4px);min-width:140px;min-height:46px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text);background:var(--surface);text-align:left;padding:0 12px">${label}</button>`;
 
   // ── Quick-Stats (sofort, aus lokalen Daten) ──
   const names=Object.keys(DB||{});
@@ -2632,10 +2633,12 @@ async function renderHome(){
     }
   }
 
-  const questTeaser=card(`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">🏆 Team-Quests fürs nächste Spiel</div>
+  const questTeaser=`<div onclick="questEditorOpen()" style="background:var(--surface);border:var(--border-s);border-left:3px solid #7c3aed;border-radius:var(--rl);padding:12px 14px;margin-bottom:10px;cursor:pointer">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="flex:1;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">🏆 Team-Quests fürs nächste Spiel</span><span style="font-size:11px;font-weight:800;color:var(--blue)">bearbeiten ›</span></div>
     <div style="display:flex;flex-wrap:wrap;gap:6px">${teamQuests.map(q=>`<span style="font-size:11.5px;background:var(--surface2);border-radius:12px;padding:3px 9px">${q.icon} ${esc(q.label)} · ${q.target}</span>`).join("")}</div>
     ${teamBelohnung?`<div style="font-size:11px;color:var(--text2);margin-top:6px">🎁 Belohnung: <strong>${esc(teamBelohnung)}</strong></div>`:""}
-    <div style="font-size:10.5px;color:var(--text3);margin-top:6px">Live-Fortschritt + Konfetti während des Spiels im Action-Tracker.</div>`,"#7c3aed");
+    <div style="font-size:10.5px;color:var(--text3);margin-top:6px">Antippen zum Bearbeiten · Live-Fortschritt + Konfetti im Action-Tracker.</div>
+  </div>`;
 
   let onboardHtml="";
   try{ if(!localStorage.getItem("adler_onboarded")) onboardHtml=`<div id="onboard-card" class="card" style="padding:16px;margin-bottom:12px;border-left:3px solid var(--blue)">
@@ -2652,6 +2655,7 @@ async function renderHome(){
     <div class="sl nt"><i class="ti ti-home"></i>Trainer-Dashboard</div>
     ${onboardHtml}
     <div id="home-next">${card('<div style="font-size:12px;color:var(--text3)">Lade nächsten Termin...</div>')}</div>
+    <div id="home-carousel"></div>
     ${gebHtml}
     ${questTeaser}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
@@ -2666,15 +2670,19 @@ async function renderHome(){
       <button class="btn" style="flex:1;min-height:46px" onclick="go('anwesenheit')"><i class="ti ti-checkbox"></i>Anwesenheit</button>
       <button class="btn" style="flex:1;min-height:46px" onclick="go('termine')"><i class="ti ti-calendar-plus"></i>Termin</button>
     </div>
-    <button onclick="kasseOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">💰 Teamkasse</button>
-    <button onclick="mitbringTrainerOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🎉 Event-Mitbringliste (wer bringt was)</button>
-    <button onclick="fundbueroOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🧦 Fundbüro</button>
-    <button onclick="ausruestungGrid()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">👕 Team-Ausrüstung</button>
-    <button onclick="anwesenheitOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">📊 Anwesenheits-Quote</button>
-    <button onclick="einheitBewertenOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">⭐ Einheit bewerten</button>
-    <button onclick="trainerMeetingOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🗓️ Trainer-Meeting planen (Doodle)</button>
-    <button onclick="stadionheftOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">📰 Adler Nest erstellen & drucken</button>
-    <button onclick="adlerWeltOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🪶 Adler-Welt · Federn, Karten, Abzeichen, Challenge</button>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin:14px 0 6px">Werkzeuge</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${homeTool("⭐ Einheit bewerten","einheitBewertenOpen()")}
+      ${homeTool("📊 Anwesenheits-Quote","anwesenheitOpen()")}
+      ${homeTool("🗓️ Trainer-Meeting","trainerMeetingOpen()")}
+      ${homeTool("🗣️ Elterngespräch","epollTrainerOpen()")}
+      ${homeTool("🎉 Event-Mitbringliste","mitbringTrainerOpen()")}
+      ${homeTool("💰 Teamkasse","kasseOpen()")}
+      ${homeTool("👕 Team-Ausrüstung","ausruestungGrid()")}
+      ${homeTool("🧦 Fundbüro","fundbueroOpen()")}
+      ${homeTool("📰 Adler Nest","stadionheftOpen()")}
+      ${homeTool("🪶 Adler-Welt","adlerWeltOpen()")}
+    </div>
     <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;margin-top:12px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>
     <button onclick="pwChangeOpen()" style="width:100%;min-height:44px;margin-top:12px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text2);background:var(--surface)">🔑 Mein Passwort ändern</button>`;
 
@@ -2682,11 +2690,14 @@ async function renderHome(){
   elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc&limit=2`,{headers:sbAuthHeaders()});
+    const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc,uhrzeit.asc.nullslast&limit=10`,{headers:sbAuthHeaders()});
     const slot=document.getElementById("home-next");
     if(!slot)return; // Nutzer hat den Tab schon verlassen
     if(!r.ok){slot.innerHTML=card('<div style="font-size:12px;color:var(--text3)">Termine offline nicht verfügbar.</div>');return;}
     const rows=await r.json();
+    // Karussell der nächsten Termine (Klick springt zur Detailkarte in der Terminliste)
+    const carSlot=document.getElementById("home-carousel");
+    if(carSlot&&rows.length>1&&typeof tmCarouselHtml==="function") carSlot.innerHTML=tmCarouselHtml(rows);
     if(!rows.length){slot.innerHTML=card(`<div style="font-size:12.5px">📅 Kein Termin geplant. <a href="#" onclick="go('termine');return false" style="color:var(--blue)">Jetzt anlegen</a></div>`);return;}
     const t=rows[0];
     const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"#1a56db"};
@@ -2704,6 +2715,7 @@ async function renderHome(){
           <div style="font-size:11.5px;color:var(--text2);margin-top:2px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""}${t.ort?" · "+mapsAnchor(t.ort):""}${t.platz?" · 🏟️ "+esc(t.platz):""}</div>
         </div>
         ${istSpiel?`<button class="btn btn-p btn-sm" onclick="tmJump('blitz','${t.datum}','${t.spielform||''}')" style="white-space:nowrap"><i class="ti ti-whistle"></i>Matchday</button>`
+                  :t.typ==="event"?`<button class="btn btn-sm" onclick="mitbringTrainerOpen()" style="white-space:nowrap"><i class="ti ti-basket"></i>Mitbringliste</button>`
                   :`<button class="btn btn-sm" onclick="tmJump('planung','${t.datum}')" style="white-space:nowrap"><i class="ti ti-clipboard-list"></i>Plan</button>`}
       </div>
       <div id="wetter-home"></div>

@@ -2442,7 +2442,7 @@ function tmCarouselHtml(rows){
     const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
     const zeit=t.uhrzeit?String(t.uhrzeit).slice(0,5)+" Uhr":"";
     const hb=heimLabel(t);
-    return `<div onclick="document.getElementById('tm-card-${t.id}')?.scrollIntoView({behavior:'smooth',block:'start'})" style="min-width:180px;max-width:200px;flex:none;scroll-snap-align:start;background:var(--surface2);border:var(--border-s);border-left:3px solid ${m.col};border-radius:12px;padding:10px;cursor:pointer">
+    return `<div onclick="tmCarouselJump(${t.id})" style="min-width:180px;max-width:200px;flex:none;scroll-snap-align:start;background:var(--surface2);border:var(--border-s);border-left:3px solid ${m.col};border-radius:12px;padding:10px;cursor:pointer">
       <div style="font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.icon} ${esc(t.titel||m.label)}</div>
       <div style="font-size:10.5px;color:var(--text2);margin-top:2px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""}</div>
       ${hb?`<div style="font-size:10px;font-weight:700;margin-top:3px;color:${t.heim?"#15803d":"#b45309"}">${hb}</div>`:""}
@@ -2452,6 +2452,18 @@ function tmCarouselHtml(rows){
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text2);margin-bottom:6px">📅 Nächste Termine · wischen & antippen zum Anspringen →</div>
     <div style="display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px">${cards}</div>
   </div>`;
+}
+// Karussell-Klick: zur Detailkarte springen. Vom Dashboard aus erst in den Termine-Tab wechseln.
+function tmCarouselJump(id){
+  const el=document.getElementById("tm-card-"+id);
+  if(el){el.scrollIntoView({behavior:"smooth",block:"start"});return;}
+  if(typeof go==="function")go("termine");
+  let tries=0;
+  const t=setInterval(()=>{
+    const c=document.getElementById("tm-card-"+id);
+    if(c){clearInterval(t);c.scrollIntoView({behavior:"smooth",block:"start"});}
+    else if(++tries>25)clearInterval(t);
+  },120);
 }
 // Archiv (vergangene Termine) ein-/ausklappen – standardmäßig zu, damit nur Kommendes im Fokus ist.
 function tmToggleArchiv(){
@@ -2567,9 +2579,12 @@ function tmCard(t){
   if(t.typ==="training"){
     actions=`<button class="btn btn-sm" onclick="tmJump('planung','${t.datum}')"><i class="ti ti-clipboard-list"></i>Plan</button>
       <button class="btn btn-sm" onclick="mdOpen('${t.datum}','training')"><i class="ti ti-users"></i>Eltern-Info</button>`;
-  }else{
+  }else if(istSpiel){
     actions=`<button class="btn btn-sm" onclick="tmJump('aufstellung','${t.datum}','${t.spielform||''}')"><i class="ti ti-users-group"></i>Aufstellung</button>
       <button class="btn btn-sm" onclick="tmJump('blitz','${t.datum}','${t.spielform||''}')"><i class="ti ti-bolt"></i>Auswertung</button>
+      <button class="btn btn-sm" onclick="mdOpen('${t.datum}','${t.typ}')"><i class="ti ti-users"></i>Eltern-Info</button>`;
+  }else{ // Event (Grillfest & Co.) – keine Trainingsplanung/Aufstellung, sondern die Mitbringliste
+    actions=`<button class="btn btn-sm" onclick="mitbringTrainerOpen()"><i class="ti ti-basket"></i>Mitbringliste</button>
       <button class="btn btn-sm" onclick="mdOpen('${t.datum}','${t.typ}')"><i class="ti ti-users"></i>Eltern-Info</button>`;
   }
   actions+=`<button class="btn btn-sm" onclick="tmEdit(${Number(t.id)})" title="Termin bearbeiten"><i class="ti ti-edit"></i>Bearbeiten</button>`;
