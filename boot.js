@@ -215,9 +215,8 @@ function toggleTF(id){
    schlanke Duplikat-Definition an dieser Stelle wurde entfernt (sie überschrieb
    die vollständige Variante und unterdrückte so die Druck-Kopfzeile). */
 
-document.getElementById("p-date").value=new Date().toISOString().slice(0,10);
-document.getElementById("tp-date").value=new Date().toISOString().slice(0,10);
-// aw-date ist jetzt ein Termin-Dropdown (awDatesLoad füllt es beim Öffnen des Tabs).
+// p-date (Bewertung), tp-date (Planung) und aw-date (Anwesenheit) sind jetzt Termin-Dropdowns –
+// gefüllt aus den echten Terminen beim Öffnen des jeweiligen Tabs (terminSelectFill).
 loadKader().then(()=>loadDB()).then(()=>{if(curSection==="home")renderHome();}).then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500)); // Kader (Supabase) zuerst, dann G1 + KI-Light + Home-Stats
 loadCustomForms();
 openTab("home"); // Start auf dem Trainer-Dashboard + Sub-Tab-Leiste initial rendern
@@ -396,30 +395,46 @@ let AW_DATA={};
 const AW_KEY="adler_anwesenheit";
 try{AW_DATA=JSON.parse(localStorage.getItem(AW_KEY)||"{}");}catch(e){AW_DATA={};}
 
-// Anwesenheit hängt an den echten Terminen (Training/Spiel/Turnier/Event) – keine freie
-// Datumsauswahl. Füllt das aw-date-Dropdown mit den vorhandenen Terminen (neueste zuerst,
-// da Anwesenheit rückwirkend erfasst wird) und wählt den jüngsten nicht-künftigen vor.
-async function awDatesLoad(){
-  const sel=document.getElementById("aw-date"); if(!sel)return;
+/* Generisch: ein <select> aus den echten Terminen füllen – keine freien Datumsfelder mehr.
+   opt.types (Standard alle 4), opt.future (true = künftige zuerst + nächster vorgewählt,
+   sonst neueste zuerst + jüngster vergangener vorgewählt), opt.onReady (Callback danach). */
+function terminOptionLabel(t){
+  const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ};
+  const d=new Date(t.datum+"T00:00:00"), wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+  const dd=d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit"});
+  return `${wtag} ${dd} · ${m.icon} ${esc(t.titel||t.gegner||m.label)}`;
+}
+async function terminSelectFill(selId, opt){
+  opt=opt||{}; const sel=document.getElementById(selId); if(!sel)return;
+  const types=opt.types||["training","spiel","turnier","event"], future=!!opt.future;
   let rows=[];
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/termine?select=datum,typ,titel,gegner,uhrzeit&order=datum.desc,uhrzeit.desc.nullslast&limit=90`,{headers:sbAuthHeaders()});
+    const r=await fetch(`${SB_URL}/rest/v1/termine?select=datum,typ,titel,gegner,uhrzeit&order=datum.${future?"asc":"desc"},uhrzeit.${future?"asc":"desc"}.nullslast&limit=90`,{headers:sbAuthHeaders()});
     if(!sbCheck401(r)&&r.ok)rows=await r.json();
   }catch(e){}
-  rows=(rows||[]).filter(t=>["training","spiel","turnier","event"].includes(t.typ));
+  rows=(rows||[]).filter(t=>types.includes(t.typ));
   const heute=new Date().toISOString().slice(0,10);
-  if(!rows.length){ sel.innerHTML=`<option value="${heute}">Heute (${heute}) – noch kein Termin hinterlegt</option>`; awLoad(); return; }
-  const optHtml=t=>{
-    const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ};
-    const d=new Date(t.datum+"T00:00:00"), wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
-    const dd=d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit"});
-    return `<option value="${t.datum}">${wtag} ${dd} · ${m.icon} ${esc(t.titel||t.gegner||m.label)}</option>`;
-  };
-  sel.innerHTML=rows.map(optHtml).join("");
-  const past=rows.find(t=>t.datum<=heute);          // rows sind desc -> jüngster vergangener zuerst
-  sel.value=(past?past.datum:rows[rows.length-1].datum);
-  awLoad(); // Trainer-Vorbelegung + Spielerliste rendern
+  if(!rows.length){ sel.innerHTML=`<option value="${heute}">Heute (${heute}) – noch kein Termin hinterlegt</option>`; if(opt.onReady)opt.onReady(); return; }
+  sel.innerHTML=rows.map(t=>`<option value="${t.datum}">${terminOptionLabel(t)}</option>`).join("");
+  let def;
+  if(future){ def=(rows.find(t=>t.datum>=heute)||rows[rows.length-1]).datum; }   // nächster künftiger
+  else { const past=rows.find(t=>t.datum<=heute); def=past?past.datum:rows[rows.length-1].datum; } // jüngster vergangener
+  sel.value=def;
+  if(opt.onReady)opt.onReady();
 }
+// Stellt sicher, dass ein bestimmtes Datum als Option existiert (z. B. das Datum einer alten
+// Bewertung, das keinem Termin entspricht) und wählt es aus.
+function terminSelectEnsure(selId, datum){
+  const sel=document.getElementById(selId); if(!sel||!datum)return;
+  if(![...sel.options].some(o=>o.value===datum)){
+    const d=new Date(datum+"T00:00:00"), wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+    const dd=d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit"});
+    const o=document.createElement("option"); o.value=datum; o.textContent=`${wtag} ${dd}`; sel.insertBefore(o,sel.firstChild);
+  }
+  sel.value=datum;
+}
+// Anwesenheit: Termine (alle 4 Typen), neueste zuerst, danach awLoad.
+async function awDatesLoad(){ return terminSelectFill("aw-date",{onReady:awLoad}); }
 function awRenderList(){
   const wrap=document.getElementById("aw-list");
   if(!wrap)return;
@@ -527,6 +542,19 @@ function awLoad(){
       .then(r=>r.ok?r.json():[]).then(rows=>{const ts=(rows[0]||{}).trainer_status||{};const ja=Object.keys(ts).filter(n=>ts[n]==="ja");if(ja.length)apply(ja);}).catch(()=>{});}catch(e){}
   }
   awRenderList();
+  awPrefillFromNomination(datum); // bei Spielen/Turnieren die nominierten „dabei"-Kinder vorhaken
+}
+// Vorbelegung der Anwesenheit aus der Nominierung (nur wenn für das Datum noch nichts erfasst ist):
+// Wer für ein Spiel/Turnier auf „dabei" steht, wird vorgehakt – der Trainer prüft & speichert.
+async function awPrefillFromNomination(datum){
+  if(!datum||AW_DATA[datum])return;          // bereits erfasst -> nicht überschreiben
+  let data=null;
+  try{ const r=await fetch(`${SB_URL}/rest/v1/nominierungen?datum=eq.${encodeURIComponent(datum)}&select=data`,{headers:sbAuthHeaders()});
+    if(!sbCheck401(r)&&r.ok){const rows=await r.json(); data=rows[0]&&rows[0].data;} }catch(e){}
+  if(!data)return;
+  let n=0;
+  KADER.forEach(k=>{ if(data[k.name]==="dabei"){ const t=document.querySelector(`.aw-toggle[data-player="${k.name}"]`); if(t&&!t.classList.contains("on")){t.classList.add("on");n++;} } });
+  if(n){ awRenderStats(); toast(`${n} nominierte Kinder vorgehakt – bitte prüfen & speichern`); }
 }
 
 function awRenderTrainerStats(){

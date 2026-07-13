@@ -389,7 +389,9 @@ function clearForm(){
 
 function loadPlayerToForm(p){
   document.getElementById("p-name").value=p.name||"";
-  document.getElementById("p-date").value=p.datum||"";
+  // p-date ist ein Termin-Dropdown: das Datum der geladenen Bewertung als Option sicherstellen.
+  if(p.datum&&typeof terminSelectEnsure==="function")terminSelectEnsure("p-date",p.datum);
+  else document.getElementById("p-date").value=p.datum||"";
   document.getElementById("p-foot").value=p.strong_foot||"R";
   if(document.getElementById("p-att"))document.getElementById("p-att").value=p.attendance||"2";
   const attSeg=document.getElementById("p-att-seg");

@@ -2837,7 +2837,9 @@ function tmJump(ziel,datum,spielform){
   }
   if(ziel==="planung"){
     switchTrainSub("planung");
-    setTimeout(()=>{const d=document.getElementById("tp-date");if(d){d.value=datum;}toast("Plan für "+datum);},60);
+    // tp-date ist ein Termin-Dropdown; das Ziel-Datum als Option sicherstellen (nach dem async Fill).
+    const setD=()=>{ if(typeof terminSelectEnsure==="function")terminSelectEnsure("tp-date",datum); else {const d=document.getElementById("tp-date");if(d)d.value=datum;} };
+    setTimeout(setD,120); setTimeout(()=>{setD();toast("Plan für "+datum);},450);
   }else if(ziel==="aufstellung"){
     sv("kombi");
     setTimeout(()=>{const d=document.getElementById("lineup-date");if(d)d.value=datum;kombiLoadLineup();},400);
@@ -3854,6 +3856,15 @@ async function tickerShareViewLink(){
   if(navigator.share){navigator.share({title:"Liveticker U9",text,url}).catch(()=>{});}
   else{navigator.clipboard?.writeText(url).then(()=>toast("Ansehen-Link kopiert ✓"),()=>prompt("Ansehen-Link:",url));}
 }
+// Konferenz-Link: EIN Link für alle Teams eines Spieltags (?ticker=<datum>__konf).
+async function tickerShareKonfLink(){
+  const datum=spieltagRawDate();
+  try{ await fetch(`${SB_URL}/rest/v1/matchday?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({datum})}); }catch(e){}
+  const url=appRoot()+"?ticker="+encodeURIComponent(datum+"__konf");
+  const text=`📣 Liveticker U9 · Konferenz (alle Teams):\n${url}`;
+  if(navigator.share){navigator.share({title:"Liveticker U9 · Konferenz",text,url}).catch(()=>{});}
+  else{navigator.clipboard?.writeText(url).then(()=>toast("Konferenz-Link kopiert ✓"),()=>prompt("Konferenz-Link:",url));}
+}
 function tickerGoal(){
   if(!atSel){toast("Erst Spieler oben antippen","err");return;}
   tickerPush(atSel,"tor");
@@ -3888,6 +3899,7 @@ function tickerRenderControls(){
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
       <button class="btn ${open?"btn-p":""}" onclick="tickerToggle()">${open?"🔔 Ticker AN":"🔕 Ticker AUS"}</button>
       <button class="btn btn-sm" onclick="tickerShareViewLink()"><i class="ti ti-eye"></i>Ansehen-Link</button>
+      <button class="btn btn-sm" onclick="tickerShareKonfLink()" title="Ein Link für alle Teams (Konferenz)"><i class="ti ti-users-group"></i>Konferenz-Link</button>
       <button class="btn btn-sm" onclick="tickerShareDelegateLink()"><i class="ti ti-user-share"></i>Helfer-Link</button>
       <span style="font-size:10.5px;color:var(--text2)">${open?"Eltern sehen positive Highlights live.":"Eltern sehen: „Trainer fokussieren sich zu 100% auf die Kids – kein Ticker heute.“"}</span>
     </div>

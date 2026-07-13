@@ -70,7 +70,7 @@
       <label>Bewertet von</label>
       <select id="p-trainer"><!-- wird aus TRAINER befüllt (D2) --></select>
     </div>
-    <div class="mg"><label>Datum</label><input type="date" id="p-date"></div>
+    <div class="mg"><label>Termin</label><select id="p-date" style="width:100%;padding:8px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;background:var(--surface);font-family:inherit;color:var(--text)"><option>Lade Termine…</option></select></div>
     <div class="mg"><label>Alter</label>
       <select id="p-age">
         <option value="7">7 Jahre</option><option value="8">8 Jahre</option><option value="9" selected>9 Jahre</option>
@@ -415,7 +415,7 @@
   <div id="train-sub-planung" class="train-sub">
     <div class="sl nt"><i class="ti ti-calendar-event"></i>Trainingseinheit planen</div>
     <div class="mgrid" style="grid-template-columns:1fr 1fr">
-      <div class="mg"><label>Datum</label><input type="date" id="tp-date"></div>
+      <div class="mg"><label>Termin</label><select id="tp-date" style="width:100%;padding:8px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;background:var(--surface);font-family:inherit;color:var(--text)"><option>Lade Termine…</option></select></div>
       <div class="mg"><label>Uhrzeit</label><input type="time" id="tp-time" value="17:00"></div>
     </div>
     <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:10px 0 6px">Verfügbare Trainer</div>

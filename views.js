@@ -1788,7 +1788,7 @@ const TABS={
 };
 const SECS={
   home:       {cid:"view-home",            init:()=>renderHome()},
-  bew:        {cid:"view-bew"},
+  bew:        {cid:"view-bew",              init:()=>{const s=document.getElementById("p-date");if(s&&s.options.length<=1&&typeof terminSelectFill==="function")terminSelectFill("p-date",{});}},
   kader:      {cid:"view-kader",           init:()=>renderKader()},
   profil:     {cid:"view-profil",          init:()=>renderProfil()},
   verlauf:    {cid:"view-verlauf",         init:()=>renderVerlauf()},
@@ -1796,7 +1796,7 @@ const SECS={
   taktik:     {cid:"view-taktik",          init:()=>taktikInit()},
   formen:     {cid:"train-sub-formen",     sub:true, init:()=>renderTraining()},
   termine:    {cid:"train-sub-termine",    sub:true, init:()=>tmInit()},
-  planung:    {cid:"train-sub-planung",    sub:true, init:()=>{tpRenderTimeline();addEvalSection();}},
+  planung:    {cid:"train-sub-planung",    sub:true, init:()=>{const s=document.getElementById("tp-date");if(s&&s.options.length<=1&&typeof terminSelectFill==="function")terminSelectFill("tp-date",{types:["training"],future:true});tpRenderTimeline();addEvalSection();}},
   anwesenheit:{cid:"train-sub-anwesenheit",sub:true, init:()=>awDatesLoad()},
   quizresults:{cid:"train-sub-quizresults",sub:true, init:()=>tqRenderTrainerView()},
   team:       {cid:"train-sub-team",       sub:true, init:()=>{tnLoad();teamStatsRender();tvInit();}},
