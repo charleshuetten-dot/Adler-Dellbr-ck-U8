@@ -175,7 +175,9 @@ async function dsgvoAccept(){
   toast("Danke – Einwilligung gespeichert ✓");
   const ok=window._dsgvoOnOk; window._dsgvoOnOk=null; if(typeof ok==="function")ok();
 }
-const EP_RSVP={zugesagt:{lbl:"Zusage",emo:"👍",col:"#059669"},abgesagt:{lbl:"Absage",emo:"👎",col:"#dc2626"},krank:{lbl:"Krank",emo:"🤒",col:"#d97706"}};
+const EP_RSVP={zugesagt:{lbl:"Zusage",emo:"👍",col:"#059669"},unsicher:{lbl:"Unsicher",emo:"🤔",col:"#ca8a04"},abgesagt:{lbl:"Absage",emo:"👎",col:"#dc2626"},krank:{lbl:"Krank",emo:"🤒",col:"#d97706"}};
+// Schnell-Rückmeldung im Karussell: die drei vom PO gewünschten Stufen.
+const EP_RSVP_QUICK=["zugesagt","unsicher","abgesagt"];
 async function elternDashLoad(){
   const body=document.getElementById("ep-dash-body");
   if(!body)return;
@@ -194,6 +196,15 @@ async function elternDashLoad(){
   if(termin){
     try{const ids=kids.map(k=>k.spieler_id).join(",");const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${termin.id}&spieler_id=in.(${ids})&select=spieler_id,status,kommentar`,{headers:sbAuthHeaders()});if(r.ok){(await r.json()).forEach(x=>rsvp[x.spieler_id]=x);}}catch(e){}
   }
+  // Rückmeldungen für ALLE kommenden Termine (fürs Schnell-Karussell)
+  let rsvpAll={};
+  try{
+    const tids=termineListe.map(t=>t.id).join(","), kidIds=kids.map(k=>k.spieler_id).join(",");
+    if(tids&&kidIds){
+      const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=in.(${tids})&spieler_id=in.(${kidIds})&select=termin_id,spieler_id,status`,{headers:sbAuthHeaders()});
+      if(r.ok)(await r.json()).forEach(x=>{(rsvpAll[x.termin_id]=rsvpAll[x.termin_id]||{})[x.spieler_id]=x.status;});
+    }
+  }catch(e){}
   let html="";
   if(termin&&termin.platz_status)html+=elternPlatzAmpelBanner(termin);   // ganz oben: findet statt / Ausweich / fällt aus
   if(termin&&(termin.typ==="spiel"||termin.typ==="turnier"))html+='<div id="pause-card"></div>';  // ganz oben, noch vor dem Termin
@@ -246,6 +257,7 @@ async function elternDashLoad(){
       </div>
     </div>`;
   }
+  html+=elternTermineCarouselHtml(termineListe,kids,rsvpAll); // Schnell-Zu-/Absage für alle Termine
   // ── Kabine (Kinder-Modus) – das Quiz lebt ausschließlich hier ──
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🎮 Für die Kinder</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Die Kabine ist der Kinder-Modus: Team-Galerie, Missionen und das Fußball-Quiz (${XP_ICON} Federn sammeln).</div>
@@ -344,6 +356,40 @@ async function elternRsvpClear(terminId,spielerId){
   }catch(e){toast("Netzwerkfehler","err");return;}
   toast("Rückmeldung entfernt");
   elternDashLoad();
+}
+/* Schnell-Karussell: alle kommenden Termine als horizontal wischbare Karten, jede mit
+   Zusage/Unsicher/Absage je Kind. Nutzt dieselben elternRsvp/elternRsvpClear wie oben. */
+function elternTermineCarouselHtml(rows,kids,rsvpAll){
+  const upcoming=(rows||[]).slice(0,8);
+  if(upcoming.length<2)return ""; // bei nur 1 Termin steht der schon oben mit voller Info
+  rsvpAll=rsvpAll||{};
+  const cards=upcoming.map(t=>{
+    const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"#1e3a8a"};
+    const d=new Date(t.datum+"T00:00:00");
+    const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+    const zeit=t.uhrzeit?String(t.uhrzeit).slice(0,5)+" Uhr":"";
+    const rr=rsvpAll[t.id]||{};
+    const kidRows=(kids||[]).map(k=>{
+      const kd=k.kader||{}, st=rr[k.spieler_id]||null;
+      const btns=EP_RSVP_QUICK.map(s=>{
+        const on=st===s, c=EP_RSVP[s];
+        const act=on?`elternRsvpClear(${t.id},${k.spieler_id})`:`elternRsvp(${t.id},${k.spieler_id},'${s}')`;
+        return `<button onclick="${act}" title="${c.lbl}" aria-label="${esc(kd.name||"Kind")}: ${c.lbl}" style="width:36px;height:36px;flex:none;border-radius:9px;border:1.5px solid ${on?c.col:"#e2e8f0"};background:${on?c.col:"#fff"};color:${on?"#fff":"#334155"};font-size:16px;line-height:1;cursor:pointer">${c.emo}</button>`;
+      }).join("");
+      return `<div style="display:flex;align-items:center;gap:5px;margin-top:7px">
+        <span style="flex:1;min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(kd.name||"Kind")}</span>${btns}</div>`;
+    }).join("");
+    return `<div style="min-width:236px;max-width:250px;flex:none;scroll-snap-align:start;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px">
+      <div style="font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.icon} ${esc(t.titel||t.gegner||m.label)}</div>
+      <div style="font-size:11px;color:#64748b">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""}${t.ort?" · "+esc(t.ort):""}</div>
+      ${kidRows}
+    </div>`;
+  }).join("");
+  return `<div style="background:#fff;border-radius:14px;padding:14px 14px 8px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">
+    <div style="font-weight:700;margin-bottom:2px">📅 Alle kommenden Termine</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:10px">Schnell 👍 zusagen · 🤔 unsicher · 👎 absagen. Wischen für mehr →</div>
+    <div style="display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:8px;-webkit-overflow-scrolling:touch">${cards}</div>
+  </div>`;
 }
 // Alle kommenden Termine als Dialog + Kalender-Export (.ics) – gleiche Quelle wie die Liste.
 let ELTERN_TERMINE=[];
@@ -2356,7 +2402,7 @@ function tmCard(t){
     <div id="wx-tm-${t.id}"></div>
     ${t.datum>=new Date().toISOString().slice(0,10)?`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px">
       <span style="font-size:10px;color:var(--text3);font-weight:700">Trainer dabei?</span>
-      ${(typeof TRAINER!=="undefined"?TRAINER:[]).map(tn=>{const stt=(t.trainer_status||{})[tn];const bg=stt==="ja"?"#16a34a":stt==="nein"?"#dc2626":"var(--surface2)";const col=stt?"#fff":"var(--text2)";const mk=stt==="ja"?" ✓":stt==="nein"?" ✕":"";return `<button onclick="tmTrainerToggle(${Number(t.id)},'${tn.replace(/'/g,"")}')" style="border:var(--border-s);border-radius:12px;padding:2px 8px;font-size:10.5px;font-weight:700;background:${bg};color:${col};cursor:pointer;font-family:inherit">${esc(tn)}${mk}</button>`;}).join("")}
+      ${(typeof TRAINER!=="undefined"?TRAINER:[]).map(tn=>{const stt=(t.trainer_status||{})[tn];const bg=stt==="ja"?"#16a34a":stt==="unsicher"?"#ca8a04":stt==="nein"?"#dc2626":"var(--surface2)";const col=stt?"#fff":"var(--text2)";const mk=stt==="ja"?" ✓":stt==="unsicher"?" 🤔":stt==="nein"?" ✕":"";return `<button onclick="tmTrainerToggle(${Number(t.id)},'${tn.replace(/'/g,"")}')" title="Tippen wechselt: dabei → unsicher → nicht dabei → offen" style="border:var(--border-s);border-radius:12px;padding:2px 8px;font-size:10.5px;font-weight:700;background:${bg};color:${col};cursor:pointer;font-family:inherit">${esc(tn)}${mk}</button>`;}).join("")}
     </div>`:""}
     ${notizClean?`<div style="font-size:11px;color:var(--text3)">${esc(notizClean)}</div>`:""}
     ${istSpiel?`<div style="display:flex;align-items:center;gap:6px;margin:6px 0"><span style="font-size:11px;color:var(--text2)">Ergebnis:</span><input type="text" value="${esc(t.ergebnis||"")}" placeholder="z. B. 3:2" onchange="tmSetResult(${Number(t.id)},this.value)" style="width:90px;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:12px;font-family:inherit"></div>`:""}
@@ -2439,7 +2485,8 @@ async function tmEditSave(id){
 async function tmTrainerToggle(id,name){
   const t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(id)); if(!t)return;
   const st=Object.assign({},t.trainer_status||{});
-  st[name]= st[name]==="ja"?"nein":st[name]==="nein"?undefined:"ja";
+  // Zyklus: (offen) → ja → unsicher → nein → (offen)
+  st[name]= st[name]==="ja"?"unsicher":st[name]==="unsicher"?"nein":st[name]==="nein"?undefined:"ja";
   if(st[name]===undefined)delete st[name];
   t.trainer_status=st;
   try{const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({trainer_status:st})});if(sbCheck401(r))return;}catch(e){}
