@@ -2633,13 +2633,7 @@ async function renderHome(){
     }
   }
 
-  const questTeaser=`<div onclick="questEditorOpen()" style="background:var(--surface);border:var(--border-s);border-left:3px solid #7c3aed;border-radius:var(--rl);padding:12px 14px;margin-bottom:10px;cursor:pointer">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="flex:1;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">🏆 Team-Quests fürs nächste Spiel</span><span style="font-size:11px;font-weight:800;color:var(--blue)">bearbeiten ›</span></div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px">${teamQuests.map(q=>`<span style="font-size:11.5px;background:var(--surface2);border-radius:12px;padding:3px 9px">${q.icon} ${esc(q.label)} · ${q.target}</span>`).join("")}</div>
-    ${teamBelohnung?`<div style="font-size:11px;color:var(--text2);margin-top:6px">🎁 Belohnung: <strong>${esc(teamBelohnung)}</strong></div>`:""}
-    <div style="font-size:10.5px;color:var(--text3);margin-top:6px">Antippen zum Bearbeiten · Live-Fortschritt + Konfetti im Action-Tracker.</div>
-  </div>`;
-
+  // Team-Quests leben jetzt im Spieltag (dort werden sie gezählt & geschafft) – nicht mehr auf der Startseite.
   let onboardHtml="";
   try{ if(!localStorage.getItem("adler_onboarded")) onboardHtml=`<div id="onboard-card" class="card" style="padding:16px;margin-bottom:12px;border-left:3px solid var(--blue)">
     <div style="font-weight:800;font-size:15px;margin-bottom:2px">👋 Willkommen im Adler-Trainer!</div>
@@ -2657,13 +2651,27 @@ async function renderHome(){
     <div id="home-next">${card('<div style="font-size:12px;color:var(--text3)">Lade nächsten Termin...</div>')}</div>
     <div id="home-carousel"></div>
     ${gebHtml}
-    ${questTeaser}
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-      ${statTile(KADER.length,"Kader","var(--blue)","go('kader')")}
-      ${statTile(bewertet+"/"+KADER.length,"bewertet","#059669","go('bew')")}
-      ${statTile(stale,"überfällig >6 Wo","#dc2626","go('bew')")}
+    ${stale>0?`<div onclick="go('bew')" class="card" style="padding:10px 14px;margin-bottom:10px;border-left:3px solid #dc2626;cursor:pointer;display:flex;align-items:center;gap:8px">
+      <span style="font-size:18px">⏰</span>
+      <span style="flex:1;font-size:12.5px"><strong style="color:#dc2626">${stale} ${stale===1?"Spieler":"Spieler"} überfällig</strong> – seit über 6 Wochen nicht bewertet.</span>
+      <span style="font-size:11px;font-weight:800;color:var(--blue)">ansehen ›</span>
+    </div>`:""}
+    <div class="card" style="padding:0;margin-bottom:10px;overflow:hidden">
+      <button onclick="toggleTeamCheck()" style="width:100%;display:flex;align-items:center;gap:8px;padding:11px 14px;border:none;background:transparent;font-family:inherit;cursor:pointer;color:var(--text)">
+        <span style="font-size:15px">🩺</span>
+        <span style="flex:1;text-align:left;font-size:12.5px;font-weight:700">Team-Check</span>
+        <span style="font-size:11px;color:var(--text2)">${KADER.length} im Kader · ${bewertet} bewertet${stale>0?` · <span style="color:#dc2626">${stale} überfällig</span>`:""}</span>
+        <span id="tc-caret" style="font-size:12px;color:var(--text3)">▾</span>
+      </button>
+      <div id="team-check-body" style="display:none;padding:0 14px 14px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          ${statTile(KADER.length,"Kader","var(--blue)","go('kader')")}
+          ${statTile(bewertet+"/"+KADER.length,"bewertet","#059669","go('bew')")}
+          ${statTile(stale,"überfällig >6 Wo","#dc2626","go('bew')")}
+        </div>
+        <div id="home-radar"></div>
+      </div>
     </div>
-    <div id="home-radar"></div>
     <div id="eg-trainer"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-p" style="flex:1;min-height:46px" onclick="openTab('spieltag')"><i class="ti ti-whistle"></i>Spieltag</button>
@@ -2686,7 +2694,7 @@ async function renderHome(){
     <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;margin-top:12px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>
     <button onclick="pwChangeOpen()" style="width:100%;min-height:44px;margin-top:12px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text2);background:var(--surface)">🔑 Mein Passwort ändern</button>`;
 
-  homeRadarLoad(); // "Kein Kind übersehen"-Radar async nachladen
+  window._radarLoaded=false; // Radar erst beim Aufklappen des Team-Checks laden
   elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
   try{
@@ -2726,6 +2734,17 @@ async function renderHome(){
     const slot=document.getElementById("home-next");
     if(slot)slot.innerHTML=card('<div style="font-size:12px;color:var(--text3)">Offline – kein Terminabruf.</div>');
   }
+}
+
+// Team-Check auf der Startseite auf-/zuklappen. Der "Kein Kind übersehen"-Radar wird
+// erst beim ersten Aufklappen geladen (spart einen Query, wenn niemand hinschaut).
+function toggleTeamCheck(){
+  const body=document.getElementById("team-check-body"), caret=document.getElementById("tc-caret");
+  if(!body)return;
+  const auf=body.style.display==="none";
+  body.style.display=auf?"block":"none";
+  if(caret)caret.textContent=auf?"▴":"▾";
+  if(auf&&!window._radarLoaded){ window._radarLoaded=true; if(typeof homeRadarLoad==="function")homeRadarLoad(); }
 }
 
 // Wake Lock API (nativ) – verhindert, dass das Display während der Nutzung ausgeht

@@ -1212,7 +1212,8 @@ function kabineShowQuests(){
         <span style="font-size:30px">${q.icon}</span>
         <div><div style="font-size:16px;font-weight:800">${esc(q.label)}</div><div style="font-size:13px;opacity:.85">Ziel: ${q.target}</div></div>
       </div>`).join("")}
-      ${teamBelohnung?`<div style="background:linear-gradient(135deg,#f59e0b,#ec4899);border-radius:14px;padding:16px;text-align:center;margin-top:6px"><div style="font-size:13px;opacity:.9">🎁 Nächste Belohnung</div><div style="font-size:18px;font-weight:900;margin-top:4px">${esc(teamBelohnung)}</div></div>`:""}
+      ${teamQuestFedern>0?`<div style="background:linear-gradient(135deg,#10b981,#0ea5e9);border-radius:14px;padding:16px;text-align:center;margin-top:6px"><div style="font-size:13px;opacity:.9">Schafft ihr ALLE Missionen, gibt's</div><div style="font-size:22px;font-weight:900;margin-top:4px">${XP_ICON} ${teamQuestFedern} Federn für jeden!</div></div>`:""}
+      ${teamBelohnung?`<div style="background:linear-gradient(135deg,#f59e0b,#ec4899);border-radius:14px;padding:16px;text-align:center;margin-top:10px"><div style="font-size:13px;opacity:.9">🎁 Extra-Belohnung</div><div style="font-size:18px;font-weight:900;margin-top:4px">${esc(teamBelohnung)}</div></div>`:""}
     </div>`;
 }
 function kabineShowGallery(){ kabineIdx=0; kabineRenderGallery(); }
@@ -4829,6 +4830,8 @@ const TEAM_QUESTS=[
 ];
 // Editierbare Laufzeit-Kopie aus team_config (TEAM_QUESTS bleibt der Default) + Freitext-Belohnung.
 let teamQuests=TEAM_QUESTS.map(q=>({...q})), teamBelohnung="", teamDoubleXpUntil=null;
+// Standard-Federbelohnung, wenn das Team ALLE Quests eines Spieltags schafft (editierbar, Default 20).
+let teamQuestFedern=20;
 // HOTFIX 4: waehlbare Quest-Aktionen (qkey) im CRUD-Editor
 const QUEST_KEYS=[
   {key:"pass",label:"Pässe"},{key:"dribbling",label:"Dribblings"},{key:"gewinn",label:"Ballgewinne"},
@@ -4837,8 +4840,8 @@ const QUEST_KEYS=[
 async function loadTeamConfig(){
   // Belohnung + Booster bleiben in team_config; Quests kommen aus der team_quests-Tabelle
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/team_config?id=eq.1&select=belohnung,double_xp_until`,{headers:sbAuthHeaders()});
-    if(r.ok){const c=(await r.json())[0]; if(c){teamBelohnung=c.belohnung||""; teamDoubleXpUntil=c.double_xp_until||null;}}
+    const r=await fetch(`${SB_URL}/rest/v1/team_config?id=eq.1&select=belohnung,double_xp_until,teamquest_federn`,{headers:sbAuthHeaders()});
+    if(r.ok){const c=(await r.json())[0]; if(c){teamBelohnung=c.belohnung||""; teamDoubleXpUntil=c.double_xp_until||null; teamQuestFedern=(c.teamquest_federn==null?20:Number(c.teamquest_federn));}}
   }catch(e){}
   await loadTeamQuests();
 }
@@ -4899,6 +4902,23 @@ function questStripHTML(counts){
     <div style="display:flex;flex-wrap:wrap;gap:10px">${items}</div>
     ${teamBelohnung?`<div style="margin-top:8px;font-size:11px;color:var(--text2)">🎁 Belohnung: <strong>${esc(teamBelohnung)}</strong></div>`:""}`;
 }
+// Spieltag-Sektion „Team-Quests": Ziele + Feder-Belohnung im Überblick, mit Editor-Zugang.
+// Die Live-Fortschritte laufen weiter über den quest-strip im Aktions-Panel.
+function questPanelRender(){
+  const box=document.getElementById("quest-panel"); if(!box)return;
+  const chips=teamQuests.map(q=>`<span style="font-size:11.5px;background:var(--surface2);border-radius:12px;padding:3px 9px">${q.icon} ${esc(q.label)} · ${q.target}</span>`).join("");
+  box.innerHTML=`<div style="background:var(--surface);border:var(--border-s);border-left:3px solid #7c3aed;border-radius:12px;padding:12px 14px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="flex:1;font-size:12px;font-weight:700">🏆 Diese Ziele holt sich das Team im Spiel</span>
+      <button class="btn btn-sm" onclick="questEditorOpen()"><i class="ti ti-pencil"></i>Anpassen</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${chips||'<span style="font-size:11.5px;color:var(--text3)">Noch keine Quests – „Anpassen" antippen.</span>'}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;font-size:11.5px;color:var(--text2)">
+      ${teamQuestFedern>0?`<span style="background:#ecfdf5;color:#065f46;border-radius:12px;padding:3px 9px;font-weight:700">${XP_ICON} ${teamQuestFedern} Federn pro Kind, wenn ALLE Ziele fallen</span>`:`<span style="color:var(--text3)">Feder-Belohnung aus</span>`}
+      ${teamBelohnung?`<span>🎁 <strong>${esc(teamBelohnung)}</strong></span>`:""}
+    </div>
+  </div>`;
+}
 // Erst prüfen ob eine Quest NEU geschafft wurde – dann feiern (einmalig pro Spieltag).
 function questCheck(counts){
   counts=counts||questCountsLive();
@@ -4911,6 +4931,36 @@ function questCheck(counts){
       try{navigator.vibrate&&navigator.vibrate([30,40,30]);}catch(e){}
     }
   });
+  teamQuestRewardMaybe(); // alle geschafft? -> Federn an jedes mitspielende Kind
+}
+// Wenn das Team ALLE Quests eines Spieltags schafft, bekommt jedes nominierte Kind die
+// eingestellte Feder-Belohnung – automatisch, serverseitig idempotent pro Spieler+Spieltag.
+let questRewardedFor=null;
+async function teamQuestRewardMaybe(){
+  if(!teamQuests.length||questDone.size<teamQuests.length)return; // noch nicht alle geschafft
+  if(teamQuestFedern<=0)return;                                    // Belohnung deaktiviert
+  if(!sbToken())return;                                            // nur das Trainerteam vergibt
+  const datum=spieltagKey();
+  if(questRewardedFor===datum)return;                              // in dieser Sitzung schon vergeben
+  questRewardedFor=datum;
+  const namen=(typeof nominierteSpieler==="function")?nominierteSpieler():[];
+  let n=0;
+  for(const name of namen){
+    const k=getKader(name); if(!k||!k._id)continue;
+    try{const d=await xpTeamQuestAward(k._id,datum); if(d>0)n++;}catch(e){}
+  }
+  if(n>0){
+    const cont=document.getElementById("quest-strip"); if(cont)confetti(cont);
+    toast(`🎉 Alle Quests geschafft! ${XP_ICON} ${teamQuestFedern} Federn für ${n} ${n===1?"Kind":"Kinder"}!`);
+    try{navigator.vibrate&&navigator.vibrate([40,60,40,60,80]);}catch(e){}
+  }
+}
+async function xpTeamQuestAward(spielerId,datum){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/xp_award_teamquest`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler_id:spielerId,p_datum:datum})});
+    if(!r.ok)return 0;
+    return (await r.json())||0;
+  }catch(e){return 0;}
 }
 // Beim Laden bereits erfüllte Quests still als „erledigt" markieren (kein Confetti beim Öffnen).
 function questSeedDone(){
@@ -4931,7 +4981,15 @@ function questEditorOpen(){
     <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Quests anlegen, bearbeiten oder löschen. Jede Quest zählt eine Aktion bis zum Ziel.</div>
     <div id="qe-list"></div>
     <button class="btn btn-sm" style="margin-bottom:12px" onclick="qeAddQuest()"><i class="ti ti-plus"></i>Quest hinzufügen</button>
-    <label style="font-size:11px;color:var(--text2)">🎁 Nächste Belohnung für die Kids</label>
+    <div style="margin:0 0 12px;padding:10px;border:1.5px dashed #10b981;border-radius:10px;background:#ecfdf5">
+      <label style="font-weight:700;font-size:12.5px;color:#065f46">${XP_ICON} Federn, wenn das Team ALLE Quests schafft</label>
+      <div style="font-size:11px;color:#047857;margin:2px 0 6px">Bekommt jedes mitspielende Kind gutgeschrieben – automatisch, einmal pro Spieltag.</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input id="qe-federn" type="number" min="0" max="200" value="${teamQuestFedern}" style="width:90px;padding:8px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:14px;font-weight:700;box-sizing:border-box">
+        <span style="font-size:12px;color:var(--text2)">${XP_ICON} pro Kind</span>
+      </div>
+    </div>
+    <label style="font-size:11px;color:var(--text2)">🎁 Zusätzliche Belohnung (Freitext, optional)</label>
     <textarea id="qe-belohnung" rows="2" placeholder="z. B. Eis für alle beim nächsten Training!" style="width:100%;padding:8px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px;margin:4px 0 12px;box-sizing:border-box">${esc(teamBelohnung)}</textarea>
     <div style="margin:0 0 12px;padding:10px;border:1.5px dashed #f59e0b;border-radius:10px;background:#fffbeb">
       <div style="font-weight:700;font-size:12.5px;color:#92400e;margin-bottom:2px">⚡ Doppel-${XP_LABEL}-Booster</div>
@@ -4970,6 +5028,7 @@ async function questSave(btn){
   qeSyncFromInputs();
   const clean=qeDraft.filter(q=>(q.label||"").trim()).map(q=>({key:q.key||"pass",icon:(q.icon||"🏆").trim()||"🏆",label:q.label.trim(),target:Math.max(1,parseInt(q.target)||1)}));
   teamBelohnung=(document.getElementById("qe-belohnung")?.value||"").trim();
+  teamQuestFedern=Math.max(0,Math.min(200,parseInt(document.getElementById("qe-federn")?.value)||0));
   if(btn)btn.disabled=true;
   try{
     // HOTFIX 4: Quests -> team_quests (replace-all), Belohnung bleibt in team_config
@@ -4979,13 +5038,14 @@ async function questSave(btn){
       const ins=await fetch(`${SB_URL}/rest/v1/team_quests`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify(clean.map((q,i)=>({team:'adler1',qkey:q.key,icon:q.icon,label:q.label,target:q.target,aktiv:true,sort:i})))});
       if(!ins.ok){toast("Speichern fehlgeschlagen","err");return;}
     }
-    await fetch(`${SB_URL}/rest/v1/team_config?on_conflict=id`,{method:"POST",headers:sbAuthHeaders({'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify({id:1,belohnung:teamBelohnung,updated_at:new Date().toISOString()})});
+    await fetch(`${SB_URL}/rest/v1/team_config?on_conflict=id`,{method:"POST",headers:sbAuthHeaders({'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify({id:1,belohnung:teamBelohnung,teamquest_federn:teamQuestFedern,updated_at:new Date().toISOString()})});
   }catch(e){toast("Netzwerkfehler","err");return;}
   finally{if(btn)btn.disabled=false;}
   teamQuests=clean.map(q=>({...q}));
   document.getElementById("quest-editor")?.remove();
   toast("Team-Quests gespeichert ✓");
   questSeedDone(); if(document.getElementById("action-panel"))atRender();
+  if(document.getElementById("quest-panel"))questPanelRender();
   if(typeof curSection!=="undefined"&&curSection==="home"&&typeof renderHome==="function")renderHome();
 }
 
@@ -5194,6 +5254,8 @@ async function atInit(){
   await atLoadGegentore(); // Gegentor-Stand fürs Live-Ergebnis
   questSeedDone(); // bereits erfüllte Quests still markieren, bevor gerendert wird
   atRender();
+  questPanelRender();      // Team-Quest-Sektion im Spieltag zeichnen
+  teamQuestRewardMaybe();  // falls beim Neuladen bereits alle Quests geschafft sind
 }
 function atRender(){
   const box=document.getElementById("action-panel");
