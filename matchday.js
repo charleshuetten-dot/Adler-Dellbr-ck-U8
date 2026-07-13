@@ -2354,12 +2354,12 @@ async function rsvpOverviewOpen(terminId){
    "Halle 2" beim Ausweichplatz oder der Grund bei Absage). */
 const PLATZ_AMPEL={
   normal:  {emo:"🟢", lbl:"Findet statt", col:"#16a34a"},
-  ausweich:{emo:"🟡", lbl:"Ausweichplatz", col:"#d97706"},
+  ausweich:{emo:"🟡", lbl:"Ausweichplatz", col:"#d97706", hidden:true}, // aktuell ausgeblendet (hidden:false = wieder da)
   abgesagt:{emo:"🔴", lbl:"Fällt aus",     col:"#dc2626"}
 };
 function platzAmpelTrainer(t){
   const cur=t.platz_status||null;
-  const btns=Object.keys(PLATZ_AMPEL).map(k=>{
+  const btns=Object.keys(PLATZ_AMPEL).filter(k=>!PLATZ_AMPEL[k].hidden).map(k=>{
     const a=PLATZ_AMPEL[k], on=cur===k;
     return `<button onclick="platzAmpelSet(${Number(t.id)},'${k}')" style="flex:1;min-width:96px;min-height:46px;border:2px solid ${a.col};border-radius:10px;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:800;background:${on?a.col:"var(--surface)"};color:${on?"#fff":a.col}">${a.emo} ${a.lbl}</button>`;
   }).join("");
