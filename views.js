@@ -1887,6 +1887,106 @@ async function elterngespraechErledigt(id){
   toast("Als erledigt markiert ✓");
   elterngespraecheTrainerLoad();
 }
+
+/* Trainer-Meeting-Doodle: Terminvorschläge, Abstimmung (✓/?/✗) unter Trainern, festlegen.
+   Nur Trainer (RLS). Stimmen per Upsert (voter = auth.uid()). */
+async function trainerMeetingOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("tm-meet-modal")?.remove();
+  const m=document.createElement("div");m.id="tm-meet-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  const c=document.createElement("div");c.id="tm-meet-card";
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.innerHTML='<div style="text-align:center;padding:30px;color:var(--text3)">Lade …</div>';
+  m.appendChild(c);document.body.appendChild(m);
+  tpollRender();
+}
+async function tpollRender(){
+  const c=document.getElementById("tm-meet-card"); if(!c)return;
+  const FLD="padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
+  let polls=[],slots=[],votes=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/trainer_poll?select=*&order=created_at.desc`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)polls=await r.json();}catch(e){}
+  const pids=polls.map(p=>p.id);
+  if(pids.length){
+    try{const r=await fetch(`${SB_URL}/rest/v1/trainer_poll_slot?poll_id=in.(${pids.join(",")})&select=*&order=datum.asc,uhrzeit.asc.nullslast`,{headers:sbAuthHeaders()});if(r.ok)slots=await r.json();}catch(e){}
+    const sids=slots.map(s=>s.id);
+    if(sids.length){try{const r=await fetch(`${SB_URL}/rest/v1/trainer_poll_vote?slot_id=in.(${sids.join(",")})&select=slot_id,voter,status`,{headers:sbAuthHeaders()});if(r.ok)votes=await r.json();}catch(e){}}
+  }
+  const myUid=(typeof sbUserId==="function")?sbUserId():null;
+  const slotsByPoll={}; slots.forEach(s=>{(slotsByPoll[s.poll_id]=slotsByPoll[s.poll_id]||[]).push(s);});
+  const votesBySlot={}; votes.forEach(v=>{(votesBySlot[v.slot_id]=votesBySlot[v.slot_id]||[]).push(v);});
+  const pollHtml=polls.map(p=>{
+    const ss=slotsByPoll[p.id]||[];
+    const slotHtml=ss.map(s=>{
+      const vs=votesBySlot[s.id]||[];
+      const ja=vs.filter(v=>v.status==="ja").length, viel=vs.filter(v=>v.status==="vielleicht").length, nein=vs.filter(v=>v.status==="nein").length;
+      const mine=(vs.find(v=>v.voter===myUid)||{}).status||null;
+      const dstr=new Date(s.datum+"T00:00:00").toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"});
+      const zstr=s.uhrzeit?" · "+String(s.uhrzeit).slice(0,5):"";
+      const decided=p.decided_slot_id===s.id;
+      const voteBtns=["ja","vielleicht","nein"].map(st=>{const on=mine===st;const emo=st==="ja"?"✓":st==="vielleicht"?"?":"✗";const col=st==="ja"?"#16a34a":st==="vielleicht"?"#ca8a04":"#dc2626";
+        return `<button onclick="tpollVote(${s.id},'${st}')" style="width:34px;height:34px;border-radius:8px;border:1.5px solid ${on?col:"#cbd5e1"};background:${on?col:"var(--surface)"};color:${on?"#fff":"var(--text2)"};cursor:pointer;font-weight:800">${emo}</button>`;}).join("");
+      return `<div style="border:var(--border-s);${decided?"border-color:#16a34a;background:#f0fdf4;":""}border-radius:10px;padding:8px 10px;margin-top:6px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div style="flex:1;min-width:110px;font-size:12.5px;font-weight:700">${dstr}${zstr}${decided?' <span style="color:#16a34a">✅ festgelegt</span>':""}</div>
+          <div style="display:flex;gap:4px">${voteBtns}</div>
+        </div>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:4px">✓ ${ja} · ? ${viel} · ✗ ${nein}${p.status!=="entschieden"?` · <button onclick="tpollDecide(${p.id},${s.id})" style="border:none;background:none;color:#2563eb;font-weight:700;cursor:pointer;font-size:10.5px">diesen Termin festlegen</button>`:""}</div>
+      </div>`;
+    }).join("");
+    return `<div style="border:var(--border-s);border-radius:12px;padding:12px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;font-weight:800;font-size:14px">🗓️ ${esc(p.titel)}</div>
+        <button onclick="tpollDelete(${p.id},'${jsq(p.titel)}')" aria-label="löschen" style="border:none;background:none;color:#dc2626;cursor:pointer;min-width:32px;min-height:32px"><i class="ti ti-trash"></i></button></div>
+      ${p.status==="entschieden"?'<div style="font-size:11px;color:#16a34a;font-weight:700">Termin steht ✓</div>':'<div style="font-size:11px;color:var(--text3)">Stimmt ab: ✓ passt · ? vielleicht · ✗ nicht</div>'}
+      ${slotHtml||'<div style="font-size:11px;color:var(--text3)">Keine Termine.</div>'}
+    </div>`;
+  }).join("");
+  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🗓️ Trainer-Meetings</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Nur Trainer sehen das. Terminvorschläge, abstimmen, festlegen.</div>
+    ${pollHtml||'<div style="font-size:12px;color:var(--text3);margin-bottom:10px">Noch kein Meeting geplant.</div>'}
+    <div style="border-top:var(--border);padding-top:12px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">Neues Meeting</div>
+      <input id="tpoll-titel" placeholder="Titel (z. B. Saisonplanung)" style="width:100%;margin-bottom:6px;${FLD}">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Terminvorschläge (Datum + Uhrzeit):</div>
+      ${[0,1,2,3].map(i=>`<div style="display:flex;gap:6px;margin-bottom:4px"><input type="date" id="tpoll-d${i}" style="flex:2;${FLD}"><input type="time" id="tpoll-t${i}" style="flex:1;${FLD}"></div>`).join("")}
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-p btn-sm" onclick="tpollCreate(this)"><i class="ti ti-plus"></i>Meeting anlegen</button>
+        <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('tm-meet-modal').remove()">Schließen</button>
+      </div>
+    </div>`;
+}
+async function tpollCreate(btn){
+  const titel=(document.getElementById("tpoll-titel")?.value||"").trim();
+  if(!titel){toast("Bitte einen Titel","err");return;}
+  const slots=[0,1,2,3].map(i=>({datum:document.getElementById("tpoll-d"+i)?.value,uhrzeit:document.getElementById("tpoll-t"+i)?.value||null})).filter(s=>s.datum);
+  if(!slots.length){toast("Mindestens einen Terminvorschlag","err");return;}
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/trainer_poll`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=representation'},body:JSON.stringify({titel})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht anlegen"),"err");return;}
+    const poll=(await r.json())[0];
+    await fetch(`${SB_URL}/rest/v1/trainer_poll_slot`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify(slots.map(s=>({poll_id:poll.id,datum:s.datum,uhrzeit:s.uhrzeit})))});
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  toast("Meeting angelegt ✓");
+  tpollRender();
+}
+async function tpollVote(slotId,status){
+  try{const r=await fetch(`${SB_URL}/rest/v1/trainer_poll_vote?on_conflict=slot_id,voter`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({slot_id:slotId,status})});if(sbCheck401(r))return;if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht abstimmen"),"err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  tpollRender();
+}
+async function tpollDecide(pollId,slotId){
+  try{const r=await fetch(`${SB_URL}/rest/v1/trainer_poll?id=eq.${pollId}`,{method:"PATCH",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({status:"entschieden",decided_slot_id:slotId})});if(sbCheck401(r))return;if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht festlegen"),"err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Termin festgelegt ✓");
+  tpollRender();
+}
+async function tpollDelete(id,titel){
+  if(!confirm(`Meeting „${titel||""}" wirklich löschen?`))return;
+  try{const r=await fetch(`${SB_URL}/rest/v1/trainer_poll?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
+  tpollRender();
+}
 async function homeRadarLoad(){
   const box=document.getElementById("home-radar"); if(!box)return;
   const active=KADER.filter(k=>k.aktiv!==false); if(active.length<3){box.innerHTML="";return;}
@@ -2473,6 +2573,7 @@ async function renderHome(){
     <button onclick="ausruestungGrid()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">👕 Team-Ausrüstung</button>
     <button onclick="anwesenheitOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">📊 Anwesenheits-Quote</button>
     <button onclick="einheitBewertenOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">⭐ Einheit bewerten</button>
+    <button onclick="trainerMeetingOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🗓️ Trainer-Meeting planen (Doodle)</button>
     <button onclick="stadionheftOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">📰 Adler Nest erstellen & drucken</button>
     <button onclick="adlerWeltOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🪶 Adler-Welt · Federn, Karten, Abzeichen, Challenge</button>
     <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;margin-top:12px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>
