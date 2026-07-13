@@ -439,7 +439,7 @@ async function kontakteRender(sid){
   const kName=(KADER.find(x=>x._id===sid)||{}).name||"";
   let emails=[],phones=[];
   try{const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?spieler_id=eq.${sid}&select=id,email,label&order=id`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)emails=await r.json();}catch(e){}
-  try{const r=await fetch(`${SB_URL}/rest/v1/kind_kontakte?spieler_id=eq.${sid}&select=id,name,rolle,telefon&order=id`,{headers:sbAuthHeaders()});if(r.ok)phones=await r.json();}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_kontakte?spieler_id=eq.${sid}&select=id,name,rolle,telefon,geburtstag&order=id`,{headers:sbAuthHeaders()});if(r.ok)phones=await r.json();}catch(e){}
   const inp="padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px";
   // Am Platz wird mit dem Daumen getippt: Aktionen sind beschriftet und 44px hoch,
   // "Loeschen" steht raeumlich abgesetzt und fragt nach (es nimmt einem Elternteil den Zugang).
@@ -466,7 +466,7 @@ async function kontakteRender(sid){
     </div>
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">📞 Telefonnummern</div>
     ${phones.length?phones.map(p=>`<div style="${kkZeile}">
-      <div style="font-size:13px;margin-bottom:8px">${esc(p.telefon)}${(p.name||p.rolle)?` <span style="color:var(--text3);font-size:11px">(${esc([p.rolle,p.name].filter(Boolean).join(" · "))})</span>`:""}</div>
+      <div style="font-size:13px;margin-bottom:8px">${esc(p.telefon)}${(p.name||p.rolle)?` <span style="color:var(--text3);font-size:11px">(${esc([p.rolle,p.name].filter(Boolean).join(" · "))})</span>`:""}${p.geburtstag?` <span style="color:var(--text3);font-size:11px">🎂 ${new Date(p.geburtstag+"T00:00:00").toLocaleDateString("de-DE")}</span>`:""}</div>
       <div style="display:flex;gap:8px;align-items:center">
         ${waNumber(p.telefon)&&emails.length?`<button onclick="inviteWa('${jsq(p.telefon)}','${jsq(kName)}','${jsq(emails[0].email)}')" style="${kkAktion};border-color:#86efac;color:#15803d"><i class="ti ti-brand-whatsapp"></i>WhatsApp</button>`:`<span style="flex:1;font-size:10.5px;color:var(--text3)">${waNumber(p.telefon)?"Erst eine Login-E-Mail hinterlegen":"Keine Handynummer"}</span>`}
         <button onclick="kontakteDelPhone(${p.id},${sid},'${jsq(p.telefon)}')" aria-label="Telefonnummer entfernen" style="${kkLoeschen}"><i class="ti ti-trash"></i></button>
@@ -477,6 +477,7 @@ async function kontakteRender(sid){
       <input id="kk-new-tel" type="tel" placeholder="Telefon" style="flex:2;min-width:110px;${inp}">
       <input id="kk-new-rolle" placeholder="Rolle (z. B. Mutter)" style="flex:1;min-width:90px;${inp}">
       <input id="kk-new-name" placeholder="Name (optional)" style="flex:1;min-width:90px;${inp}">
+      <label style="flex:1;min-width:130px;font-size:10px;color:var(--text3)">🎂 Geburtstag (optional)<input id="kk-new-geb" type="date" style="width:100%;${inp}"></label>
       <button class="btn" style="min-height:44px" onclick="kontakteAddPhone(${sid})"><i class="ti ti-plus"></i>Hinzufügen</button>
     </div>`;
 }
@@ -499,8 +500,9 @@ async function kontakteAddPhone(sid){
   const telefon=(document.getElementById("kk-new-tel")?.value||"").trim();
   const rolle=(document.getElementById("kk-new-rolle")?.value||"").trim();
   const name=(document.getElementById("kk-new-name")?.value||"").trim();
+  const geburtstag=(document.getElementById("kk-new-geb")?.value||"")||null;
   if(!telefon){toast("Telefonnummer eingeben","err");return;}
-  try{const r=await fetch(`${SB_URL}/rest/v1/kind_kontakte`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({spieler_id:sid,telefon,rolle:rolle||null,name:name||null})});if(sbCheck401(r))return;if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_kontakte`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({spieler_id:sid,telefon,rolle:rolle||null,name:name||null,geburtstag})});if(sbCheck401(r))return;if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
   toast("Nummer hinterlegt ✓");
   kontakteRender(sid);
 }
