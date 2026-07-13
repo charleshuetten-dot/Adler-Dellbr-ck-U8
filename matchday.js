@@ -242,7 +242,7 @@ async function elternDashLoad(){
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Nächster Termin</div>
         ${offen.length?`<span style="margin-left:auto;font-size:10px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:20px;padding:2px 8px">❗ Rückmeldung fehlt</span>`:""}
       </div>
-      <div style="font-size:16px;font-weight:800;margin-top:2px">${m.icon} ${esc(termin.titel||termin.gegner||m.label)}</div>
+      <div style="font-size:16px;font-weight:800;margin-top:2px">${m.icon} ${esc(termin.titel||termin.gegner||m.label)}${heimLabel(termin)?` <span style="font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;background:${termin.heim?"#dcfce7":"#fef3c7"};color:${termin.heim?"#15803d":"#b45309"};white-space:nowrap">${heimLabel(termin)}</span>`:""}</div>
       <div style="font-size:12.5px;color:#64748b;margin-top:3px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})}${zeit?" · "+zeit:""}${termin.ort?" · "+mapsAnchor(termin.ort):""}${termin.platz?" · 🏟️ "+esc(termin.platz):""}</div>
       <div id="wetter-eltern"></div>
       ${trainerJa.length?`<div style="font-size:11.5px;color:#64748b;margin-top:4px">👤 Trainer dabei: ${trainerJa.map(esc).join(", ")}</div>`:""}
@@ -381,7 +381,7 @@ function elternTermineCarouselHtml(rows,kids,rsvpAll){
     }).join("");
     return `<div style="min-width:236px;max-width:250px;flex:none;scroll-snap-align:start;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px">
       <div style="font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.icon} ${esc(t.titel||t.gegner||m.label)}</div>
-      <div style="font-size:11px;color:#64748b">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""}${t.ort?" · "+esc(t.ort):""}</div>
+      <div style="font-size:11px;color:#64748b">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""}${heimLabel(t)?" · "+heimLabel(t):""}${t.ort?" · "+esc(t.ort):""}</div>
       ${kidRows}
     </div>`;
   }).join("");
@@ -409,7 +409,7 @@ function elternTermineOpen(){
       <div style="font-size:20px;width:28px;text-align:center">${tm.icon}</div>
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:13px">${esc(t.titel||t.gegner||tm.label)}${i===0?' <span style="font-size:10px;color:#2563eb;font-weight:800">· NÄCHSTER</span>':""}</div>
-        <div style="font-size:11px;color:#64748b">${twtag} ${td.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${tzeit?" · "+tzeit+" Uhr":""}${t.ort?" · "+esc(t.ort):""}${t.platz?" · 🏟️ "+esc(t.platz):""}</div>
+        <div style="font-size:11px;color:#64748b">${twtag} ${td.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${tzeit?" · "+tzeit+" Uhr":""}${heimLabel(t)?" · "+heimLabel(t):""}${t.ort?" · "+esc(t.ort):""}${t.platz?" · 🏟️ "+esc(t.platz):""}</div>
       </div>
       <span style="font-size:10px;font-weight:700;color:${tm.col};background:${tm.col}18;border-radius:6px;padding:3px 7px;white-space:nowrap">${tm.label}</span>
     </div>`;}).join(""):'<div style="font-size:12.5px;color:#94a3b8;padding:10px 0">Aktuell sind keine Termine geplant.</div>';
@@ -2012,7 +2012,15 @@ function tbAddDrag(tok,fieldEl){
 /* ═══════════════════════════════════
    KALENDER / TERMINE – das Rückgrat, das Training, Spiele und Turniere verbindet
 ═══════════════════════════════════ */
-let tmTyp="training", tmSpielform="4+1";
+let tmTyp="training", tmSpielform="4+1", tmHeim=true;
+// Heimadresse des SV Adler Dellbrück – wird bei Training & Heimspielen vorbelegt.
+const VEREIN_ADRESSE="Thurner Kamp 97, 51069 Köln";
+// Nächstes Trainingsdatum: wir trainieren Mo & Fr – das jeweils nächste dieser Tage.
+function tmNextTrainingDate(){
+  const d=new Date(); d.setHours(0,0,0,0);
+  for(let i=0;i<8;i++){ const t=new Date(d.getTime()+i*86400000); const wd=t.getDay(); if(wd===1||wd===5)return t.toISOString().slice(0,10); }
+  return d.toISOString().slice(0,10);
+}
 const TM_META={training:{icon:"🏃",label:"Training",col:"#1a56db"},spiel:{icon:"⚽",label:"Spiel",col:"#059669"},turnier:{icon:"🏆",label:"Turnier",col:"#c2410c"},event:{icon:"🎉",label:"Event",col:"#7c3aed"}}; // UX 7: Event mit Freitext-Titel (Saisonabschluss etc.)
 // Saison-Zuordnung aus einem Datum (Saison läuft Jul–Jun)
 function saisonForDate(datum){
@@ -2022,18 +2030,40 @@ function saisonForDate(datum){
 }
 function tmSetTyp(t,btn){
   tmTyp=t;
-  btn.parentElement.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active"));
-  btn.classList.add("active");
-  const titelRow=document.getElementById("tm-titel-row");
-  if(titelRow)titelRow.style.display=t==="training"?"none":"block"; // Training braucht keinen Titel/Gegner
-  const lbl=document.getElementById("tm-titel-lbl");
-  if(lbl)lbl.textContent=t==="event"?"Titel (z. B. Saisonabschluss, Weihnachtsfeier)":"Gegner / Titel";
-  const platzRow=document.getElementById("tm-platz")?.closest(".mg");
-  if(platzRow)platzRow.style.display=t==="training"?"block":"none"; // Platz nur beim Training relevant
-  const sfRow=document.getElementById("tm-spielform-row");
-  if(sfRow)sfRow.style.display=(t==="spiel"||t==="turnier")?"block":"none"; // Spielform nur bei Spiel/Turnier
-  const drRow=document.getElementById("tm-dauer-row");
-  if(drRow)drRow.style.display=(t==="spiel"||t==="turnier")?"block":"none"; // Spieldauer nur bei Spiel/Turnier (speist die Match-Uhr)
+  if(btn){btn.parentElement.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active"));btn.classList.add("active");}
+  const istSpiel=(t==="spiel"||t==="turnier");
+  const disp=(id,on)=>{const el=document.getElementById(id);if(el)el.style.display=on?"block":"none";};
+  disp("tm-titel-row", t!=="training");                 // Training braucht keinen Titel/Gegner
+  const lbl=document.getElementById("tm-titel-lbl"); if(lbl)lbl.textContent=t==="event"?"Titel (z. B. Saisonabschluss, Weihnachtsfeier)":"Gegner / Titel";
+  const platzRow=document.getElementById("tm-platz")?.closest(".mg"); if(platzRow)platzRow.style.display=t==="training"?"block":"none";
+  disp("tm-spielform-row", istSpiel);
+  disp("tm-dauer-row", istSpiel);
+  disp("tm-heim-row", istSpiel);                          // Heim/Auswärts nur bei Spiel/Turnier
+  const gdb=document.getElementById("tm-gegnerdb-btn"); if(gdb)gdb.style.display=istSpiel?"inline-flex":"none"; // Gegner-DB nur bei Spiel/Turnier (nicht bei Training/Event)
+  const zeit=document.getElementById("tm-zeit"), platz=document.getElementById("tm-platz"), datum=document.getElementById("tm-datum"), ort=document.getElementById("tm-ort");
+  if(t==="training"){
+    if(zeit)zeit.value="16:45";                          // Mo & Fr 16:45–18:00
+    if(platz)platz.value="vorne links";
+    if(ort)ort.value=VEREIN_ADRESSE;                     // Training immer auf dem Vereinsgelände
+    if(datum&&!datum.value)datum.value=tmNextTrainingDate();
+  } else if(istSpiel){
+    tmSetHeim(true);                                      // Standard: Heimspiel → Vereinsadresse
+  } else if(t==="event"){
+    if(ort&&ort.value===VEREIN_ADRESSE)ort.value="";     // Event: übernommene Vereinsadresse nicht erzwingen
+  }
+}
+// Heim/Auswärts umschalten. Heim → Vereinsadresse vorbelegen; Auswärts → freigeben.
+function tmSetHeim(isHeim,btn){
+  tmHeim=!!isHeim;
+  const seg=document.getElementById("tm-heim-seg");
+  if(seg){ seg.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active")); const a=btn||seg.querySelector('.seg-btn[data-val="'+(isHeim?"heim":"ausw")+'"]'); if(a)a.classList.add("active"); }
+  const ort=document.getElementById("tm-ort");
+  if(ort){ if(isHeim)ort.value=VEREIN_ADRESSE; else if(ort.value===VEREIN_ADRESSE)ort.value=""; }
+}
+// Heim/Auswärts-Kennzeichnung für Spiele & Turniere (leer bei Training/Event oder unbekannt).
+function heimLabel(t){
+  if(!t||(t.typ!=="spiel"&&t.typ!=="turnier")||t.heim==null)return "";
+  return t.heim?"🏠 Heim":"✈️ Auswärts";
 }
 function tmSetSpielform(f,btn){
   tmSpielform=f;
@@ -2041,8 +2071,7 @@ function tmSetSpielform(f,btn){
   btn.classList.add("active");
 }
 function tmInit(){
-  const d=document.getElementById("tm-datum");
-  if(d&&!d.value)d.value=new Date().toISOString().slice(0,10);
+  tmSetTyp("training"); // Standard-Typ + Vorbelegung (Zeit 16:45, Platz „vorne links", Vereinsadresse, nächstes Mo/Fr)
   tmLoad();
 }
 async function tmAdd(){
@@ -2059,13 +2088,14 @@ async function tmAdd(){
     saison: saisonForDate(datum),
     spielform: istSpiel?tmSpielform:null,
     gegner: istSpiel?(titel||null):null,
-    spieldauer_min: istSpiel?parseInt(document.getElementById("tm-dauer")?.value||"20"):20,
-    halbzeiten: istSpiel?(parseInt(document.getElementById("tm-halbzeiten")?.value)||2):2
+    heim: istSpiel?tmHeim:null,
+    spieldauer_min: istSpiel?parseInt(document.getElementById("tm-dauer")?.value||"10"):20,
+    halbzeiten: istSpiel?(parseInt(document.getElementById("tm-halbzeiten")?.value)||1):2
   };
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify(body)});
     if(sbCheck401(r))return;
-    if(r.ok||r.status===201){terminIdCacheClear();toast("Termin angelegt ✓");document.getElementById("tm-titel").value="";document.getElementById("tm-ort").value="";const pz=document.getElementById("tm-platz");if(pz)pz.value="";const rb=document.getElementById("tm-addr-results");if(rb)rb.innerHTML="";tmLoad();}
+    if(r.ok||r.status===201){terminIdCacheClear();toast("Termin angelegt ✓");document.getElementById("tm-titel").value="";const rb=document.getElementById("tm-addr-results");if(rb)rb.innerHTML="";tmSetTyp(tmTyp);tmLoad();}
     else toast("Fehler beim Anlegen","err");
   }catch(e){toast("Netzwerkfehler","err");}
 }
@@ -2382,6 +2412,7 @@ function tmCard(t){
   if(t.datum>=new Date().toISOString().slice(0,10)) actions+=`<button class="btn btn-sm" onclick="rsvpOverviewOpen(${Number(t.id)})" title="Wer hat schon geantwortet?"><i class="ti ti-list-check"></i>Rückmeldungen</button>`;
   const zeitStr=t.uhrzeit?String(t.uhrzeit).slice(0,5):((/Uhrzeit:\s*(\d{1,2}:\d{2})/.exec(t.notiz||"")||[])[1]||"");
   const sfBadge=(istSpiel&&t.spielform)?`<span style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;background:${m.col}22;color:${m.col}">${esc(t.spielform)}</span>`:"";
+  const hb=heimLabel(t), hBadge=hb?`<span style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;background:${t.heim?"#dcfce7":"#fef3c7"};color:${t.heim?"#15803d":"#b45309"}">${hb}</span>`:"";
   const notizClean=(t.notiz&&!/^Uhrzeit:/.test(t.notiz))?t.notiz:"";
   // UX 3: Trainer-Erinnerung per WhatsApp – Deep-Link (?portal&rsvp=…) fuehrt Eltern direkt zur
   // Rueckmeldung. Fuellt nur die Nachricht vor; Absenden/Empfaenger waehlt der Trainer selbst.
@@ -2393,7 +2424,7 @@ function tmCard(t){
   }
   return `<div style="background:var(--surface);border:var(--border-s);border-left:3px solid ${m.col};border-radius:var(--rl);padding:10px 12px;margin-bottom:8px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
-      <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px">${m.icon} ${esc(t.titel||m.label)}${sfBadge}</div>
+      <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;flex-wrap:wrap">${m.icon} ${esc(t.titel||m.label)}${hBadge}${sfBadge}</div>
       <div style="font-size:11px;color:var(--text2);white-space:nowrap">${datumStr}${zeitStr?" · "+zeitStr:""}</div>
     </div>
     ${t.ort?`<div style="font-size:11px;color:var(--text2)"><i class="ti ti-map-pin" style="font-size:11px"></i> ${mapsAnchor(t.ort)}</div>`:""}
