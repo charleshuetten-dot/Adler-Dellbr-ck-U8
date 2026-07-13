@@ -668,6 +668,7 @@ function toggleTheme(){
   const next=effDark?"light":"dark";
   try{localStorage.setItem("adler_theme",next);}catch(e){}
   applyTheme(next);
+  if(typeof elternThemeOnToggle==="function")elternThemeOnToggle(); // Eltern-Bereich (feste Farben) mit-einfärben
   if(typeof hapticTap==="function")hapticTap(12);
 }
 (function(){ try{ applyTheme(localStorage.getItem("adler_theme")); }catch(e){} })(); // sofort (Anti-Flash)

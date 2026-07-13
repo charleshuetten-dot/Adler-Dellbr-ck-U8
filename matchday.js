@@ -76,6 +76,7 @@ function elternPortalLogin(root){
     <div id="ep-err" style="font-size:12px;color:#dc2626;min-height:16px;margin-top:10px;text-align:center"></div>
     <div style="font-size:10.5px;color:#94a3b8;text-align:center;margin-top:14px">Nur E-Mail-Adressen, die dein Trainer hinterlegt hat, sehen die Daten ihres Kindes.</div>
   </div>`;
+  if(typeof elternThemeInit==="function"){ elternThemeInit(); elternThemeSweep(root); } // Login-Screen dem Theme folgen lassen
 }
 async function elternPortalSend(){
   const email=document.getElementById("ep-email")?.value.trim().toLowerCase();
@@ -124,12 +125,15 @@ function elternPortalDashboard(root){
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px 12px">
       <div style="font-size:18px;font-weight:800">🦅 Eltern-Bereich</div>
       <div style="display:flex;align-items:center;gap:10px">
+        <button id="theme-toggle" onclick="toggleTheme()" title="Hell / Dunkel umschalten" aria-label="Theme umschalten" style="border:1.5px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:15px;line-height:1">🌙</button>
         <button onclick="elternTourStart()" title="Kurze Tour" aria-label="Hilfe/Tour" style="border:1.5px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:15px;line-height:1">❓</button>
         <button onclick="elternPortalLogout()" style="border:none;background:none;color:#64748b;font-size:12px;cursor:pointer">Abmelden</button>
       </div>
     </div>
     <div id="ep-dash-body"><div style="text-align:center;padding:40px;color:#64748b">Lade…</div></div>
   </div>`;
+  if(typeof applyTheme==="function")applyTheme(localStorage.getItem("adler_theme")); // Toggle-Icon + data-theme
+  if(typeof elternThemeInit==="function"){ elternThemeInit(); elternThemeSweep(document.getElementById("eltern-portal")||document.body); } // Kopfzeile bei Dark einfärben
   dsgvoEnsureConsent(elternDashLoad); // Dashboard erst nach Datenschutz-Einwilligung laden
 }
 // Datenschutz-Einwilligung beim (ersten) Eltern-Login. Server-Nachweis in dsgvo_consent
@@ -178,6 +182,58 @@ async function dsgvoAccept(){
 const EP_RSVP={zugesagt:{lbl:"Zusage",emo:"👍",col:"#059669"},unsicher:{lbl:"Unsicher",emo:"🤔",col:"#ca8a04"},abgesagt:{lbl:"Absage",emo:"👎",col:"#dc2626"},krank:{lbl:"Krank",emo:"🤒",col:"#d97706"}};
 // Schnell-Rückmeldung im Karussell: die drei vom PO gewünschten Stufen.
 const EP_RSVP_QUICK=["zugesagt","unsicher","abgesagt"];
+/* ── Tag/Nacht-Modus für den Eltern-Bereich ──────────────────────────────────
+   Der Eltern-Bereich ist mit festen Hell-Farben (Inline-Styles) gebaut und reagiert
+   – anders als die Trainer-App – nicht auf die CSS-Variablen. Statt hunderte Literale
+   umzuschreiben, färbt ein zentraler, luminanz-basierter „Sweep" ein: sehr helle
+   Flächen → dunkel, sehr dunkler Text → hell. Marken-/Akzentfarben (mittlere Helligkeit)
+   bleiben. Läuft nur bei aktivem Dark-Theme, ist idempotent und erfasst per
+   MutationObserver auch später geöffnete Modals/Slots. Body-Hintergrund kommt schon
+   aus var(--bg) und ist damit ohnehin theme-fähig. */
+function elternDarkActive(){
+  const a=document.documentElement.getAttribute("data-theme");
+  if(a==="dark")return true; if(a==="light")return false;
+  return !!(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches);
+}
+function _elRgb(s){ const m=/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(s||""); if(!m)return null; const a=m[4]==null?1:parseFloat(m[4]); return a===0?null:[+m[1],+m[2],+m[3]]; }
+function _elLum(c){ return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2]; }
+function _elMix(c,t,p){ return `rgb(${Math.round(c[0]+(t[0]-c[0])*p)}, ${Math.round(c[1]+(t[1]-c[1])*p)}, ${Math.round(c[2]+(t[2]-c[2])*p)})`; }
+function _elSweepOne(el){
+  const s=el.style; if(!s)return;
+  const bg=_elRgb(s.backgroundColor);
+  if(bg&&_elLum(bg)>216) s.backgroundColor=_elMix(bg,[17,24,39],0.90);   // helle Fläche → dunkel
+  const col=_elRgb(s.color);
+  if(col){ const L=_elLum(col);
+    if(L<60) s.color=_elMix(col,[226,232,240],0.86);        // fast-schwarze Tinte → deutlich hell
+    else if(L<128) s.color=_elMix(col,[226,232,240],0.5);   // dunkle Marken-/Textfarbe → aufhellen
+  }
+  ["borderTopColor","borderRightColor","borderBottomColor","borderLeftColor"].forEach(p=>{
+    const b=_elRgb(s[p]); if(b&&_elLum(b)>205) s[p]=_elMix(b,[51,65,85],0.72);
+  });
+}
+function elternThemeSweep(root){
+  if(!elternDarkActive())return;
+  root=root||document.body; if(!root||root.nodeType!==1)return;
+  if(root.hasAttribute&&root.hasAttribute("style"))_elSweepOne(root);
+  const list=root.querySelectorAll?root.querySelectorAll("[style]"):[];
+  for(const el of list)_elSweepOne(el);
+}
+let _elThemeObs=null;
+function elternThemeInit(){
+  if(_elThemeObs||!document.body)return;
+  _elThemeObs=new MutationObserver(muts=>{
+    if(!elternDarkActive())return;
+    for(const mu of muts) for(const n of mu.addedNodes) if(n.nodeType===1) elternThemeSweep(n);
+  });
+  _elThemeObs.observe(document.body,{childList:true,subtree:true});
+}
+// Wird vom globalen toggleTheme (core.js) aufgerufen.
+function elternThemeOnToggle(){
+  if(!document.getElementById("ep-dash-body"))return;      // nur im Eltern-Dashboard
+  if(typeof applyTheme==="function")applyTheme(localStorage.getItem("adler_theme")); // Toggle-Icon
+  if(elternDarkActive())elternThemeSweep(document.body);   // dunkel: direkt einfärben
+  else if(typeof elternDashLoad==="function")elternDashLoad(); // hell: sauber neu rendern
+}
 async function elternDashLoad(){
   const body=document.getElementById("ep-dash-body");
   if(!body)return;
@@ -258,6 +314,9 @@ async function elternDashLoad(){
     </div>`;
   }
   html+=elternTermineCarouselHtml(termineListe,kids,rsvpAll); // Schnell-Zu-/Absage für alle Termine
+  // Mitbringliste (Events) + Büdchendienst (Heimspiele) bewusst weit oben – das sind To-dos.
+  html+=`<div id="mitbring-slot"></div>`;     // Event-Mitbringliste (async, nur bei kommenden Events)
+  html+=`<div id="buedchen-slot"></div>`;     // Büdchen-Einteilung bei Heimspielen (async)
   // ── Kabine (Kinder-Modus) – das Quiz lebt ausschließlich hier ──
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🎮 Für die Kinder</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Die Kabine ist der Kinder-Modus: Team-Galerie, Missionen und das Fußball-Quiz (${XP_ICON} Federn sammeln).</div>
@@ -303,8 +362,6 @@ async function elternDashLoad(){
     <button onclick="fundbueroOpen()" style="width:100%;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Fundbüro öffnen</button>`);
   html+=`<div id="skill-slot"></div>`;        // Skill der Woche
   if(WAESCHE_AKTIV)html+=`<div id="waesche-slot"></div>`;  // Trikot-Wäsche-Rotator (aktuell ausgeblendet)
-  html+=`<div id="mitbring-slot"></div>`;     // Event-Mitbringliste (async, nur bei kommenden Events)
-  html+=`<div id="buedchen-slot"></div>`;     // Büdchen-Einteilung bei Heimspielen (async)
   // Teamkasse (read-only): Saldo + offene Umlagen über RPC, PayPal nur als Link
   let kasse=null;
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kasse_summary`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)kasse=await r.json();}catch(e){}
@@ -320,6 +377,8 @@ async function elternDashLoad(){
   }
   html+=`<div id="ak-slot"></div>`; // FEAT Z: Adler-Kasse (async, nur wenn Link gesetzt)
   body.innerHTML=html;
+  elternThemeInit();          // Observer für Modals/Slots (einmalig)
+  elternThemeSweep(body);     // Dashboard bei Dark-Theme einfärben
   if(termin&&termin.datum)wetterInto("wetter-eltern",termin.datum,termin.ort,termin.uhrzeit); // Wetter am Termin-Ort + Uhrzeit
   if(termin&&termin.typ==="training")elternBetreuungLoad(termin.id,kids); // wer bleibt vor Ort
   if(termin&&termin.typ==="turnier")elternTurnierplanLoad(termin);        // Begegnungen, Turnierbaum, Aushang
@@ -469,6 +528,11 @@ async function terminDetailOpen(id){
     <div id="td-nom"></div>
     <div id="td-betreuung"></div>
     <div id="td-buedchen"></div>
+    ${t.typ==="event"?`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
+      <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🎉 Mitbringliste</div>
+      <div style="font-size:11.5px;color:#64748b;margin-bottom:8px">Wer bringt was mit? (Salat, Kuchen, Getränke, Pavillon …)</div>
+      <button onclick="tdMitbringGoto()" style="width:100%;min-height:48px;padding:12px;border:1.5px solid #16a34a;border-radius:10px;background:#f0fdf4;color:#15803d;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">🎉 Mitbringliste öffnen</button>
+    </div>`:""}
     <button onclick="document.getElementById('td-modal').remove()" style="width:100%;margin-top:14px;padding:11px;border:none;border-radius:10px;background:#f1f5f9;color:#334155;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Schließen</button>`;
   modal.appendChild(c);document.body.appendChild(modal);
   if(t.datum)wetterInto("td-wetter",t.datum,t.ort,t.uhrzeit);
@@ -539,10 +603,18 @@ async function tdBuedchenLoad(t,kids){
   const meineIds=(kids||[]).map(k=>k.spieler_id);
   const meine=(fam||[]).find(f=>meineIds.includes(f.spieler_id));
   const namen=(fam&&fam.length)?fam.map(f=>esc(f.name)+"s Familie").join(" & "):"– wird eingeteilt –";
-  box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
+  box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px${meine?";background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:10px 12px":""}">
     <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🍿 Büdchen (2 Familien)</div>
     <div style="font-size:12.5px">Eingeteilt: <b>${namen}</b></div>
-    ${meine?`<button onclick="tdBuedchenOptout(${t.id},${meine.spieler_id})" style="width:100%;margin-top:8px;min-height:44px;border:1.5px solid #dc2626;border-radius:10px;background:#fff;color:#dc2626;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Wir können nicht – nächste Familie</button>`:""}</div>`;
+    ${meine?`<div style="margin-top:6px;font-size:12.5px;color:#15803d;font-weight:700">Ihr seid diesmal dran – danke fürs Büdchen! 🙌</div>
+      <button onclick="tdBuedchenOptout(${t.id},${meine.spieler_id})" style="width:100%;margin-top:8px;min-height:44px;border:1.5px solid #dc2626;border-radius:10px;background:#fff;color:#dc2626;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Wir können nicht – nächste Familie</button>`:""}</div>`;
+}
+// Vom Event-Termin-Detail zur Mitbringliste auf dem Dashboard (liegt jetzt weit oben).
+function tdMitbringGoto(){
+  document.getElementById("td-modal")?.remove();
+  const el=document.getElementById("mitbring-slot");
+  if(el){ el.scrollIntoView({behavior:"smooth",block:"start"}); try{el.animate([{opacity:.35},{opacity:1}],{duration:500,iterations:2});}catch(e){} }
+  else toast("Die Mitbringliste erscheint, sobald das Event näher rückt.");
 }
 async function tdBuedchenOptout(terminId,spielerId){
   if(!confirm("Ihr könnt beim Büdchen nicht? Dann rückt die nächste Familie nach."))return;
