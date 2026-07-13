@@ -2259,6 +2259,46 @@ async function kabineCodeSave(btn){
   toast("Kabinen-Code geändert ✓ Sag ihn den Eltern.");
 }
 
+/* Passwort selbst ändern (Trainer-App). Setzt das Passwort über die eigene Sitzung
+   (PUT /auth/v1/user) – kein Admin/keine E-Mail nötig. Die laufende Sitzung bleibt gültig.
+   Damit kann ein gemeinsames Start-Passwort nach dem ersten Login individuell ersetzt werden. */
+function pwChangeOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("pw-modal")?.remove();
+  const m=document.createElement("div");m.id="pw-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  const fld="width:100%;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text);box-sizing:border-box";
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);max-width:360px;width:100%;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)">
+    <div style="font-weight:800;font-size:16px;margin-bottom:2px">🔑 Passwort ändern</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Wähle ein eigenes, sicheres Passwort (mind. 8 Zeichen).</div>
+    <label style="font-size:11px;color:var(--text2)">Neues Passwort<input type="password" id="pw-new" autocomplete="new-password" style="${fld}"></label>
+    <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Nochmal eingeben<input type="password" id="pw-new2" autocomplete="new-password" onkeydown="if(event.key==='Enter')pwChangeSave()" style="${fld}"></label>
+    <div id="pw-err" style="color:#dc2626;font-size:12px;min-height:16px;margin-top:6px"></div>
+    <div style="display:flex;gap:8px;margin-top:2px">
+      <button class="btn btn-p btn-sm" onclick="pwChangeSave(this)"><i class="ti ti-device-floppy"></i>Speichern</button>
+      <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('pw-modal').remove()">Abbrechen</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  setTimeout(()=>document.getElementById("pw-new")?.focus(),50);
+}
+async function pwChangeSave(btn){
+  const p1=document.getElementById("pw-new")?.value||"", p2=document.getElementById("pw-new2")?.value||"";
+  const err=document.getElementById("pw-err"); const fail=(msg)=>{ if(err)err.textContent=msg; };
+  if(p1.length<8){fail("Mindestens 8 Zeichen.");return;}
+  if(p1!==p2){fail("Die Passwörter stimmen nicht überein.");return;}
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/auth/v1/user`,{method:"PUT",headers:sbAuthHeaders(),body:JSON.stringify({password:p1})});
+    if(r.status===401){sbCheck401(r);return;}
+    if(!r.ok){ const d=await r.json().catch(()=>({})); fail(d.msg||d.error_description||d.error||("Fehler "+r.status)); return; }
+  }catch(e){ fail("Netzwerkfehler – bist du online?"); return; }
+  finally{ if(btn)btn.disabled=false; }
+  document.getElementById("pw-modal")?.remove();
+  toast("Passwort geändert ✓ – ab jetzt gilt dein neues Passwort.");
+}
+
 /* Kopfzeile: statt einer veralteten Trainer-Liste der nächste Termin.
    Fällt still auf "U9 I · Trainerstab" zurück (offline, kein Termin, kein Login). */
 async function topbarNaechsterTermin(){
@@ -2357,7 +2397,8 @@ async function renderHome(){
     <button onclick="einheitBewertenOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">⭐ Einheit bewerten</button>
     <button onclick="stadionheftOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">📰 Adler Horst erstellen & drucken</button>
     <button onclick="adlerWeltOpen()" style="width:100%;min-height:44px;margin-top:8px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">🪶 Adler-Welt · Federn, Karten, Abzeichen, Challenge</button>
-    <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;margin-top:12px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>`;
+    <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;margin-top:12px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>
+    <button onclick="pwChangeOpen()" style="width:100%;min-height:44px;margin-top:12px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text2);background:var(--surface)">🔑 Mein Passwort ändern</button>`;
 
   homeRadarLoad(); // "Kein Kind übersehen"-Radar async nachladen
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
