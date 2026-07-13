@@ -1863,6 +1863,30 @@ function homeGebTage(geb){ // Tage bis zum nächsten Geburtstag (0 = heute)
 }
 // "Kein Kind übersehen"-Radar: welche Kinder hatten zuletzt am wenigsten Spielzeit/Aktionen?
 // Fairness-Nudge fürs Trainer-Dashboard. Nur bei genug Daten sichtbar.
+/* Elterngespräch-Wünsche (Trainer): offene Anfragen der Eltern anzeigen + abhaken. */
+async function elterngespraecheTrainerLoad(){
+  const box=document.getElementById("eg-trainer"); if(!box)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/elterngespraech_wunsch?status=eq.offen&select=id,thema,created_at,kader(name)&order=created_at.asc`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)rows=await r.json();}catch(e){}
+  if(!rows.length){box.innerHTML="";return;}
+  box.innerHTML=`<div class="card" style="border-left:3px solid #7c3aed;padding:12px 14px;margin-top:10px">
+    <div style="font-weight:800;font-size:13.5px;margin-bottom:6px">🗣️ Elterngespräch-Wünsche (${rows.length})</div>
+    ${rows.map(w=>`<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:var(--border-s)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700">${esc((w.kader&&w.kader.name)||"Ein Elternteil")}</div>
+        ${w.thema?`<div style="font-size:11.5px;color:var(--text2);line-height:1.4">${esc(w.thema)}</div>`:`<div style="font-size:11.5px;color:var(--text3)">Kein Thema angegeben</div>`}
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">${new Date(w.created_at).toLocaleDateString("de-DE")}</div>
+      </div>
+      <button onclick="elterngespraechErledigt(${w.id})" class="btn btn-sm" style="flex:none">Erledigt</button>
+    </div>`).join("")}
+    <div style="font-size:10.5px;color:var(--text3);margin-top:6px">Tipp: Für die Terminabstimmung kannst du eine Elterngespräch-Umfrage starten (Doodle).</div>
+  </div>`;
+}
+async function elterngespraechErledigt(id){
+  try{const r=await fetch(`${SB_URL}/rest/v1/elterngespraech_wunsch?id=eq.${id}`,{method:"PATCH",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({status:"erledigt"})});if(sbCheck401(r))return;if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht ändern"),"err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Als erledigt markiert ✓");
+  elterngespraecheTrainerLoad();
+}
 async function homeRadarLoad(){
   const box=document.getElementById("home-radar"); if(!box)return;
   const active=KADER.filter(k=>k.aktiv!==false); if(active.length<3){box.innerHTML="";return;}
@@ -2437,6 +2461,7 @@ async function renderHome(){
       ${statTile(stale,"überfällig >6 Wo","#dc2626","go('bew')")}
     </div>
     <div id="home-radar"></div>
+    <div id="eg-trainer"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-p" style="flex:1;min-height:46px" onclick="openTab('spieltag')"><i class="ti ti-whistle"></i>Spieltag</button>
       <button class="btn" style="flex:1;min-height:46px" onclick="go('anwesenheit')"><i class="ti ti-checkbox"></i>Anwesenheit</button>
@@ -2454,6 +2479,7 @@ async function renderHome(){
     <button onclick="pwChangeOpen()" style="width:100%;min-height:44px;margin-top:12px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text2);background:var(--surface)">🔑 Mein Passwort ändern</button>`;
 
   homeRadarLoad(); // "Kein Kind übersehen"-Radar async nachladen
+  elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc&limit=2`,{headers:sbAuthHeaders()});

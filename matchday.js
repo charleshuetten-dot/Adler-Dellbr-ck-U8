@@ -282,6 +282,11 @@ async function elternDashLoad(){
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Die Regeln, damit der Spielfeldrand ein guter Ort für die Kinder bleibt.</div>
     <button onclick="fairplayOpen()" style="width:100%;padding:11px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">Codex ansehen</button>
     <button onclick="fairplayQuizStart(window._elternKids||[])" style="width:100%;margin-top:8px;padding:11px;border:1.5px solid #16a34a;border-radius:10px;background:#fff;color:#15803d;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🏅 Fairplay-Quiz spielen · ${XP_ICON} 50 Federn fürs Kind</button>`);
+  // Elterngespräch anfragen – signalisiert dem Trainer den Bedarf
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">🗣️ Elterngespräch</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Du möchtest mit dem Trainer über dein Kind sprechen? Sag kurz Bescheid – der Trainer meldet sich zur Terminabstimmung.</div>
+    <div id="eg-slot"></div>
+    <button onclick="elternGespraechOpen()" style="width:100%;padding:11px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Elterngespräch anfragen</button>`);
   // Adler-Börse (Phase 23.1): interner Flohmarkt
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🛍️ Adler-Börse</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Zu kleine Schuhe oder Trikots? Gib sie an ein anderes Adler-Kind weiter.</div>
@@ -318,6 +323,7 @@ async function elternDashLoad(){
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(!el)return;el.innerHTML=adlerkasseCardHtml(l)+(l?akShareBtnHtml():"");if(l)window._akLink=l;}).catch(()=>{});
   elternMitbringLoad(kids);                    // Event-Mitbringliste: wer bringt was mit
   elternBuedchenLoad(termineListe,kids);       // Büdchen-Einteilung bei Heimspielen
+  elternGespraechStatus();                     // laufende Elterngespräch-Anfrage anzeigen
   if(WAESCHE_AKTIV)elternWaescheLoad(kids);    // Trikot-Wäsche-Rotator (aktuell ausgeblendet)
   elternSkillLoad(kids);   // Skill der Woche
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
@@ -6349,6 +6355,50 @@ async function buedchenOptout(terminId,spielerId){
   }catch(e){toast("Netzwerkfehler","err");return;}
   toast("Danke – die nächste Familie rückt nach.");
   if(typeof elternDashLoad==="function")elternDashLoad();
+}
+/* Elterngespräch: die Eltern signalisieren Bedarf, der Trainer sieht die Wünsche und
+   meldet sich zur Terminabstimmung. Anfrage = eine Zeile in elterngespraech_wunsch. */
+async function elternGespraechStatus(){
+  const slot=document.getElementById("eg-slot"); if(!slot)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/elterngespraech_wunsch?status=eq.offen&select=id,thema,created_at&order=created_at.desc`,{headers:sbAuthHeaders()});if(r.ok)rows=await r.json();}catch(e){}
+  if(!rows.length){slot.innerHTML="";return;}
+  slot.innerHTML=rows.map(w=>`<div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:12.5px;color:#6b21a8">✓ Anfrage gesendet – der Trainer meldet sich.${w.thema?`<div style="font-size:11px;color:#7c3aed;margin-top:2px">Thema: ${esc(w.thema)}</div>`:""}</div>`).join("");
+}
+function elternGespraechOpen(){
+  const kids=window._elternKids||[];
+  document.getElementById("eg-modal")?.remove();
+  const m=document.createElement("div");m.id="eg-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10041;display:flex;align-items:center;justify-content:center;padding:16px";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  const kidSel=(kids.length>1)?`<label style="font-size:11px;color:#64748b;display:block;margin-bottom:8px">Um welches Kind geht es?<select id="eg-kid" style="width:100%;padding:9px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:14px;margin-top:2px">${kids.map(k=>`<option value="${k.spieler_id}">${esc((k.kader&&k.kader.name)||"Kind")}</option>`).join("")}</select></label>`:"";
+  m.innerHTML=`<div style="background:#fff;color:#1a1a2e;max-width:380px;width:100%;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)">
+    <div style="font-weight:800;font-size:16px;margin-bottom:2px">🗣️ Elterngespräch anfragen</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:12px">Der Trainer bekommt deinen Wunsch und meldet sich zur Terminabstimmung.</div>
+    ${kidSel}
+    <label style="font-size:11px;color:#64748b">Worum geht es? (optional)<textarea id="eg-thema" rows="3" placeholder="z. B. Entwicklung, Position, eine Frage …" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:14px;margin-top:2px;resize:vertical"></textarea></label>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button onclick="elternGespraechSave(this)" style="flex:1;min-height:44px;border:none;border-radius:10px;background:#7c3aed;color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">Anfrage senden</button>
+      <button onclick="document.getElementById('eg-modal').remove()" style="min-height:44px;padding:0 16px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;color:#334155;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Abbrechen</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+async function elternGespraechSave(btn){
+  const kids=window._elternKids||[];
+  const sel=document.getElementById("eg-kid");
+  const spielerId=sel?Number(sel.value):(kids[0]&&kids[0].spieler_id)||null;
+  const thema=(document.getElementById("eg-thema")?.value||"").trim()||null;
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/elterngespraech_wunsch`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({spieler_id:spielerId,thema})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht senden"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  document.getElementById("eg-modal")?.remove();
+  toast("Anfrage gesendet – der Trainer meldet sich 🗣️");
+  elternGespraechStatus();
 }
 // Trainer-Terminliste: die eingeteilten Büdchen-Familien je Heimspiel nachladen (plant bei Bedarf).
 async function buedchenTrainerFill(t){
