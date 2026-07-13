@@ -217,7 +217,7 @@ function toggleTF(id){
 
 document.getElementById("p-date").value=new Date().toISOString().slice(0,10);
 document.getElementById("tp-date").value=new Date().toISOString().slice(0,10);
-document.getElementById("aw-date").value=new Date().toISOString().slice(0,10);
+// aw-date ist jetzt ein Termin-Dropdown (awDatesLoad füllt es beim Öffnen des Tabs).
 loadKader().then(()=>loadDB()).then(()=>{if(curSection==="home")renderHome();}).then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500)); // Kader (Supabase) zuerst, dann G1 + KI-Light + Home-Stats
 loadCustomForms();
 openTab("home"); // Start auf dem Trainer-Dashboard + Sub-Tab-Leiste initial rendern
@@ -396,10 +396,34 @@ let AW_DATA={};
 const AW_KEY="adler_anwesenheit";
 try{AW_DATA=JSON.parse(localStorage.getItem(AW_KEY)||"{}");}catch(e){AW_DATA={};}
 
+// Anwesenheit hängt an den echten Terminen (Training/Spiel/Turnier/Event) – keine freie
+// Datumsauswahl. Füllt das aw-date-Dropdown mit den vorhandenen Terminen (neueste zuerst,
+// da Anwesenheit rückwirkend erfasst wird) und wählt den jüngsten nicht-künftigen vor.
+async function awDatesLoad(){
+  const sel=document.getElementById("aw-date"); if(!sel)return;
+  let rows=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?select=datum,typ,titel,gegner,uhrzeit&order=datum.desc,uhrzeit.desc.nullslast&limit=90`,{headers:sbAuthHeaders()});
+    if(!sbCheck401(r)&&r.ok)rows=await r.json();
+  }catch(e){}
+  rows=(rows||[]).filter(t=>["training","spiel","turnier","event"].includes(t.typ));
+  const heute=new Date().toISOString().slice(0,10);
+  if(!rows.length){ sel.innerHTML=`<option value="${heute}">Heute (${heute}) – noch kein Termin hinterlegt</option>`; awLoad(); return; }
+  const optHtml=t=>{
+    const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ};
+    const d=new Date(t.datum+"T00:00:00"), wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+    const dd=d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit"});
+    return `<option value="${t.datum}">${wtag} ${dd} · ${m.icon} ${esc(t.titel||t.gegner||m.label)}</option>`;
+  };
+  sel.innerHTML=rows.map(optHtml).join("");
+  const past=rows.find(t=>t.datum<=heute);          // rows sind desc -> jüngster vergangener zuerst
+  sel.value=(past?past.datum:rows[rows.length-1].datum);
+  awLoad(); // Trainer-Vorbelegung + Spielerliste rendern
+}
 function awRenderList(){
   const wrap=document.getElementById("aw-list");
   if(!wrap)return;
-  const datum=document.getElementById("aw-date").value;
+  const de=document.getElementById("aw-date"); const datum=de?de.value:"";
   const existing=AW_DATA[datum]||{};
   let html='<div class="card" style="overflow:hidden;margin-top:8px">';
   // Die 3 Spieler-Sterne wurden nach "Einheit bewerten" verschoben (dort im Kontext der
