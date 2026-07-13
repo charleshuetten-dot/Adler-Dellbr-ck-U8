@@ -489,7 +489,8 @@ async function elternCardShow(d){
   render();
   const modal=document.createElement("div");
   modal.id="adler-card-modal";
-  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:10001;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;overflow-y:auto";
+  // z-index über der Kabine (10050), damit die Karte auch aus dem Kinder-Modus sichtbar ist.
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:10060;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;overflow-y:auto";
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   canvas.style.cssText="max-width:100%;width:300px;height:auto;border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.5)";
   const cardWrap=cardHoloWrap(canvas); // FUT 2.0: Foil-Overlay über der Karte
@@ -524,22 +525,23 @@ const TECHNIK_ABZEICHEN=[
   {id:"ab_trick",emo:"✨",name:"Trick-Meister",desc:"Übe einen Übersteiger und schaff ihn 3× hintereinander."},
   {id:"ab_stoppen",emo:"🛑",name:"Ball-Stopper",desc:"Nimm einen zugeworfenen Ball 5× sauber an und stoppe ihn."}
 ];
-async function abzeichenOpen(spielerId,name){
+async function abzeichenOpen(spielerId,name,kidsMode){
   document.getElementById("abzeichen-modal")?.remove();
   const modal=document.createElement("div");
   modal.id="abzeichen-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Technik-Abzeichen");
-  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  // kidsMode: über der Kabine (10050) sichtbar und ohne Abhak-Buttons (Kinder tragen nichts selbst ein).
+  modal.style.cssText=`position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:${kidsMode?10060:10001};display:flex;flex-direction:column;padding:14px;overflow-y:auto`;
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const card=document.createElement("div");
   card.style.cssText="background:#fff;color:#1a1a2e;max-width:480px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   card.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🎖️ Technik-Abzeichen${name?" · "+esc(name):""}</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:12px">Übt zuhause und beim Spielen. Wenn dein Kind ein Abzeichen schafft, hakst du es ab – es gibt Adler-Federn ${XP_ICON}!</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:12px">${kidsMode?`Das hast du schon geschafft! Neue Abzeichen trägt Mama oder Papa im Eltern-Bereich ein – dann gibt's Adler-Federn ${XP_ICON}.`:`Übt zuhause und beim Spielen. Wenn dein Kind ein Abzeichen schafft, hakst du es ab – es gibt Adler-Federn ${XP_ICON}!`}</div>
     <div id="abzeichen-list" style="display:flex;flex-direction:column;gap:8px"><div style="color:#94a3b8;font-size:12px">Lade…</div></div>
     <button class="btn btn-sm" style="margin-top:12px;width:100%" onclick="document.getElementById('abzeichen-modal').remove()">Schließen</button>`;
   modal.appendChild(card);document.body.appendChild(modal);
-  abzeichenRender(spielerId);
+  abzeichenRender(spielerId,kidsMode);
 }
-async function abzeichenRender(spielerId){
+async function abzeichenRender(spielerId,kidsMode){
   const box=document.getElementById("abzeichen-list"); if(!box)return;
   let done=[];
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/xp_events_for`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler_id:spielerId,p_quelle:"abzeichen"})});if(r.ok)done=(await r.json())||[];}catch(e){}
@@ -554,7 +556,8 @@ async function abzeichenRender(spielerId){
           <div style="font-size:11px;color:#64748b;line-height:1.3">${esc(a.desc)}</div>
         </div>
         ${on?`<span style="font-size:11px;font-weight:800;color:#16a34a">✓ geschafft</span>`
-             :`<button onclick="abzeichenAward(${spielerId},'${a.id}',this)" style="flex:none;padding:8px 10px;border:none;border-radius:10px;background:#f59e0b;color:#fff;font-family:inherit;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap">Als geschafft eintragen</button>`}
+             :(kidsMode?`<span style="font-size:11px;font-weight:700;color:#94a3b8;white-space:nowrap">noch offen</span>`
+             :`<button onclick="abzeichenAward(${spielerId},'${a.id}',this)" style="flex:none;padding:8px 10px;border:none;border-radius:10px;background:#f59e0b;color:#fff;font-family:inherit;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap">Als geschafft eintragen</button>`)}
       </div>`;
     }).join("");
 }
@@ -927,6 +930,8 @@ function kabineHome(){
       <button onclick="kabineQuiz('wissen')" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🧠</span>Fußball-Wissen</button>
       <button onclick="kabineShowGallery()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🖼️</span>Team-Galerie</button>
       <button onclick="kabineShowQuests()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🏆</span>Missionen</button>
+      <button onclick="kabineMyCard()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🃏</span>Meine Karte</button>
+      <button onclick="kabineAbzeichen()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎖️</span>Abzeichen</button>
       <button onclick="kabineSkillWoche()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎬</span>Skill der Woche</button>
       <button onclick="kabineHype()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎵</span>Kabinen-Hype</button>
     </div>
@@ -973,6 +978,30 @@ async function kabineSkillWoche(){
 // mode: "taktik" | "wissen" – springt nach der Namenswahl direkt ins gewählte Quiz.
 // from=kabine blendet im Quiz einen „Zurück zur Kabine"-Button ein.
 function kabineQuiz(mode){ window.location.href=location.pathname+"?quiz&from=kabine"+(mode?"&mode="+encodeURIComponent(mode):""); }
+/* Kids-Modus: eigene FUT-Karte (mit Federn/Holo aus FUT 2.0) + Abzeichen (read-only).
+   Bei mehreren Kindern erst eine kindgerechte Auswahl im Kabinen-Body. */
+function kabinePickKid(title,fnName){
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  const kids=window._elternKids||[];
+  const head=`<div style="display:flex;align-items:center;gap:10px;padding:14px 16px">
+      <button onclick="kabineHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
+      <div style="font-size:18px;font-weight:800">${title}</div></div>`;
+  if(!kids.length){ b.innerHTML=head+'<div style="flex:1;display:flex;align-items:center;justify-content:center;opacity:.85;padding:20px;text-align:center">Kein Kind gefunden.</div>'; return; }
+  b.innerHTML=head+`<div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px;align-content:start">`+
+    kids.map(k=>`<button onclick="${fnName}(${k.spieler_id},'${jsq((k.kader&&k.kader.name)||"")}')" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:16px;font-weight:800;min-height:110px"><span style="font-size:40px">⚽</span>${esc((k.kader&&k.kader.name)||"Kind")}</button>`).join("")+`</div>`;
+}
+function kabineMyCard(){
+  const kids=window._elternKids||[];
+  if(kids.length===1){ elternCardOpen(kids[0].spieler_id); return; }
+  kabinePickKid("🃏 Wessen Karte?","kabineMyCardFor");
+}
+function kabineMyCardFor(id){ elternCardOpen(id); }
+function kabineAbzeichen(){
+  const kids=window._elternKids||[];
+  if(kids.length===1){ abzeichenOpen(kids[0].spieler_id,(kids[0].kader&&kids[0].kader.name)||"",true); return; }
+  kabinePickKid("🎖️ Wessen Abzeichen?","kabineAbzeichenFor");
+}
+function kabineAbzeichenFor(id,name){ abzeichenOpen(id,name,true); }
 function kabineShowQuests(){
   const b=document.getElementById("kabine-body"); if(!b)return;
   b.innerHTML=`
