@@ -190,7 +190,7 @@ async function elternDashLoad(){
   if(!kids.length){ body.innerHTML=card('<div style="color:#475569;font-size:13px;line-height:1.6">Dein Trainer hat diese E-Mail noch <b>keinem Kind</b> zugeordnet.<br>Bitte gib ihm die E-Mail-Adresse, mit der du dich hier angemeldet hast.</div>'); return; }
   window._elternKids=kids;   // fürs Fairplay-Quiz (Federn fürs eigene Kind)
   let termineListe=[]; // UX 6: Timeline – die nächsten Termine, nicht nur der eine
-  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc&limit=12`,{headers:sbAuthHeaders()});if(r.ok){termineListe=await r.json();termin=termineListe[0]||null;}}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc,uhrzeit.asc.nullslast&limit=15`,{headers:sbAuthHeaders()});if(r.ok){termineListe=await r.json();termin=termineListe[0]||null;}}catch(e){}
   ELTERN_TERMINE=termineListe; // für den „Alle Termine"-Dialog + Kalender-Export
   let rsvp={};
   if(termin){
@@ -362,7 +362,7 @@ async function elternRsvpClear(terminId,spielerId){
 /* Schnell-Karussell: alle kommenden Termine als horizontal wischbare Karten, jede mit
    Zusage/Unsicher/Absage je Kind. Nutzt dieselben elternRsvp/elternRsvpClear wie oben. */
 function elternTermineCarouselHtml(rows,kids,rsvpAll){
-  const upcoming=(rows||[]).slice(0,8);
+  const upcoming=(rows||[]).slice(0,10);
   if(upcoming.length<2)return ""; // bei nur 1 Termin steht der schon oben mit voller Info
   rsvpAll=rsvpAll||{};
   const cards=upcoming.map(t=>{
@@ -382,16 +382,140 @@ function elternTermineCarouselHtml(rows,kids,rsvpAll){
         <span style="flex:1;min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(kd.name||"Kind")}</span>${btns}</div>`;
     }).join("");
     return `<div style="min-width:236px;max-width:250px;flex:none;scroll-snap-align:start;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px">
-      <div style="font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.icon} ${esc(t.titel||t.gegner||m.label)}</div>
-      <div style="font-size:11px;color:#64748b">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""}${heimLabel(t)?" · "+heimLabel(t):""}${t.ort?" · "+esc(t.ort):""}</div>
+      <div onclick="terminDetailOpen(${t.id})" style="cursor:pointer">
+        <div style="font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.icon} ${esc(t.titel||t.gegner||m.label)}</div>
+        <div style="font-size:11px;color:#64748b">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""}${heimLabel(t)?" · "+heimLabel(t):""}${t.ort?" · "+esc(t.ort):""}</div>
+      </div>
       ${kidRows}
+      <div onclick="terminDetailOpen(${t.id})" style="cursor:pointer;text-align:right;font-size:11px;font-weight:800;color:#2563eb;margin-top:8px">Alle Infos ›</div>
     </div>`;
   }).join("");
   return `<div style="background:#fff;border-radius:14px;padding:14px 14px 8px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">
-    <div style="font-weight:700;margin-bottom:2px">📅 Alle kommenden Termine</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:10px">Schnell 👍 zusagen · 🤔 unsicher · 👎 absagen. Wischen für mehr →</div>
+    <div style="font-weight:700;margin-bottom:2px">📅 Deine nächsten Termine</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:10px">Schnell 👍 zusagen · 🤔 unsicher · 👎 absagen · „Alle Infos" für Details. Wischen →</div>
     <div style="display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:8px;-webkit-overflow-scrolling:touch">${cards}</div>
   </div>`;
+}
+
+/* Großes Termin-Fenster (Eltern): alle Infos zu einem Termin – Adresse, Spielform,
+   Rückmeldung je Kind, Betreuung (Training), Büdchen-Einteilung (Heimspiel),
+   Nominierungsstatus, Wetter. Aktionen zeichnen das Fenster frisch (terminDetailOpen). */
+async function terminDetailOpen(id){
+  const t=(ELTERN_TERMINE||[]).find(x=>Number(x.id)===Number(id)); if(!t){toast("Termin nicht gefunden","err");return;}
+  const kids=window._elternKids||[];
+  const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"#1e3a8a"};
+  const d=new Date(t.datum+"T00:00:00");
+  const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+  const zeit=t.uhrzeit?String(t.uhrzeit).slice(0,5)+" Uhr":"";
+  const istSpiel=(t.typ==="spiel"||t.typ==="turnier");
+  const kidIds=kids.map(k=>k.spieler_id);
+  let rsvp={};
+  try{const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${t.id}&spieler_id=in.(${kidIds.join(",")})&select=spieler_id,status`,{headers:sbAuthHeaders()});if(r.ok)(await r.json()).forEach(x=>rsvp[x.spieler_id]=x.status);}catch(e){}
+  document.getElementById("td-modal")?.remove();
+  const modal=document.createElement("div");
+  modal.id="td-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Termin-Details");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10040;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.style.cssText="background:#fff;color:#1a1a2e;max-width:460px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  const rsvpRows=kids.map(k=>{
+    const kd=k.kader||{}, st=rsvp[k.spieler_id]||null;
+    const btns=EP_RSVP_QUICK.map(s=>{const on=st===s,cc=EP_RSVP[s];
+      const act=on?`tdRsvp(${t.id},${k.spieler_id},null)`:`tdRsvp(${t.id},${k.spieler_id},'${s}')`;
+      return `<button onclick="${act}" style="flex:1;min-width:70px;padding:9px 6px;border-radius:9px;border:1.5px solid ${on?cc.col:"#e2e8f0"};background:${on?cc.col:"#fff"};color:${on?"#fff":"#334155"};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">${cc.emo} ${cc.lbl}</button>`;
+    }).join("");
+    return `<div style="margin-top:8px"><div style="font-size:13px;font-weight:700;margin-bottom:4px">${esc(kd.name||"Kind")}</div><div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div></div>`;
+  }).join("");
+  const infoRow=(icon,label,val)=> val?`<div style="display:flex;gap:8px;font-size:13px;padding:4px 0"><span style="width:20px">${icon}</span><span style="color:#64748b;min-width:72px">${label}</span><span style="flex:1;font-weight:600;min-width:0">${val}</span></div>`:"";
+  const spielformLbl = (istSpiel&&t.spielform)?`${esc(t.spielform)}${t.spieldauer_min?` · ${t.halbzeiten||1}× ${t.spieldauer_min} Min`:""}`:"";
+  c.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px">
+      <div style="font-size:17px;font-weight:800;min-width:0">${m.icon} ${esc(t.titel||t.gegner||m.label)}</div>
+      <button onclick="document.getElementById('td-modal').remove()" style="border:none;background:none;font-size:24px;color:#94a3b8;cursor:pointer;line-height:1;flex:none">×</button>
+    </div>
+    <div style="font-size:12.5px;color:#64748b;margin-bottom:10px">${wtag} ${d.toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})}${zeit?" · "+zeit:""}</div>
+    <div id="td-wetter" style="margin-bottom:6px"></div>
+    ${heimLabel(t)?infoRow(t.heim?"🏠":"✈️","Spielort",heimLabel(t)):""}
+    ${infoRow("📍","Adresse", t.ort?mapsAnchor(t.ort):"")}
+    ${infoRow("🏟️","Platz", t.platz?esc(t.platz):"")}
+    ${infoRow("⚽","Spielform", spielformLbl)}
+    <div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
+      <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">✅ Rückmeldung</div>
+      ${rsvpRows||'<div style="font-size:12px;color:#94a3b8">Kein Kind zugeordnet.</div>'}
+    </div>
+    <div id="td-nom"></div>
+    <div id="td-betreuung"></div>
+    <div id="td-buedchen"></div>
+    <button onclick="document.getElementById('td-modal').remove()" style="width:100%;margin-top:14px;padding:11px;border:none;border-radius:10px;background:#f1f5f9;color:#334155;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Schließen</button>`;
+  modal.appendChild(c);document.body.appendChild(modal);
+  if(t.datum)wetterInto("td-wetter",t.datum,t.ort,t.uhrzeit);
+  tdNomLoad(t,kids);
+  if(t.typ==="training")tdBetreuungLoad(t,kids);
+  if(istSpiel&&t.heim===true)tdBuedchenLoad(t,kids);
+}
+async function tdRsvp(terminId,spielerId,status){
+  try{
+    if(status===null){
+      const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${terminId}&spieler_id=eq.${spielerId}`,{method:"DELETE",headers:sbAuthHeaders()});
+      if(!r.ok){toast("Konnte nicht entfernen","err");return;}
+    }else{
+      const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?on_conflict=termin_id,spieler_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({termin_id:terminId,spieler_id:spielerId,status,updated_at:new Date().toISOString()})});
+      if(!r.ok){toast("Konnte nicht speichern","err");return;}
+      if(status==="zugesagt"){const dd=await xpAward(spielerId,"rsvp","t"+terminId);if(dd>0)setTimeout(()=>toast(`${XP_ICON} +${dd} ${XP_LABEL} gesammelt!`),900);}
+    }
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  terminDetailOpen(terminId); // Fenster frisch zeichnen
+}
+async function tdNomLoad(t,kids){
+  const box=document.getElementById("td-nom"); if(!box)return;
+  if(t.typ!=="spiel"&&t.typ!=="turnier"){box.innerHTML="";return;}
+  const zeilen=[];
+  for(const k of (kids||[])){
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/rpc/kind_nominierungsstatus`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler:k.spieler_id,p_datum:t.datum})});
+      if(!r.ok)continue; const s=await r.json();
+      if(s&&s.ok&&s.eingeteilt){
+        const nom=s.nominiert;
+        zeilen.push(`<div style="font-size:12.5px;padding:3px 0">${esc((k.kader&&k.kader.name)||"Kind")}: <b style="color:${nom?"#059669":"#b45309"}">${nom?"✅ nominiert (dabei)":"😌 diesmal pausiert"}</b>${(!nom&&s.grund)?`<div style="font-size:11px;color:#64748b">${esc(s.grund)}</div>`:""}</div>`);
+      }
+    }catch(e){}
+  }
+  box.innerHTML=zeilen.length?`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px"><div style="font-weight:700;font-size:13.5px;margin-bottom:2px">📋 Kader-Nominierung</div>${zeilen.join("")}</div>`:"";
+}
+async function tdBetreuungLoad(t,kids){
+  const box=document.getElementById("td-betreuung"); if(!box)return;
+  const ids=(kids||[]).map(k=>k.spieler_id);
+  let mine={}, board=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/betreuung?termin_id=eq.${t.id}&spieler_id=in.(${ids.join(",")})&select=spieler_id,will_stay`,{headers:sbAuthHeaders()});if(r.ok)(await r.json()).forEach(x=>mine[x.spieler_id]=x.will_stay);}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/betreuung_board`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_termin:t.id})});if(r.ok)board=((await r.json())||[]).map(x=>x.name);}catch(e){}
+  const toggles=(kids||[]).map(k=>{const kd=k.kader||{}, stay=mine[k.spieler_id]===true;
+    return `<button onclick="tdBetreuungToggle(${t.id},${k.spieler_id},${stay?"false":"true"})" style="width:100%;margin-top:6px;padding:11px;border:1.5px solid ${stay?"#059669":"#cbd5e1"};border-radius:10px;background:${stay?"#059669":"#fff"};color:${stay?"#fff":"#334155"};font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">${stay?"✅ "+esc(kd.name||"Kind")+" – ich bleibe vor Ort":"🙋 "+esc(kd.name||"Kind")+": ich bleibe vor Ort"}</button>`;}).join("");
+  const list=board.length?`<b style="color:#059669">${board.map(esc).join(", ")}</b>`:`<span style="color:#b45309;font-weight:700">noch niemand – bitte helft mit ⚠️</span>`;
+  box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
+    <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🙋 Betreuung beim Training</div>
+    <div style="font-size:12.5px;margin-bottom:4px">Vor Ort: ${list}</div>${toggles}</div>`;
+}
+async function tdBetreuungToggle(terminId,spielerId,stay){
+  try{const r=await fetch(`${SB_URL}/rest/v1/betreuung?on_conflict=termin_id,spieler_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({termin_id:terminId,spieler_id:spielerId,will_stay:stay,updated_at:new Date().toISOString()})});if(!r.ok){toast("Konnte nicht speichern","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  terminDetailOpen(terminId);
+}
+async function tdBuedchenLoad(t,kids){
+  const box=document.getElementById("td-buedchen"); if(!box)return;
+  let fam=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/buedchen_plan`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_termin:t.id})});if(r.ok)fam=await r.json();}catch(e){}
+  const meineIds=(kids||[]).map(k=>k.spieler_id);
+  const meine=(fam||[]).find(f=>meineIds.includes(f.spieler_id));
+  const namen=(fam&&fam.length)?fam.map(f=>esc(f.name)+"s Familie").join(" & "):"– wird eingeteilt –";
+  box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
+    <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🍿 Büdchen (2 Familien)</div>
+    <div style="font-size:12.5px">Eingeteilt: <b>${namen}</b></div>
+    ${meine?`<button onclick="tdBuedchenOptout(${t.id},${meine.spieler_id})" style="width:100%;margin-top:8px;min-height:44px;border:1.5px solid #dc2626;border-radius:10px;background:#fff;color:#dc2626;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Wir können nicht – nächste Familie</button>`:""}</div>`;
+}
+async function tdBuedchenOptout(terminId,spielerId){
+  if(!confirm("Ihr könnt beim Büdchen nicht? Dann rückt die nächste Familie nach."))return;
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/buedchen_optout`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_termin:terminId,p_spieler:spielerId})});if(sbCheck401(r))return;if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht ändern"),"err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Danke – die nächste Familie rückt nach.");
+  terminDetailOpen(terminId);
 }
 // Alle kommenden Termine als Dialog + Kalender-Export (.ics) – gleiche Quelle wie die Liste.
 let ELTERN_TERMINE=[];
@@ -2285,7 +2409,7 @@ async function tmLoad(){
   gegnerLoad(); // Gegner-Datenbank → Datalist für Auto-Fill
   up.innerHTML='<div style="font-size:11px;color:var(--text3)">Lade...</div>';pa.innerHTML="";
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&order=datum.asc`,{headers:sbAuthHeaders()});
+    const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&order=datum.asc,uhrzeit.asc.nullslast`,{headers:sbAuthHeaders()});
     if(sbCheck401(r))return;
     if(!r.ok){up.innerHTML='<div style="font-size:11px;color:var(--text3)">Keine Verbindung</div>';return;}
     const rows=await r.json();
@@ -2298,6 +2422,14 @@ async function tmLoad(){
     kommend.forEach(t=>wetterInto("wx-tm-"+t.id,t.datum,t.ort,t.uhrzeit)); // Wetter je Termin (stundengenau, self-limitiert)
     kommend.filter(t=>t.heim===true&&(t.typ==="spiel"||t.typ==="turnier")).forEach(buedchenTrainerFill); // Büdchen je Heimspiel
   }catch(e){up.innerHTML='<div style="font-size:11px;color:var(--text3)">Offline</div>';}
+}
+// Archiv (vergangene Termine) ein-/ausklappen – standardmäßig zu, damit nur Kommendes im Fokus ist.
+function tmToggleArchiv(){
+  const pa=document.getElementById("tm-past"), btn=document.getElementById("tm-archiv-btn");
+  if(!pa)return;
+  const show=pa.style.display==="none";
+  pa.style.display=show?"block":"none";
+  if(btn)btn.innerHTML=`<i class="ti ti-archive"></i>🗄️ Archiv: vergangene Termine ${show?"ausblenden":"anzeigen"}`;
 }
 // Einzel-Termin als .ics (Kalender-Datei) – nutzt die vorhandenen ics-Helfer.
 function tmIcsOne(id){
