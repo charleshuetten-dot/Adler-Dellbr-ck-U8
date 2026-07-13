@@ -730,7 +730,9 @@ input[type="search"],input[type="date"],input[type="time"]{min-height:44px}
 /* 13×13 px waren ein Drittel Fingerkuppe. Getippt wird meist auf die Beschriftung –
    die bekommt deshalb die volle Daumen-Höhe (Inline-Styles einzelner Labels gewinnen). */
 input[type="checkbox"]{width:22px;height:22px;accent-color:var(--blue);cursor:pointer}
-label:has(> input[type="checkbox"]){min-height:44px}
+/* display:flex erzwingen – bei display:inline (Label-Default) greift min-height sonst NICHT.
+   Inline-Styles einzelner Labels (z. B. align-items:flex-start) gewinnen weiterhin. */
+label:has(> input[type="checkbox"]){min-height:44px;display:flex;align-items:center;gap:8px}
 
 .ftag{min-height:40px;display:inline-flex;align-items:center}      /* Kader-Filter */
 .seg-btn{min-height:44px}                                          /* Umschalter */
@@ -741,3 +743,15 @@ label:has(> input[type="checkbox"]){min-height:44px}
 
 /* Der Schalter bleibt optisch klein, die Trefferfläche wächst unsichtbar auf 44 px */
 .aw-toggle::before{content:'';position:absolute;top:-11px;bottom:-11px;left:-4px;right:-4px}
+
+/* ── Touch-Target-Sicherheitsnetz (Audit v251) ──
+   Viele Buttons in Modals/Karten haben KEINE .btn-Klasse und waren daher von der 48-px-Regel
+   nie erfasst (Inline-Styles). Alle klassenlosen Buttons bekommen jetzt eine Mindesthöhe von
+   44 px (WCAG-Ziel). Ausgenommen bleiben bewusst kleine Elemente:
+   - runde Icon-Buttons (border-radius:50%) – Schließen-×, Karussell-Pfeile, sollen kompakt sein
+   - transparente Text-Links (background:transparent/none) – „anpassen", „Name ändern" u. Ä.,
+     die als Inline-Link im Fließtext sitzen und durch eine 44-px-Höhe die Zeile sprengen würden. */
+button:not([class]){min-height:44px}
+button:not([class])[style*="border-radius:50%"],
+button:not([class])[style*="background:transparent"],
+button:not([class])[style*="background:none"]{min-height:0}
