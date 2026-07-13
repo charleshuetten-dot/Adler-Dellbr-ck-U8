@@ -2615,7 +2615,9 @@ function tmIcsOne(id){
 }
 // Offene RSVPs auf einen Blick + WhatsApp-Sammelerinnerung (nur die Nachricht wird vorbefüllt).
 async function rsvpOverviewOpen(terminId){
-  const t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(terminId))||{};
+  let t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(terminId));
+  if(!t){ try{const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${terminId}&select=*&limit=1`,{headers:sbAuthHeaders()});if(r.ok)t=(await r.json())[0];}catch(e){} } // von der Startseite: Termin nachladen
+  t=t||{};
   const m=TM_META[t.typ]||TM_META.training;
   let rm=[];
   try{const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${terminId}&select=spieler_id,status`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)rm=await r.json();}catch(e){}

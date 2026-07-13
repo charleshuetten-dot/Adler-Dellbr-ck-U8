@@ -2343,6 +2343,65 @@ async function anwesenheitOpen(){
     <button class="btn btn-sm" style="margin-top:12px;width:100%" onclick="document.getElementById('aq-modal').remove()">Schließen</button>`;
   modal.appendChild(cardEl);document.body.appendChild(modal);
 }
+// Eltern-Onboarding-Paket: fertige WhatsApp-Nachricht mit Eltern-Link + Kurzanleitung,
+// damit der Trainer die ganze Elternschaft in einem Rutsch an Bord holt.
+function elternInvitePaket(){
+  const url=appRoot()+"eltern/";
+  const msg=`🦅 SV Adler Dellbrück U9 – unsere Eltern-App\n\n`+
+    `Liebe Eltern, ab jetzt läuft alles rund um euer Kind über die Eltern-App:\n`+
+    `✅ Termine zu- & absagen\n📅 alle Termine + Kalender-Export\n📣 Liveticker, wenn ihr mal nicht dabei seid\n🃏 Sammelkarte & Technik-Abzeichen fürs Kind\n🍿 Büdchen- & Mitbringlisten\n\n`+
+    `So kommt ihr rein:\n`+
+    `1️⃣ Link öffnen: ${url}\n`+
+    `2️⃣ Mit EURER E-Mail anmelden (die, die ihr dem Trainer gegeben habt) – ihr bekommt einen Code per Mail.\n`+
+    `3️⃣ Im Browser-Menü „Zum Startbildschirm hinzufügen" – dann läuft sie wie eine echte App.\n\n`+
+    `Bis bald am Platz! 🖤`;
+  if(navigator.share){ navigator.share({title:"Eltern-App · SV Adler U9",text:msg}).catch(()=>{}); }
+  else{ try{navigator.clipboard?.writeText(msg);}catch(e){} window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank"); }
+}
+// Saison-Cockpit: ein Blick auf die Saison – Kennzahlen, Top-Torschützen, Anwesenheit,
+// Sprung zur Einsatz-Fairness. Führt vorhandene Datenquellen zusammen (keine neue Persistenz).
+async function saisonCockpitOpen(){
+  const active=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
+  const ab=(typeof saisonStart==="function")?saisonStart():"2000-01-01";
+  // Torschützen (match_actions aktion=tor, ab Saisonstart)
+  let tore={}, toreGesamt=0;
+  try{const r=await fetch(`${SB_URL}/rest/v1/match_actions?aktion=eq.tor&datum=gte.${ab}&select=spieler`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(a=>{if(!a.spieler)return;tore[a.spieler]=(tore[a.spieler]||0)+1;toreGesamt++;});}catch(e){}
+  const scorers=Object.entries(tore).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  // Spiele/Turniere der Saison
+  let spiele=0; try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=id&typ=in.(spiel,turnier)&datum=gte.${ab}`,{headers:sbAuthHeaders()});if(r.ok)spiele=((await r.json())||[]).length;}catch(e){}
+  // Anwesenheit kombiniert (Training aus AW_DATA + Spiele aus nominierungen)
+  const att={}; active.forEach(k=>att[k.name]={p:0,t:0});
+  let trainings=0;
+  try{Object.keys(AW_DATA||{}).forEach(d=>{trainings++;const day=AW_DATA[d]||{};active.forEach(k=>{const e=day[k.name];if(e&&typeof e.da==="boolean"){att[k.name].t++;if(e.da)att[k.name].p++;}});});}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(row=>{const data=row.data||{};active.forEach(k=>{const s=data[k.name];if(s==="dabei"||s==="nicht"||s==="verletzt"){att[k.name].t++;if(s==="dabei")att[k.name].p++;}});});}catch(e){}
+  const attArr=active.map(k=>({name:k.name,pct:att[k.name].t?Math.round(att[k.name].p/att[k.name].t*100):null,t:att[k.name].t})).filter(x=>x.pct!=null).sort((a,b)=>b.pct-a.pct);
+  const topAtt=attArr.slice(0,5);
+  const lowAtt=attArr.filter(x=>x.pct<60).slice(-3);
+  const kpi=(v,l,c)=>`<div style="flex:1;min-width:80px;text-align:center;background:var(--surface2);border-radius:12px;padding:10px"><div style="font-size:22px;font-weight:900;color:${c}">${v}</div><div style="font-size:10px;color:var(--text2)">${l}</div></div>`;
+  const medal=i=>["🥇","🥈","🥉"][i]||`${i+1}.`;
+  const attRow=x=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0"><span style="flex:1">${esc(x.name)}</span><span style="font-weight:700;color:${x.pct>=75?"#16a34a":x.pct>=50?"#b45309":"#dc2626"}">${x.pct}%</span><span style="font-size:10px;color:var(--text3)">(${x.t})</span></div>`;
+  document.getElementById("sc-modal")?.remove();
+  const modal=document.createElement("div");
+  modal.id="sc-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Saison-Cockpit");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.innerHTML=`<div style="font-weight:800;font-size:17px;margin-bottom:2px">📈 Saison-Cockpit</div>
+    <div style="font-size:11.5px;color:var(--text2);margin-bottom:12px">Saison seit ${new Date(ab+"T00:00:00").toLocaleDateString("de-DE",{month:"long",year:"numeric"})} · alles auf einen Blick.</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">${kpi(spiele,"Spiele","var(--blue)")}${kpi("⚽ "+toreGesamt,"Tore","#059669")}${kpi(trainings,"Trainings","#7c3aed")}</div>
+    <div style="font-weight:800;font-size:13.5px;margin-bottom:4px">🥇 Top-Torschützen</div>
+    ${scorers.length?scorers.map(([n,c],i)=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0"><span style="width:22px">${medal(i)}</span><span style="flex:1">${esc(n)}</span><span style="font-weight:800;color:#059669">${c}</span></div>`).join(""):'<div style="font-size:12px;color:var(--text3)">Noch keine Tore erfasst.</div>'}
+    <div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">📊 Anwesenheit – am zuverlässigsten</div>
+    ${topAtt.length?topAtt.map(attRow).join(""):'<div style="font-size:12px;color:var(--text3)">Noch keine Daten.</div>'}
+    ${lowAtt.length?`<div style="font-weight:800;font-size:12.5px;margin:12px 0 2px;color:#b45309">Zuletzt oft gefehlt – dranbleiben</div>${lowAtt.map(attRow).join("")}`:""}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+      <button class="btn btn-sm" onclick="document.getElementById('sc-modal').remove();anwesenheitOpen()"><i class="ti ti-checkbox"></i>Volle Anwesenheits-Quote</button>
+      <button class="btn btn-sm" onclick="document.getElementById('sc-modal').remove();go('analyse')"><i class="ti ti-scale"></i>Einsatz-Fairness</button>
+    </div>
+    <button class="btn btn-sm" style="margin-top:10px;width:100%" onclick="document.getElementById('sc-modal').remove()">Schließen</button>`;
+  modal.appendChild(c);document.body.appendChild(modal);
+}
 /* ═══════════════════════════════════
    TRAINER-HILFE + FEATURE-TOUR
 ═══════════════════════════════════ */
@@ -2496,6 +2555,9 @@ async function adlerWeltOpen(){
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">📖 Eltern-Leitfaden</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Die ausformulierten Vereinbarungen (Pünktlichkeit, Aufsicht, Büdchen, App …), die die Eltern nachlesen können.</div>
     <button class="btn btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();leitfadenEditOpen()"><i class="ti ti-edit"></i>Leitfaden bearbeiten</button>
+    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🔗 Eltern einladen</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Fertige WhatsApp-Nachricht mit Eltern-Link + Kurzanleitung – an die Elternschaft schicken.</div>
+    <button class="btn btn-sm btn-p" style="width:100%" onclick="document.getElementById('aw-modal').remove();elternInvitePaket()"><i class="ti ti-brand-whatsapp"></i>Einladung erstellen</button>
     <button class="btn btn-sm" style="margin-top:12px;width:100%" onclick="document.getElementById('aw-modal').remove()">Schließen</button>`;
   modal.appendChild(c);document.body.appendChild(modal);
   active.forEach(k=>{xpTotal(k.id).then(t=>{const el=document.getElementById("aw-fed-"+k.id);if(el){const b=xpBadge(t);el.textContent=`${XP_ICON} ${t} · ${b.emo} ${b.t}`;}}).catch(()=>{});});
@@ -2660,6 +2722,7 @@ async function renderHome(){
     </div>
     <div class="sl nt" style="margin-top:18px"><i class="ti ti-tools"></i>Werkzeuge</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${homeTool("📈 Saison-Cockpit","saisonCockpitOpen()")}
       ${homeTool("⭐ Einheit bewerten","einheitBewertenOpen()")}
       ${homeTool("📊 Anwesenheits-Quote","anwesenheitOpen()")}
       ${homeTool("🗓️ Trainer-Meeting","trainerMeetingOpen()")}
@@ -2672,6 +2735,7 @@ async function renderHome(){
       ${homeTool("🪶 Adler-Welt","adlerWeltOpen()")}
     </div>
     <div class="sl nt" style="margin-top:18px"><i class="ti ti-clipboard-heart"></i>Team-Status</div>
+    <div id="home-rsvp"></div>
     ${gebHtml}
     <div id="eg-trainer"></div>
     ${stale>0?`<div onclick="go('bew')" class="card" style="padding:12px 14px;margin-bottom:10px;border-left:3px solid #dc2626;cursor:pointer;display:flex;align-items:center;gap:8px">
@@ -2700,6 +2764,7 @@ async function renderHome(){
 
   window._radarLoaded=false; // Radar erst beim Aufklappen des Team-Checks laden
   elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche
+  homeRsvpNudge(); // "wer hat noch nicht geantwortet" für den nächsten Termin
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc,uhrzeit.asc.nullslast&limit=10`,{headers:sbAuthHeaders()});
@@ -2749,6 +2814,28 @@ function toggleTeamCheck(){
   body.style.display=auf?"block":"none";
   if(caret)caret.textContent=auf?"▴":"▾";
   if(auf&&!window._radarLoaded){ window._radarLoaded=true; if(typeof homeRadarLoad==="function")homeRadarLoad(); }
+}
+
+// Startseiten-Nudge: wer hat für den nächsten Termin (Training/Spiel/Turnier) noch nicht
+// geantwortet? Ein Tap öffnet die Rückmeldungs-Übersicht mit WhatsApp-Erinnerung.
+async function homeRsvpNudge(){
+  const slot=document.getElementById("home-rsvp"); if(!slot)return;
+  const heute=new Date().toISOString().slice(0,10);
+  let t=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,typ,titel,gegner,datum,uhrzeit&typ=in.(training,spiel,turnier)&datum=gte.${heute}&order=datum.asc,uhrzeit.asc.nullslast&limit=1`,{headers:sbAuthHeaders()});if(r.ok)t=(await r.json())[0];}catch(e){}
+  if(!t){slot.innerHTML="";return;}
+  let rm=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${t.id}&select=spieler_id`,{headers:sbAuthHeaders()});if(r.ok)rm=await r.json();}catch(e){}
+  const responded=new Set(rm.map(x=>x.spieler_id));
+  const offen=(KADER||[]).filter(k=>k.aktiv!==false&&!responded.has(k.id)).length;
+  if(!offen){slot.innerHTML="";return;}
+  const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ};
+  const d=new Date(t.datum+"T00:00:00"), wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+  slot.innerHTML=`<div onclick="rsvpOverviewOpen(${t.id})" class="card" style="padding:12px 14px;margin-bottom:10px;border-left:3px solid #d97706;cursor:pointer;display:flex;align-items:center;gap:8px">
+    <span style="font-size:18px">🔔</span>
+    <span style="flex:1;font-size:12.5px"><strong style="color:#b45309">${offen} ohne Rückmeldung</strong> für ${m.icon} ${esc(t.titel||t.gegner||m.label)} · ${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}</span>
+    <span style="font-size:11px;font-weight:800;color:var(--blue)">nachfassen ›</span>
+  </div>`;
 }
 
 // Wake Lock API (nativ) – verhindert, dass das Display während der Nutzung ausgeht
