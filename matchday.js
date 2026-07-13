@@ -283,6 +283,10 @@ async function elternDashLoad(){
     <button onclick="fairplayOpen()" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">Codex ansehen</button>
     <div id="fp-commit-slot" style="margin-top:10px"></div>
     <button onclick="fairplayQuizStart(window._elternKids||[])" style="width:100%;min-height:48px;margin-top:10px;padding:13px;border:1.5px solid #16a34a;border-radius:10px;background:#fff;color:#15803d;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">🏅 Fairplay-Quiz spielen · ${XP_ICON} 50 Federn fürs Kind</button>`);
+  // Ausführlicher Eltern-Leitfaden – die ausformulierten Vereinbarungen fürs Miteinander
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">📖 ${esc(LEITFADEN_NAME)}</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Unsere ausformulierten Vereinbarungen: Pünktlichkeit, Aufsicht, Büdchen, Verhalten am Platz, App-Nutzung und mehr – jederzeit zum Nachlesen.</div>
+    <button onclick="leitfadenOpen()" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">${esc(LEITFADEN_NAME)} öffnen</button>`);
   // Elterngespräch anfragen – signalisiert dem Trainer den Bedarf
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🗣️ Elterngespräch</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Du möchtest mit dem Trainer über dein Kind sprechen? Sag kurz Bescheid – der Trainer meldet sich zur Terminabstimmung.</div>
@@ -6137,6 +6141,27 @@ const FAIRPLAY_REGELN=[
   {emo:"🎯", t:"Einsatz loben, nicht nur Tore", d:"Mut, Teamgeist und Anstrengung verdienen genauso Applaus wie ein Treffer. Das prägt fürs Leben."},
   {emo:"🌧️", t:"Verlässlich dabei sein", d:"Rechtzeitig zu- oder absagen, bei jedem Wetter erscheinen. Planbarkeit hilft dem ganzen Team."}
 ];
+// Ausformulierter Eltern-Leitfaden (breiter als der Fairplay-Codex). Default = Offline-Fallback,
+// im Normalfall aus der Tabelle eltern_leitfaden geladen (trainer-pflegbar). Name frei änderbar.
+const LEITFADEN_NAME="Eltern-Leitfaden";
+const ELTERN_LEITFADEN=[
+  {emo:"🕒", t:"Pünktlichkeit", d:"Bitte seid rund 10 Minuten vor Beginn da – bei Training und Spielen. Dann kommen die Kinder in Ruhe an, ziehen sich um und starten gemeinsam ins Aufwärmen. Wer zu spät kommt, verpasst genau das – und Aufwärmen schützt vor Verletzungen."},
+  {emo:"👨‍👩‍👧", t:"Immer ein Elternteil vor Ort", d:"Bei jedem Training bleibt mindestens ein Elternteil (oder eine feste Vertretung) auf dem Gelände. Die Trainer sind fürs Fußballspielen da, nicht für die Aufsicht bei Toilettengang, Schürfwunde oder Heimweh. So ist immer jemand ansprechbar, wenn ein Kind etwas braucht."},
+  {emo:"🚗", t:"Bringen & Abholen", d:"Bitte bringt euer Kind nicht deutlich vor Beginn und fahrt dann wieder weg – vor dem offiziellen Start gibt es keine Aufsicht. Holt es ebenso pünktlich nach dem Ende wieder ab. Ein Kind, das allein wartet, ist kein schöner Abschluss einer Einheit."},
+  {emo:"🙋", t:"Verhalten beim Training – etwas Abstand", d:"Setzt euch beim Training bitte etwas abseits und lasst die Kinder mit den Trainern arbeiten. Kinder, die ständig zu Mama oder Papa schauen, sind abgelenkt. Kein Reinrufen, kein Mitcoachen vom Rand – das ist Aufgabe der Trainer."},
+  {emo:"📣", t:"Verhalten am Spielfeldrand", d:"Bei Spielen bleibt hinter der Linie oder Bande, feuert an statt anzuweisen, bejubelt jedes Kind – auch die Gegner – und respektiert den Schiri. Die goldenen Regeln stehen in unserem Fairplay-Codex. Bitte lest ihn und tragt ihn mit."},
+  {emo:"🧃", t:"Büdchen- & Helferdienste", d:"Bei Heimspielen versorgen zwei Familien im Wechsel das Büdchen (Kuchen, Getränke, Kasse). Die Einteilung seht ihr in der App und könnt sie bei Verhinderung weitergeben. Und generell gilt: mit anpacken – Auf- und Abbau, Fahrten, Aufräumen. Das Team lebt davon, dass viele helfen, nicht immer dieselben."},
+  {emo:"📱", t:"Die Adler-App nutzen – zu- & absagen", d:"Bitte meldet euer Kind für JEDEN Termin rechtzeitig zu oder ab, am besten bis zum Vortag. Nur so können die Trainer planen und Teams einteilen. Die App ist unser zentraler Draht: Termine, Infos, Aufstellung, Liveticker und Mitbringlisten laufen darüber."},
+  {emo:"🤒", t:"Krank oder verletzt?", d:"Meldet euer Kind bei Krankheit oder Verletzung ab und schickt es erst wieder, wenn es wirklich fit ist. Fieber, Magen-Darm & Co. bleiben zu Hause – auch dem Team zuliebe. Bei längeren Verletzungen sprecht kurz mit den Trainern."},
+  {emo:"🎒", t:"Die richtige Ausrüstung", d:"Immer dabei: Schienbeinschoner (Pflicht!), Stutzen, passende Schuhe fürs Feld oder die Halle, eine gefüllte Trinkflasche und wettergerechte Kleidung. Bitte alles mit Namen beschriften – so findet jedes Teil zurück."},
+  {emo:"🌦️", t:"Bei (fast) jedem Wetter", d:"Wir trainieren auch bei Wind und leichtem Regen – zieht die Kinder passend an (Regenjacke & Wechselsachen, im Sommer Kappe & Sonnencreme, im Winter warm). Fällt ein Termin platzbedingt aus oder wird verlegt, seht ihr das rechtzeitig in der App an der Platz-Ampel."},
+  {emo:"🗣️", t:"Sorgen? Sprecht uns direkt an", d:"Kritik, Fragen oder Sorgen rund um euer Kind? Sprecht die Trainer bitte direkt und in Ruhe an – am besten über die Funktion „Elterngespräch\" in der App, nicht zwischen Tür und Angel und nicht vor den Kindern. Gemeinsam finden wir eine Lösung."},
+  {emo:"🏆", t:"Entwicklung vor Ergebnis", d:"Bei der U9 zählen Spaß, Bewegung und Lernen – nicht die Tabelle. Jedes Kind entwickelt sich im eigenen Tempo. Lobt Einsatz und Mut, nicht nur Tore, und vergleicht die Kinder nicht untereinander."},
+  {emo:"📸", t:"Fotos & Datenschutz", d:"Fotos vom Team teilen wir nur, wenn ihr die Foto-Freigabe in der App erteilt habt. Bitte macht selbst keine Bilder, auf denen fremde Kinder klar erkennbar sind, und stellt nichts ungefragt in soziale Netzwerke."},
+  {emo:"🎉", t:"Gemeinschaft & Feiern", d:"Geburtstage, Saisonabschluss, Grillfest – solche Momente machen aus einer Mannschaft ein Team. Kommt vorbei, bringt euch ein und lernt die anderen Familien kennen. Für Events findet ihr Mitbringlisten in der App."},
+  {emo:"🧹", t:"Sauberkeit & Sorgfalt", d:"Müll nehmen wir mit, Kabine und Platz hinterlassen wir ordentlich, mit Toren und Material gehen wir sorgsam um. Was wir vorleben, lernen die Kinder ganz nebenbei."},
+  {emo:"💚", t:"Ehrenamt wertschätzen", d:"Trainer und Helfer stecken ihre Freizeit hinein – freiwillig und unbezahlt. Verlässlichkeit, Mithilfe und ein ehrliches Danke sind die schönste Anerkennung. Wenn alle ein bisschen mittragen, wird es für alle leicht."}
+];
 /* Adler-Börse (Phase 23.1): interner Flohmarkt. Preise sind Freitext ("Zu verschenken").
    Fotos im vorhandenen fundbuero-Bucket (privat, nur Angemeldete), Prefix "boerse/". */
 async function boerseOpen(){
@@ -6827,6 +6852,103 @@ async function fairplayEditSave(btn){
   finally{if(btn)btn.disabled=false;}
   toast("Codex gespeichert ✓ Die Eltern sehen ihn sofort.");
   document.getElementById("fpe-modal")?.remove();
+}
+
+/* ── Eltern-Leitfaden: ausformulierte Vereinbarung, abrufbar im Eltern-Bereich, trainer-pflegbar.
+   Gleiches Muster wie der Fairplay-Codex (Tabelle eltern_leitfaden, Default = Offline-Fallback). ── */
+async function leitfadenLaden(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/eltern_leitfaden?select=emoji,titel,text&aktiv=eq.true&order=sort.asc,id.asc`,{headers:sbAuthHeaders()});
+    if(r.ok){const rows=await r.json(); if(rows.length)return rows.map(x=>({emo:x.emoji||"•",t:x.titel||"",d:x.text||""}));}
+  }catch(e){}
+  return ELTERN_LEITFADEN;
+}
+async function leitfadenOpen(){
+  document.getElementById("leitfaden-ov")?.remove();
+  const ov=document.createElement("div");
+  ov.id="leitfaden-ov";
+  ov.style.cssText="position:fixed;inset:0;z-index:10050;background:linear-gradient(160deg,#0c4a6e,#082f49);color:#fff;overflow-y:auto;font-family:inherit;-webkit-overflow-scrolling:touch";
+  ov.innerHTML=`<div style="max-width:560px;margin:0 auto;padding:80px 18px;text-align:center;opacity:.85">Lade ${esc(LEITFADEN_NAME)} …</div>`;
+  document.body.appendChild(ov);
+  const teile=await leitfadenLaden();
+  if(!document.getElementById("leitfaden-ov"))return;
+  ov.innerHTML=`<div style="max-width:560px;margin:0 auto;padding:24px 18px 40px">
+    <div style="text-align:center;margin-bottom:6px;font-size:40px">📖</div>
+    <div style="text-align:center;font-size:22px;font-weight:900;letter-spacing:.3px">${esc(LEITFADEN_NAME)}</div>
+    <div style="text-align:center;font-size:13px;opacity:.9;margin:6px 0 20px">SV Adler Dellbrück · U9 – damit unser Miteinander gelingt</div>
+    ${teile.map((r,i)=>`<div style="display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:16px;margin-bottom:12px">
+      <div style="font-size:28px;line-height:1">${esc(r.emo)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:16px;font-weight:800">${i+1}. ${esc(r.t)}</div>
+        ${r.d?`<div style="font-size:13.5px;opacity:.95;line-height:1.6;margin-top:4px">${esc(r.d)}</div>`:""}
+      </div>
+    </div>`).join("")}
+    <div style="text-align:center;font-size:13px;opacity:.9;margin:16px 0 20px">Danke, dass ihr das mittragt. 💙</div>
+    <button onclick="document.getElementById('leitfaden-ov').remove()" style="width:100%;min-height:52px;border:none;border-radius:14px;background:#fff;color:#0c4a6e;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer">Verstanden 👍</button>
+  </div>`;
+}
+// Trainer-Editor (spiegelt den Fairplay-Editor).
+let LF_EDIT=[];
+async function leitfadenEditOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("lfe-modal")?.remove();
+  LF_EDIT=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/eltern_leitfaden?select=emoji,titel,text&order=sort.asc,id.asc`,{headers:sbAuthHeaders()});
+    if(r.ok)LF_EDIT=(await r.json()).map(x=>({emo:x.emoji||"",titel:x.titel||"",text:x.text||""}));
+  }catch(e){}
+  if(!LF_EDIT.length)LF_EDIT=ELTERN_LEITFADEN.map(r=>({emo:r.emo,titel:r.t,text:r.d}));
+  const modal=document.createElement("div");
+  modal.id="lfe-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Eltern-Leitfaden bearbeiten");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.id="lfe-card";
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  modal.appendChild(c);document.body.appendChild(modal);
+  leitfadenEditRender();
+}
+function leitfadenEditRender(){
+  const c=document.getElementById("lfe-card"); if(!c)return;
+  const fld="padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
+  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">📖 ${esc(LEITFADEN_NAME)} bearbeiten</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Diese Punkte sehen die Eltern in ihrem Bereich. Reihenfolge mit den Pfeilen.</div>
+    ${LF_EDIT.map((r,i)=>`<div style="border:var(--border-s);border-radius:10px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <input value="${esc(r.emo)}" oninput="LF_EDIT[${i}].emo=this.value" maxlength="4" style="width:52px;text-align:center;font-size:18px;${fld}">
+        <input value="${esc(r.titel)}" oninput="LF_EDIT[${i}].titel=this.value" placeholder="Überschrift" style="flex:1;font-weight:700;${fld}">
+      </div>
+      <textarea oninput="LF_EDIT[${i}].text=this.value" rows="3" placeholder="Ausformulierter Text" style="width:100%;resize:vertical;${fld}">${esc(r.text)}</textarea>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn btn-sm" onclick="leitfadenEditMove(${i},-1)" ${i===0?"disabled":""} title="nach oben"><i class="ti ti-arrow-up"></i></button>
+        <button class="btn btn-sm" onclick="leitfadenEditMove(${i},1)" ${i===LF_EDIT.length-1?"disabled":""} title="nach unten"><i class="ti ti-arrow-down"></i></button>
+        <button class="btn btn-sm btn-d" style="margin-left:auto" onclick="leitfadenEditDel(${i})"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`).join("")}
+    <button class="btn btn-sm" style="width:100%;margin-bottom:12px" onclick="leitfadenEditAdd()"><i class="ti ti-plus"></i>Punkt hinzufügen</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-p btn-sm" onclick="leitfadenEditSave(this)"><i class="ti ti-device-floppy"></i>Speichern</button>
+      <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('lfe-modal').remove()">Schließen</button>
+    </div>`;
+}
+function leitfadenEditAdd(){ LF_EDIT.push({emo:"⭐",titel:"",text:""}); leitfadenEditRender(); }
+function leitfadenEditDel(i){ LF_EDIT.splice(i,1); leitfadenEditRender(); }
+function leitfadenEditMove(i,dir){ const j=i+dir; if(j<0||j>=LF_EDIT.length)return; const t=LF_EDIT[i];LF_EDIT[i]=LF_EDIT[j];LF_EDIT[j]=t; leitfadenEditRender(); }
+async function leitfadenEditSave(btn){
+  const rows=LF_EDIT.map((r,i)=>({sort:i,emoji:(r.emo||"").trim()||null,titel:(r.titel||"").trim(),text:(r.text||"").trim()||null,aktiv:true}))
+                    .filter(r=>r.titel);
+  if(!rows.length){toast("Mindestens ein Punkt mit Überschrift","err");return;}
+  if(btn)btn.disabled=true;
+  try{
+    const del=await fetch(`${SB_URL}/rest/v1/eltern_leitfaden?id=gt.0`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(sbCheck401(del))return;
+    if(!del.ok){toast(sbDeniedMsg(del,"Konnte nicht speichern"),"err");return;}
+    const ins=await fetch(`${SB_URL}/rest/v1/eltern_leitfaden`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify(rows)});
+    if(!ins.ok){toast("Speichern fehlgeschlagen","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  toast(LEITFADEN_NAME+" gespeichert ✓ Die Eltern sehen ihn sofort.");
+  document.getElementById("lfe-modal")?.remove();
 }
 
 /* Platz-Ampel-Banner für die Eltern – nur wenn der Trainer einen Status gesetzt hat.
