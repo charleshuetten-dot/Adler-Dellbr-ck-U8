@@ -293,6 +293,7 @@ async function elternDashLoad(){
   html+=`<div id="skill-slot"></div>`;        // Skill der Woche
   if(WAESCHE_AKTIV)html+=`<div id="waesche-slot"></div>`;  // Trikot-Wäsche-Rotator (aktuell ausgeblendet)
   html+=`<div id="mitbring-slot"></div>`;     // Event-Mitbringliste (async, nur bei kommenden Events)
+  html+=`<div id="buedchen-slot"></div>`;     // Büdchen-Einteilung bei Heimspielen (async)
   // Teamkasse (read-only): Saldo + offene Umlagen über RPC, PayPal nur als Link
   let kasse=null;
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kasse_summary`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)kasse=await r.json();}catch(e){}
@@ -316,6 +317,7 @@ async function elternDashLoad(){
   kabineCodeHash().catch(()=>{});   // Hash vorladen, damit die Kabine auch offline wieder aufgeht
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(!el)return;el.innerHTML=adlerkasseCardHtml(l)+(l?akShareBtnHtml():"");if(l)window._akLink=l;}).catch(()=>{});
   elternMitbringLoad(kids);                    // Event-Mitbringliste: wer bringt was mit
+  elternBuedchenLoad(termineListe,kids);       // Büdchen-Einteilung bei Heimspielen
   if(WAESCHE_AKTIV)elternWaescheLoad(kids);    // Trikot-Wäsche-Rotator (aktuell ausgeblendet)
   elternSkillLoad(kids);   // Skill der Woche
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
@@ -2294,6 +2296,7 @@ async function tmLoad(){
     up.innerHTML=kommend.length?kommend.map(tmCard).join(""):'<div style="font-size:11px;color:var(--text3);padding:6px">Keine kommenden Termine.</div>';
     pa.innerHTML=vergangen.length?vergangen.slice(0,20).map(tmCard).join(""):'<div style="font-size:11px;color:var(--text3);padding:6px">Noch keine vergangenen Termine.</div>';
     kommend.forEach(t=>wetterInto("wx-tm-"+t.id,t.datum,t.ort,t.uhrzeit)); // Wetter je Termin (stundengenau, self-limitiert)
+    kommend.filter(t=>t.heim===true&&(t.typ==="spiel"||t.typ==="turnier")).forEach(buedchenTrainerFill); // Büdchen je Heimspiel
   }catch(e){up.innerHTML='<div style="font-size:11px;color:var(--text3)">Offline</div>';}
 }
 // Einzel-Termin als .ics (Kalender-Datei) – nutzt die vorhandenen ics-Helfer.
@@ -2431,6 +2434,7 @@ function tmCard(t){
     ${t.platz?`<div style="font-size:11px;color:var(--text2)">🏟️ Platz: ${esc(t.platz)}</div>`:""}
     ${t.datum>=new Date().toISOString().slice(0,10)?platzAmpelTrainer(t):""}
     <div id="wx-tm-${t.id}"></div>
+    ${(t.heim===true&&(t.typ==="spiel"||t.typ==="turnier")&&t.datum>=new Date().toISOString().slice(0,10))?`<div id="bd-tm-${t.id}" style="font-size:11px;color:var(--text2);margin-top:4px">🍿 Büdchen: lädt …</div>`:""}
     ${t.datum>=new Date().toISOString().slice(0,10)?`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px">
       <span style="font-size:10px;color:var(--text3);font-weight:700">Trainer dabei?</span>
       ${(typeof TRAINER!=="undefined"?TRAINER:[]).map(tn=>{const stt=(t.trainer_status||{})[tn];const bg=stt==="ja"?"#16a34a":stt==="unsicher"?"#ca8a04":stt==="nein"?"#dc2626":"var(--surface2)";const col=stt?"#fff":"var(--text2)";const mk=stt==="ja"?" ✓":stt==="unsicher"?" 🤔":stt==="nein"?" ✕":"";return `<button onclick="tmTrainerToggle(${Number(t.id)},'${tn.replace(/'/g,"")}')" title="Tippen wechselt: dabei → unsicher → nicht dabei → offen" style="border:var(--border-s);border-radius:12px;padding:2px 8px;font-size:10.5px;font-weight:700;background:${bg};color:${col};cursor:pointer;font-family:inherit">${esc(tn)}${mk}</button>`;}).join("")}
@@ -5331,8 +5335,8 @@ function teamStatsRender(){
     });
     if(ges)quote=Math.round(da/ges*100)+"%";
   }
-  // Spieler ohne Bewertung seit > 8 Wochen
-  const limit=Date.now()-56*24*60*60*1000;
+  // Spieler ohne Bewertung seit > 6 Wochen (Bewertung alle 6 Wochen im Trainermeeting)
+  const limit=Date.now()-42*24*60*60*1000;
   const stale=KADER.filter(k=>{
     const snaps=DB[k.name];
     if(!snaps||!snaps.length)return true;
@@ -5343,7 +5347,7 @@ function teamStatsRender(){
   wrap.innerHTML=
     tile("Letzte Einheit",evalTile)+
     tile("Anwesenheit (letzte 4)",`<div style="font-size:16px;font-weight:700;color:var(--teal)">${quote}</div><div style="font-size:10px;color:var(--text2)">${awDates.length} Termin${awDates.length!==1?"e":""}</div>`)+
-    tile("Bewertung überfällig",`<div style="font-size:16px;font-weight:700;color:${stale.length?"#dc2626":"#15803d"};cursor:pointer" onclick="sv('bew')">${stale.length} Spieler</div><div style="font-size:10px;color:var(--text2)">${stale.length?"> 8 Wochen ohne Bewertung":"alle aktuell"}</div>`);
+    tile("Bewertung überfällig",`<div style="font-size:16px;font-weight:700;color:${stale.length?"#dc2626":"#15803d"};cursor:pointer" onclick="sv('bew')">${stale.length} Spieler</div><div style="font-size:10px;color:var(--text2)">${stale.length?"> 6 Wochen ohne Bewertung":"alle aktuell"}</div>`);
 }
 
 // L5: Daten-Backup – alle sechs Tabellen als eine JSON-Datei
@@ -6143,6 +6147,53 @@ async function mitbringDelete(id){
     if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht löschen"),"err");return;}
   }catch(e){toast("Netzwerkfehler","err");return;}
   elternMitbringLoad(window._elternKids||[]);
+}
+
+/* Büdchen bei Heimspielen: 2 Familien pro Heimspiel, faire Rotation server-seitig
+   (RPC buedchen_plan – weist beim Anschauen automatisch auf, wenn noch nicht voll).
+   Die eigene Familie kann per Opt-out absagen, dann rückt die nächste nach. */
+async function elternBuedchenLoad(termine,kids){
+  const slot=document.getElementById("buedchen-slot"); if(!slot)return;
+  window._elternKids=kids||window._elternKids||[];
+  const heim=(termine||[]).filter(t=>(t.typ==="spiel"||t.typ==="turnier")&&t.heim===true).slice(0,3);
+  if(!heim.length){ slot.innerHTML=""; return; }
+  const meineIds=(kids||[]).map(k=>k.spieler_id);
+  const cards=[];
+  for(const t of heim){
+    let fam=[];
+    try{const r=await fetch(`${SB_URL}/rest/v1/rpc/buedchen_plan`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_termin:t.id})});if(r.ok)fam=await r.json();}catch(e){}
+    const d=new Date(t.datum+"T00:00:00");
+    const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+    const zeit=t.uhrzeit?String(t.uhrzeit).slice(0,5)+" Uhr":"";
+    const meine=(fam||[]).find(f=>meineIds.includes(f.spieler_id));
+    const namen=(fam&&fam.length)?fam.map(f=>esc(f.name)+"s Familie").join(" & "):"– wird eingeteilt –";
+    cards.push(`<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05);${meine?"border:2px solid #16a34a":""}">
+      <div style="font-weight:700;margin-bottom:2px">🍿 Büdchen · Heimspiel${(t.gegner||t.titel)?" gegen "+esc(t.gegner||t.titel):""}</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:8px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""} · 2 Familien betreuen das Büdchen</div>
+      <div style="font-size:13px">Eingeteilt: <b>${namen}</b></div>
+      ${meine?`<div style="margin-top:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 10px;font-size:12.5px;color:#15803d">Ihr seid diesmal dran – danke fürs Büdchen! 🙌</div>
+        <button onclick="buedchenOptout(${t.id},${meine.spieler_id})" style="width:100%;margin-top:8px;min-height:44px;border:1.5px solid #dc2626;border-radius:10px;background:#fff;color:#dc2626;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Wir können leider nicht – nächste Familie</button>`:""}
+    </div>`);
+  }
+  slot.innerHTML=cards.join("");
+}
+async function buedchenOptout(terminId,spielerId){
+  if(!confirm("Ihr könnt beim Büdchen nicht? Dann rückt automatisch die nächste Familie nach."))return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/buedchen_optout`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_termin:terminId,p_spieler:spielerId})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht ändern"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Danke – die nächste Familie rückt nach.");
+  if(typeof elternDashLoad==="function")elternDashLoad();
+}
+// Trainer-Terminliste: die eingeteilten Büdchen-Familien je Heimspiel nachladen (plant bei Bedarf).
+async function buedchenTrainerFill(t){
+  const slot=document.getElementById("bd-tm-"+t.id); if(!slot)return;
+  let fam=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/buedchen_plan`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_termin:t.id})});if(r.ok)fam=await r.json();}catch(e){}
+  const namen=(fam&&fam.length)?fam.map(f=>esc(f.name)).join(" & "):"– noch offen –";
+  slot.innerHTML=`🍿 Büdchen: <b style="color:var(--text)">${namen}</b>`;
 }
 
 /* Fairplay-Quiz für die Eltern (Phase 18.3): fester Fragensatz rund um den Codex.
