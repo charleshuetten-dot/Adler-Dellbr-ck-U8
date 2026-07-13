@@ -332,6 +332,7 @@ async function elternDashLoad(){
   elternGespraechStatus();                     // laufende Elterngespräch-Anfrage anzeigen
   elternPollLoad();                            // Terminvorschläge des Trainers (Elterngespräch-Doodle)
   fairplayCommitLoad();                        // Fairplay-Codex: Commitment-Status / Bestätigung
+  if(termin)elternTickerLoad(termin);          // Liveticker: Team des Kindes automatisch erkennen
   if(WAESCHE_AKTIV)elternWaescheLoad(kids);    // Trikot-Wäsche-Rotator (aktuell ausgeblendet)
   elternSkillLoad(kids);   // Skill der Woche
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
@@ -4332,54 +4333,88 @@ async function renderDelegateView(token){
    Wolff-Fuss-Toggle (ticker_open=false -> RLS liefert 0 Zeilen + Hinweistext). */
 let tickerViewTimer=null, tickerViewMinuteTimer=null, tickerViewClock=null;
 async function renderTickerView(key){
+  const konf=/__konf$/.test(key);                     // Konferenz: alle Teams eines Spieltags
+  const baseDatum=konf?key.replace(/__konf$/,""):key;
+  const keys=konf?[baseDatum,baseDatum+"__t2",baseDatum+"__t3"]:[key];
+  const anon={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
   const root=document.createElement("div");
   root.style.cssText="max-width:440px;margin:0 auto;padding:16px;font-family:inherit;min-height:100vh;background:#f1f5f9";
   document.body.appendChild(root);
   root.innerHTML=elternLoader("Liveticker wird geladen …");
   let adlerkasseHtml=""; // FEAT Z: Spenden-Button, einmal geladen (draw() laeuft alle 15s)
-  async function loadClock(){
+  let clocks={};         // key -> matchday-Zeile
+  const teamName=k=>{ const m=/__t(\d+)$/.exec(k); return m?`Adler ${m[1]}`:"Adler 1"; };
+  async function loadClocks(){
     try{
-      const r=await fetch(`${SB_URL}/rest/v1/matchday?datum=eq.${encodeURIComponent(key)}&select=gegner,half,clock_status,started_at,paused_ms,ticker_open,spieldauer_min,halbzeiten`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+      const r=await fetch(`${SB_URL}/rest/v1/matchday?datum=in.(${keys.map(encodeURIComponent).join(",")})&select=datum,gegner,half,clock_status,started_at,paused_ms,ticker_open,spieldauer_min,halbzeiten`,{headers:anon});
       const rows=r.ok?await r.json():[];
-      tickerViewClock=rows[0]||null;
+      clocks={}; rows.forEach(x=>clocks[x.datum]=x);
     }catch(e){}
   }
-  function minuteNow(){
-    if(!tickerViewClock)return "";
-    return mcMinuteLabel({half:tickerViewClock.half,clock_status:tickerViewClock.clock_status,started_at:tickerViewClock.started_at,paused_ms:tickerViewClock.paused_ms},tickerViewClock.spieldauer_min||20,tickerViewClock.halbzeiten||2);
+  function minuteFor(k){
+    const c=clocks[k]; if(!c)return "";
+    return mcMinuteLabel({half:c.half,clock_status:c.clock_status,started_at:c.started_at,paused_ms:c.paused_ms},c.spieldauer_min||20,c.halbzeiten||2);
   }
   async function draw(){
-    const wolffFuss=tickerViewClock&&tickerViewClock.ticker_open===false;
     let events=[];
-    if(!wolffFuss){
-      try{
-        const r=await fetch(`${SB_URL}/rest/v1/ticker_events?datum=eq.${encodeURIComponent(key)}&select=text,typ,minute,created_at&order=created_at.desc&limit=40`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
-        events=r.ok?await r.json():[];
-      }catch(e){}
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/ticker_events?datum=in.(${keys.map(encodeURIComponent).join(",")})&select=datum,text,typ,minute,created_at&order=created_at.desc&limit=${konf?60:40}`,{headers:anon});
+      events=r.ok?await r.json():[];
+    }catch(e){}
+    // Wolff-Fuss je Team respektieren: Events eines Teams mit ticker_open=false ausblenden.
+    events=events.filter(e=>{const c=clocks[e.datum]; return !(c&&c.ticker_open===false);});
+    const foot=`${adlerkasseHtml}<div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:14px">Nur-Ansehen · aktualisiert automatisch · SV Adler Dellbrück e.V.</div>`;
+
+    if(konf){
+      const aktive=keys.filter(k=>clocks[k]||events.some(e=>e.datum===k));
+      const score=k=>{let t=0,g=0;events.forEach(e=>{if(e.datum!==k)return;if(e.typ==="tor")t++;else if(e.typ==="gegentor")g++;});return t+":"+g;};
+      const board=aktive.length?aktive.map(k=>{
+        const c=clocks[k], geg=c&&c.gegner?`gegen ${elternEsc(c.gegner)}`:"";
+        return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f1f5f9">
+          <span style="font-weight:800;color:#dc2626;min-width:62px">${teamName(k)}</span>
+          <span style="font-size:18px;font-weight:900;color:#1e3a8a">${score(k)}</span>
+          <span style="flex:1;font-size:11.5px;color:#64748b;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${geg}</span>
+          <span style="font-size:11px;color:#94a3b8">${elternEsc(minuteFor(k))}</span>
+        </div>`;}).join(""):'<div style="font-size:12.5px;color:#94a3b8">Noch keine Teams aktiv.</div>';
+      const feed=events.length?events.map(e=>`<div style="display:flex;gap:8px;align-items:baseline;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13.5px">
+          <span style="font-size:16px;flex:0 0 auto">${elTickerIcon(e.typ)}</span>
+          <span><span style="font-size:10px;font-weight:800;color:#dc2626;background:#fee2e2;border-radius:8px;padding:1px 6px;margin-right:4px">${teamName(e.datum)}</span><strong style="color:#1e3a8a">${e.minute?elternEsc(e.minute):""}</strong> ${elternEsc(e.text)}</span>
+        </div>`).join(""):'<div style="font-size:12.5px;color:#94a3b8">Noch keine Ereignisse. Die Konferenz startet mit dem Anpfiff!</div>';
+      root.innerHTML=`
+        <div style="text-align:center;margin:8px 0 14px">
+          <img src="logo.png" style="width:56px;height:56px" alt="SV Adler Dellbrück">
+          <div style="font-size:16px;font-weight:800;color:#1e3a8a;margin-top:6px">📣 Liveticker U9 · Konferenz</div>
+          <div style="font-size:12px;color:#64748b">alle Teams in einem Ticker</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:6px 14px;margin-bottom:10px">${board}</div>
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px">${feed}</div>
+        ${foot}`;
+      return;
     }
-    const gegner=tickerViewClock&&tickerViewClock.gegner?` · gegen ${elternEsc(tickerViewClock.gegner)}`:"";
+    // Einzelteam (unverändertes Verhalten)
+    const c=clocks[key], wolffFuss=c&&c.ticker_open===false;
+    const gegner=c&&c.gegner?` · gegen ${elternEsc(c.gegner)}`:"";
     root.innerHTML=`
       <div style="text-align:center;margin:8px 0 14px">
         <img src="logo.png" style="width:56px;height:56px" alt="SV Adler Dellbrück">
         <div style="font-size:16px;font-weight:800;color:#1e3a8a;margin-top:6px">📣 Liveticker U9${teamLabelFromKey(key)}${gegner}</div>
-        <div style="font-size:13px;color:#64748b"><span id="tv-minute">${elternEsc(minuteNow())}</span></div>
+        <div style="font-size:13px;color:#64748b"><span id="tv-minute">${elternEsc(minuteFor(key))}</span></div>
       </div>
       ${wolffFuss
         ? '<div style="text-align:center;font-size:12.5px;color:#64748b;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px">🤫 Trainer fokussieren sich zu 100% auf die Kids – kein Ticker heute.</div>'
         : `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px">
             ${events.length?events.map(e=>`<div style="display:flex;gap:8px;align-items:baseline;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13.5px"><span style="font-size:16px;flex:0 0 auto">${elTickerIcon(e.typ)}</span><span><strong style="color:#1e3a8a">${e.minute?elternEsc(e.minute):""}</strong> ${elternEsc(e.text)}</span></div>`).join(""):'<div style="font-size:12.5px;color:#94a3b8">Noch keine Ereignisse. Der Ticker startet mit dem Anpfiff – bleib dran!</div>'}
           </div>`}
-      ${adlerkasseHtml}
-      <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:14px">Nur-Ansehen · aktualisiert automatisch · SV Adler Dellbrück e.V.</div>`;
+      ${foot}`;
   }
-  await loadClock();
+  await loadClocks();
   adlerkasseHtml=adlerkasseCardHtml(await adlerkasseLinkGet()); // FEAT Z
   await draw();
-  // Minute jede Sekunde lokal aktualisieren (nur DOM-Textknoten), Ereignisse+Uhr alle 15s frisch ziehen.
+  // Minute jede Sekunde lokal (nur Einzelteam-Header); Ereignisse+Uhr alle 15s frisch ziehen.
   clearInterval(tickerViewMinuteTimer);
-  tickerViewMinuteTimer=setInterval(()=>{const el=document.getElementById("tv-minute");if(el)el.textContent=minuteNow();},1000);
+  if(!konf)tickerViewMinuteTimer=setInterval(()=>{const el=document.getElementById("tv-minute");if(el)el.textContent=minuteFor(key);},1000);
   clearInterval(tickerViewTimer);
-  tickerViewTimer=setInterval(async()=>{await loadClock();await draw();},15000);
+  tickerViewTimer=setInterval(async()=>{await loadClocks();await draw();},15000);
 }
 
 // Eltern-Interaktion (anonym, nur Training): Anwesenheit + Fahrgemeinschaften
@@ -7073,14 +7108,48 @@ function elternTicker(datum,team){
   const key=Number(team)>1?`${datum}__t${Number(team)}`:datum;
   location.href=location.pathname+"?ticker="+encodeURIComponent(key);
 }
+// Konferenz: alle Teams eines Spieltags in EINEM Ticker (Key <datum>__konf).
+function elternTickerKonf(datum){
+  location.href=location.pathname+"?ticker="+encodeURIComponent(datum+"__konf");
+}
+// Container – die eigentliche Auswahl macht elternTickerLoad async (Team-Auto-Erkennung).
 function elternTickerHtml(termin){
   if(termin.typ!=="spiel"&&termin.typ!=="turnier")return "";
-  const chip=n=>`<button onclick="elternTicker('${termin.datum}',${n})" style="flex:1;min-width:88px;padding:8px 6px;border:1.5px solid #dc2626;border-radius:10px;background:#fff;color:#dc2626;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">Adler ${n}</button>`;
-  return `<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
-    <div style="font-size:12.5px;font-weight:700;color:#dc2626;margin-bottom:2px">📣 Liveticker</div>
-    <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Nicht dabei? Hier gibt's Tore und Spielstand live. Welches Team spielt dein Kind?</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">${chip(1)}${chip(2)}${chip(3)}</div>
-  </div>`;
+  return `<div id="eltern-ticker-slot" data-datum="${esc(termin.datum)}"></div>`;
+}
+// Erkennt automatisch, in welchem Team das eigene Kind spielt (aus der Team-Einteilung
+// <datum>__teams), und öffnet direkt dessen Ticker – ohne Auswahl. Zusätzlich: Konferenz.
+async function elternTickerLoad(termin){
+  const slot=document.getElementById("eltern-ticker-slot"); if(!slot)return;
+  if(!termin||(termin.typ!=="spiel"&&termin.typ!=="turnier")){slot.innerHTML="";return;}
+  const datum=termin.datum, kids=window._elternKids||[];
+  // Team des eigenen Kindes serverseitig ermitteln (nominierungen ist trainer-only -> RPC kind_team).
+  let anzahl=1; const myTeams=new Set();
+  for(const k of kids){
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/rpc/kind_team`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler:k.spieler_id,p_datum:datum})});
+      if(r.ok){const s=await r.json(); if(s&&s.ok){ if(s.anzahl)anzahl=Math.max(anzahl,Number(s.anzahl)||1); if(s.team&&Number(s.team)>=1)myTeams.add(Number(s.team)); }}
+    }catch(e){}
+  }
+  const wrap=(inner)=>`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
+    <div style="font-size:12.5px;font-weight:700;color:#dc2626;margin-bottom:2px">📣 Liveticker</div>${inner}</div>`;
+  const bigBtn=(label,onclick,filled)=>`<button onclick="${onclick}" style="width:100%;min-height:48px;margin-top:6px;padding:12px;border:1.5px solid #dc2626;border-radius:10px;background:${filled?"#dc2626":"#fff"};color:${filled?"#fff":"#dc2626"};font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">${label}</button>`;
+  const konfBtn = anzahl>1 ? bigBtn("👥 Konferenz · alle Teams live",`elternTickerKonf('${datum}')`,false) : "";
+
+  if(myTeams.size===1){
+    const t=[...myTeams][0];
+    slot.innerHTML=wrap(`<div style="font-size:11px;color:#64748b;margin-bottom:2px">Automatisch erkannt: dein Kind spielt heute in <b style="color:#dc2626">Adler ${t}</b>.</div>
+      ${bigBtn(`📣 Liveticker öffnen · Adler ${t}`,`elternTicker('${datum}',${t})`,true)}${konfBtn}`);
+  }else if(myTeams.size>1){
+    const btns=[...myTeams].sort().map(t=>bigBtn(`📣 Adler ${t} (dein Kind)`,`elternTicker('${datum}',${t})`,true)).join("");
+    slot.innerHTML=wrap(`<div style="font-size:11px;color:#64748b;margin-bottom:2px">Deine Kinder spielen in mehreren Teams:</div>${btns}${konfBtn}`);
+  }else if(anzahl>1){
+    // Teams stehen (mehrere), aber das eigene Kind ist (noch) keinem zugeordnet.
+    slot.innerHTML=wrap(`<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">Die Team-Einteilung deines Kindes steht noch nicht fest. Sieh einfach alle Teams gemeinsam:</div>${bigBtn("👥 Konferenz · alle Teams live",`elternTickerKonf('${datum}')`,true)}`);
+  }else{
+    // Nur ein Team an diesem Spieltag – kein Auswahl-/Konferenzbedarf.
+    slot.innerHTML=wrap(`<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">Nicht dabei? Hier gibt's Tore und Spielstand live.</div>${bigBtn("📣 Liveticker öffnen",`elternTicker('${datum}',1)`,true)}`);
+  }
 }
 
 /* ═══════════════════════════════════
