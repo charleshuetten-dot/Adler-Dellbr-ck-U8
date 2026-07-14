@@ -2316,11 +2316,12 @@ async function einheitSave(){
 // Anwesenheits-Quote je Kind: Training (aus AW_DATA) + Spiele/Turniere (aus nominierungen "dabei").
 async function anwesenheitOpen(){
   const active=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
+  const ab=(typeof saisonStart==="function")?saisonStart():"2000-01-01"; // Quote pro Saison + bounded fetch
   const tr={}, gm={}; active.forEach(k=>{tr[k.name]={p:0,t:0};gm[k.name]={p:0,t:0};});
   // Training: AW_DATA[datum][name].da (true=da, false=gefehlt); ohne Eintrag = unbekannt
   try{Object.keys(AW_DATA||{}).forEach(d=>{const day=AW_DATA[d]||{};active.forEach(k=>{const e=day[k.name];if(e&&typeof e.da==="boolean"){tr[k.name].t++;if(e.da)tr[k.name].p++;}});});}catch(e){}
   // Spiele/Turniere: nominierungen.data[name] = dabei/nicht/verletzt
-  try{const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data`,{headers:sbAuthHeaders()});if(r.ok){(await r.json()).forEach(row=>{const data=row.data||{};active.forEach(k=>{const s=data[k.name];if(s&&(s==="dabei"||s==="nicht"||s==="verletzt")){gm[k.name].t++;if(s==="dabei")gm[k.name].p++;}});});}}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data&datum=gte.${ab}`,{headers:sbAuthHeaders()});if(r.ok){(await r.json()).forEach(row=>{const data=row.data||{};active.forEach(k=>{const s=data[k.name];if(s&&(s==="dabei"||s==="nicht"||s==="verletzt")){gm[k.name].t++;if(s==="dabei")gm[k.name].p++;}});});}}catch(e){}
   const pct=(o)=>o.t?Math.round(o.p/o.t*100):null;
   const col=(p)=>p==null?"var(--text3)":p>=75?"#16a34a":p>=50?"#b45309":"#dc2626";
   const cell=(o)=>{const p=pct(o);return `<span style="font-weight:700;color:${col(p)}">${p==null?"–":p+"%"}</span> <span style="color:var(--text3);font-size:10px">${o.t?`(${o.p}/${o.t})`:""}</span>`;};
@@ -2374,7 +2375,7 @@ async function saisonCockpitOpen(){
   const att={}, einsatz={}; active.forEach(k=>{att[k.name]={p:0,t:0};einsatz[k.name]=0;});
   let trainings=0;
   try{Object.keys(AW_DATA||{}).forEach(d=>{trainings++;const day=AW_DATA[d]||{};active.forEach(k=>{const e=day[k.name];if(e&&typeof e.da==="boolean"){att[k.name].t++;if(e.da)att[k.name].p++;}});});}catch(e){}
-  try{const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(row=>{const data=row.data||{};active.forEach(k=>{const s=data[k.name];if(s==="dabei"||s==="nicht"||s==="verletzt"){att[k.name].t++;if(s==="dabei"){att[k.name].p++;einsatz[k.name]++;}}});});}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data&datum=gte.${ab}`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(row=>{const data=row.data||{};active.forEach(k=>{const s=data[k.name];if(s==="dabei"||s==="nicht"||s==="verletzt"){att[k.name].t++;if(s==="dabei"){att[k.name].p++;einsatz[k.name]++;}}});});}catch(e){}
   // R6: faire Einsätze – die mit den wenigsten Spiel-Einsätzen (nur wenn überhaupt gespielt wurde)
   const maxEins=Math.max(0,...active.map(k=>einsatz[k.name]));
   const fairArr=active.map(k=>({name:k.name,e:einsatz[k.name]})).sort((a,b)=>a.e-b.e);

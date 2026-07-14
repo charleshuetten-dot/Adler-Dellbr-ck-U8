@@ -757,7 +757,7 @@ document.addEventListener("keydown",e=>{
    real greift. Kein Termin am Datum -> null (FK erlaubt null, kein Cascade nötig).
 ═══════════════════════════════════ */
 let _terminIdCache={};
-function terminIdCacheClear(){ _terminIdCache={}; }
+function terminIdCacheClear(){ _terminIdCache={}; try{ if(typeof _termineSel==="object"&&_termineSel)_termineSel.at=0; }catch(e){} } // auch die Termin-Dropdown-Liste neu laden
 async function terminIdForDatum(datum){
   if(!datum)return null;
   if(Object.prototype.hasOwnProperty.call(_terminIdCache,datum))return _terminIdCache[datum];

@@ -404,15 +404,21 @@ function terminOptionLabel(t){
   const dd=d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit"});
   return `${wtag} ${dd} · ${m.icon} ${esc(t.titel||t.gegner||m.label)}`;
 }
+// Eine gecachte Terminliste bedient alle drei Datums-Selects (Anwesenheit/Planung/Bewertung)
+// – statt bei jedem Tab-Öffnen 90 Termine neu zu ziehen (45s-TTL).
+let _termineSel={rows:null,at:0};
+async function _termineSelLoad(){
+  if(_termineSel.rows && Date.now()-_termineSel.at<45000) return _termineSel.rows;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=datum,typ,titel,gegner,uhrzeit&order=datum.desc,uhrzeit.desc.nullslast&limit=120`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)rows=await r.json();}catch(e){}
+  _termineSel={rows:rows||[],at:Date.now()};
+  return _termineSel.rows;
+}
 async function terminSelectFill(selId, opt){
   opt=opt||{}; const sel=document.getElementById(selId); if(!sel)return;
   const types=opt.types||["training","spiel","turnier","event"], future=!!opt.future;
-  let rows=[];
-  try{
-    const r=await fetch(`${SB_URL}/rest/v1/termine?select=datum,typ,titel,gegner,uhrzeit&order=datum.${future?"asc":"desc"},uhrzeit.${future?"asc":"desc"}.nullslast&limit=90`,{headers:sbAuthHeaders()});
-    if(!sbCheck401(r)&&r.ok)rows=await r.json();
-  }catch(e){}
-  rows=(rows||[]).filter(t=>types.includes(t.typ));
+  let rows=(await _termineSelLoad()).filter(t=>types.includes(t.typ));
+  if(future)rows=rows.slice().sort((a,b)=>(a.datum<b.datum?-1:a.datum>b.datum?1:0)); // künftig: aufsteigend
   const heute=new Date().toISOString().slice(0,10);
   if(!rows.length){ sel.innerHTML=`<option value="${heute}">Heute (${heute}) – noch kein Termin hinterlegt</option>`; if(opt.onReady)opt.onReady(); return; }
   sel.innerHTML=rows.map(t=>`<option value="${t.datum}">${terminOptionLabel(t)}</option>`).join("");
