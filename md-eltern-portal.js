@@ -242,7 +242,7 @@ async function elternDashLoad(){
   // UX 3: kam der Elternteil über einen Deep-Link (?rsvp=…)? Dann Nudge erzwingen + hinscrollen.
   let rsvpIntent=null; try{rsvpIntent=sessionStorage.getItem("adler_rsvp_intent");}catch(e){}
   let kids=[], termin=null;
-  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?select=spieler_id,label,kader(id,name,nr)`,{headers:sbAuthHeaders()});if(r.ok)kids=await r.json();}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?select=spieler_id,label,kader(id,name,nr,foto_stadionheft_ok)`,{headers:sbAuthHeaders()});if(r.ok)kids=await r.json();}catch(e){}
   if(!kids.length){ body.innerHTML=card('<div style="color:#475569;font-size:13px;line-height:1.6">Dein Trainer hat diese E-Mail noch <b>keinem Kind</b> zugeordnet.<br>Bitte gib ihm die E-Mail-Adresse, mit der du dich hier angemeldet hast.</div>'); return; }
   window._elternKids=kids;   // fürs Fairplay-Quiz (Federn fürs eigene Kind)
   let termineListe=[]; // UX 6: Timeline – die nächsten Termine, nicht nur der eine
@@ -313,6 +313,7 @@ async function elternDashLoad(){
       </div>
     </div>`;
   }
+  html+=`<div id="eltern-checklist-slot"></div>`; // „Erste Schritte"-Checkliste (Adoption)
   html+=familyOverviewHtml(termineListe,kids,rsvpAll); // Familien-Sammelansicht (nur ≥2 Kinder)
   html+=`<div id="puls-nudge-slot"></div>`;    // Puls-Erinnerung: jüngstes Event ohne eigenes Feedback
   html+=`<div id="match-gruss-slot"></div>`;  // A1: persönlicher Nach-dem-Spiel-Gruß pro Kind
@@ -418,6 +419,7 @@ async function elternDashLoad(){
   if(WAESCHE_AKTIV)elternWaescheLoad(kids);    // Trikot-Wäsche-Rotator (aktuell ausgeblendet)
   elternSkillLoad(kids);   // Skill der Woche
   pulsNudgeLoad();         // Puls-Erinnerung fürs jüngste Event ohne Feedback
+  elternChecklistLoad(kids); // „Erste Schritte"-Checkliste (Adoption)
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
   let backToKabine=false; try{backToKabine=sessionStorage.getItem("adler_open_kabine")==="1";sessionStorage.removeItem("adler_open_kabine");}catch(e){}
   if(backToKabine)setTimeout(kabineOpen,50);
@@ -609,6 +611,42 @@ async function tdPulsSaveText(terminId){
   try{await fetch(`${SB_URL}/rest/v1/event_puls?on_conflict=termin_id,user_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({termin_id:terminId,mood,kommentar:txt||null})});}catch(e){}
 }
 
+/* „Erste Schritte"-Checkliste: führt neue Familien durch die Einrichtung (Push, Notfallkarte,
+   Foto-Freigabe, Fairplay-Codex). Erkennt den Status live; ausblendbar bis zum nächsten Tag;
+   verschwindet ganz, sobald alles erledigt ist. Treibt die Adoption der Eltern-Features. */
+async function elternChecklistLoad(kids){
+  const slot=document.getElementById("eltern-checklist-slot"); if(!slot)return;
+  kids=kids||[];
+  try{ if(localStorage.getItem("adler_setup_hide")===new Date().toISOString().slice(0,10)){slot.innerHTML="";return;} }catch(e){}
+  let committed=false; const notfallIds=new Set();
+  try{const r=await fetch(`${SB_URL}/rest/v1/fairplay_commit?select=committed_at&limit=1`,{headers:sbAuthHeaders()});if(r.ok)committed=((await r.json())||[]).length>0;}catch(e){}
+  try{const ids=kids.map(k=>k.spieler_id).join(",");if(ids){const r=await fetch(`${SB_URL}/rest/v1/kind_notfall?spieler_id=in.(${ids})&select=spieler_id`,{headers:sbAuthHeaders()});if(r.ok)(await r.json()).forEach(x=>notfallIds.add(x.spieler_id));}}catch(e){}
+  const pushOn=(typeof Notification!=="undefined"&&Notification.permission==="granted");
+  const fotoAll=kids.length>0&&kids.every(k=>k.kader&&k.kader.foto_stadionheft_ok);
+  const notfallAll=kids.length>0&&kids.every(k=>notfallIds.has(k.spieler_id));
+  const k0=kids[0]||{}, n0=((k0.kader&&k0.kader.name)||"").replace(/'/g,"");
+  const items=[
+    {done:pushOn,     icon:"🔔", label:"Benachrichtigungen aktivieren", act:`pushSubscribe('parent').then(ok=>{if(ok)elternChecklistLoad(window._elternKids||[]);})`},
+    {done:notfallAll, icon:"🚑", label:"Notfallkarte hinterlegen",       act:`notfallOpen(${k0.spieler_id},'${n0}')`},
+    {done:fotoAll,    icon:"📸", label:"Foto-Freigabe klären",           act:`elternFanfactsOpen(${k0.spieler_id},'${n0}')`},
+    {done:committed,  icon:"🤝", label:"Fairplay-Codex bestätigen",       act:`fairplayOpen()`}
+  ];
+  const open=items.filter(i=>!i.done).length;
+  if(open===0){ slot.innerHTML=""; return; }
+  const total=items.length, done=total-open;
+  const rows=items.map(i=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #f1f5f9">
+      <span style="font-size:18px;width:24px;text-align:center">${i.done?"✅":i.icon}</span>
+      <span style="flex:1;font-size:13px;${i.done?"color:#94a3b8;text-decoration:line-through":"font-weight:600"}">${i.label}</span>
+      ${i.done?'<span style="font-size:11px;color:#16a34a;font-weight:700">erledigt</span>':`<button onclick="${i.act}" style="padding:6px 12px;border:1.5px solid #1e3a8a;border-radius:8px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">öffnen</button>`}
+    </div>`).join("");
+  slot.innerHTML=`<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05);border:1.5px solid #bfdbfe">
+    <div style="display:flex;align-items:center;gap:8px"><div style="font-weight:800;font-size:14px">🚀 Erste Schritte</div><span style="margin-left:auto;font-size:11px;color:#64748b">${done}/${total} erledigt</span></div>
+    <div style="height:6px;background:#e2e8f0;border-radius:4px;margin:8px 0;overflow:hidden"><div style="height:100%;width:${Math.round(done/total*100)}%;background:#16a34a;transition:width .3s"></div></div>
+    ${rows}
+    <button onclick="elternChecklistDismiss()" style="width:100%;margin-top:10px;padding:8px;border:none;background:none;color:#94a3b8;font-family:inherit;font-size:11.5px;cursor:pointer">Später · für heute ausblenden</button>
+  </div>`;
+}
+function elternChecklistDismiss(){ try{localStorage.setItem("adler_setup_hide",new Date().toISOString().slice(0,10));}catch(e){} const s=document.getElementById("eltern-checklist-slot"); if(s)s.innerHTML=""; }
 /* Familien-Sammelansicht: Mehrkind-Familien sehen die nächsten Termine × Kinder auf einen
    Blick (wer ist wo dabei). Nutzt die schon geladenen Daten (termine/kids/rsvpAll). */
 function familyOverviewHtml(termine,kids,rsvpAll){

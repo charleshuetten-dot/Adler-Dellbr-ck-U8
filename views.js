@@ -758,6 +758,37 @@ async function backupExport(){
   }catch(e){toast("Backup fehlgeschlagen","err");}
 }
 
+/* Eltern-Setup-Übersicht: zeigt dem Trainer, welche Kinder Foto-Freigabe und Notfallkarte
+   schon eingerichtet haben (beides trainer-lesbar), damit gezielt nachgehakt werden kann. */
+async function setupTrainerOpen(){
+  const kids=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
+  const notfall=new Set();
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_notfall?select=spieler_id`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)(await r.json()).forEach(x=>notfall.add(x.spieler_id));}catch(e){}
+  const rows=kids.map(k=>({name:k.name,foto:!!k.foto_stadionheft_ok,nf:notfall.has(k.id)})).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  const missFoto=rows.filter(r=>!r.foto).length, missNf=rows.filter(r=>!r.nf).length;
+  const cell=ok=>`<span style="font-size:14px">${ok?"✅":"⛔"}</span>`;
+  document.getElementById("setup-modal")?.remove();
+  const modal=document.createElement("div"); modal.id="setup-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10050;display:flex;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-weight:800;font-size:16px">🚀 Eltern-Setup</div>
+      <button onclick="document.getElementById('setup-modal').remove()" style="border:none;background:none;font-size:24px;color:var(--text2);cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Offen: 📸 ${missFoto} ohne Foto-Freigabe · 🚑 ${missNf} ohne Notfallkarte.</div>
+    <div style="display:grid;grid-template-columns:1fr 44px 44px;gap:2px;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;padding:0 4px 4px"><div>Kind</div><div style="text-align:center">📸</div><div style="text-align:center">🚑</div></div>
+    ${rows.map(r=>`<div style="display:grid;grid-template-columns:1fr 44px 44px;gap:2px;align-items:center;padding:5px 4px;border-top:var(--border);font-size:13px"><div>${esc(r.name)}</div><div style="text-align:center">${cell(r.foto)}</div><div style="text-align:center">${cell(r.nf)}</div></div>`).join("")}
+    ${(missFoto||missNf)?`<button class="btn btn-sm btn-p" style="width:100%;margin-top:12px" onclick="setupRemindPush()"><i class="ti ti-bell"></i>Eltern per Push erinnern</button>`:'<div style="text-align:center;color:#16a34a;font-size:13px;font-weight:700;margin-top:12px">Alles eingerichtet 🎉</div>'}
+    <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('setup-modal').remove()">Schließen</button>`;
+  modal.appendChild(c); document.body.appendChild(modal);
+}
+function setupRemindPush(){
+  if(typeof pushSendToParents!=="function"){toast("Push nicht verfügbar","err");return;}
+  pushSendToParents("🦅 Kurz einrichten?","Bitte im Eltern-Bereich unter 'Erste Schritte' Foto-Freigabe & Notfallkarte prüfen.",appRoot()+"?portal");
+}
 /* F1: Notfall-/Gesundheitskarten – Trainer-Leseansicht. Lädt alle Karten (RLS erlaubt dem
    Trainer nur SELECT) und legt sie zusätzlich in localStorage ab, damit sie am Platz auch
    OHNE Netz griffbereit sind. Kein Schreibweg – gepflegt wird ausschließlich von den Eltern. */
@@ -801,7 +832,7 @@ function renderKader(){
   });
   if(!filtered.length){wrap.innerHTML='<div class="empty"><i class="ti ti-filter"></i>Kein Spieler für diesen Filter</div>';renderRauteMap(names);return;}
   const dimCols=["#1a56db","#7c3aed","#d97706","#059669","#0e7490"];
-  let html=`<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button class="btn btn-sm" onclick="notfallTrainerOpen()" title="Notfall-/Gesundheitskarten der Kinder – schreibgeschützt, für den Platz auch offline">🚑 Notfallkarten</button></div><table class="kader-t"><thead><tr><th>Spieler</th><th>Rolle</th><th>Grp</th><th>Tech.</th><th>Wahr.</th><th>Phys.</th><th>Ges.</th><th>Pot.</th><th>Von</th><th></th></tr></thead><tbody>`;
+  let html=`<div style="display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-bottom:8px"><button class="btn btn-sm" onclick="setupTrainerOpen()" title="Wer hat Foto-Freigabe & Notfallkarte schon eingerichtet?">🚀 Eltern-Setup</button><button class="btn btn-sm" onclick="notfallTrainerOpen()" title="Notfall-/Gesundheitskarten der Kinder – schreibgeschützt, für den Platz auch offline">🚑 Notfallkarten</button></div><table class="kader-t"><thead><tr><th>Spieler</th><th>Rolle</th><th>Grp</th><th>Tech.</th><th>Wahr.</th><th>Phys.</th><th>Ges.</th><th>Pot.</th><th>Von</th><th></th></tr></thead><tbody>`;
   filtered.forEach(name=>{
     const lat=DB[name][DB[name].length-1];
     const sc=safeParse(lat.scores,[0,0,0,0,0]);
