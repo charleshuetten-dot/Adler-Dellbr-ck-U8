@@ -2805,6 +2805,15 @@ async function renderHome(){
       <button class="btn" style="flex:1;min-height:48px" onclick="go('anwesenheit')"><i class="ti ti-checkbox"></i>Anwesenheit</button>
       <button class="btn" style="flex:1;min-height:48px" onclick="go('termine')"><i class="ti ti-calendar-plus"></i>Termin</button>
     </div>
+    <!-- Aufmerksamkeit/To-dos: direkt unter den Hauptaktionen, ohne Überschrift (leer = unsichtbar) -->
+    <div id="home-rsvp"></div>
+    <div id="home-antifrust"></div>
+    <div id="eg-trainer"></div>
+    ${stale>0?`<div onclick="go('bew')" class="card" style="padding:12px 14px;margin-bottom:10px;border-left:3px solid #dc2626;cursor:pointer;display:flex;align-items:center;gap:8px">
+      <span style="font-size:18px">⏰</span>
+      <span style="flex:1;font-size:12.5px"><strong style="color:#dc2626">${stale} Spieler überfällig</strong> – seit über 6 Wochen nicht bewertet.</span>
+      <span style="font-size:11px;font-weight:800;color:var(--blue)">ansehen ›</span>
+    </div>`:""}
     <div class="sl nt" style="margin-top:18px"><i class="ti ti-tools"></i>Werkzeuge</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
       ${homeTool("📈 Saison-Cockpit","saisonCockpitOpen()")}
@@ -2822,16 +2831,7 @@ async function renderHome(){
     <div class="sl nt" style="margin-top:18px"><i class="ti ti-clipboard-heart"></i>Team-Status</div>
     <div id="team-level-slot" style="margin-bottom:10px"></div>
     <div id="home-birthday"></div>
-    <div id="home-rsvp"></div>
-    <div id="home-antifrust"></div>
-    <div id="push-slot-trainer" style="margin-bottom:10px"></div>
     ${gebHtml}
-    <div id="eg-trainer"></div>
-    ${stale>0?`<div onclick="go('bew')" class="card" style="padding:12px 14px;margin-bottom:10px;border-left:3px solid #dc2626;cursor:pointer;display:flex;align-items:center;gap:8px">
-      <span style="font-size:18px">⏰</span>
-      <span style="flex:1;font-size:12.5px"><strong style="color:#dc2626">${stale} Spieler überfällig</strong> – seit über 6 Wochen nicht bewertet.</span>
-      <span style="font-size:11px;font-weight:800;color:var(--blue)">ansehen ›</span>
-    </div>`:""}
     <div class="card" style="padding:0;margin-bottom:10px;overflow:hidden">
       <button onclick="toggleTeamCheck()" style="width:100%;display:flex;align-items:center;gap:8px;padding:13px 14px;min-height:48px;border:none;background:transparent;font-family:inherit;cursor:pointer;color:var(--text)">
         <span style="font-size:16px">🩺</span>
@@ -2848,7 +2848,9 @@ async function renderHome(){
         <div id="home-radar"></div>
       </div>
     </div>
-    <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;margin-top:12px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>
+    <div class="sl nt" style="margin-top:18px"><i class="ti ti-settings"></i>Einstellungen</div>
+    <div id="push-slot-trainer" style="margin-bottom:10px"></div>
+    <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>
     <button onclick="pwChangeOpen()" style="width:100%;min-height:48px;margin-top:12px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text2);background:var(--surface)">🔑 Mein Passwort ändern</button>`;
 
   window._radarLoaded=false; // Radar erst beim Aufklappen des Team-Checks laden
