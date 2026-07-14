@@ -576,6 +576,17 @@ function wetterKitTip(w){
   if(w.rain!=null&&w.rain>=55)tips.push("☔ Regen: Regenjacke + Wechselklamotten");
   return tips.join(" · ");
 }
+// Wetter-Warnung: liefert bei kritischer Vorhersage (Gewitter/Starkregen/Frost/Glätte) eine
+// Stufe + Kurztext, sonst null. Basis: das aus wetterFetch bekannte {text,temp,rain}.
+function wetterWarn(w){
+  if(!w)return null;
+  const t=w.hour?w.temp:(w.tmin!=null?w.tmin:w.tmax);
+  if(w.text==="Gewitter")return {lvl:"Gewitter",msg:"⛈️ Gewitter angesagt – Sicherheit geht vor."};
+  if(w.text==="Schnee"&&t!=null&&t<=0)return {lvl:"Schnee & Glätte",msg:"❄️ Schnee bei Frost – Glättegefahr."};
+  if(t!=null&&t<=-2)return {lvl:"Strenger Frost",msg:"🥶 Sehr kalt – Platz evtl. hart/gefroren."};
+  if(w.rain!=null&&w.rain>=85)return {lvl:"Starkregen",msg:"🌧️ Sehr hohe Regenwahrscheinlichkeit ("+w.rain+"%)."};
+  return null;
+}
 async function wetterInto(elId,dateStr,place,timeStr){
   const w=await wetterFetch(dateStr,place,timeStr);
   const el=document.getElementById(elId);

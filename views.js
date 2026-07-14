@@ -2891,8 +2891,10 @@ async function renderHome(){
                   :`<button class="btn btn-sm" onclick="tmJump('planung','${t.datum}')" style="white-space:nowrap"><i class="ti ti-clipboard-list"></i>Plan</button>`}
       </div>
       <div id="wetter-home"></div>
+      <div id="wetter-warn-home"></div>
       <div id="gegner-contact-home"></div>`,m.col);
     wetterInto("wetter-home",t.datum,t.ort,t.uhrzeit); // Wetter am Termin-Ort + Uhrzeit (stundengenau)
+    if(t.typ!=="event")wetterWarnHome(t); // Wetter-Warnung + Schnellaktion (nur Outdoor-Events)
     if(istSpiel)gegnerContactInto("gegner-contact-home",t.titel||t.gegner); // Ansprechpartner aus Gegner-DB
   }catch(e){
     const slot=document.getElementById("home-next");
@@ -2900,6 +2902,35 @@ async function renderHome(){
   }
 }
 
+/* Wetter-Warnung fürs nächste Outdoor-Event: bei kritischer Vorhersage (≤2 Tage) ein Hinweis
+   mit Schnellaktionen – Platz absagen (platz_status) + Eltern per Push informieren. */
+async function wetterWarnHome(t){
+  const el=document.getElementById("wetter-warn-home"); if(!el)return;
+  const inTagen=Math.round((new Date(t.datum+"T00:00:00")-new Date(new Date().toISOString().slice(0,10)+"T00:00:00"))/864e5);
+  if(inTagen<0||inTagen>2)return; // nur wenn's unmittelbar bevorsteht
+  let w=null; try{ w=await wetterFetch(t.datum,t.ort,t.uhrzeit); }catch(e){}
+  const warn=(typeof wetterWarn==="function")?wetterWarn(w):null; if(!warn)return;
+  const abgesagt=t.platz_status==="abgesagt";
+  const tt=(t.titel||t.gegner||"Termin").replace(/'/g,"");
+  el.innerHTML=`<div style="margin-top:8px;padding:10px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px">
+    <div style="font-size:12.5px;font-weight:800;color:#b91c1c">⚠️ Wetter kritisch: ${esc(warn.lvl)}</div>
+    <div style="font-size:11.5px;color:#7f1d1d;margin:2px 0 8px">${esc(warn.msg)} Absagen und die Eltern informieren?</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${abgesagt?'<span style="font-size:11.5px;color:#b91c1c;font-weight:700">🔴 Bereits als „fällt aus" markiert</span>':`<button class="btn btn-sm btn-d" onclick="wetterAbsagen(${Number(t.id)})"><i class="ti ti-x"></i>Platz absagen</button>`}
+      <button class="btn btn-sm" onclick="wetterInfoPush(${Number(t.id)},'${tt}','${t.datum}')"><i class="ti ti-bell"></i>Eltern informieren</button>
+    </div>
+  </div>`;
+}
+async function wetterAbsagen(id){
+  if(typeof platzAmpelSet==="function")await platzAmpelSet(id,"abgesagt");
+  const el=document.getElementById("wetter-warn-home");
+  if(el)el.querySelector("div>div:last-child").innerHTML='<span style="font-size:11.5px;color:#b91c1c;font-weight:700">🔴 Als „fällt aus" markiert – jetzt noch die Eltern informieren.</span>';
+}
+async function wetterInfoPush(id,titel,datum){
+  const d=new Date(datum+"T00:00:00"), ds=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()]+" "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+  if(typeof pushSendToParents==="function")await pushSendToParents("🌧️ Wetter-Update",`${titel} am ${ds}: Bitte in der App den Platz-Status prüfen.`,appRoot()+"?portal");
+  else toast("Push nicht verfügbar","err");
+}
 // Team-Check auf der Startseite auf-/zuklappen. Der "Kein Kind übersehen"-Radar wird
 // erst beim ersten Aufklappen geladen (spart einen Query, wenn niemand hinschaut).
 function toggleTeamCheck(){
