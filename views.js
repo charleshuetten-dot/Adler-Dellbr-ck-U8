@@ -2550,6 +2550,13 @@ async function saisonCockpitOpen(){
     pulsHtml=`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🌡️ Eltern-Puls <span style="font-weight:400;color:var(--text2);font-size:11px">(anonym · ${puls.overall_n} Rückmeldungen · Ø ${puls.overall_avg} ${moodEmo(puls.overall_avg)})</span></div>`
       +(weeks.length?`<div style="display:flex;align-items:flex-end;gap:4px;height:74px;padding:4px 0">${bars}</div>`:'<div style="font-size:12px;color:var(--text3)">Sammelt sich, sobald Eltern nach Events abstimmen.</div>');
   }
+  // A-Etappe 2: Rollen-Erfahrung auch im Cockpit (Kurzform + Button zur vollen Matrix)
+  let rollenHtml="";
+  try{ if(typeof rollenExpFetch==="function"){ const re=await rollenExpFetch(); if(re&&re.games){ const nie=(typeof _neverTW==="function")?_neverTW(re.byKid):[];
+    rollenHtml=`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🎽 Rollen-Erfahrung <span style="font-weight:400;color:var(--text2);font-size:11px">(${re.games} Aufstellungen)</span></div>`
+      +(nie.length?`<div style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px">🥅 Noch nie im Tor: <b>${nie.map(esc).join(", ")}</b></div>`:'<div style="font-size:12.5px;color:#16a34a">Jedes aktive Kind stand schon mal im Tor 👍</div>')
+      +`<button class="btn btn-sm" style="margin-top:8px" onclick="document.getElementById('sc-modal').remove();rollenMatrixOpen()"><i class="ti ti-layout-grid"></i>Volle Rollen-Matrix</button>`;
+  } } }catch(e){}
   // R6: faire Einsätze – die mit den wenigsten Spiel-Einsätzen (nur wenn überhaupt gespielt wurde)
   const maxEins=Math.max(0,...active.map(k=>einsatz[k.name]));
   const fairArr=active.map(k=>({name:k.name,e:einsatz[k.name]})).sort((a,b)=>a.e-b.e);
@@ -2577,6 +2584,7 @@ async function saisonCockpitOpen(){
     ${lowAtt.length?`<div style="font-weight:800;font-size:12.5px;margin:12px 0 2px;color:#b45309">Zuletzt oft gefehlt – dranbleiben</div>${lowAtt.map(attRow).join("")}`:""}
     ${wenig.length?`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">⚖️ Faire Einsätze – wer war seltener dabei</div>${wenig.map(x=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0"><span style="flex:1">${esc(x.name)}</span><span style="font-size:11px;color:var(--text3)">${x.e} Einsätze</span></div>`).join("")}`:""}
     ${(toreTeam[2]||toreTeam[3])?`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🏆 Tore je Team</div><div style="display:flex;gap:8px;flex-wrap:wrap">${[1,2,3].filter(t=>toreTeam[t]>0||t===1).map(t=>`<div style="flex:1;min-width:70px;text-align:center;background:var(--surface2);border-radius:10px;padding:8px"><div style="font-size:11px;color:var(--text2)">Adler ${t}</div><div style="font-size:18px;font-weight:900;color:#059669">⚽ ${toreTeam[t]||0}</div></div>`).join("")}</div>`:""}
+    ${rollenHtml}
     ${pulsHtml}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
       <button class="btn btn-sm" onclick="document.getElementById('sc-modal').remove();anwesenheitOpen()"><i class="ti ti-checkbox"></i>Volle Anwesenheits-Quote</button>
