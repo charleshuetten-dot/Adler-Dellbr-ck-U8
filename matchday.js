@@ -314,6 +314,7 @@ async function elternDashLoad(){
     </div>`;
   }
   html+=`<div id="match-gruss-slot"></div>`;  // A1: persönlicher Nach-dem-Spiel-Gruß pro Kind
+  html+=`<div id="eltern-level-slot" style="margin-bottom:12px"></div>`;  // C1: kollektives Team-Level
   html+=elternTermineCarouselHtml(termineListe,kids,rsvpAll); // Schnell-Zu-/Absage für alle Termine
   // Mitbringliste (Events) + Büdchendienst (Heimspiele) bewusst weit oben – das sind To-dos.
   html+=`<div id="mitbring-slot"></div>`;     // Event-Mitbringliste (async, nur bei kommenden Events)
@@ -399,6 +400,7 @@ async function elternDashLoad(){
   if(termin)elternTickerLoad(termin);          // Liveticker: Team des Kindes automatisch erkennen
   if(typeof pushRenderInto==="function")pushRenderInto("push-slot-eltern","parent"); // Push-An/Aus
   elternMatchGrussLoad(kids);                   // A1/A2: Nach-dem-Spiel-Gruß pro Kind
+  if(typeof teamLevelLoad==="function")teamLevelLoad("eltern-level-slot"); // C1: Team-Level
   if(WAESCHE_AKTIV)elternWaescheLoad(kids);    // Trikot-Wäsche-Rotator (aktuell ausgeblendet)
   elternSkillLoad(kids);   // Skill der Woche
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
@@ -1202,14 +1204,89 @@ async function kabineOpen(){
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/team_gallery`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)kabineGalleryData=await r.json();}catch(e){}
   if(typeof loadTeamConfig==="function"){try{await loadTeamConfig();}catch(e){}}
 }
+/* C1 – Kollektives Adler-Level: die ganze Mannschaft steigt gemeinsam (Summe aller Federn,
+   RPC team_federn_total). Ein Wir-Ziel statt Einzel-Ranking. */
+const TEAM_LEVEL_STEP=500;
+const TEAM_LEVEL_TITLES=["Küken-Schwarm","Junge Adler","Adler-Rudel","Adler-Elite","Adler-Legenden","Adler-Dynastie"];
+function teamLevelInfo(total){
+  total=Math.max(0,total|0);
+  const level=Math.floor(total/TEAM_LEVEL_STEP)+1, into=total%TEAM_LEVEL_STEP;
+  return {level,into,need:TEAM_LEVEL_STEP-into,pct:Math.round(into/TEAM_LEVEL_STEP*100),total,
+    title:TEAM_LEVEL_TITLES[Math.min(level-1,TEAM_LEVEL_TITLES.length-1)]};
+}
+async function teamLevelLoad(elId){
+  const el=document.getElementById(elId); if(!el)return;
+  let total=0;
+  try{const h=sbToken()?sbAuthHeaders():{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/team_federn_total`,{method:"POST",headers:{...h,'Content-Type':'application/json'},body:"{}"});
+    if(r.ok)total=await r.json();}catch(e){}
+  const L=teamLevelInfo(total||0);
+  el.innerHTML=`<div style="background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;border-radius:16px;padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:10px"><span style="font-size:26px">🦅</span>
+      <div style="flex:1;min-width:0"><div style="font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.5px">Team-Level ${L.level}</div>
+      <div style="font-size:16px;font-weight:900">${esc(L.title)}</div></div>
+      <div style="font-size:12px;opacity:.9;white-space:nowrap">${XP_ICON} ${L.total}</div>
+    </div>
+    <div style="height:10px;background:rgba(255,255,255,.25);border-radius:6px;overflow:hidden;margin-top:10px"><div style="height:100%;width:${L.pct}%;background:#fbbf24;border-radius:6px;transition:width .6s"></div></div>
+    <div style="font-size:11px;opacity:.92;margin-top:6px">Noch ${L.need} ${XP_LABEL} bis Level ${L.level+1} – jede Feder zählt fürs ganze Team!</div>
+  </div>`;
+}
+/* C3 – Team-Arena: Einlauf-Song + Schlachtruf (team_config). Identität wie bei den Großen. */
+async function arenaKabineLoad(elId){
+  const el=document.getElementById(elId); if(!el)return;
+  let cfg={};
+  try{const h=sbToken()?sbAuthHeaders():{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+    const r=await fetch(`${SB_URL}/rest/v1/team_config?id=eq.1&select=einlauf_song,schlachtruf`,{headers:h});if(r.ok)cfg=((await r.json())[0])||{};}catch(e){}
+  if(!cfg.einlauf_song&&!cfg.schlachtruf){ el.innerHTML=""; return; }
+  el.innerHTML=`<div style="background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:12px 14px;text-align:center">
+    ${cfg.schlachtruf?`<div style="font-size:15px;font-weight:900">📣 „${esc(cfg.schlachtruf)}"</div>`:""}
+    ${cfg.einlauf_song?`<div style="font-size:12px;opacity:.9;margin-top:${cfg.schlachtruf?4:0}px">🎵 Einlauf-Song: ${esc(cfg.einlauf_song)}</div>`:""}
+  </div>`;
+}
+async function arenaEditOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  let cfg={};
+  try{const r=await fetch(`${SB_URL}/rest/v1/team_config?id=eq.1&select=einlauf_song,schlachtruf`,{headers:sbAuthHeaders()});if(r.ok)cfg=((await r.json())[0])||{};}catch(e){}
+  document.getElementById("arena-modal")?.remove();
+  const m=document.createElement("div");m.id="arena-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  const fld="width:100%;box-sizing:border-box;padding:10px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text);margin-top:4px";
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:420px;width:100%;margin:auto">
+    <div style="font-weight:800;font-size:16px;margin-bottom:2px">🏟️ Team-Arena</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Schlachtruf & Einlauf-Song – die Kinder sehen sie in der Kabine.</div>
+    <label style="font-size:11px;color:var(--text2)">📣 Schlachtruf<input id="ar-ruf" value="${esc(cfg.schlachtruf||"")}" placeholder="z. B. Adler, Adler – hui hui hui!" style="${fld}"></label>
+    <label style="font-size:11px;color:var(--text2);display:block;margin-top:10px">🎵 Einlauf-Song<input id="ar-song" value="${esc(cfg.einlauf_song||"")}" placeholder="z. B. We Are The Champions – Queen" style="${fld}"></label>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-p btn-sm" onclick="arenaSave(this)"><i class="ti ti-device-floppy"></i>Speichern</button>
+      <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('arena-modal').remove()">Schließen</button>
+    </div>`;
+  document.body.appendChild(m);
+}
+async function arenaSave(btn){
+  const schlachtruf=(document.getElementById("ar-ruf")?.value||"").trim()||null;
+  const einlauf_song=(document.getElementById("ar-song")?.value||"").trim()||null;
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/team_config?on_conflict=id`,{method:"POST",headers:sbAuthHeaders({'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify({id:1,schlachtruf,einlauf_song,updated_at:new Date().toISOString()})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  toast("Arena gespeichert ✓");
+  document.getElementById("arena-modal")?.remove();
+}
 function kabineHome(){
   const b=document.getElementById("kabine-body"); if(!b)return;
   b.innerHTML=`
+    <div style="flex:1;overflow-y:auto">
     <div style="text-align:center;padding:18px 16px 6px">
       <div style="font-size:22px;font-weight:900">🦅 Die Kabine</div>
       <div style="font-size:12px;opacity:.8">Adler U9 · Kinder-Modus</div>
     </div>
-    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px;align-content:center">
+    <div id="kab-level" style="padding:2px 16px 6px"></div>
+    <div id="kab-arena" style="padding:0 16px 4px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px;align-content:center">
       <button onclick="kabineQuiz('taktik')" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎯</span>Taktik-Quiz</button>
       <button onclick="kabineQuiz('wissen')" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🧠</span>Fußball-Wissen</button>
       <button onclick="kabineShowGallery()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🖼️</span>Team-Galerie</button>
@@ -1219,7 +1296,10 @@ function kabineHome(){
       <button onclick="kabineSkillWoche()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎬</span>Skill der Woche</button>
       <button onclick="kabineHype()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎵</span>Kabinen-Hype</button>
     </div>
+    </div>
     <button onclick="kabineExit()" style="margin:0 16px 18px;padding:12px;border:none;border-radius:14px;background:rgba(0,0,0,.25);color:#fff;font-family:inherit;font-size:14px;cursor:pointer">🔒 Für Erwachsene: Kabine verlassen</button>`;
+  teamLevelLoad("kab-level");                                  // C1: Team-Level
+  if(typeof arenaKabineLoad==="function")arenaKabineLoad("kab-arena"); // C3: Einlauf-Song/Schlachtruf
 }
 /* Kabinen-DJ (Phase 23.2): die Spotify-Playlist der U9 in der App. Wandelt einen
    Spotify-Link in die Embed-URL um; akzeptiert Playlist/Album/Track. */

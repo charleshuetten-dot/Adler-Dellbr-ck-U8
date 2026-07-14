@@ -2555,6 +2555,9 @@ async function adlerWeltOpen(){
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">📖 Eltern-Leitfaden</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Die ausformulierten Vereinbarungen (Pünktlichkeit, Aufsicht, Büdchen, App …), die die Eltern nachlesen können.</div>
     <button class="btn btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();leitfadenEditOpen()"><i class="ti ti-edit"></i>Leitfaden bearbeiten</button>
+    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🏟️ Team-Arena</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Schlachtruf & Einlauf-Song, die die Kinder in der Kabine sehen.</div>
+    <button class="btn btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();arenaEditOpen()"><i class="ti ti-flag"></i>Arena bearbeiten</button>
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🔗 Eltern einladen</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Fertige WhatsApp-Nachricht mit Eltern-Link + Kurzanleitung – an die Elternschaft schicken.</div>
     <button class="btn btn-sm btn-p" style="width:100%" onclick="document.getElementById('aw-modal').remove();elternInvitePaket()"><i class="ti ti-brand-whatsapp"></i>Einladung erstellen</button>
@@ -2735,6 +2738,8 @@ async function renderHome(){
       ${homeTool("🪶 Adler-Welt","adlerWeltOpen()")}
     </div>
     <div class="sl nt" style="margin-top:18px"><i class="ti ti-clipboard-heart"></i>Team-Status</div>
+    <div id="team-level-slot" style="margin-bottom:10px"></div>
+    <div id="home-birthday"></div>
     <div id="home-rsvp"></div>
     <div id="home-antifrust"></div>
     <div id="push-slot-trainer" style="margin-bottom:10px"></div>
@@ -2768,6 +2773,8 @@ async function renderHome(){
   elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche
   homeRsvpNudge(); // "wer hat noch nicht geantwortet" für den nächsten Termin
   homeAntiFrust(); // Anti-Frust-Radar: wer braucht heute eine Bühne
+  if(typeof teamLevelLoad==="function")teamLevelLoad("team-level-slot"); // C1: kollektives Team-Level
+  homeBirthday(); // C4: Geburtstags-Automatik
   if(typeof pushRenderInto==="function")pushRenderInto("push-slot-trainer","trainer"); // Push-An/Aus
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
   try{
@@ -2860,6 +2867,27 @@ async function homeAntiFrust(){
       <span style="flex:1;font-size:12.5px"><strong>${esc(pick)}</strong> hatte diese Saison noch kein Torerlebnis – gib ihm/ihr heute bewusst eine Bühne. 💛</span>
     </div>`;
   } else slot.innerHTML="";
+}
+
+// C4 – Geburtstags-Automatik: hat heute ein Kind Geburtstag, bietet die Startseite einen
+// 1-Tap-Push-Gruß an die Eltern (idempotent pro Tag via localStorage).
+async function homeBirthday(){
+  const slot=document.getElementById("home-birthday"); if(!slot)return;
+  const today=(KADER||[]).filter(k=>k.geb&&homeGebTage(k.geb)===0);
+  if(!today.length){slot.innerHTML="";return;}
+  slot.innerHTML=today.map(k=>{
+    const key="adler_bday_"+new Date().toISOString().slice(0,10)+"_"+k.name;
+    let sent=false; try{sent=!!localStorage.getItem(key);}catch(e){}
+    return `<div class="card" style="padding:12px 14px;margin-bottom:10px;border-left:3px solid #ec4899">
+      <div style="font-size:13.5px;font-weight:800">🎂 ${esc(k.name)} hat heute Geburtstag – wird ${homeAlter(k.geb)+1}!</div>
+      <button onclick="birthdayPush('${(k.name).replace(/'/g,'')}','${key}')" style="width:100%;min-height:44px;margin-top:8px;border:none;border-radius:10px;background:#ec4899;color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">${sent?"✓ Gruß gesendet – nochmal senden":"🎉 Geburtstags-Gruß als Push senden"}</button>
+    </div>`;
+  }).join("");
+}
+async function birthdayPush(name,key){
+  const url=(typeof appRoot==="function")?appRoot()+"eltern/":"./";
+  const ok=(typeof pushSendToParents==="function")&&await pushSendToParents("🎂 Alles Gute!", `Unser Adler ${name} hat heute Geburtstag – das ganze Team gratuliert von Herzen! 🎉🦅`, url);
+  if(ok){ try{localStorage.setItem(key,"1");}catch(e){} homeBirthday(); }
 }
 
 // Wake Lock API (nativ) – verhindert, dass das Display während der Nutzung ausgeht
