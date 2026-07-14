@@ -301,6 +301,7 @@ async function elternDashLoad(){
       <div style="font-size:12.5px;color:#64748b;margin-top:3px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})}${zeit?" · "+zeit:""}${termin.ort?" · "+mapsAnchor(termin.ort):""}${termin.platz?" · 🏟️ "+esc(termin.platz):""}</div>
       <div id="wetter-eltern"></div>
       ${trainerJa.length?`<div style="font-size:11.5px;color:#64748b;margin-top:4px">👤 Trainer dabei: ${trainerJa.map(esc).join(", ")}</div>`:""}
+      ${kids.length>=2?`<button onclick="elternRsvpAllYes(${termin.id})" style="width:100%;min-height:44px;margin-top:10px;padding:9px;border:1.5px solid #059669;border-radius:10px;background:#f0fdf4;color:#15803d;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">👍 Alle ${kids.length} Kinder zusagen</button>`:""}
       ${rsvpRows}
       <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Aktiven Status nochmal tippen = Rückmeldung entfernen. Deine Rückmeldung ist ein Hinweis – die endgültige Aufstellung entscheidet der Trainer.</div>
       ${termin.typ==="training"?'<div id="betreuung-card"></div>':""}
@@ -448,6 +449,20 @@ async function elternRsvp(terminId,spielerId,status){
   toast("Rückmeldung gespeichert ✓");
   // FEAT S: XP für Zusagen (idempotent pro Termin via quelle_id, Punktwert bestimmt der Server)
   if(status==="zugesagt"){const d=await xpAward(spielerId,"rsvp","t"+terminId);if(d>0)setTimeout(()=>toast(`${XP_ICON} +${d} ${XP_LABEL} gesammelt!`),1100);}
+  elternDashLoad();
+}
+// Komfort für Mehrkind-Familien: alle eigenen Kinder mit einem Tap zusagen (nur die positive
+// Sammel-Aktion, daher ohne Grund-Nachfrage). Federn je Kind idempotent, danach EIN Reload.
+async function elternRsvpAllYes(terminId){
+  const kids=window._elternKids||[]; let ok=0;
+  for(const k of kids){
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?on_conflict=termin_id,spieler_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({termin_id:terminId,spieler_id:k.spieler_id,status:"zugesagt",updated_at:new Date().toISOString()})});
+      if(r.ok){ok++; xpAward(k.spieler_id,"rsvp","t"+terminId).catch(()=>{});}
+    }catch(e){}
+  }
+  if(ok){toast(`👍 ${ok} Kind${ok>1?"er":""} zugesagt`); try{navigator.vibrate&&navigator.vibrate([30,40,30]);}catch(e){}}
+  else toast("Konnte nicht speichern","err");
   elternDashLoad();
 }
 // Rückmeldung wieder entfernen (erneuter Klick auf den aktiven Status). Eltern dürfen nur die
