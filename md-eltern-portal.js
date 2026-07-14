@@ -313,25 +313,25 @@ async function elternDashLoad(){
       </div>
     </div>`;
   }
+  const sec=(t)=>`<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#94a3b8;margin:18px 4px 8px">${t}</div>`;
+  // ── AKTUELL & TO-DOS: direkt unter dem nächsten Termin, damit Handlungsbedarf sofort auffällt ──
   html+=`<div id="eltern-checklist-slot"></div>`; // „Erste Schritte"-Checkliste (Adoption)
-  html+=familyOverviewHtml(termineListe,kids,rsvpAll); // Familien-Sammelansicht (nur ≥2 Kinder)
-  html+=`<div id="puls-nudge-slot"></div>`;    // Puls-Erinnerung: jüngstes Event ohne eigenes Feedback
-  html+=`<div id="match-gruss-slot"></div>`;  // A1: persönlicher Nach-dem-Spiel-Gruß pro Kind
-  html+=`<div id="eltern-level-slot" style="margin-bottom:12px"></div>`;  // C1: kollektives Team-Level
-  html+=elternTermineCarouselHtml(termineListe,kids,rsvpAll); // Schnell-Zu-/Absage für alle Termine
-  // Mitbringliste (Events) + Büdchendienst (Heimspiele) bewusst weit oben – das sind To-dos.
   html+=`<div id="mitbring-slot"></div>`;     // Event-Mitbringliste (async, nur bei kommenden Events)
   html+=`<div id="buedchen-slot"></div>`;     // Büdchen-Einteilung bei Heimspielen (async)
-  // Push-Benachrichtigungen aktivieren (nur wenn der Browser sie unterstützt)
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">🔔 Benachrichtigungen</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Erinnerungen an Termine, offene Rückmeldungen und Neuigkeiten direkt aufs Handy.</div>
-    <div id="push-slot-eltern"></div>`);
-  // ── Kabine (Kinder-Modus) – das Quiz lebt ausschließlich hier ──
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">🎮 Für die Kinder</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Die Kabine ist der Kinder-Modus: Team-Galerie, Missionen und das Fußball-Quiz (${XP_ICON} Federn sammeln).</div>
-    <button onclick="kabineOpen()" style="display:block;width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-weight:800;font-size:14px;font-family:inherit;cursor:pointer">🎮 Kabine öffnen (Kinder-Modus)</button>`);
-  // ── Für dein Kind: Karte, Abzeichen, Fan-Fakten (ohne Zu-/Absage, auch ohne Termin erreichbar) ──
-  html+=`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin:2px 2px 6px">Für dein Kind</div>`;
+  html+=`<div id="puls-nudge-slot"></div>`;   // Puls-Erinnerung: jüngstes Event ohne eigenes Feedback
+  html+=`<div id="match-gruss-slot"></div>`;  // A1: persönlicher Nach-dem-Spiel-Gruß pro Kind
+  // ── TERMINE ──
+  html+=sec("📅 Termine");
+  html+=familyOverviewHtml(termineListe,kids,rsvpAll); // Familien-Sammelansicht (nur ≥2 Kinder)
+  html+=elternTermineCarouselHtml(termineListe,kids,rsvpAll); // Schnell-Zu-/Absage für alle Termine
+  html+=card(`<button onclick="elternTermineOpen()" style="width:100%;min-height:46px;padding:12px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">📅 Alle Termine &amp; Kalender-Abo</button>`);
+  // ── FÜR DIE KINDER ──
+  html+=sec("🎮 Für die Kinder");
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">🎮 Die Kabine (Kinder-Modus)</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Team-Galerie, Missionen und das Fußball-Quiz (${XP_ICON} Federn sammeln).</div>
+    <button onclick="kabineOpen()" style="display:block;width:100%;min-height:48px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-weight:800;font-size:14px;font-family:inherit;cursor:pointer">🎮 Kabine öffnen</button>`);
+  html+=`<div id="eltern-level-slot" style="margin-bottom:12px"></div>`;  // C1: kollektives Team-Level
+  html+=`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin:2px 2px 6px">Dein Kind</div>`;
   html+=kids.map(k=>{const kd=k.kader||{};
     return card(`<div style="font-weight:700;font-size:15px;margin-bottom:2px">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="color:#94a3b8;font-weight:600">#${kd.nr}</span>`:""}</div>
       <div id="xp-chip-${k.spieler_id}" style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:8px"></div>
@@ -343,45 +343,21 @@ async function elternDashLoad(){
       <button onclick="notfallOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #dc2626;border-radius:10px;background:#fef2f2;color:#b91c1c;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🚑 Notfallkarte</button>
       <div style="font-size:10.5px;color:#94a3b8;margin-top:6px">Foto: Unter „Fan-Fakten &amp; Foto" steuerst du selbst, ob das Bild deines Kindes im „Adler Nest" und in der Team-Galerie erscheint.</div>`);
   }).join("");
-  // Mehr vom Team: Stadionheft (öffentliche Leseansicht)
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">📰 Mehr vom Team</div>
+  // ── MEHR VOM TEAM (einklappbar – Referenz/Selteneres, weniger Scrollen) ──
+  let kasse=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kasse_summary`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)kasse=await r.json();}catch(e){}
+  html+=`<details class="el-sect"><summary>📰 Mehr vom Team</summary><div>`;
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">📰 Adler Nest (Stadionheft)</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Das digitale Stadionheft mit Neuigkeiten, Ergebnissen und Geburtstagen.</div>
     <a href="${location.pathname}?heft" style="display:block;text-align:center;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;text-decoration:none">📰 Adler Nest öffnen</a>`);
-  // R2: „Regeln & Vereinbarungen" einklappbar (weniger Scrollen).
-  html+=`<details class="el-sect"><summary>📋 Regeln & Vereinbarungen</summary><div>`;
-  // Fairplay-Codex (Phase 18.3) – die goldenen Regeln fürs Verhalten am Spielfeldrand
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">🤝 Unser Fairplay-Codex</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Die Regeln, damit der Spielfeldrand ein guter Ort für die Kinder bleibt.</div>
-    <button onclick="fairplayOpen()" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">Codex ansehen</button>
-    <div id="fp-commit-slot" style="margin-top:10px"></div>
-    <button onclick="fairplayQuizStart(window._elternKids||[])" style="width:100%;min-height:48px;margin-top:10px;padding:13px;border:1.5px solid #16a34a;border-radius:10px;background:#fff;color:#15803d;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">🏅 Fairplay-Quiz spielen · ${XP_ICON} 50 Federn fürs Kind</button>`);
-  // Ausführlicher Eltern-Leitfaden – die ausformulierten Vereinbarungen fürs Miteinander
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">📖 ${esc(LEITFADEN_NAME)}</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Unsere ausformulierten Vereinbarungen: Pünktlichkeit, Aufsicht, Büdchen, Verhalten am Platz, App-Nutzung und mehr – jederzeit zum Nachlesen.</div>
-    <button onclick="leitfadenOpen()" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">${esc(LEITFADEN_NAME)} öffnen</button>`);
-  html+=`</div></details>`; // /Regeln & Vereinbarungen
-  // Elterngespräch anfragen – signalisiert dem Trainer den Bedarf
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">🗣️ Elterngespräch</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Du möchtest mit dem Trainer über dein Kind sprechen? Sag kurz Bescheid – der Trainer meldet sich zur Terminabstimmung.</div>
-    <div id="eg-slot"></div>
-    <button onclick="elternGespraechOpen()" style="width:100%;padding:11px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Elterngespräch anfragen</button>`);
-  html+=`<div id="eltern-poll-slot"></div>`; // Terminvorschläge des Trainers fürs Elterngespräch
-  // R2: „Mitmachen im Team" einklappbar.
-  html+=`<details class="el-sect"><summary>🤝 Mitmachen im Team</summary><div>`;
-  // Adler-Börse (Phase 23.1): interner Flohmarkt
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🛍️ Adler-Börse</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Zu kleine Schuhe oder Trikots? Gib sie an ein anderes Adler-Kind weiter.</div>
     <button onclick="boerseOpen()" style="width:100%;padding:11px;border:1.5px solid #2563eb;border-radius:10px;background:#fff;color:#1d4ed8;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Börse öffnen</button>`);
-  // FEAT Y: Fundbüro – Board + Upload für alle eingeloggten Eltern
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🧦 Fundbüro</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Trinkflasche verschwunden? Jacke gefunden? Hier sammelt das Team.</div>
     <button onclick="fundbueroOpen()" style="width:100%;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Fundbüro öffnen</button>`);
-  html+=`</div></details>`; // /Mitmachen im Team
   html+=`<div id="skill-slot"></div>`;        // Skill der Woche
   if(WAESCHE_AKTIV)html+=`<div id="waesche-slot"></div>`;  // Trikot-Wäsche-Rotator (aktuell ausgeblendet)
-  // Teamkasse (read-only): Saldo + offene Umlagen über RPC, PayPal nur als Link
-  let kasse=null;
-  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kasse_summary`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)kasse=await r.json();}catch(e){}
   if(kasse&&(Number(kasse.saldo)!==0||(kasse.umlagen&&kasse.umlagen.length))){
     const eur=n=>Number(n||0).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
     html+=card(`<div style="font-weight:700;margin-bottom:6px">💰 Teamkasse</div>
@@ -393,10 +369,32 @@ async function elternDashLoad(){
       <div style="font-size:10px;color:#94a3b8;margin-top:8px">Informativ. Zahlungen laufen extern über PayPal.</div>`);
   }
   html+=`<div id="ak-slot"></div>`; // FEAT Z: Adler-Kasse (async, nur wenn Link gesetzt)
-  // R7: DSGVO – Eltern laden alle Daten ihres Kindes als Datei herunter.
-  html+=`<details class="el-sect"><summary>🔒 Datenschutz</summary><div>`+card(`<div style="font-weight:700;margin-bottom:6px">📥 Meine Daten</div>
+  html+=`</div></details>`; // /Mehr vom Team
+  // ── REGELN & VEREINBARUNGEN (einklappbar) ──
+  html+=`<details class="el-sect"><summary>📋 Regeln &amp; Vereinbarungen</summary><div>`;
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">🤝 Unser Fairplay-Codex</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Die Regeln, damit der Spielfeldrand ein guter Ort für die Kinder bleibt.</div>
+    <button onclick="fairplayOpen()" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">Codex ansehen</button>
+    <div id="fp-commit-slot" style="margin-top:10px"></div>
+    <button onclick="fairplayQuizStart(window._elternKids||[])" style="width:100%;min-height:48px;margin-top:10px;padding:13px;border:1.5px solid #16a34a;border-radius:10px;background:#fff;color:#15803d;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">🏅 Fairplay-Quiz spielen · ${XP_ICON} 50 Federn fürs Kind</button>`);
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">📖 ${esc(LEITFADEN_NAME)}</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Unsere ausformulierten Vereinbarungen: Pünktlichkeit, Aufsicht, Büdchen, Verhalten am Platz, App-Nutzung und mehr – jederzeit zum Nachlesen.</div>
+    <button onclick="leitfadenOpen()" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">${esc(LEITFADEN_NAME)} öffnen</button>`);
+  html+=`</div></details>`; // /Regeln
+  // ── KONTAKT & EINSTELLUNGEN (einklappbar) ──
+  html+=`<details class="el-sect"><summary>⚙️ Kontakt &amp; Einstellungen</summary><div>`;
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">🗣️ Elterngespräch</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Du möchtest mit dem Trainer über dein Kind sprechen? Sag kurz Bescheid – der Trainer meldet sich zur Terminabstimmung.</div>
+    <div id="eg-slot"></div>
+    <button onclick="elternGespraechOpen()" style="width:100%;padding:11px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Elterngespräch anfragen</button>`);
+  html+=`<div id="eltern-poll-slot"></div>`; // Terminvorschläge des Trainers fürs Elterngespräch
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">🔔 Benachrichtigungen</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Erinnerungen an Termine, offene Rückmeldungen und Neuigkeiten direkt aufs Handy.</div>
+    <div id="push-slot-eltern"></div>`);
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">🔒 Meine Daten (Datenschutz)</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Lade alle bei uns gespeicherten Daten deines Kindes als Datei herunter (Rückmeldungen, Federn, Metadaten).</div>
-    <button onclick="elternDataExport(this)" style="width:100%;min-height:44px;padding:11px;border:1.5px solid #64748b;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Daten herunterladen (JSON)</button>`)+`</div></details>`;
+    <button onclick="elternDataExport(this)" style="width:100%;min-height:44px;padding:11px;border:1.5px solid #64748b;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Daten herunterladen (JSON)</button>`);
+  html+=`</div></details>`; // /Kontakt & Einstellungen
   body.innerHTML=html;
   elternThemeInit();          // Observer für Modals/Slots (einmalig)
   elternThemeSweep(body);     // Dashboard bei Dark-Theme einfärben
