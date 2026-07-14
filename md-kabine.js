@@ -204,6 +204,7 @@ function kabineHome(){
       <button onclick="kabineShowQuests()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🏆</span>Missionen</button>
       <button onclick="kabineMyCard()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🃏</span>Meine Karte</button>
       <button onclick="kabineAbzeichen()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎖️</span>Abzeichen</button>
+      <button onclick="kabineMission()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎯</span>Meine Mission</button>
       <button onclick="kabineSkillWoche()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎬</span>Skill der Woche</button>
       <button onclick="kabineHype()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎵</span>Kabinen-Hype</button>
       <button onclick="kabineAlbum()" style="grid-column:1/-1;border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;font-size:17px;font-weight:800;min-height:76px"><span style="font-size:34px">📖</span>Sammelalbum</button>
@@ -294,6 +295,33 @@ function kabineAbzeichen(){
   kabinePickKid("🎖️ Wessen Abzeichen?","kabineAbzeichenFor");
 }
 function kabineAbzeichenFor(id,name){ abzeichenOpen(id,name,true); }
+/* B-Etappe 2: „Meine Mission" – die offenen Entwicklungsziele kindgerecht im Kabinen-Modus.
+   Ziele sind trainer-only; die RPC meine_ziele (is_parent_of-gegatet) erlaubt der Eltern-
+   Sitzung den Lesezugriff aufs eigene Kind. */
+function kabineMission(){
+  const kids=window._elternKids||[];
+  if(kids.length===1){ kabineMissionFor(kids[0].spieler_id,(kids[0].kader&&kids[0].kader.name)||""); return; }
+  kabinePickKid("🎯 Wessen Mission?","kabineMissionFor");
+}
+async function kabineMissionFor(id,name){
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  b.innerHTML=`<div style="text-align:center;padding:60px 16px;opacity:.85;color:#fff">Lade …</div>`;
+  let ziele=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/meine_ziele`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler_id:id})});if(r.ok)ziele=(await r.json())||[];}catch(e){}
+  const head=`<div style="display:flex;align-items:center;gap:10px;padding:12px 16px">
+      <button onclick="kabineHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
+      <div style="flex:1;font-size:16px;font-weight:800;color:#fff">🎯 ${esc(name||"Meine")} Mission</div></div>`;
+  if(!ziele.length){ b.innerHTML=head+'<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#fff;opacity:.85;padding:24px;text-align:center">Noch keine Mission gesetzt.<br>Frag deinen Trainer, woran du arbeiten kannst! 💪</div>'; return; }
+  const cards=ziele.map(z=>{const ex=(typeof _zielUebungen==="function")?_zielUebungen((z.meta&&z.meta.tags)||[],3):[];
+    return `<div style="background:rgba(255,255,255,.14);border-radius:18px;padding:16px;margin-bottom:12px;color:#fff">
+      <div style="font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:.5px">🎯 Deine Mission</div>
+      <div style="font-size:19px;font-weight:900;margin:2px 0 6px">${esc(z.ziel)}</div>
+      ${ex.length?`<div style="font-size:13px;opacity:.92">💪 Übe das: ${ex.map(esc).join(" · ")}</div>`:""}
+    </div>`;}).join("");
+  b.innerHTML=head+`<div style="flex:1;overflow-y:auto;padding:12px 16px">
+    <div style="color:#fff;opacity:.85;font-size:13px;margin-bottom:10px">Das nimmt sich dein Trainer mit dir vor. Bleib dran – du schaffst das! 🦅</div>
+    ${cards}</div>`;
+}
 function kabineShowQuests(){
   const b=document.getElementById("kabine-body"); if(!b)return;
   b.innerHTML=`
