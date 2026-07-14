@@ -338,14 +338,15 @@ async function elternDashLoad(){
     return card(`<div style="font-weight:700;font-size:15px;margin-bottom:2px">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="color:#94a3b8;font-weight:600">#${kd.nr}</span>`:""}</div>
       <div id="xp-chip-${k.spieler_id}" style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:8px"></div>
       <button onclick="elternCardOpen(${k.spieler_id})" style="width:100%;min-height:44px;padding:11px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">🃏 Adler-Karte ansehen</button>
+      <button onclick="elternFotoConsentOpen(${k.spieler_id},'${nn}')" style="width:100%;min-height:44px;margin-top:8px;padding:11px;border:1.5px solid #7c3aed;border-radius:10px;background:#faf5ff;color:#6d28d9;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 Foto- &amp; Video-Freigabe</button>
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
         ${gBtn("🎖️ Abzeichen",`abzeichenOpen(${k.spieler_id},'${nn}')`,"#f59e0b","#fffbeb","#b45309")}
         ${gBtn("🎧 Sprachlob",`lobPlay(${k.spieler_id})`,"#db2777","#fdf2f8","#be185d")}
-        ${gBtn("✏️ Fan-Fakten &amp; Foto",`elternFanfactsOpen(${k.spieler_id},'${nn}')`,"#64748b","#fff","#475569")}
+        ${gBtn("✏️ Fan-Fakten",`elternFanfactsOpen(${k.spieler_id},'${nn}')`,"#64748b","#fff","#475569")}
         ${gBtn("🎬 Saison-Rückblick",`childWrappedShare(${k.spieler_id})`,"#7c3aed","#fff","#7c3aed")}
         ${gBtn("🚑 Notfallkarte",`notfallOpen(${k.spieler_id},'${nn}')`,"#dc2626","#fef2f2","#b91c1c")}
       </div>
-      <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Foto: Unter „Fan-Fakten &amp; Foto" steuerst du selbst, ob das Bild deines Kindes im „Adler Nest" und in der Team-Galerie erscheint.</div>`);
+      <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Unter „Foto- &amp; Video-Freigabe" entscheidest du getrennt, wo Bilder deines Kindes gezeigt werden dürfen – jederzeit widerrufbar.</div>`);
   }).join("");
   // ── MEHR VOM TEAM (einklappbar – Referenz/Selteneres, weniger Scrollen) ──
   let kasse=null;
@@ -644,7 +645,7 @@ async function elternChecklistLoad(kids){
   const items=[
     {done:pushOn,     icon:"🔔", label:"Benachrichtigungen aktivieren", act:`pushSubscribe('parent').then(ok=>{if(ok)elternChecklistLoad(window._elternKids||[]);})`},
     {done:notfallAll, icon:"🚑", label:"Notfallkarte hinterlegen",       act:`notfallOpen(${k0.spieler_id},'${n0}')`},
-    {done:fotoAll,    icon:"📸", label:"Foto-Freigabe klären",           act:`elternFanfactsOpen(${k0.spieler_id},'${n0}')`},
+    {done:fotoAll,    icon:"📸", label:"Foto-Freigabe klären",           act:`elternFotoConsentOpen(${k0.spieler_id},'${n0}')`},
     {done:committed,  icon:"🤝", label:"Fairplay-Codex bestätigen",       act:`fairplayOpen()`}
   ];
   const open=items.filter(i=>!i.done).length;
@@ -785,6 +786,76 @@ async function notfallClear(spielerId){
     if(!r.ok){toast("Konnte nicht löschen","err");return;}
     document.getElementById("nf-modal")?.remove();
     toast("Notfallkarte geleert ✓");
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+
+/* ── Foto- & Video-Einwilligung (3 Stufen, DSGVO) ──
+   Eltern entscheiden pro Kind getrennt: app-intern / Trainingsvideos / öffentlich.
+   Zweckgebunden, dokumentiert (updated_at/by serverseitig), jederzeit widerrufbar.
+   Stufe 1 spiegelt via DB-Trigger auf kader.foto_stadionheft_ok (Heft/Galerie/Edge-Function). */
+const FOTO_STUFEN=[
+  {k:"intern",   emo:"🖼️", t:"App-intern (geschlossene Gruppe)", d:"Team-Galerie, Sammelkarte, „Die Kabine“ und das „Adler Nest“. Sichtbar nur für eingeloggte Eltern und das Trainerteam dieses Teams.", risk:"gering"},
+  {k:"video",    emo:"🎥", t:"Trainingsvideos zur Analyse",       d:"Kurze Videoclips zur Technik-/Taktik-Analyse. Ausschließlich für das Trainerteam, nicht öffentlich, nach der Saison gelöscht.", risk:"mittel"},
+  {k:"public_ok",emo:"🌍", t:"Öffentlich",                        d:"Vereins-Website, Social Media (z. B. Instagram) und öffentliche Aushänge. Achtung: verlässt die App und kann im Netz dauerhaft auffindbar bleiben.", risk:"hoch"}
+];
+const FOTO_CONSENT_DEFAULT="Wir bitten um deine Einwilligung, Foto- und Videoaufnahmen deines Kindes im Rahmen des Vereinssports zu verwenden. Du entscheidest für jede der drei Stufen getrennt und kannst jede Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen. Die Teilnahme deines Kindes am Training und an Spielen ist unabhängig von dieser Einwilligung – ein „Nein“ hat keinerlei Nachteile. Rechtsgrundlage: Art. 6 Abs. 1 lit. a DSGVO sowie §§ 22, 23 KunstUrhG.";
+async function elternFotoConsentTextLoad(){
+  try{const r=await fetch(`${SB_URL}/rest/v1/team_config?select=foto_consent_text&limit=1`,{headers:sbAuthHeaders()});
+    if(r.ok){const t=((await r.json())[0]||{}).foto_consent_text; if(t&&t.trim())return t;}}catch(e){}
+  return FOTO_CONSENT_DEFAULT;
+}
+async function elternFotoConsentOpen(spielerId,name){
+  let cur={}; let txt=FOTO_CONSENT_DEFAULT;
+  try{const r=await fetch(`${SB_URL}/rest/v1/foto_consent?spieler_id=eq.${spielerId}&select=*`,{headers:sbAuthHeaders()});if(r.ok)cur=(await r.json())[0]||{};}catch(e){}
+  txt=await elternFotoConsentTextLoad();
+  document.getElementById("fc-modal")?.remove();
+  const modal=document.createElement("div"); modal.id="fc-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10050;display:flex;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const riskCol={gering:"#16a34a",mittel:"#d97706",hoch:"#dc2626"};
+  const row=s=>`<label style="display:flex;gap:10px;align-items:flex-start;padding:11px;border:1px solid #e2e8f0;border-radius:10px;margin-top:8px;cursor:pointer">
+    <input id="fc-${s.k}" type="checkbox" ${cur[s.k]?"checked":""} style="margin-top:2px;width:20px;height:20px;flex:none;accent-color:#7c3aed">
+    <span style="flex:1">
+      <span style="font-weight:700;font-size:13.5px">${s.emo} ${s.t} <span style="font-size:10.5px;font-weight:700;color:${riskCol[s.risk]}">· Risiko ${s.risk}</span></span>
+      <span style="display:block;font-size:11.5px;color:#64748b;margin-top:2px;line-height:1.5">${s.d}</span>
+    </span></label>`;
+  const upd=cur.updated_at?`<div style="font-size:10.5px;color:#94a3b8;margin-top:10px">Zuletzt aktualisiert: ${new Date(cur.updated_at).toLocaleDateString("de-DE")}${cur.updated_by?" · "+esc(cur.updated_by):""}</div>`:"";
+  const c=document.createElement("div");
+  c.style.cssText="background:#fff;color:#1a1a2e;max-width:500px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+      <div style="font-weight:800;font-size:16px">📸 Foto- &amp; Video-Freigabe · ${esc(name)}</div>
+      <button onclick="document.getElementById('fc-modal').remove()" style="border:none;background:none;font-size:24px;color:#94a3b8;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="font-size:11.5px;color:#475569;line-height:1.6;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px;margin:8px 0 4px">${esc(txt)}</div>
+    ${FOTO_STUFEN.map(row).join("")}
+    <div style="font-size:10.5px;color:#94a3b8;margin-top:10px;line-height:1.5">ℹ️ Bei <b>Gruppenfotos</b> zeigen wir dein Kind öffentlich nur, wenn <u>alle</u> abgebildeten Familien der Stufe „Öffentlich“ zugestimmt haben. Freiwillig &amp; jederzeit widerrufbar.</div>
+    ${upd}
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn btn-p btn-sm" onclick="elternFotoConsentSave(${spielerId})" style="flex:1;min-height:46px">Speichern</button>
+      <button class="btn btn-sm btn-d" onclick="elternFotoConsentRevoke(${spielerId})" style="min-height:46px">Alles widerrufen</button>
+    </div>`;
+  modal.appendChild(c); document.body.appendChild(modal);
+}
+async function elternFotoConsentSave(spielerId){
+  const body={spieler_id:spielerId};
+  FOTO_STUFEN.forEach(s=>{body[s.k]=!!document.getElementById("fc-"+s.k)?.checked;});
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/foto_consent?on_conflict=spieler_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(body)});
+    if(!r.ok){toast((typeof sbDeniedMsg==="function")?sbDeniedMsg(r):"Konnte nicht speichern","err");return;}
+    document.getElementById("fc-modal")?.remove();
+    toast("Foto-Freigabe gespeichert ✓");
+    if(window._elternKids&&typeof elternChecklistLoad==="function")elternChecklistLoad(window._elternKids);
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+async function elternFotoConsentRevoke(spielerId){
+  if(!confirm("Wirklich alle Foto- und Video-Freigaben für dein Kind widerrufen?"))return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/foto_consent?on_conflict=spieler_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({spieler_id:spielerId,intern:false,video:false,public_ok:false})});
+    if(!r.ok){toast("Konnte nicht widerrufen","err");return;}
+    document.getElementById("fc-modal")?.remove();
+    toast("Alle Freigaben widerrufen ✓");
+    if(window._elternKids&&typeof elternChecklistLoad==="function")elternChecklistLoad(window._elternKids);
   }catch(e){toast("Netzwerkfehler","err");}
 }
 async function tdRsvp(terminId,spielerId,status){

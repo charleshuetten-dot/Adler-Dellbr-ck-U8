@@ -4,22 +4,76 @@
    Fotos: privater Bucket 'termin_media' (5 MB, nur Bilder, Limit serverseitig).
    Trainer moderiert (Loeschrecht via authRole). Anzeige per Auth-Download + Blob.
 ═══════════════════════════════════ */
-// F2: Fotofreigabe-Übersicht fürs Team – zeigt VOR dem Posten, wer freigegeben ist und wer
-// NICHT erkennbar gezeigt werden darf. Quelle: spieler.foto_stadionheft_ok (die EINE Freigabe
-// für „Adler Nest" + Team-Galerie). Nur sinnvoll im Trainer-Kontext (KADER geladen).
+// F2: Fotofreigabe-Übersicht fürs Team – zeigt VOR dem Posten, wer für welche Stufe freigegeben
+// ist. Quelle: foto_consent (3 Stufen: intern/video/public_ok). Stufe „intern“ spiegelt auf
+// kader.foto_stadionheft_ok (Fallback). Nur sinnvoll im Trainer-Kontext (KADER geladen).
+let FOTO_CONSENT=null;
+async function fotoConsentLoad(force){
+  if(FOTO_CONSENT&&!force)return FOTO_CONSENT;
+  const map={};
+  try{const r=await fetch(`${SB_URL}/rest/v1/foto_consent?select=spieler_id,intern,video,public_ok,updated_at,updated_by`,{headers:sbAuthHeaders()});
+    if(r.ok)(await r.json()).forEach(x=>map[x.spieler_id]=x);}catch(e){}
+  FOTO_CONSENT=map; return map;
+}
+function fotoConsentFor(k){
+  const r=(FOTO_CONSENT&&FOTO_CONSENT[k.id])||{};
+  return {intern:(r.intern!=null?r.intern:!!k.foto_stadionheft_ok), video:!!r.video, public_ok:!!r.public_ok, updated_at:r.updated_at, updated_by:r.updated_by};
+}
 function fotoConsentBannerHtml(){
   const kids=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
   if(!kids.length)return "";
-  const ok=kids.filter(k=>k.foto_stadionheft_ok), no=kids.filter(k=>!k.foto_stadionheft_ok);
-  const noNames=no.map(k=>esc(k.name)).join(", ");
-  return `<div style="padding:10px;border-radius:10px;margin-bottom:12px;background:${no.length?"#fff7ed":"#f0fdf4"};border:1px solid ${no.length?"#fdba74":"#86efac"}">
-    <div style="font-size:11.5px;font-weight:800;color:${no.length?"#9a3412":"#15803d"};margin-bottom:2px">📸 Fotofreigabe: ✅ ${ok.length} frei${no.length?` · ⛔ ${no.length} ohne`:""}</div>
-    ${no.length?`<div style="font-size:11.5px;color:#9a3412">Bitte <b>nicht erkennbar</b> zeigen: ${noNames}</div>`:'<div style="font-size:11px;color:#15803d">Alle aktiven Kinder haben Freigabe. 👍</div>'}
-    <div style="font-size:10px;color:var(--text3);margin-top:3px">Freigabe je Kind im Kader änderbar.</div>
+  const c=kids.map(fotoConsentFor);
+  const nIn=c.filter(x=>x.intern).length, nVid=c.filter(x=>x.video).length, nPub=c.filter(x=>x.public_ok).length;
+  const noPub=kids.filter((k,i)=>!c[i].public_ok).map(k=>esc(k.name)).join(", ");
+  const chip=(emo,lbl,n)=>`<span style="display:inline-block;background:#fff;border:1px solid #cbd5e1;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;color:#334155;margin:2px 4px 2px 0">${emo} ${lbl}: ${n}/${kids.length}</span>`;
+  return `<div style="padding:10px;border-radius:10px;margin-bottom:12px;background:#f8fafc;border:1px solid #cbd5e1">
+    <div style="font-size:11.5px;font-weight:800;color:#334155;margin-bottom:4px">📸 Foto-/Video-Freigaben</div>
+    <div>${chip("🖼️","intern",nIn)}${chip("🎥","Video",nVid)}${chip("🌍","öffentlich",nPub)}</div>
+    ${noPub?`<div style="font-size:11px;color:#9a3412;margin-top:4px">🌍 <b>Nicht öffentlich</b> zeigen: ${noPub}</div>`:'<div style="font-size:11px;color:#15803d;margin-top:4px">Alle Kinder öffentlich freigegeben. 👍</div>'}
+    <button onclick="fotoAmpelOpen()" style="margin-top:8px;width:100%;min-height:40px;padding:8px;border:1.5px solid #7c3aed;border-radius:8px;background:#faf5ff;color:#6d28d9;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">🚦 Ampel je Kind &amp; Einwilligungstext</button>
   </div>`;
+}
+/* Trainer-Ampel: Kind × 3 Stufen (read-only – Eltern setzen die Freigaben selbst) + editierbarer
+   Einwilligungstext, den die Eltern beim Zustimmen sehen. */
+async function fotoAmpelOpen(){
+  await fotoConsentLoad(true);
+  let txt="";
+  try{const r=await fetch(`${SB_URL}/rest/v1/team_config?select=foto_consent_text&limit=1`,{headers:sbAuthHeaders()});if(r.ok)txt=((await r.json())[0]||{}).foto_consent_text||"";}catch(e){}
+  const kids=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  const cell=v=>`<span style="font-size:14px">${v?"✅":"⛔"}</span>`;
+  document.getElementById("fa-modal")?.remove();
+  const modal=document.createElement("div"); modal.id="fa-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10060;display:flex;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:520px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-weight:800;font-size:16px">🚦 Foto-/Video-Ampel</div>
+      <button onclick="document.getElementById('fa-modal').remove()" style="border:none;background:none;font-size:24px;color:var(--text2);cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Die Freigaben setzen die <b>Eltern selbst</b> im Eltern-Bereich (freiwillig, widerrufbar). Hier siehst du nur den Stand – vor dem Posten prüfen.</div>
+    <div style="display:grid;grid-template-columns:1fr 40px 40px 40px;gap:2px;font-size:10px;font-weight:700;color:var(--text2);padding:0 4px 4px"><div>Kind</div><div style="text-align:center" title="app-intern">🖼️</div><div style="text-align:center" title="Trainingsvideo">🎥</div><div style="text-align:center" title="öffentlich">🌍</div></div>
+    ${kids.map(k=>{const x=fotoConsentFor(k);return `<div style="display:grid;grid-template-columns:1fr 40px 40px 40px;gap:2px;align-items:center;padding:5px 4px;border-top:var(--border);font-size:13px"><div>${esc(k.name)}</div><div style="text-align:center">${cell(x.intern)}</div><div style="text-align:center">${cell(x.video)}</div><div style="text-align:center">${cell(x.public_ok)}</div></div>`;}).join("")}
+    <div style="font-weight:700;font-size:12px;margin:16px 0 4px">✏️ Einwilligungstext (sehen die Eltern)</div>
+    <textarea id="fa-text" rows="5" placeholder="Leer = Standardtext der App. Hier eure DFB-/LSB-Formulierung einsetzen." style="width:100%;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:12px;box-sizing:border-box;resize:vertical;background:var(--surface);color:var(--text)">${esc(txt)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn btn-p btn-sm" onclick="fotoConsentTextSave()" style="flex:1;min-height:44px">Text speichern</button>
+      <button class="btn btn-sm" onclick="document.getElementById('fa-modal').remove()" style="min-height:44px">Schließen</button>
+    </div>`;
+  modal.appendChild(c); document.body.appendChild(modal);
+}
+async function fotoConsentTextSave(){
+  const txt=(document.getElementById("fa-text")?.value||"").trim();
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/team_config?id=eq.1`,{method:"PATCH",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({foto_consent_text:txt||null})});
+    if(!r.ok){toast((typeof sbDeniedMsg==="function")?sbDeniedMsg(r):"Konnte nicht speichern","err");return;}
+    toast("Einwilligungstext gespeichert ✓");
+  }catch(e){toast("Netzwerkfehler","err");}
 }
 async function galerieOpen(terminId,titel){
   if(!sbToken()){toast("Bitte zuerst anmelden","err");return;}
+  await fotoConsentLoad();
   document.getElementById("gal-modal")?.remove();
   const m=document.createElement("div");m.id="gal-modal";m.dataset.termin=terminId;
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";

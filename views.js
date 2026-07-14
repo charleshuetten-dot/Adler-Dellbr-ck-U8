@@ -826,8 +826,10 @@ async function setupTrainerOpen(){
   const kids=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
   const notfall=new Set();
   try{const r=await fetch(`${SB_URL}/rest/v1/kind_notfall?select=spieler_id`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)(await r.json()).forEach(x=>notfall.add(x.spieler_id));}catch(e){}
-  const rows=kids.map(k=>({name:k.name,foto:!!k.foto_stadionheft_ok,nf:notfall.has(k.id)})).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
-  const missFoto=rows.filter(r=>!r.foto).length, missNf=rows.filter(r=>!r.nf).length;
+  if(typeof fotoConsentLoad==="function")await fotoConsentLoad(true);
+  const fc=k=>(typeof fotoConsentFor==="function")?fotoConsentFor(k):{intern:!!k.foto_stadionheft_ok,video:false,public_ok:false};
+  const rows=kids.map(k=>{const x=fc(k);return {name:k.name,intern:x.intern,video:x.video,pub:x.public_ok,nf:notfall.has(k.id)};}).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  const missIntern=rows.filter(r=>!r.intern).length, missNf=rows.filter(r=>!r.nf).length;
   const cell=ok=>`<span style="font-size:14px">${ok?"✅":"⛔"}</span>`;
   document.getElementById("setup-modal")?.remove();
   const modal=document.createElement("div"); modal.id="setup-modal";
@@ -840,10 +842,11 @@ async function setupTrainerOpen(){
       <div style="font-weight:800;font-size:16px">🚀 Eltern-Setup</div>
       <button onclick="document.getElementById('setup-modal').remove()" style="border:none;background:none;font-size:24px;color:var(--text2);cursor:pointer;line-height:1">×</button>
     </div>
-    <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Offen: 📸 ${missFoto} ohne Foto-Freigabe · 🚑 ${missNf} ohne Notfallkarte.</div>
-    <div style="display:grid;grid-template-columns:1fr 44px 44px;gap:2px;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;padding:0 4px 4px"><div>Kind</div><div style="text-align:center">📸</div><div style="text-align:center">🚑</div></div>
-    ${rows.map(r=>`<div style="display:grid;grid-template-columns:1fr 44px 44px;gap:2px;align-items:center;padding:5px 4px;border-top:var(--border);font-size:13px"><div>${esc(r.name)}</div><div style="text-align:center">${cell(r.foto)}</div><div style="text-align:center">${cell(r.nf)}</div></div>`).join("")}
-    ${(missFoto||missNf)?`<button class="btn btn-sm btn-p" style="width:100%;margin-top:12px" onclick="setupRemindPush()"><i class="ti ti-bell"></i>Eltern per Push erinnern</button>`:'<div style="text-align:center;color:#16a34a;font-size:13px;font-weight:700;margin-top:12px">Alles eingerichtet 🎉</div>'}
+    <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Offen: 📸 ${missIntern} ohne interne Foto-Freigabe · 🚑 ${missNf} ohne Notfallkarte. Foto-Spalten: 🖼️ intern · 🎥 Video · 🌍 öffentlich.</div>
+    <div style="display:grid;grid-template-columns:1fr 34px 34px 34px 34px;gap:2px;font-size:10px;font-weight:700;color:var(--text2);padding:0 4px 4px"><div>Kind</div><div style="text-align:center" title="app-intern">🖼️</div><div style="text-align:center" title="Trainingsvideo">🎥</div><div style="text-align:center" title="öffentlich">🌍</div><div style="text-align:center" title="Notfallkarte">🚑</div></div>
+    ${rows.map(r=>`<div style="display:grid;grid-template-columns:1fr 34px 34px 34px 34px;gap:2px;align-items:center;padding:5px 4px;border-top:var(--border);font-size:13px"><div>${esc(r.name)}</div><div style="text-align:center">${cell(r.intern)}</div><div style="text-align:center">${cell(r.video)}</div><div style="text-align:center">${cell(r.pub)}</div><div style="text-align:center">${cell(r.nf)}</div></div>`).join("")}
+    ${(missIntern||missNf)?`<button class="btn btn-sm btn-p" style="width:100%;margin-top:12px" onclick="setupRemindPush()"><i class="ti ti-bell"></i>Eltern per Push erinnern</button>`:'<div style="text-align:center;color:#16a34a;font-size:13px;font-weight:700;margin-top:12px">Alles eingerichtet 🎉</div>'}
+    ${typeof fotoAmpelOpen==="function"?`<button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="fotoAmpelOpen()">🚦 Foto-Ampel &amp; Einwilligungstext</button>`:""}
     <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('setup-modal').remove()">Schließen</button>`;
   modal.appendChild(c); document.body.appendChild(modal);
 }
