@@ -58,7 +58,7 @@ async function mcSave(patch){
 // Der Rotations-Timer bleibt ueber sein eigenes Panel weiterhin manuell bedienbar
 // (z. B. kurze Trinkpause ohne offizielle Spielunterbrechung).
 // halbzeiten mitschreiben: der oeffentliche Ticker liest matchday anonym und kennt den Termin nicht
-function mcStart(){ mcSave({half:1,clock_status:"running",started_at:new Date().toISOString(),paused_ms:0,spieldauer_min:mcSpieldauer,halbzeiten:mcHalbzeiten}); rotStart(); }
+function mcStart(){ mcSave({half:1,clock_status:"running",started_at:new Date().toISOString(),paused_ms:0,spieldauer_min:mcSpieldauer,halbzeiten:mcHalbzeiten}); rotStart(); document.getElementById("mt-phase-vor")?.removeAttribute("open"); /* Anpfiff: Phase „Vor dem Spiel" zuklappen → Fokus auf „Während des Spiels" */ }
 function mcPause(){
   if(!mcState||mcState.clock_status!=="running")return;
   const addMs=Date.now()-new Date(mcState.started_at).getTime();
