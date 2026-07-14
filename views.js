@@ -644,6 +644,42 @@ async function wochenChallengeSave(){
   }catch(e){toast("Netzwerkfehler","err");}
 }
 // Entwicklungs-Ziele pro Kind: 1-2 Förderziele setzen & abhaken (DFB-Fördergedanke).
+/* B: Entwicklungsziele-Loop. Kuratierte Ziel-Vorlagen mit hinterlegten Übungs-Tags schließen
+   den Kreis Ziel → passende Übungen → Wirkung (Gesamt-Trend seit Zielsetzung). Freitext bleibt
+   als Fallback (ohne Verknüpfung). Übungs-Tags aus TRAININGSFORMEN (data.js). */
+const ZIEL_VORLAGEN=[
+  {ziel:"1-gegen-1 mutig angehen",        tags:["1gg1","dribbling","mindset"]},
+  {ziel:"Passschärfe & Passspiel",        tags:["passspiel"]},
+  {ziel:"Kopf hoch – Übersicht",          tags:["wahrnehmung"]},
+  {ziel:"Ballkontrolle & Technik",        tags:["technik","ballkontrolle"]},
+  {ziel:"Torabschluss & Mut vorm Tor",    tags:["torschuss","1gg1"]},
+  {ziel:"Umschalten & Pressing",          tags:["pressing"]},
+  {ziel:"Selbstvertrauen / Mindset",      tags:["mindset","spass"]},
+  {ziel:"Torwart-Grundtechnik",           tags:["torwart"]}
+];
+// Übungen aus der Bibliothek, deren Tags zu den Ziel-Tags passen (case-insensitiv).
+function _zielUebungen(tags,limit){
+  if(!tags||!tags.length)return [];
+  const low=tags.map(t=>String(t).toLowerCase());
+  const forms=(typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[]);
+  return forms.filter(f=>(f.tags||[]).some(t=>low.includes(String(t).toLowerCase()))).map(f=>f.name).slice(0,limit||4);
+}
+async function zieleAddVorlage(spielerId,idx){
+  const v=ZIEL_VORLAGEN[idx]; if(!v)return;
+  await sbQueuedPost("entwicklungsziele",{spieler_id:spielerId,ziel:v.ziel,meta:{tags:v.tags}},"return=minimal");
+  toast("Ziel gesetzt 🎯");
+  zieleRender(spielerId);
+}
+// Auto-Plan-Hinweis: Übungen, die zu OFFENEN Zielen im Team passen (Slot im Zeitplan).
+async function zielUebungenHint(){
+  const el=document.getElementById("ziel-uebungen-hint"); if(!el)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/entwicklungsziele?status=eq.offen&select=meta`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)rows=await r.json();}catch(e){}
+  const tags=[]; rows.forEach(z=>{(z.meta&&z.meta.tags||[]).forEach(t=>{if(!tags.includes(t))tags.push(t);});});
+  const ex=_zielUebungen(tags,6);
+  if(!ex.length){el.innerHTML="";return;}
+  el.innerHTML=`<div style="font-size:11.5px;color:#3730a3;background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:7px 10px;margin-bottom:8px">🎯 <b>Passt zu offenen Entwicklungszielen:</b> ${ex.map(esc).join(" · ")}</div>`;
+}
 async function zieleOpen(spielerId){
   if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
   const k=KADER.find(x=>x._id===spielerId);
@@ -656,7 +692,9 @@ async function zieleOpen(spielerId){
   card.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🎯 Entwicklungs-Ziele</div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${esc(k?.name||"Spieler")} · 1–2 Förderziele für die Saison</div>
     <div id="ziele-list" style="margin-bottom:12px"><div style="color:var(--text3);font-size:12px">Lade…</div></div>
-    <textarea id="ziele-input" rows="2" placeholder="z. B. „Mutiger ins 1-gegen-1 gehen&quot;" style="width:100%;padding:9px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box;resize:vertical"></textarea>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Vorlage antippen (verknüpft passende Übungen) – oder unten frei formulieren:</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${ZIEL_VORLAGEN.map((v,i)=>`<button onclick="zieleAddVorlage(${spielerId},${i})" style="padding:6px 10px;border:1.5px solid #c7d2fe;border-radius:16px;background:#eef2ff;color:#3730a3;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer">🎯 ${esc(v.ziel)}</button>`).join("")}</div>
+    <textarea id="ziele-input" rows="2" placeholder="Eigenes Ziel frei formulieren, z. B. „Ruhiger im Aufbau&quot;" style="width:100%;padding:9px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box;resize:vertical"></textarea>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
       <button class="btn btn-p" onclick="zieleAdd(${spielerId})"><i class="ti ti-plus"></i>Ziel hinzufügen</button>
       <button class="btn btn-sm" onclick="document.getElementById('ziele-modal').remove()">Schließen</button>
@@ -669,11 +707,29 @@ async function zieleRender(spielerId){
   let rows=[];
   try{const r=await fetch(`${SB_URL}/rest/v1/entwicklungsziele?spieler_id=eq.${spielerId}&select=*&order=status.asc,created_at.desc`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)rows=await r.json();}catch(e){}
   if(!rows.length){box.innerHTML='<div style="color:var(--text3);font-size:12.5px;padding:6px 0">Noch keine Ziele – setz das erste unten. 🎯</div>';return;}
+  const nm=(KADER.find(x=>x._id===spielerId)||{}).name;
+  const snaps=(nm&&typeof DB!=="undefined"&&DB[nm])?DB[nm]:[];
   box.innerHTML=rows.map(z=>{const done=z.status==="erreicht";
-    return `<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--surface2)">
-      <button onclick="zieleToggle(${z.id},'${done?'offen':'erreicht'}',${spielerId})" title="${done?'wieder offen':'als erreicht markieren'}" style="border:none;background:transparent;cursor:pointer;font-size:18px;line-height:1;padding:0">${done?'✅':'⬜'}</button>
-      <span style="flex:1;font-size:13px;${done?'text-decoration:line-through;color:var(--text3)':''}">${esc(z.ziel)}</span>
-      <button onclick="zieleDelete(${z.id},${spielerId})" title="löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:13px;padding:2px 4px"><i class="ti ti-trash"></i></button>
+    const ex=_zielUebungen((z.meta&&z.meta.tags)||[]);
+    // Wirkung: Gesamt-Score-Trend seit Zielsetzung (Baseline = letzter Snapshot vor dem Ziel).
+    let trend="";
+    if(!done&&snaps.length){
+      const created=(z.created_at||"").slice(0,10);
+      const base=[...snaps].reverse().find(s=>(s.datum||"")<=created)||snaps[0];
+      const last=snaps[snaps.length-1];
+      if(base&&last&&last!==base&&last.total_score!=null&&base.total_score!=null){
+        const d=last.total_score-base.total_score;
+        trend=`<span style="color:${d>0?"#16a34a":d<0?"#dc2626":"var(--text3)"};font-weight:700">Gesamt ${base.total_score}% → ${last.total_score}% ${d>0?"↗":d<0?"↘":"→"}</span>`;
+      }
+    }
+    return `<div style="padding:8px 0;border-bottom:1px solid var(--surface2)">
+      <div style="display:flex;align-items:flex-start;gap:8px">
+        <button onclick="zieleToggle(${z.id},'${done?'offen':'erreicht'}',${spielerId})" title="${done?'wieder offen':'als erreicht markieren'}" style="border:none;background:transparent;cursor:pointer;font-size:18px;line-height:1;padding:0">${done?'✅':'⬜'}</button>
+        <span style="flex:1;font-size:13px;${done?'text-decoration:line-through;color:var(--text3)':''}">${esc(z.ziel)}</span>
+        <button onclick="zieleDelete(${z.id},${spielerId})" title="löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:13px;padding:2px 4px"><i class="ti ti-trash"></i></button>
+      </div>
+      ${(!done&&ex.length)?`<div style="font-size:11px;color:var(--text2);margin:2px 0 0 26px">🏃 Passende Übungen: ${ex.map(esc).join(" · ")}</div>`:""}
+      ${trend?`<div style="font-size:11px;margin:3px 0 0 26px">📈 ${trend} <span style="color:var(--text3)">seit Zielsetzung</span></div>`:""}
     </div>`;}).join("");
 }
 async function zieleAdd(spielerId){

@@ -794,7 +794,7 @@ function tpRenderTimeline(){
   const allForms=tpAllForms();
   let time=0;
   // F5: Stationstimer + G3: Anwesenheits-Prognose (async gefüllt).
-  let html='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span id="tp-prognose"></span><button class="btn btn-p btn-sm" onclick="stTimerStart()" title="Stationen am Platz mit Countdown durchlaufen">⏱️ Stationstimer</button></div>';
+  let html='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span id="tp-prognose"></span><button class="btn btn-p btn-sm" onclick="stTimerStart()" title="Stationen am Platz mit Countdown durchlaufen">⏱️ Stationstimer</button></div><div id="ziel-uebungen-hint"></div>';
   tpSlots.forEach((slot,si)=>{
     const startMin=time;
     const endMin=time+slot.dauer;
@@ -891,6 +891,7 @@ function tpRenderTimeline(){
   html+=`<div style="text-align:right;font-size:11px;font-weight:${passt?"400":"700"};color:${passt?"var(--text2)":"#dc2626"};margin-top:4px">Gesamt: ${time} von ${zielDauer} Min.${passt?"":" – zu lang!"}</div>`;
   wrap.innerHTML=html;
   tpPrognoseLoad(); // G3: erwartete Kinderzahl fürs gewählte Datum
+  if(typeof zielUebungenHint==="function")zielUebungenHint(); // B: Übungen zu offenen Entwicklungszielen
 }
 /* G3: Anwesenheits-Prognose – erwartete Kinderzahl fürs gewählte Trainingsdatum aus den
    Zusagen (fix) plus historischer Anwesenheitsquote je Kind (für noch offene). */
