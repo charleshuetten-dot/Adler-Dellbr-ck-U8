@@ -195,6 +195,7 @@ function kabineHome(){
       <div style="font-size:12px;opacity:.8">Adler U9 · Kinder-Modus</div>
     </div>
     <div id="kab-level" style="padding:2px 16px 6px"></div>
+    <div id="kab-countdown"></div>
     <div id="kab-arena" style="padding:0 16px 4px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px;align-content:center">
       <button onclick="kabineQuiz('taktik')" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎯</span>Taktik-Quiz</button>
@@ -211,6 +212,22 @@ function kabineHome(){
     <button onclick="kabineExit()" style="margin:0 16px 18px;padding:12px;border:none;border-radius:14px;background:rgba(0,0,0,.25);color:#fff;font-family:inherit;font-size:14px;cursor:pointer">🔒 Für Erwachsene: Kabine verlassen</button>`;
   teamLevelLoad("kab-level");                                  // C1: Team-Level
   if(typeof arenaKabineLoad==="function")arenaKabineLoad("kab-arena"); // C3: Einlauf-Song/Schlachtruf
+  kabineCountdownLoad();                                        // G6: Countdown bis zum nächsten Spiel
+}
+// G6: „Noch X× schlafen bis zum nächsten Spiel!" – Motivation im Kinder-Modus.
+async function kabineCountdownLoad(){
+  const el=document.getElementById("kab-countdown"); if(!el)return;
+  const heute=new Date().toISOString().slice(0,10);
+  let t=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=datum,typ,gegner,titel&typ=in.(spiel,turnier)&datum=gte.${heute}&order=datum.asc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)t=(await r.json())[0]||null;}catch(e){}
+  if(!t){el.innerHTML="";return;}
+  const d=new Date(t.datum+"T00:00:00"), today=new Date(heute+"T00:00:00");
+  const days=Math.round((d-today)/864e5);
+  const label=days<=0?"Heute ist Spieltag! 🔥":days===1?"Morgen ist Spieltag! 🔥":`Noch ${days}× schlafen bis zum Spiel!`;
+  el.innerHTML=`<div style="margin:2px 16px 8px;background:rgba(255,255,255,.14);border-radius:16px;padding:12px;text-align:center;color:#fff">
+    <div style="font-size:15px;font-weight:900">⚽ ${label}</div>
+    <div style="font-size:12px;opacity:.85;margin-top:2px">${t.typ==="turnier"?"🏆 Turnier":"gegen "+esc(t.gegner||t.titel||"?")} · ${["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()]}, ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}</div>
+  </div>`;
 }
 /* Kabinen-DJ (Phase 23.2): die Spotify-Playlist der U9 in der App. Wandelt einen
    Spotify-Link in die Embed-URL um; akzeptiert Playlist/Album/Track. */

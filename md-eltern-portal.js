@@ -553,6 +553,7 @@ async function terminDetailOpen(id){
     <div id="td-nom"></div>
     <div id="td-betreuung"></div>
     <div id="td-buedchen"></div>
+    <div id="td-helfer"></div>
     <div id="td-puls"></div>
     ${t.typ==="event"?`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
       <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🎉 Mitbringliste</div>
@@ -565,6 +566,7 @@ async function terminDetailOpen(id){
   tdNomLoad(t,kids);
   if(t.typ==="training")tdBetreuungLoad(t,kids);
   if(istSpiel&&t.heim===true)tdBuedchenLoad(t,kids);
+  tdHelferLoad(t); // G4: Elternhelfer-Board (nur kommende Termine)
   tdPulsLoad(t); // F4: Eltern-Puls (nur bei vergangenem Training/Spiel)
 }
 /* F4: Eltern-Puls – anonyme 1-Tap-Stimmung nach Training/Spiel. Der Trainer sieht nur das
@@ -654,6 +656,45 @@ async function pulsNudgeLoad(){
     <div id="td-puls"></div>
   </div>`;
   tdPulsRender(first.id,null,true);
+}
+/* G4: Elternhelfer-Board – pro kommendem Termin tragen sich Eltern für Aufgaben ein
+   (Fahren, Aufbau, Fotografieren …). Alle eingeloggten sehen die Liste (Koordination). */
+const HELFER_TASKS=["🚗 Fahren","🛠️ Aufbau","📸 Fotografieren","🥤 Getränke","👀 Betreuung","🧺 Wäsche"];
+function _sbUid(){ try{const t=sbToken();return t?JSON.parse(atob(t.split(".")[1])).sub:null;}catch(e){return null;} }
+function _helferName(){ const kids=window._elternKids||[]; const n=(kids[0]&&kids[0].kader&&kids[0].kader.name)?kids[0].kader.name:"Unsere"; return n+" Familie"; }
+async function tdHelferLoad(t){
+  const box=document.getElementById("td-helfer"); if(!box)return;
+  if(t.datum<new Date().toISOString().slice(0,10)){box.innerHTML="";return;} // nur kommende Events
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/event_helfer?termin_id=eq.${t.id}&select=id,name,aufgabe,user_id&order=created_at.asc`,{headers:sbAuthHeaders()});if(r.ok)rows=await r.json();}catch(e){}
+  const uid=_sbUid();
+  const mine=new Set(rows.filter(x=>x.user_id===uid).map(x=>x.aufgabe));
+  const list=rows.length?rows.map(x=>`<div style="display:flex;align-items:center;gap:6px;font-size:12.5px;padding:3px 0">
+      <span style="flex:1">${esc(x.aufgabe)} · <b>${esc(x.name)}</b></span>
+      ${x.user_id===uid?`<button onclick="tdHelferDel(${x.id},${t.id})" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:14px">✕</button>`:""}
+    </div>`).join(""):'<div style="font-size:12px;color:#94a3b8">Noch niemand eingetragen – mach den Anfang!</div>';
+  const buttons=HELFER_TASKS.map(task=>{const on=mine.has(task);const esct=task.replace(/'/g,"");
+    return `<button onclick="${on?`tdHelferDelTask(${t.id},'${esct}')`:`tdHelferAdd(${t.id},'${esct}')`}" style="padding:7px 10px;border-radius:9px;border:1.5px solid ${on?"#16a34a":"#e2e8f0"};background:${on?"#f0fdf4":"#fff"};color:${on?"#15803d":"#334155"};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">${on?"✓ ":""}${esc(task)}</button>`;}).join("");
+  box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
+    <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🙌 Wer hilft mit?</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:6px">Tippe eine Aufgabe an, um dich (als „${esc(_helferName())}") einzutragen.</div>
+    ${list}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${buttons}</div>
+  </div>`;
+}
+function _helferReload(terminId){ const t=(ELTERN_TERMINE||[]).find(x=>Number(x.id)===Number(terminId))||{id:terminId,datum:new Date().toISOString().slice(0,10)}; tdHelferLoad(t); }
+async function tdHelferAdd(terminId,task){
+  try{const r=await fetch(`${SB_URL}/rest/v1/event_helfer`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({termin_id:terminId,name:_helferName(),aufgabe:task})});if(!r.ok){toast("Konnte nicht eintragen","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
+  _helferReload(terminId);
+}
+async function tdHelferDel(id,terminId){
+  try{await fetch(`${SB_URL}/rest/v1/event_helfer?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}
+  _helferReload(terminId);
+}
+async function tdHelferDelTask(terminId,task){
+  try{await fetch(`${SB_URL}/rest/v1/event_helfer?termin_id=eq.${terminId}&aufgabe=eq.${encodeURIComponent(task)}&user_id=eq.${_sbUid()}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}
+  _helferReload(terminId);
 }
 /* F1: Notfall-/Gesundheitskarte (Art. 9 DSGVO – Gesundheitsdaten). Eltern pflegen sie fürs
    eigene Kind; der Trainer sieht sie NUR lesend (RLS kn_trainer_read). Speichern nur mit
@@ -802,6 +843,13 @@ async function tdBuedchenOptout(terminId,spielerId){
 }
 // Alle kommenden Termine als Dialog + Kalender-Export (.ics) – gleiche Quelle wie die Liste.
 let ELTERN_TERMINE=[];
+// G5: Saison-Kalender-Abo – öffentliche Edge Function liefert ein live-aktualisiertes .ics.
+const SEASON_ICS_HTTPS=SB_URL+"/functions/v1/season-ics";
+const SEASON_ICS_WEBCAL="webcal://"+SB_URL.replace(/^https?:\/\//,"")+"/functions/v1/season-ics";
+function saisonAboCopy(){
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(SEASON_ICS_HTTPS).then(()=>toast("Abo-Link kopiert ✓ – im Kalender 'Aus URL abonnieren' einfügen"),()=>toast("Kopieren nicht möglich","err"));
+  else toast("Kopieren nicht möglich","err");
+}
 function elternTermineOpen(){
   const rows=ELTERN_TERMINE||[];
   document.getElementById("et-modal")?.remove();
@@ -826,7 +874,9 @@ function elternTermineOpen(){
   c.style.cssText="background:#fff;color:#1a1a2e;max-width:440px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:10px">📅 Alle Termine</div>
     <div style="max-height:55vh;overflow-y:auto">${list}</div>
-    ${rows.length?`<button onclick="elternTermineIcs()" style="width:100%;margin-top:12px;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📥 Alle in meinen Kalender</button>`:""}
+    ${rows.length?`<button onclick="elternTermineIcs()" style="width:100%;margin-top:12px;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📥 Alle in meinen Kalender (einmalig)</button>`:""}
+    <a href="${SEASON_ICS_WEBCAL}" style="display:block;text-align:center;width:100%;margin-top:8px;padding:11px;border:1.5px solid #16a34a;border-radius:10px;background:#f0fdf4;color:#15803d;font-family:inherit;font-size:13px;font-weight:700;text-decoration:none;box-sizing:border-box">🔔 Termine abonnieren (aktualisiert sich automatisch)</a>
+    <button onclick="saisonAboCopy()" style="width:100%;margin-top:6px;padding:9px;border:none;border-radius:10px;background:#f1f5f9;color:#475569;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">🔗 Abo-Link kopieren (für Google/Apple Kalender)</button>
     <button onclick="document.getElementById('et-modal').remove()" style="width:100%;margin-top:8px;padding:10px;border:none;border-radius:10px;background:#f1f5f9;color:#334155;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Schließen</button>`;
   modal.appendChild(c);document.body.appendChild(modal);
 }

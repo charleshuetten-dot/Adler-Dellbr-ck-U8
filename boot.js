@@ -793,8 +793,8 @@ function tpRenderTimeline(){
   const trainerCount=tpGetTrainerCount();
   const allForms=tpAllForms();
   let time=0;
-  // F5: Stationstimer – laeuft die Plan-Stationen am Platz mit Countdown + Pfiff durch.
-  let html='<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button class="btn btn-p btn-sm" onclick="stTimerStart()" title="Stationen am Platz mit Countdown durchlaufen">⏱️ Stationstimer</button></div>';
+  // F5: Stationstimer + G3: Anwesenheits-Prognose (async gefüllt).
+  let html='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span id="tp-prognose"></span><button class="btn btn-p btn-sm" onclick="stTimerStart()" title="Stationen am Platz mit Countdown durchlaufen">⏱️ Stationstimer</button></div>';
   tpSlots.forEach((slot,si)=>{
     const startMin=time;
     const endMin=time+slot.dauer;
@@ -890,6 +890,25 @@ function tpRenderTimeline(){
   const passt=time<=zielDauer;
   html+=`<div style="text-align:right;font-size:11px;font-weight:${passt?"400":"700"};color:${passt?"var(--text2)":"#dc2626"};margin-top:4px">Gesamt: ${time} von ${zielDauer} Min.${passt?"":" – zu lang!"}</div>`;
   wrap.innerHTML=html;
+  tpPrognoseLoad(); // G3: erwartete Kinderzahl fürs gewählte Datum
+}
+/* G3: Anwesenheits-Prognose – erwartete Kinderzahl fürs gewählte Trainingsdatum aus den
+   Zusagen (fix) plus historischer Anwesenheitsquote je Kind (für noch offene). */
+async function tpPrognoseLoad(){
+  const el=document.getElementById("tp-prognose"); if(!el)return;
+  const datum=document.getElementById("tp-date")?.value;
+  const dates=Object.keys(AW_DATA); const anyHist=dates.length>0;
+  const rate={};
+  KADER.forEach(k=>{ let tot=0,da=0; dates.forEach(d=>{const day=AW_DATA[d]; if(day&&(k.name in day)){tot++; if(day[k.name].da)da++;}}); rate[k.name]=tot?da/tot:0.7; });
+  let rsvp={};
+  if(datum){ try{ const tid=await terminIdForDatum(datum); if(tid){ const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${tid}&select=spieler_id,status`,{headers:sbAuthHeaders()}); if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(x=>rsvp[x.spieler_id]=x.status); } }catch(e){} }
+  let exp=0, sure=0;
+  KADER.forEach(k=>{ const st=rsvp[k.id];
+    if(st==="zugesagt"){exp+=1;sure++;}
+    else if(st==="abgesagt"||st==="krank"){/* 0 */}
+    else exp+=(anyHist?rate[k.name]:0.7);
+  });
+  el.innerHTML=`<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;background:var(--surface2);border:var(--border);border-radius:20px;padding:4px 12px">👥 ~${Math.round(exp)} Kinder erwartet${sure?` <span style="font-weight:400;color:var(--text2)">(${sure} fix)</span>`:""}</span>`;
 }
 
 function tpOnSelectChange(sel){

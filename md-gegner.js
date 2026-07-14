@@ -219,6 +219,15 @@ function tmDetailOpen(id){
   try{ wetterInto("wx-tm-"+t.id,t.datum,t.ort,t.uhrzeit); }catch(e){}
   if(t.heim===true&&(t.typ==="spiel"||t.typ==="turnier")){ try{ buedchenTrainerFill(t); }catch(e){} }
   if(["training","spiel","turnier"].includes(t.typ)&&t.datum<new Date().toISOString().slice(0,10)){ try{ pulsTrainerFill(t); }catch(e){} } // F4
+  if(t.datum>=new Date().toISOString().slice(0,10)){ try{ helferTrainerFill(t); }catch(e){} } // G4
+}
+// G4: Helferliste im Trainer-Termindetail (Lesesicht; Löschen dürfen Eltern selbst / Trainer per RLS).
+async function helferTrainerFill(t){
+  const box=document.getElementById("helfer-tm-"+t.id); if(!box)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/event_helfer?termin_id=eq.${t.id}&select=name,aufgabe&order=created_at.asc`,{headers:sbAuthHeaders()});if(r.ok)rows=await r.json();}catch(e){}
+  if(!rows.length){box.innerHTML='🙌 Helfer: noch niemand eingetragen';return;}
+  box.innerHTML='🙌 <b>Helfer</b>: '+rows.map(x=>`${esc(x.aufgabe)} (${esc(x.name)})`).join(" · ");
 }
 // F4: Eltern-Puls-Aggregat fürs Trainer-Detail (anonym via puls_aggregate).
 async function pulsTrainerFill(t){
@@ -401,6 +410,7 @@ function tmCard(t){
     <div id="wx-tm-${t.id}"></div>
     ${(t.heim===true&&(t.typ==="spiel"||t.typ==="turnier")&&t.datum>=new Date().toISOString().slice(0,10))?`<div id="bd-tm-${t.id}" style="font-size:11px;color:var(--text2);margin-top:4px">🍿 Büdchen: lädt …</div>`:""}
     ${(["training","spiel","turnier"].includes(t.typ)&&t.datum<new Date().toISOString().slice(0,10))?`<div id="puls-tm-${t.id}" style="font-size:11.5px;color:var(--text2);margin-top:4px"></div>`:""}
+    ${t.datum>=new Date().toISOString().slice(0,10)?`<div id="helfer-tm-${t.id}" style="font-size:11.5px;color:var(--text2);margin-top:4px"></div>`:""}
     ${t.datum>=new Date().toISOString().slice(0,10)?`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px">
       <span style="font-size:10px;color:var(--text3);font-weight:700">Trainer dabei?</span>
       ${(typeof TRAINER!=="undefined"?TRAINER:[]).map(tn=>{const stt=(t.trainer_status||{})[tn];const bg=stt==="ja"?"#16a34a":stt==="unsicher"?"#ca8a04":stt==="nein"?"#dc2626":"var(--surface2)";const col=stt?"#fff":"var(--text2)";const mk=stt==="ja"?" ✓":stt==="unsicher"?" 🤔":stt==="nein"?" ✕":"";return `<button onclick="tmTrainerToggle(${Number(t.id)},'${tn.replace(/'/g,"")}')" title="Tippen wechselt: dabei → unsicher → nicht dabei → offen" style="border:var(--border-s);border-radius:12px;padding:2px 8px;font-size:10.5px;font-weight:700;background:${bg};color:${col};cursor:pointer;font-family:inherit">${esc(tn)}${mk}</button>`;}).join("")}

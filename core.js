@@ -562,13 +562,29 @@ async function wetterFetch(dateStr,place,timeStr){
     return {emoji:info.e,text:info.t,tmax:Math.round(dd.temperature_2m_max[0]),tmin:Math.round(dd.temperature_2m_min[0]),rain:dd.precipitation_probability_max?dd.precipitation_probability_max[0]:null,hour:false};
   }catch(e){return null;}
 }
+// G1: Ausrüstungs-Tipp aus der Vorhersage – was die Kinder passend zum Wetter dabei haben sollten.
+function wetterKitTip(w){
+  if(!w)return "";
+  const t=w.hour?w.temp:(w.tmin!=null?w.tmin:w.tmax);
+  const tips=[];
+  if(t!=null){
+    if(t<=4)tips.push("🧤 sehr kalt: Mütze & Handschuhe, warm anziehen");
+    else if(t<=12)tips.push("🧥 kühl: lange Sachen, Wechselschuhe");
+    else if(t>=27)tips.push("🧴 heiß: Sonnencreme, Kappe, extra trinken");
+    else if(t>=21)tips.push("🧢 warm: Kappe & genug trinken");
+  }
+  if(w.rain!=null&&w.rain>=55)tips.push("☔ Regen: Regenjacke + Wechselklamotten");
+  return tips.join(" · ");
+}
 async function wetterInto(elId,dateStr,place,timeStr){
   const w=await wetterFetch(dateStr,place,timeStr);
   const el=document.getElementById(elId);
   if(!el||!w)return; // außer Reichweite / offline: nichts anzeigen
   const rain=(w.rain!=null)?` · 💧 ${w.rain}%`:"";
   const temp=w.hour?`${w.temp} °C`:`${w.tmin}–${w.tmax} °C`;
-  el.innerHTML=`<span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text2);background:var(--surface2);border:var(--border);border-radius:20px;padding:3px 10px;margin-top:6px">${w.emoji} ${w.text} · ${temp}${rain}</span>`;
+  const tip=wetterKitTip(w);
+  el.innerHTML=`<span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text2);background:var(--surface2);border:var(--border);border-radius:20px;padding:3px 10px;margin-top:6px">${w.emoji} ${w.text} · ${temp}${rain}</span>`
+    +(tip?`<div style="font-size:11px;color:var(--text2);margin-top:4px">🎒 ${tip}</div>`:"");
 }
 
 async function xpAward(spielerId,quelle,quelleId){
