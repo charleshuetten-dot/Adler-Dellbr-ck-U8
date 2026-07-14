@@ -742,7 +742,13 @@ async function zieleAdd(spielerId){
 }
 async function zieleToggle(id,newStatus,spielerId){
   try{await fetch(`${SB_URL}/rest/v1/entwicklungsziele?id=eq.${id}`,{method:"PATCH",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({status:newStatus,erreicht_at:newStatus==="erreicht"?new Date().toISOString():null})});}catch(e){}
-  if(newStatus==="erreicht"){try{navigator.vibrate&&navigator.vibrate([40,50,90]);}catch(e){}toast("Stark – Ziel erreicht! 🎉");if(typeof confetti==="function")confetti(document.getElementById("ziele-modal")||document.body);}
+  if(newStatus==="erreicht"){
+    try{navigator.vibrate&&navigator.vibrate([40,50,90]);}catch(e){}
+    toast("Stark – Ziel erreicht! 🎉");
+    if(typeof confetti==="function")confetti(document.getElementById("ziele-modal")||document.body);
+    // B-Etappe 3: Federn fürs Kind (idempotent pro Ziel), Punktwert bestimmt der Server.
+    try{const d=await xpAward(spielerId,"ziel","z"+id); if(d>0)setTimeout(()=>toast(`${XP_ICON} +${d} ${XP_LABEL} fürs Kind!`),1200);}catch(e){}
+  }
   zieleRender(spielerId);
 }
 async function zieleDelete(id,spielerId){

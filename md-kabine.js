@@ -205,6 +205,7 @@ function kabineHome(){
       <button onclick="kabineMyCard()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🃏</span>Meine Karte</button>
       <button onclick="kabineAbzeichen()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎖️</span>Abzeichen</button>
       <button onclick="kabineMission()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎯</span>Meine Mission</button>
+      <button onclick="kabineRollen()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎽</span>Wo spiele ich?</button>
       <button onclick="kabineSkillWoche()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎬</span>Skill der Woche</button>
       <button onclick="kabineHype()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎵</span>Kabinen-Hype</button>
       <button onclick="kabineAlbum()" style="grid-column:1/-1;border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;font-size:17px;font-weight:800;min-height:76px"><span style="font-size:34px">📖</span>Sammelalbum</button>
@@ -321,6 +322,31 @@ async function kabineMissionFor(id,name){
   b.innerHTML=head+`<div style="flex:1;overflow-y:auto;padding:12px 16px">
     <div style="color:#fff;opacity:.85;font-size:13px;margin-bottom:10px">Das nimmt sich dein Trainer mit dir vor. Bleib dran – du schaffst das! 🦅</div>
     ${cards}</div>`;
+}
+/* A-Etappe 3: „Wo spiele ich?" – Rollen des eigenen Kindes kindgerecht. Aufstellungen sind
+   trainer-only; die RPC meine_rollen (is_parent_of-gegatet) liefert die Rollen-Zählung. */
+function kabineRollen(){
+  const kids=window._elternKids||[];
+  if(kids.length===1){ kabineRollenFor(kids[0].spieler_id,(kids[0].kader&&kids[0].kader.name)||""); return; }
+  kabinePickKid("🎽 Wessen Rollen?","kabineRollenFor");
+}
+async function kabineRollenFor(id,name){
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  b.innerHTML=`<div style="text-align:center;padding:60px 16px;opacity:.85;color:#fff">Lade …</div>`;
+  let r={games:0};
+  try{const res=await fetch(`${SB_URL}/rest/v1/rpc/meine_rollen`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler_id:id})});if(res.ok)r=(await res.json())||{games:0};}catch(e){}
+  const head=`<div style="display:flex;align-items:center;gap:10px;padding:12px 16px">
+      <button onclick="kabineHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
+      <div style="flex:1;font-size:16px;font-weight:800;color:#fff">🎽 Wo spielt ${esc(name||"du")}?</div></div>`;
+  if(!r.games){ b.innerHTML=head+'<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#fff;opacity:.85;padding:24px;text-align:center">Noch keine Aufstellung gespeichert.<br>Nach dem nächsten Spiel siehst du hier deine Rollen! ⚽</div>'; return; }
+  const R=[{k:"tw",l:"🥅 Im Tor",c:"#f59e0b"},{k:"auf",l:"🛡️ Aufpasser",c:"#3b82f6"},{k:"fll",l:"⚡ Flitzer links",c:"#f97316"},{k:"flr",l:"⚡ Flitzer rechts",c:"#22c55e"},{k:"jaeg",l:"🎯 Jäger",c:"#ef4444"}];
+  const max=Math.max(1,...R.map(x=>r[x.k]||0));
+  const bars=R.map(x=>{const v=r[x.k]||0, w=Math.round((v/max)*100);
+    return `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;color:#fff"><span>${x.l}</span><span>${v}×</span></div><div style="height:12px;background:rgba(255,255,255,.15);border-radius:6px;overflow:hidden;margin-top:3px"><div style="height:100%;width:${w}%;background:${x.c};border-radius:6px"></div></div></div>`;}).join("");
+  b.innerHTML=head+`<div style="flex:1;overflow-y:auto;padding:14px 16px">
+    <div style="color:#fff;opacity:.85;font-size:13px;margin-bottom:12px">In ${r.games} Aufstellungen hast du diese Rollen gespielt:</div>
+    ${bars}
+    ${(r.tw||0)===0?'<div style="color:#fff;background:rgba(255,255,255,.14);border-radius:14px;padding:12px;margin-top:6px;font-size:13px">🥅 Im Tor warst du noch nie – willst du das mal ausprobieren?</div>':""}</div>`;
 }
 function kabineShowQuests(){
   const b=document.getElementById("kabine-body"); if(!b)return;
