@@ -332,15 +332,20 @@ async function elternDashLoad(){
   html+=`<div id="eltern-level-slot" style="margin-bottom:12px"></div>`;  // C1: kollektives Team-Level
   html+=`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin:2px 2px 6px">Dein Kind</div>`;
   html+=kids.map(k=>{const kd=k.kader||{};
+    const nn=(kd.name||"").replace(/'/g,"");
+    // Sekundär-Aktionen als kompaktes 2-Spalten-Raster (halbiert die Höhe pro Kind).
+    const gBtn=(label,onclick,border,bg,color)=>`<button onclick="${onclick}" style="flex:1 1 calc(50% - 4px);min-width:130px;min-height:44px;padding:8px;border:1.5px solid ${border};border-radius:10px;background:${bg};color:${color};font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">${label}</button>`;
     return card(`<div style="font-weight:700;font-size:15px;margin-bottom:2px">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="color:#94a3b8;font-weight:600">#${kd.nr}</span>`:""}</div>
       <div id="xp-chip-${k.spieler_id}" style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:8px"></div>
-      <button onclick="elternCardOpen(${k.spieler_id})" style="width:100%;padding:9px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🃏 Adler-Karte ansehen</button>
-      <button onclick="lobPlay(${k.spieler_id})" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #db2777;border-radius:10px;background:#fdf2f8;color:#be185d;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🎧 Sprachlob vom Trainer anhören</button>
-      <button onclick="abzeichenOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #f59e0b;border-radius:10px;background:#fffbeb;color:#b45309;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🎖️ Technik-Abzeichen</button>
-      <button onclick="childWrappedShare(${k.spieler_id})" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🎬 Saison-Rückblick (Wrapped)</button>
-      <button onclick="elternFanfactsOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #64748b;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">✏️ Fan-Fakten &amp; Foto</button>
-      <button onclick="notfallOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #dc2626;border-radius:10px;background:#fef2f2;color:#b91c1c;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🚑 Notfallkarte</button>
-      <div style="font-size:10.5px;color:#94a3b8;margin-top:6px">Foto: Unter „Fan-Fakten &amp; Foto" steuerst du selbst, ob das Bild deines Kindes im „Adler Nest" und in der Team-Galerie erscheint.</div>`);
+      <button onclick="elternCardOpen(${k.spieler_id})" style="width:100%;min-height:44px;padding:11px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">🃏 Adler-Karte ansehen</button>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+        ${gBtn("🎖️ Abzeichen",`abzeichenOpen(${k.spieler_id},'${nn}')`,"#f59e0b","#fffbeb","#b45309")}
+        ${gBtn("🎧 Sprachlob",`lobPlay(${k.spieler_id})`,"#db2777","#fdf2f8","#be185d")}
+        ${gBtn("✏️ Fan-Fakten &amp; Foto",`elternFanfactsOpen(${k.spieler_id},'${nn}')`,"#64748b","#fff","#475569")}
+        ${gBtn("🎬 Saison-Rückblick",`childWrappedShare(${k.spieler_id})`,"#7c3aed","#fff","#7c3aed")}
+        ${gBtn("🚑 Notfallkarte",`notfallOpen(${k.spieler_id},'${nn}')`,"#dc2626","#fef2f2","#b91c1c")}
+      </div>
+      <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Foto: Unter „Fan-Fakten &amp; Foto" steuerst du selbst, ob das Bild deines Kindes im „Adler Nest" und in der Team-Galerie erscheint.</div>`);
   }).join("");
   // ── MEHR VOM TEAM (einklappbar – Referenz/Selteneres, weniger Scrollen) ──
   let kasse=null;
