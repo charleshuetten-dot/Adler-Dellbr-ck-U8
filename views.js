@@ -2736,6 +2736,7 @@ async function renderHome(){
     </div>
     <div class="sl nt" style="margin-top:18px"><i class="ti ti-clipboard-heart"></i>Team-Status</div>
     <div id="home-rsvp"></div>
+    <div id="home-antifrust"></div>
     <div id="push-slot-trainer" style="margin-bottom:10px"></div>
     ${gebHtml}
     <div id="eg-trainer"></div>
@@ -2766,6 +2767,7 @@ async function renderHome(){
   window._radarLoaded=false; // Radar erst beim Aufklappen des Team-Checks laden
   elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche
   homeRsvpNudge(); // "wer hat noch nicht geantwortet" für den nächsten Termin
+  homeAntiFrust(); // Anti-Frust-Radar: wer braucht heute eine Bühne
   if(typeof pushRenderInto==="function")pushRenderInto("push-slot-trainer","trainer"); // Push-An/Aus
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
   try{
@@ -2838,6 +2840,26 @@ async function homeRsvpNudge(){
     <span style="flex:1;font-size:12.5px"><strong style="color:#b45309">${offen} ohne Rückmeldung</strong> für ${m.icon} ${esc(t.titel||t.gegner||m.label)} · ${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}</span>
     <span style="font-size:11px;font-weight:800;color:var(--blue)">nachfassen ›</span>
   </div>`;
+}
+
+// A4 – Anti-Frust-Radar: ein Kind, das diese Saison noch kein Torerlebnis hatte, bekommt
+// (rotierend) einen sanften Hinweis, ihm bewusst eine Bühne zu geben. Pädagogik statt Tabelle.
+async function homeAntiFrust(){
+  const slot=document.getElementById("home-antifrust"); if(!slot)return;
+  const ab=(typeof saisonStart==="function")?saisonStart():"2000-01-01";
+  const tore={};
+  try{const r=await fetch(`${SB_URL}/rest/v1/match_actions?aktion=eq.tor&datum=gte.${ab}&select=spieler`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(a=>{if(a.spieler)tore[a.spieler]=(tore[a.spieler]||0)+1;});}catch(e){slot.innerHTML="";return;}
+  const active=(KADER||[]).filter(k=>k.aktiv!==false);
+  const mitTor=active.filter(k=>tore[k.name]>0).length;
+  const ohne=active.filter(k=>!(tore[k.name]>0)).map(k=>k.name);
+  // Nur wenn schon jemand getroffen hat (sonst ist es einfach Saisonstart) und nicht alle leer sind.
+  if(mitTor>=2 && ohne.length){
+    const pick=ohne[new Date().getDate()%ohne.length]; // rotiert täglich, damit alle mal drankommen
+    slot.innerHTML=`<div class="card" style="padding:12px 14px;margin-bottom:10px;border-left:3px solid #d97706;display:flex;align-items:center;gap:8px">
+      <span style="font-size:18px">🌟</span>
+      <span style="flex:1;font-size:12.5px"><strong>${esc(pick)}</strong> hatte diese Saison noch kein Torerlebnis – gib ihm/ihr heute bewusst eine Bühne. 💛</span>
+    </div>`;
+  } else slot.innerHTML="";
 }
 
 // Wake Lock API (nativ) – verhindert, dass das Display während der Nutzung ausgeht

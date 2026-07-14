@@ -313,6 +313,7 @@ async function elternDashLoad(){
       </div>
     </div>`;
   }
+  html+=`<div id="match-gruss-slot"></div>`;  // A1: persönlicher Nach-dem-Spiel-Gruß pro Kind
   html+=elternTermineCarouselHtml(termineListe,kids,rsvpAll); // Schnell-Zu-/Absage für alle Termine
   // Mitbringliste (Events) + Büdchendienst (Heimspiele) bewusst weit oben – das sind To-dos.
   html+=`<div id="mitbring-slot"></div>`;     // Event-Mitbringliste (async, nur bei kommenden Events)
@@ -397,6 +398,7 @@ async function elternDashLoad(){
   fairplayCommitLoad();                        // Fairplay-Codex: Commitment-Status / Bestätigung
   if(termin)elternTickerLoad(termin);          // Liveticker: Team des Kindes automatisch erkennen
   if(typeof pushRenderInto==="function")pushRenderInto("push-slot-eltern","parent"); // Push-An/Aus
+  elternMatchGrussLoad(kids);                   // A1/A2: Nach-dem-Spiel-Gruß pro Kind
   if(WAESCHE_AKTIV)elternWaescheLoad(kids);    // Trikot-Wäsche-Rotator (aktuell ausgeblendet)
   elternSkillLoad(kids);   // Skill der Woche
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
@@ -4460,7 +4462,13 @@ async function renderTickerView(key){
     }catch(e){}
     // Wolff-Fuss je Team respektieren: Events eines Teams mit ticker_open=false ausblenden.
     events=events.filter(e=>{const c=clocks[e.datum]; return !(c&&c.ticker_open===false);});
-    const foot=`${adlerkasseHtml}<div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:14px">Nur-Ansehen · aktualisiert automatisch · SV Adler Dellbrück e.V.</div>`;
+    // B1: Applaus-Zähler des Spieltags (aggregiert über alle Teams via baseDatum)
+    let claps=0; try{const cr=await fetch(`${SB_URL}/rest/v1/ticker_claps?datum=eq.${encodeURIComponent(baseDatum)}&select=count`,{headers:anon});if(cr.ok){const cj=await cr.json();claps=(cj[0]&&cj[0].count)||0;}}catch(e){}
+    const clapBar=`<div style="text-align:center;margin-top:16px">
+      <button onclick="tvClap()" style="border:none;background:linear-gradient(135deg,#f59e0b,#ec4899);color:#fff;border-radius:16px;padding:14px 22px;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 4px 16px rgba(236,72,153,.35)">👏 Applaus fürs Team</button>
+      <div style="font-size:12px;color:#64748b;margin-top:8px"><span id="tv-claps" style="font-weight:800;color:#db2777">${claps}</span> mal geklatscht</div>
+    </div>`;
+    const foot=`${clapBar}${adlerkasseHtml}<div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:14px">Nur-Ansehen · aktualisiert automatisch · SV Adler Dellbrück e.V.</div>`;
 
     if(konf){
       const aktive=keys.filter(k=>clocks[k]||events.some(e=>e.datum===k));
@@ -4504,6 +4512,12 @@ async function renderTickerView(key){
           </div>`}
       ${foot}`;
   }
+  // B1: Applaus senden – optimistisch hochzählen + serverseitig via RPC (anon erlaubt).
+  window.tvClap=async()=>{
+    const el=document.getElementById("tv-claps"); if(el)el.textContent=(parseInt(el.textContent)||0)+1;
+    try{navigator.vibrate&&navigator.vibrate(15);}catch(e){}
+    try{const r=await fetch(`${SB_URL}/rest/v1/rpc/ticker_clap`,{method:"POST",headers:{...anon,'Content-Type':'application/json'},body:JSON.stringify({p_datum:baseDatum})});if(r.ok){const n=await r.json();if(el&&typeof n==="number")el.textContent=n;}}catch(e){}
+  };
   await loadClocks();
   adlerkasseHtml=adlerkasseCardHtml(await adlerkasseLinkGet()); // FEAT Z
   await draw();
@@ -5469,7 +5483,18 @@ function atLiveOpen(){
   atLiveRender();
   atLoadGegentore().then(()=>atLiveRender()); // aktuellen Gegentor-Stand fürs Live-Ergebnis nachladen
   clearInterval(atLiveClockId);
-  atLiveClockId=setInterval(()=>{const el=document.getElementById("at-live-min");if(el&&typeof mcState!=="undefined"&&mcState)el.textContent=mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:20,typeof mcHalbzeiten!=="undefined"?mcHalbzeiten:2);},1000);
+  let _tick=0;
+  atLiveClockId=setInterval(()=>{
+    const el=document.getElementById("at-live-min");if(el&&typeof mcState!=="undefined"&&mcState)el.textContent=mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:20,typeof mcHalbzeiten!=="undefined"?mcHalbzeiten:2);
+    if((_tick++ % 8)===0)atLiveClapPoll();   // B1: „die Tribüne feiert" alle 8s nachladen
+  },1000);
+  atLiveClapPoll();
+}
+// Applaus-Zähler der Eltern ins Live-Panel (die Tribüne feiert!).
+async function atLiveClapPoll(){
+  const el=document.getElementById("at-claps"); if(!el)return;
+  try{const r=await fetch(`${SB_URL}/rest/v1/ticker_claps?datum=eq.${encodeURIComponent(spieltagRawDate())}&select=count`,{headers:sbAuthHeaders()});
+    if(r.ok){const j=await r.json(); const c=(j[0]&&j[0].count)||0; el.textContent=c?`👏 ${c}`:"";}}catch(e){}
 }
 function atLiveClose(){ clearInterval(atLiveClockId); document.getElementById("at-live")?.remove(); atLiveAction=null; if(document.getElementById("action-panel"))atRender(); }
 function atLiveRender(){
@@ -5489,10 +5514,22 @@ function atLiveRender(){
     const fieldTired=[...rotField].sort((a,b)=>(rotBenchSec[a]||0)-(rotBenchSec[b]||0))[0];
     if(benchTop&&fieldTired)subHint=`🔁 ${esc(benchTop)} → ${esc(fieldTired)}`;
   }
-  const info=(minute||subHint)?`<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:#172033;font-size:12.5px;border-top:1px solid rgba(255,255,255,.06)">
+  // A3: Fairness-Ampel aus den Bank-Zeiten (kleine Spanne = alle fair dran).
+  let fair="";
+  if(typeof rotBenchSec!=="undefined"){
+    const all=[...(rotField||[]),...(rotBench||[])];
+    const bs=all.map(p=>rotBenchSec[p]||0);
+    if(bs.length>=2){ const spread=Math.max(...bs)-Math.min(...bs);
+      const col=spread<90?"#22c55e":spread<210?"#fbbf24":"#f87171", lbl=spread<90?"fair ✓":spread<210?"ok":"achtung";
+      fair=`<span style="display:inline-flex;align-items:center;gap:4px;font-weight:700;color:${col}">⚖️ ${lbl}</span>`;
+    }
+  }
+  const info=`<div style="display:flex;align-items:center;gap:12px;padding:8px 14px;background:#172033;font-size:12.5px;border-top:1px solid rgba(255,255,255,.06);flex-wrap:wrap">
     <span style="font-weight:800">⏱ <span id="at-live-min">${esc(minute)}</span></span>
+    ${fair}
+    <span id="at-claps" style="color:#f9a8d4;font-weight:700"></span>
     ${subHint?`<span style="color:#fbbf24;font-weight:700;margin-left:auto">${subHint}</span>`:""}
-  </div>`:'<span id="at-live-min" style="display:none"></span>';
+  </div>`;
   let body;
   if(!atLiveAction){
     body=`<div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px">
@@ -7204,6 +7241,43 @@ function akShare(){
 function elternTicker(datum,team){
   const key=Number(team)>1?`${datum}__t${Number(team)}`:datum;
   location.href=location.pathname+"?ticker="+encodeURIComponent(key);
+}
+/* A1/A2: Persönlicher Nach-dem-Spiel-Gruß. Für das jüngste vergangene Spiel/Turnier holt die
+   App pro Kind die eigenen Ballaktionen (RPC kind_spiel_stats, da match_actions trainer-only)
+   und formt daraus eine warme, kindgerechte Zeile. */
+const GRUSS_AKT={tor:{e:"⚽",l:"Tor"},pass:{e:"🎯",l:"Pass"},dribbling:{e:"🌀",l:"Dribbling"},gewinn:{e:"🦅",l:"Ballgewinn"},parade:{e:"🧤",l:"Parade"},aufbau:{e:"🧩",l:"Aufbau"},heraus:{e:"🚀",l:"Herausspielen"}};
+function grussLine(st){
+  const p=n=>n===1?"":"e";
+  if(st.tor)return `Was für ein Torjäger – ${st.tor} Tor${p(st.tor)}! ⚽🎉`;
+  if(st.parade)return "Ein echter Rückhalt im Tor! 🧤";
+  if((st.gewinn||0)>=3)return "Ballräuber vom Dienst! 🦅";
+  if((st.pass||0)>=3)return "Pass-Maschine – super Teamplay! 🎯";
+  if((st.dribbling||0)>=3)return "Dribbel-Show gezeigt! 🌀";
+  return "Toller Einsatz – weiter so! 💪";
+}
+async function elternMatchGrussLoad(kids){
+  const slot=document.getElementById("match-gruss-slot"); if(!slot)return;
+  const heute=new Date().toISOString().slice(0,10);
+  let game=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=datum,typ,titel,gegner&typ=in.(spiel,turnier)&datum=lt.${heute}&order=datum.desc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)game=(await r.json())[0];}catch(e){}
+  if(!game){slot.innerHTML="";return;}
+  const cards=[];
+  for(const k of (kids||[])){
+    let s=null;
+    try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kind_spiel_stats`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler:k.spieler_id,p_datum:game.datum})});if(r.ok)s=await r.json();}catch(e){}
+    if(!s||!s.ok)continue;
+    const st=s.stats||{}, total=Object.values(st).reduce((a,b)=>a+(+b||0),0);
+    if(!total)continue;
+    const chips=Object.keys(GRUSS_AKT).filter(a=>st[a]).map(a=>`<span style="display:inline-block;background:#f5f3ff;color:#5b21b6;border-radius:12px;padding:3px 9px;font-size:12px;font-weight:700;margin:2px 3px 2px 0">${GRUSS_AKT[a].e} ${st[a]}× ${GRUSS_AKT[a].l}</span>`).join("");
+    const d=new Date(game.datum+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+    cards.push(`<div style="background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 2px 10px rgba(0,0,0,.05);border-left:3px solid #7c3aed">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Rückblick · ${d}</div>
+      <div style="font-weight:800;font-size:15px;margin-top:2px">🦅 ${esc((k.kader&&k.kader.name)||"Kind")}${game.gegner?` gegen ${esc(game.gegner)}`:""}</div>
+      <div style="margin-top:8px">${chips}</div>
+      <div style="font-size:12.5px;color:#15803d;font-weight:700;margin-top:8px">${grussLine(st)}</div>
+    </div>`);
+  }
+  slot.innerHTML=cards.join("");
 }
 // Konferenz: alle Teams eines Spieltags in EINEM Ticker (Key <datum>__konf).
 function elternTickerKonf(datum){
