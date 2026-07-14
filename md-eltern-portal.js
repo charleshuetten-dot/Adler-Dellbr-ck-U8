@@ -529,11 +529,11 @@ async function terminDetailOpen(id){
   c.style.cssText="background:#fff;color:#1a1a2e;max-width:460px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   const rsvpRows=kids.map(k=>{
     const kd=k.kader||{}, st=rsvp[k.spieler_id]||null;
-    const btns=EP_RSVP_QUICK.map(s=>{const on=st===s,cc=EP_RSVP[s];
+    const btns=Object.keys(EP_RSVP).map(s=>{const on=st===s,cc=EP_RSVP[s];
       const act=on?`tdRsvp(${t.id},${k.spieler_id},null)`:`tdRsvp(${t.id},${k.spieler_id},'${s}')`;
-      return `<button onclick="${act}" style="flex:1;min-width:70px;padding:9px 6px;border-radius:9px;border:1.5px solid ${on?cc.col:"#e2e8f0"};background:${on?cc.col:"#fff"};color:${on?"#fff":"#334155"};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">${cc.emo} ${cc.lbl}</button>`;
+      return `<button onclick="${act}" style="flex:1;min-width:0;min-height:44px;padding:6px 3px;border-radius:9px;border:1.5px solid ${on?cc.col:"#e2e8f0"};background:${on?cc.col:"#fff"};color:${on?"#fff":"#334155"};font-family:inherit;font-size:11.5px;font-weight:700;line-height:1.15;cursor:pointer">${cc.emo} ${cc.lbl}</button>`;
     }).join("");
-    return `<div style="margin-top:8px"><div style="font-size:13px;font-weight:700;margin-bottom:4px">${esc(kd.name||"Kind")}</div><div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div></div>`;
+    return `<div style="margin-top:8px"><div style="font-size:13px;font-weight:700;margin-bottom:4px">${esc(kd.name||"Kind")}</div><div style="display:flex;gap:6px">${btns}</div></div>`;
   }).join("");
   const infoRow=(icon,label,val)=> val?`<div style="display:flex;gap:8px;font-size:13px;padding:4px 0"><span style="width:20px">${icon}</span><span style="color:#64748b;min-width:72px">${label}</span><span style="flex:1;font-weight:600;min-width:0">${val}</span></div>`:"";
   const spielformLbl = (istSpiel&&t.spielform)?`${esc(t.spielform)}${t.spieldauer_min?` · ${t.halbzeiten||1}× ${t.spieldauer_min} Min`:""}`:"";
