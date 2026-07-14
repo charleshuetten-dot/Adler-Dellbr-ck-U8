@@ -279,7 +279,7 @@ async function elternDashLoad(){
       const btns=Object.keys(EP_RSVP).map(s=>{
         const on=st===s, c=EP_RSVP[s];
         const act=on?`elternRsvpClear(${termin.id},${k.spieler_id})`:`elternRsvp(${termin.id},${k.spieler_id},'${s}')`;
-        return `<button onclick="${act}" style="flex:1;min-width:84px;padding:10px 6px;border-radius:10px;border:1.5px solid ${on?c.col:"#e2e8f0"};background:${on?c.col:"#fff"};color:${on?"#fff":"#334155"};font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">${c.emo} ${c.lbl}</button>`;
+        return `<button onclick="${act}" style="flex:1;min-width:0;min-height:44px;padding:6px 3px;border-radius:10px;border:1.5px solid ${on?c.col:"#e2e8f0"};background:${on?c.col:"#fff"};color:${on?"#fff":"#334155"};font-family:inherit;font-size:11.5px;font-weight:700;line-height:1.15;cursor:pointer">${c.emo} ${c.lbl}</button>`;
       }).join("");
       return `<div style="border-top:1px solid #f1f5f9;margin-top:10px;padding-top:10px">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
@@ -287,8 +287,7 @@ async function elternDashLoad(){
           ${kd.nr!=null?`<span style="color:#94a3b8;font-weight:600;font-size:12px">#${kd.nr}</span>`:""}
           <span style="margin-left:auto;font-size:11.5px;font-weight:700;color:${st?EP_RSVP[st].col:"#b45309"}">${st?EP_RSVP[st].emo+" "+EP_RSVP[st].lbl:"❗ offen"}</span>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>
-        ${st?`<div style="font-size:10.5px;color:#94a3b8;margin-top:5px">Nochmal auf „${EP_RSVP[st].lbl}" tippen, um die Rückmeldung zu entfernen.</div>`:""}
+        <div style="display:flex;gap:6px">${btns}</div>
         ${cur&&cur.kommentar?`<div style="font-size:11px;color:#64748b;margin-top:3px">„${esc(cur.kommentar)}"</div>`:""}
         ${st==="zugesagt"?`<button onclick="elternCarpoolOpen(${k.spieler_id},${termin.id})" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🚗 Fahrgemeinschaft</button>`:""}
       </div>`;
@@ -303,7 +302,7 @@ async function elternDashLoad(){
       <div id="wetter-eltern"></div>
       ${trainerJa.length?`<div style="font-size:11.5px;color:#64748b;margin-top:4px">👤 Trainer dabei: ${trainerJa.map(esc).join(", ")}</div>`:""}
       ${rsvpRows}
-      <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Deine Rückmeldung ist ein Hinweis für den Trainer – die endgültige Aufstellung entscheidet er.</div>
+      <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Aktiven Status nochmal tippen = Rückmeldung entfernen. Deine Rückmeldung ist ein Hinweis – die endgültige Aufstellung entscheidet der Trainer.</div>
       ${termin.typ==="training"?'<div id="betreuung-card"></div>':""}
       ${termin.typ==="turnier"?'<div id="turnierplan-card"></div>':""}
       ${elternTickerHtml(termin)}

@@ -2815,16 +2815,23 @@ async function renderHome(){
       <span style="font-size:11px;font-weight:800;color:var(--blue)">ansehen ›</span>
     </div>`:""}
     <div class="sl nt" style="margin-top:18px"><i class="ti ti-tools"></i>Werkzeuge</div>
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:2px 2px 6px">Auswerten</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
       ${homeTool("📈 Saison-Cockpit","saisonCockpitOpen()")}
       ${homeTool("⭐ Einheit bewerten","einheitBewertenOpen()")}
       ${homeTool("📊 Anwesenheits-Quote","anwesenheitOpen()")}
+    </div>
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:12px 2px 6px">Organisieren</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
       ${homeTool("🗓️ Trainer-Meeting","trainerMeetingOpen()")}
       ${homeTool("🗣️ Elterngespräch","epollTrainerOpen()")}
       ${homeTool("🎉 Event-Mitbringliste","mitbringTrainerOpen()")}
       ${homeTool("💰 Teamkasse","kasseOpen()")}
       ${homeTool("👕 Team-Ausrüstung","ausruestungGrid()")}
       ${homeTool("🧦 Fundbüro","fundbueroOpen()")}
+    </div>
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:12px 2px 6px">Inhalte</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
       ${homeTool("📰 Adler Nest","stadionheftOpen()")}
       ${homeTool("🪶 Adler-Welt","adlerWeltOpen()")}
     </div>
