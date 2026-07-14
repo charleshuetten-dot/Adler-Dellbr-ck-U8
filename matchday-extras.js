@@ -1,0 +1,2041 @@
+/* ═══════════════════════════════════
+   LIVE-AKTION VOLLBILD (schneller Modus) – Aktion zuerst, dann Feld-Spieler.
+   Ziel: minimale Taps am Spielfeldrand. Große Kacheln, nur die aktuell auf dem
+   Feld stehenden Spieler (rotTW + rotField), sofortige Aufzeichnung + Haptik.
+═══════════════════════════════════ */
+let atLiveAction=null, atGegentore=0;
+const AT_LIVE_ACTS=[AT_ACTIONS[0],AT_ACTIONS[1],AT_ACTIONS[2],{key:"parade",label:"Parade",col:"#0d9488",emo:"🧤"},AT_ACTIONS[3],{key:"tor",label:"Tor",col:"#7c3aed",emo:"⚽"},{key:"gegentor",label:"Gegentor",col:"#475569",emo:"🛡️",direct:true,wide:true}];
+function atTore(){ return Object.values(atCounts).reduce((s,pl)=>s+(pl.tor||0),0); }
+async function atLoadGegentore(){
+  atGegentore=0;
+  try{ const r=await fetch(`${SB_URL}/rest/v1/ticker_events?datum=eq.${encodeURIComponent(spieltagKey())}&typ=eq.gegentor&select=id`,{headers:sbAuthHeaders()}); if(r.ok)atGegentore=(await r.json()).length; }catch(e){}
+}
+function atOnFieldPlayers(){
+  const onField=[];
+  if(typeof rotTW!=="undefined"&&rotTW)onField.push(rotTW);
+  if(typeof rotField!=="undefined"&&rotField.length)onField.push(...rotField);
+  if(onField.length)return onField;
+  return (typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():KADER.map(k=>k.name);
+}
+let atLiveClockId=null;
+function atLiveOpen(){
+  document.getElementById("at-live")?.remove();
+  atLiveAction=null;
+  if(!document.getElementById("at-live-style")){
+    const st=document.createElement("style");st.id="at-live-style";
+    st.textContent="@keyframes atFlash{0%{opacity:0;transform:scale(.6)}25%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.15)}}";
+    document.head.appendChild(st);
+  }
+  const m=document.createElement("div");m.id="at-live";
+  m.style.cssText="position:fixed;inset:0;z-index:9500;background:#0f172a;display:flex;flex-direction:column;color:#fff;overflow:hidden";
+  document.body.appendChild(m);
+  atLiveRender();
+  atLoadGegentore().then(()=>atLiveRender()); // aktuellen Gegentor-Stand fürs Live-Ergebnis nachladen
+  clearInterval(atLiveClockId);
+  let _tick=0;
+  atLiveClockId=setInterval(()=>{
+    const el=document.getElementById("at-live-min");if(el&&typeof mcState!=="undefined"&&mcState)el.textContent=mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:20,typeof mcHalbzeiten!=="undefined"?mcHalbzeiten:2);
+    if((_tick++ % 8)===0)atLiveClapPoll();   // B1: „die Tribüne feiert" alle 8s nachladen
+  },1000);
+  atLiveClapPoll();
+}
+// Applaus-Zähler der Eltern ins Live-Panel (die Tribüne feiert!).
+async function atLiveClapPoll(){
+  const el=document.getElementById("at-claps"); if(!el)return;
+  try{const r=await fetch(`${SB_URL}/rest/v1/ticker_claps?datum=eq.${encodeURIComponent(spieltagRawDate())}&select=count`,{headers:sbAuthHeaders()});
+    if(r.ok){const j=await r.json(); const c=(j[0]&&j[0].count)||0; el.textContent=c?`👏 ${c}`:"";}}catch(e){}
+}
+function atLiveClose(){ clearInterval(atLiveClockId); document.getElementById("at-live")?.remove(); atLiveAction=null; if(document.getElementById("action-panel"))atRender(); }
+function atLiveRender(){
+  const m=document.getElementById("at-live"); if(!m)return;
+  const counts=questCountsLive();
+  const done=teamQuests.filter(q=>(counts[q.key]||0)>=q.target).length;
+  const top=`<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#1e293b">
+    <div style="flex:1;font-size:13px;font-weight:800">⚡ Live-Aktion${atLiveAction?"":" · Aktion wählen"}</div>
+    <div title="Ergebnis (Tore:Gegentore)" style="font-size:17px;font-weight:900;padding:3px 12px;background:rgba(255,255,255,.14);border-radius:10px">${atTore()}:${atGegentore}</div>
+    <div style="font-size:11px;color:#94a3b8">🏆 ${done}/${teamQuests.length}</div>
+    <button onclick="atLiveClose()" aria-label="Schließen" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:22px;cursor:pointer">×</button></div>`;
+  // Fokus-Modus: Uhr (live) + Wechsel-Vorschlag direkt im Vollbild
+  const minute=(typeof mcState!=="undefined"&&mcState)?mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:20,typeof mcHalbzeiten!=="undefined"?mcHalbzeiten:2):"";
+  let subHint="";
+  if(typeof rotBench!=="undefined"&&rotBench&&rotBench.length&&rotField&&rotField.length){
+    const benchTop=[...rotBench].sort((a,b)=>(rotBenchSec[b]||0)-(rotBenchSec[a]||0))[0];
+    const fieldTired=[...rotField].sort((a,b)=>(rotBenchSec[a]||0)-(rotBenchSec[b]||0))[0];
+    if(benchTop&&fieldTired)subHint=`🔁 ${esc(benchTop)} → ${esc(fieldTired)}`;
+  }
+  // A3: Fairness-Ampel aus den Bank-Zeiten (kleine Spanne = alle fair dran).
+  let fair="";
+  if(typeof rotBenchSec!=="undefined"){
+    const all=[...(rotField||[]),...(rotBench||[])];
+    const bs=all.map(p=>rotBenchSec[p]||0);
+    if(bs.length>=2){ const spread=Math.max(...bs)-Math.min(...bs);
+      const col=spread<90?"#22c55e":spread<210?"#fbbf24":"#f87171", lbl=spread<90?"fair ✓":spread<210?"ok":"achtung";
+      fair=`<span style="display:inline-flex;align-items:center;gap:4px;font-weight:700;color:${col}">⚖️ ${lbl}</span>`;
+    }
+  }
+  const info=`<div style="display:flex;align-items:center;gap:12px;padding:8px 14px;background:#172033;font-size:12.5px;border-top:1px solid rgba(255,255,255,.06);flex-wrap:wrap">
+    <span style="font-weight:800">⏱ <span id="at-live-min">${esc(minute)}</span></span>
+    ${fair}
+    <span id="at-claps" style="color:#f9a8d4;font-weight:700"></span>
+    ${subHint?`<span style="color:#fbbf24;font-weight:700;margin-left:auto">${subHint}</span>`:""}
+  </div>`;
+  let body;
+  if(!atLiveAction){
+    body=`<div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px">
+      ${AT_LIVE_ACTS.map(a=>`<button onclick="atLivePick('${a.key}')" style="${a.wide?'grid-column:1/-1;':''}border:none;border-radius:18px;background:${a.col};color:#fff;font-family:inherit;cursor:pointer;display:flex;${a.wide?'flex-direction:row':'flex-direction:column'};align-items:center;justify-content:center;gap:8px;font-size:18px;font-weight:800">
+        <span style="font-size:${a.wide?28:34}px">${a.emo}</span>${a.label}</button>`).join("")}
+    </div>`;
+  }else{
+    const a=AT_LIVE_ACTS.find(x=>x.key===atLiveAction)||{label:atLiveAction,emo:"",col:"#1e293b"};
+    const players=atOnFieldPlayers();
+    body=`<div style="padding:12px 14px;font-size:16px;font-weight:800;background:${a.col}"> ${a.emo} ${a.label} – wer war's?</div>
+      <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px;overflow-y:auto;align-content:start">
+        ${players.map(n=>`<button onclick="atLiveRecord('${n.replace(/'/g,"")}')" style="min-height:66px;border:none;border-radius:16px;background:#1e293b;color:#fff;font-size:18px;font-weight:700;font-family:inherit;cursor:pointer">${getKader(n)?.tw?"🥅 ":(getKader(n)?.nr?getKader(n).nr+" ":"")}${esc(n)}</button>`).join("")||'<div style="color:#94a3b8;font-size:13px">Keine Feldspieler gesetzt – erst die Aufstellung/Rotation einrichten.</div>'}
+      </div>
+      <button onclick="atLiveAction=null;atLiveRender()" style="margin:0 14px 14px;padding:14px;border:none;border-radius:14px;background:rgba(255,255,255,.12);color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">← andere Aktion</button>`;
+  }
+  m.innerHTML=top+info+body;
+}
+function atLivePick(aktion){
+  const a=AT_LIVE_ACTS.find(x=>x.key===aktion);
+  if(a&&a.direct){ atLiveDirect(aktion); return; } // Gegentor: kein Spieler nötig → 1 Tap
+  atLiveAction=aktion; atLiveRender();
+}
+function atLiveDirect(aktion){
+  try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
+  if(aktion==="gegentor"){ atGegentore++; if(typeof tickerCounterGoal==="function")tickerCounterGoal(); }
+  atLiveFlash("Gegentor","#f59e0b");
+  atLiveRender();
+}
+function atLiveRecord(player){
+  const aktion=atLiveAction;
+  if(!aktion)return;
+  atSel=player;
+  try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
+  const a=AT_LIVE_ACTS.find(x=>x.key===aktion);
+  atLiveAction=null;
+  if(aktion==="tor")tickerGoal(); else atTap(aktion); // synchroner Teil bumpt atCounts sofort; Netz läuft im Hintergrund
+  atLiveRender();  // Ergebnis + Zähler frisch
+  atLiveFlash(`${a?a.emo:""} ${player}`);
+}
+function atLiveFlash(txt,color){
+  const m=document.getElementById("at-live"); if(!m)return;
+  const f=document.createElement("div");
+  f.style.cssText="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5;font-size:34px;font-weight:900;color:"+(color||"#22c55e")+";background:rgba(0,0,0,.3);animation:atFlash .6s ease-out forwards";
+  f.textContent=txt+" ✓";
+  m.appendChild(f);
+  setTimeout(()=>f.remove(),600);
+}
+async function atTap(aktion){
+  if(!atSel)return;
+  const act=atActionsFor(atSel).find(a=>a.key===aktion)||{label:aktion};
+  if(!atCounts[atSel])atCounts[atSel]={};
+  atCounts[atSel][aktion]=(atCounts[atSel][aktion]||0)+1;
+  const entry={uid:++atUid,id:null,spieler:atSel,aktion,label:act.label};
+  atLog.push(entry);
+  try{navigator.vibrate&&navigator.vibrate(20);}catch(e){}
+  atRender();
+  // Paedagogik-Filter (Phase 4): nur positive Aktionen speisen den Eltern-Ticker – Undo
+  // nimmt das interne Rating zurueck, ein bereits oeffentlich gepushter Ticker-Satz bleibt
+  // stehen (geringes Risiko, da nur positive Ereignisse gepusht werden).
+  if(TICKER_POSITIVE_KEYS.includes(aktion))tickerPush(atSel,aktion);
+  questCheck(); // Team-Quest evtl. gerade geknackt → Confetti + Toast
+  const datum=spieltagKey();
+  const tid=await terminIdForDatum(datum); // HOTFIX 3-FE: FK-Kopplung für ON DELETE CASCADE
+  const res=await sbQueuedPost("match_actions",{datum,spieler:atSel,aktion,termin_id:tid},"return=representation"); // offline -> Queue
+  if(res.ok&&res.res){try{const rows=await res.res.json();if(rows&&rows[0]&&rows[0].id!=null)entry.id=rows[0].id;}catch(e){}}
+}
+// Undo (Korrektur 2): letzte Aktion am Spielfeldrand zurücknehmen – In-Memory-Zähler
+// runter + die frisch angelegte Supabase-Zeile entfernen (gerade erst erstellt -> Hard-Delete ok).
+async function atUndo(uid){
+  const i=atLog.findIndex(e=>e.uid===uid);
+  if(i<0)return;
+  const e=atLog[i];
+  if(atCounts[e.spieler]&&atCounts[e.spieler][e.aktion]){
+    atCounts[e.spieler][e.aktion]--;
+    if(atCounts[e.spieler][e.aktion]<=0)delete atCounts[e.spieler][e.aktion];
+  }
+  atLog.splice(i,1);
+  try{navigator.vibrate&&navigator.vibrate(12);}catch(err){}
+  atRender();
+  if(e.id!=null){
+    try{const r=await fetch(`${SB_URL}/rest/v1/match_actions?id=eq.${e.id}`,{method:"DELETE",headers:sbAuthHeaders()});sbCheck401(r);}catch(err){}
+  }
+}
+
+// Blitz-Rating: schnelle Nachbewertung nach dem Spiel (eigenes leichtes Protokoll,
+// verfälscht NICHT die 37-Kriterien-Hauptbewertung). Karten-Flow, ein Spieler nach dem anderen.
+let blitzIdx=0, blitzPlayers=[], blitzCrit={}, blitzCritPlayer=null;
+const BLITZ_CRIT=[
+  {key:"einsatz",label:"Einsatz & Zweikampf"},
+  {key:"technik",label:"Technik am Ball"},
+  {key:"verstaendnis",label:"Spielverständnis"},
+  {key:"team",label:"Teamverhalten"},
+  {key:"form",label:"Tagesform"}
+];
+function blitzInit(){
+  // nur die nominierten (dabei) Spieler bewerten, falls eine Nominierung vorliegt
+  blitzPlayers=(typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():KADER.map(k=>k.name);
+  blitzIdx=0;
+  const box=document.getElementById("blitz-panel");
+  if(!box)return;
+  box.innerHTML=`
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <span style="font-size:11px;color:var(--text2)">Bewertet von:</span>
+      <select id="blitz-autor" style="min-height:40px;padding:6px 10px;border:var(--border-s);border-radius:var(--r);font-family:inherit">${TRAINER.map(t=>`<option>${t}</option>`).join("")}</select>
+    </div>
+    <div id="blitz-card"></div>
+    <div id="blitz-saved" style="margin-top:12px"></div>`;
+  blitzRenderCard();
+  blitzLoadSaved();
+}
+// Gespeicherte Blitz-Bewertungen dieses Spieltags als Chips – ✕ loescht die Eintragung
+// (Korrektur = loeschen + ueber "Von vorne" neu bewerten).
+async function blitzLoadSaved(){
+  const box=document.getElementById("blitz-saved");
+  if(!box)return;
+  const datum=spieltagKey();
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/blitz_ratings?datum=eq.${encodeURIComponent(datum)}&select=id,spieler,wertung&order=created_at.asc`,{headers:sbAuthHeaders()});
+    if(!r.ok){box.innerHTML="";return;}
+    const rows=await r.json();
+    if(!rows.length){box.innerHTML="";return;}
+    const wCol={top:"#15803d",solide:"#64748b",blass:"#dc2626"};
+    box.innerHTML=`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:5px">Gespeicherte Bewertungen (${rows.length}) · ✕ zum Löschen/Korrigieren</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${rows.map(x=>`<span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:4px 9px;border-radius:14px;background:var(--surface2);border:var(--border-s)"><span style="width:8px;height:8px;border-radius:50%;background:${wCol[x.wertung]||"#64748b"}"></span>${esc(x.spieler)}<button onclick="blitzDelete(${Number(x.id)})" title="Bewertung löschen" aria-label="Löschen" style="border:none;background:transparent;cursor:pointer;color:#dc2626;font-size:13px;line-height:1;padding:0 2px">✕</button></span>`).join("")}</div>`;
+  }catch(e){}
+}
+async function blitzDelete(id){
+  if(!confirm("Blitz-Bewertung wirklich löschen?"))return;
+  try{const r=await fetch(`${SB_URL}/rest/v1/blitz_ratings?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
+  blitzLoadSaved();
+  toast("Blitz-Bewertung gelöscht");
+}
+function blitzRenderCard(){
+  const card=document.getElementById("blitz-card");
+  if(!card)return;
+  if(blitzIdx>=blitzPlayers.length){
+    card.innerHTML=`<div class="card" style="text-align:center;padding:22px 16px">
+      <div style="font-size:30px">✅</div>
+      <div style="font-weight:700;margin:6px 0">Alle durch!</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${blitzPlayers.length} Spieler bewertet.</div>
+      <button class="btn" onclick="blitzIdx=0;blitzRenderCard()"><i class="ti ti-refresh"></i>Von vorne</button>
+    </div>`;
+    return;
+  }
+  const name=blitzPlayers[blitzIdx];const nr=getKader(name)?.nr;
+  if(blitzCritPlayer!==name){blitzCrit={};BLITZ_CRIT.forEach(c=>blitzCrit[c.key]=2);blitzCritPlayer=name;} // Mitte vorbelegt
+  const evidenz=(typeof atSummary==="function"&&atSummary(name))?`<div style="font-size:12px;color:var(--text2);margin-bottom:12px">Live-Aktionen: ${atSummary(name)}</div>`:"";
+  const lvlBtn=(cKey,val,txt,col)=>{const on=blitzCrit[cKey]===val;return `<button onclick="blitzSetCrit('${cKey}',${val})" style="flex:1;min-height:40px;font-size:12px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;background:${on?col:"var(--surface2)"};color:${on?"#fff":"var(--text2)"}">${txt}</button>`;};
+  card.innerHTML=`<div class="card" style="padding:16px">
+    <div style="text-align:center">
+      <div style="font-size:11px;color:var(--text3)">Spieler ${blitzIdx+1}/${blitzPlayers.length}</div>
+      <div style="font-size:22px;font-weight:800;margin:6px 0 10px">${nr?nr+" ":""}${esc(name)}</div>
+    </div>
+    ${evidenz}
+    ${BLITZ_CRIT.map(c=>`
+      <div style="margin-bottom:8px">
+        <div style="font-size:11.5px;font-weight:600;margin-bottom:4px">${c.label}</div>
+        <div style="display:flex;gap:5px">
+          ${lvlBtn(c.key,1,"schwach","#dc2626")}
+          ${lvlBtn(c.key,2,"ok","#64748b")}
+          ${lvlBtn(c.key,3,"stark","#15803d")}
+        </div>
+      </div>`).join("")}
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-p" style="flex:1;min-height:48px;font-size:15px" onclick="blitzRate()"><i class="ti ti-check"></i>Speichern & weiter</button>
+      <button class="btn btn-sm" style="opacity:.7" onclick="blitzSkip()">›</button>
+    </div>
+  </div>`;
+}
+function blitzSetCrit(key,val){blitzCrit[key]=val;blitzRenderCard();}
+async function blitzRate(){
+  const name=blitzPlayers[blitzIdx];
+  const datum=spieltagKey();
+  const autor=document.getElementById("blitz-autor")?.value||"";
+  const kriterien={...blitzCrit};
+  const avg=BLITZ_CRIT.reduce((s,c)=>s+(kriterien[c.key]||2),0)/BLITZ_CRIT.length;
+  const wertung=avg>=2.5?"top":avg>=1.7?"solide":"blass"; // Gesamt für Rückwärtskompatibilität
+  try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
+  blitzIdx++;blitzCritPlayer=null;blitzRenderCard(); // optimistisch weiter
+  const res=await sbQueuedPost("blitz_ratings",{datum,spieler:name,wertung,autor,kriterien}); // offline -> Queue
+  if(res.ok)blitzLoadSaved(); // bei Online: gespeicherte Liste aktualisieren
+}
+function blitzSkip(){blitzIdx++;blitzCritPlayer=null;blitzRenderCard();}
+
+// G2: Team-Pinnwand
+async function tnLoad(){
+  const wrap=document.getElementById("tn-list");
+  if(!wrap)return;
+  wrap.innerHTML='<div class="empty" style="padding:1rem;font-size:12px">Lade Notizen...</div>';
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/team_notizen?select=*&order=pinned.desc,created_at.desc&limit=50`,{headers:sbTeamHeaders()});
+    if(!r.ok){wrap.innerHTML='<div class="empty" style="padding:1rem;font-size:12px">Keine Verbindung zur Pinnwand</div>';return;}
+    const rows=await r.json();
+    if(!rows.length){wrap.innerHTML='<div class="empty" style="padding:1rem;font-size:12px">Noch keine Notizen – schreib die erste!</div>';return;}
+    wrap.innerHTML=rows.map(n=>`
+      <div class="card" style="padding:10px 12px;margin-bottom:8px${n.pinned?";border-left:3px solid var(--blue)":""}">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">
+          <span style="font-size:11px;font-weight:700">${n.pinned?"📌 ":""}${esc(n.autor||"?")}</span>
+          <span style="font-size:10px;color:var(--text3)">${n.created_at?new Date(n.created_at).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"}):""}</span>
+        </div>
+        <div style="font-size:12.5px;color:var(--text);line-height:1.5;margin-bottom:6px">${esc(n.text||"")}</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="tnPin(${Number(n.id)},${n.pinned?"false":"true"})"><i class="ti ti-pin"></i>${n.pinned?"Lösen":"Anpinnen"}</button>
+          <button class="btn btn-sm btn-d" onclick="tnDel(${Number(n.id)})"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>`).join("");
+  }catch(e){wrap.innerHTML='<div class="empty" style="padding:1rem;font-size:12px">Offline – Pinnwand nicht verfügbar</div>';}
+}
+async function tnSend(){
+  const autor=document.getElementById("tn-autor")?.value||"";
+  const text=(document.getElementById("tn-text")?.value||"").trim();
+  if(!text){toast("Bitte Text eingeben","err");return;}
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/team_notizen`,{
+      method:"POST",headers:sbTeamHeaders(),body:JSON.stringify({autor,text})
+    });
+    if(r.ok||r.status===201){document.getElementById("tn-text").value="";toast("Notiz gesendet ✓");tnLoad();}
+    else toast("Fehler beim Senden","err");
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+async function tnPin(id,pinned){
+  try{
+    await fetch(`${SB_URL}/rest/v1/team_notizen?id=eq.${id}`,{
+      method:"PATCH",headers:sbTeamHeaders(),body:JSON.stringify({pinned})
+    });
+    tnLoad();
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+async function tnDel(id){
+  if(!confirm("Notiz wirklich löschen?"))return;
+  try{
+    await fetch(`${SB_URL}/rest/v1/team_notizen?id=eq.${id}`,{method:"DELETE",headers:sbTeamHeaders()});
+    tnLoad();
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+
+// G4: kompakte Auswertungs-Kacheln (nur Aggregation vorhandener Daten)
+function teamStatsRender(){
+  const wrap=document.getElementById("team-stats");
+  if(!wrap)return;
+  // Letzte Einheit + Ø-Nachbewertung
+  const evalDates=Object.keys(EVAL_DATA).sort().reverse();
+  let evalTile='<div style="font-size:11px;color:var(--text3)">Noch keine Einheit bewertet</div>';
+  if(evalDates.length){
+    const d=evalDates[0];const entries=(EVAL_DATA[d]||[]).filter(e=>!e.skipped); // Übersprungene zählen nicht mit
+    let sum=0,cnt=0;
+    entries.forEach(e=>Object.entries(e).forEach(([k,v])=>{if(typeof v==="number"&&k!=="formIdx"){sum+=v;cnt++;}}));
+    const avg=cnt?(sum/cnt).toFixed(1):"–";
+    evalTile=`<div style="font-size:16px;font-weight:700;color:var(--blue)">${avg} ★</div><div style="font-size:10px;color:var(--text2)">${new Date(d).toLocaleDateString("de-DE")}</div>`;
+  }
+  // Anwesenheitsquote letzte 4 Termine
+  const awDates=Object.keys(AW_DATA).sort().reverse().slice(0,4);
+  let quote="–";
+  if(awDates.length){
+    let da=0,ges=0;
+    awDates.forEach(d=>{
+      Object.entries(AW_DATA[d]||{}).forEach(([k,v])=>{
+        if(k==="_trainers")return;
+        ges++;if(v&&v.da)da++;
+      });
+    });
+    if(ges)quote=Math.round(da/ges*100)+"%";
+  }
+  // Spieler ohne Bewertung seit > 6 Wochen (Bewertung alle 6 Wochen im Trainermeeting)
+  const limit=Date.now()-42*24*60*60*1000;
+  const stale=KADER.filter(k=>{
+    const snaps=DB[k.name];
+    if(!snaps||!snaps.length)return true;
+    const lat=snaps[snaps.length-1];
+    return !lat.datum||new Date(lat.datum).getTime()<limit;
+  });
+  const tile=(title,body)=>`<div class="card" style="padding:10px 12px"><div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">${title}</div>${body}</div>`;
+  wrap.innerHTML=
+    tile("Letzte Einheit",evalTile)+
+    tile("Anwesenheit (letzte 4)",`<div style="font-size:16px;font-weight:700;color:var(--teal)">${quote}</div><div style="font-size:10px;color:var(--text2)">${awDates.length} Termin${awDates.length!==1?"e":""}</div>`)+
+    tile("Bewertung überfällig",`<div style="font-size:16px;font-weight:700;color:${stale.length?"#dc2626":"#15803d"};cursor:pointer" onclick="sv('bew')">${stale.length} Spieler</div><div style="font-size:10px;color:var(--text2)">${stale.length?"> 6 Wochen ohne Bewertung":"alle aktuell"}</div>`);
+}
+
+// L5: Daten-Backup – alle sechs Tabellen als eine JSON-Datei
+async function teamBackupDownload(){
+  const tabellen=["spielerprofile","quiz_progress","anwesenheit","trainings_eval","team_notizen","einheiten"];
+  const backup={erstellt:new Date().toISOString(),app:"Adler U9 Spielerprofil"};
+  try{
+    for(const t of tabellen){
+      const r=await fetch(`${SB_URL}/rest/v1/${t}?select=*`,{headers:sbAuthHeaders()});
+      if(sbCheck401(r))return;
+      backup[t]=r.ok?await r.json():{fehler:"HTTP "+r.status};
+    }
+    const blob=new Blob([JSON.stringify(backup,null,2)],{type:"application/json"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="adler-backup-"+new Date().toISOString().slice(0,10)+".json";
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    toast("Backup heruntergeladen ✓");
+  }catch(e){toast("Backup fehlgeschlagen: "+e.message,"err");}
+}
+
+// G3: geplante Einheiten speichern, laden & teilen
+async function tpPlanSave(){
+  const datum=document.getElementById("tp-date").value;
+  if(!datum){toast("Bitte Datum wählen","err");return;}
+  const plan={slots:tpSlots,forms:{},cats:{},coaches:{...tpCoaches},time:document.getElementById("tp-time")?.value||""};
+  document.querySelectorAll(".tp-form-sel").forEach(s=>{if(s.id)plan.forms[s.id]=s.value;});
+  document.querySelectorAll('[id^="tp-cat-"]').forEach(s=>{if(s.id)plan.cats[s.id]=s.value;});
+  const trainer=tpGetCheckedTrainers();
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/einheiten?on_conflict=datum`,{
+      method:"POST",
+      headers:{...sbTeamHeaders(),'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({datum,plan,trainer})
+    });
+    if(r.ok||r.status===201)toast("Plan gespeichert ✓");
+    else toast("Fehler beim Speichern","err");
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+async function tpPlanLoad(){
+  const datum=document.getElementById("tp-date").value;
+  if(!datum){toast("Bitte Datum wählen","err");return;}
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/einheiten?datum=eq.${encodeURIComponent(datum)}&select=*`,{headers:sbTeamHeaders()});
+    if(!r.ok){toast("Fehler beim Laden","err");return;}
+    const rows=await r.json();
+    if(!rows.length){toast("Kein Plan für dieses Datum gespeichert","err");return;}
+    const{plan,trainer}=rows[0];
+    if(Array.isArray(trainer))document.querySelectorAll("#tp-trainer-checks input").forEach(cb=>{cb.checked=trainer.includes(cb.value);});
+    if(plan&&Array.isArray(plan.slots))tpSlots=plan.slots;
+    if(plan&&plan.coaches)tpCoaches={...plan.coaches}; // Stationen-Zuweisung wiederherstellen
+    if(plan&&plan.time&&document.getElementById("tp-time"))document.getElementById("tp-time").value=plan.time;
+    tpRenderTimeline();
+    setTimeout(()=>{
+      Object.entries(plan?.cats||{}).forEach(([id,val])=>{
+        const sel=document.getElementById(id);
+        if(sel&&val){sel.value=val;if(typeof tpOnCatChange==="function"){const m=id.match(/^tp-cat-(\d+)-(\d+)$/);if(m)tpOnCatChange(`tp-form-${m[1]}-${m[2]}`,m[1],m[2]);}}
+      });
+      Object.entries(plan?.forms||{}).forEach(([id,val])=>{
+        const sel=document.getElementById(id);
+        if(sel&&val!==""){sel.value=val;tpOnSelectChange(sel);}
+      });
+      addEvalSection();
+      toast("Plan geladen ✓");
+    },150);
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+function tpShareEinheit(){
+  const datum=document.getElementById("tp-date").value||"";
+  const zeit=document.getElementById("tp-time")?.value||"";
+  const trainer=tpGetCheckedTrainers().join(", ");
+  const allForms=typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN:[];
+  let time=0;
+  const zeilen=[`⚽ Trainingsplan U9 – ${datum}${zeit?" · "+zeit+" Uhr":""}`,`Trainer: ${trainer||"–"}`,""];
+  tpSlots.forEach((slot,si)=>{
+    const start=time,ende=time+slot.dauer;time=ende;
+    zeilen.push(`${start}'–${ende}' ${slot.label}`);
+    if((slot.typ||"main")==="abschluss"){zeilen.push("  Freies Spiel – alle Kinder zusammen");return;}
+    document.querySelectorAll(`[id^="tp-form-${si}-"]`).forEach(sel=>{
+      if(!sel.value)return;
+      const f=allForms[parseInt(sel.value)];
+      if(!f)return;
+      const stationCoach=tpCoaches[sel.id]?" ("+tpCoaches[sel.id]+")":""; // Stationen-Board
+      zeilen.push(`  • ${f.name}${stationCoach}${f.kurz?" – "+f.kurz:""}`);
+      const coach=(f.coaching||"").split("\n")[0];
+      if(coach)zeilen.push(`    🎯 ${coach}`);
+    });
+  });
+  const text=zeilen.join("\n");
+  if(navigator.share){
+    navigator.share({title:"Trainingsplan U9 Adler",text}).catch(()=>{});
+  }else{
+    const modal=document.createElement("div");
+    modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";
+    modal.onclick=e=>{if(e.target===modal)modal.remove();};
+    modal.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto">
+      <div style="font-weight:700;margin-bottom:8px">Einheit teilen</div>
+      <textarea readonly style="width:100%;height:200px;font-size:11px;font-family:monospace;border:var(--border-s);border-radius:var(--r);padding:8px;resize:none">${esc(text)}</textarea>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-p" onclick="navigator.clipboard.writeText(this.closest('div[style*=fixed]').querySelector('textarea').value).then(()=>toast('Kopiert ✓'))"><i class="ti ti-copy"></i>Kopieren</button>
+        <a class="btn" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener"><i class="ti ti-brand-whatsapp"></i>WhatsApp</a>
+        <button class="btn" onclick="this.closest('div[style*=fixed]').remove()">Schließen</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+}
+
+
+/* ═══════════════════════════════════
+   FUNDBÜRO (Welle 1, FEAT Y) – verlorene Trinkflaschen, Jacken & Co.
+   Teamweite Sicht NUR über die security-definer-RPC fundbuero_board
+   (Minimaldaten, keine Uploader-Identität). "Gehört uns!" läuft über
+   fundbuero_claim. Fotos: privater Bucket 'fundbuero' (5 MB, nur Bilder,
+   Limit serverseitig erzwungen), Anzeige per Auth-Download + Blob-URL.
+═══════════════════════════════════ */
+async function fundbueroOpen(){
+  if(!sbToken()){toast("Bitte zuerst anmelden","err");return;}
+  document.getElementById("fb-modal")?.remove();
+  const m=document.createElement("div");m.id="fb-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:460px;width:100%;margin:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-weight:800;font-size:16px">🧦 Fundbüro</div>
+      <button onclick="document.getElementById('fb-modal').remove()" style="border:none;background:none;font-size:22px;color:var(--text2);cursor:pointer">×</button>
+    </div>
+    <div style="padding:10px;border:1.5px dashed var(--text3);border-radius:10px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">Etwas gefunden?</div>
+      <input id="fb-titel" placeholder="Was? (z. B. blaue Trinkflasche)" maxlength="80" style="width:100%;box-sizing:border-box;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:6px">
+      <input id="fb-foto" type="file" accept="image/jpeg, image/png, image/webp" capture="environment" style="width:100%;font-size:12px;margin-bottom:8px">
+      <button class="btn btn-p btn-sm" onclick="fundbueroUpload(this)">📸 Einstellen</button>
+    </div>
+    <div id="fb-body"><div style="text-align:center;padding:20px;color:var(--text3)">Lade…</div></div>
+  </div>`;
+  document.body.appendChild(m);
+  fundbueroRender();
+}
+async function fundbueroRender(){
+  const body=document.getElementById("fb-body"); if(!body)return;
+  let items=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/fundbuero_board`,{method:"POST",headers:sbAuthHeaders(),body:"{}"});if(r.ok)items=(await r.json())||[];}catch(e){}
+  const istTrainer=(await authRole())==="trainer";
+  if(!items.length){body.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Aktuell keine Fundstücke – super! 🎉</div>';return;}
+  body.innerHTML=items.map(f=>`
+    <div style="padding:12px;border:var(--border-s);border-radius:12px;margin-bottom:10px${f.status==="geklaert"?";opacity:.55":""}">
+      ${f.foto_path?`<img id="fb-img-${f.id}" alt="" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px;background:#f1f5f9;margin-bottom:8px">`:""}
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+        <div style="font-weight:700;font-size:14px">${esc(f.titel)}</div>
+        <div style="font-size:10.5px;color:var(--text3);white-space:nowrap">${f.gefunden_am?new Date(f.gefunden_am+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"}):""}</div>
+      </div>
+      ${f.beschreibung?`<div style="font-size:12px;color:var(--text2);margin-top:2px">${esc(f.beschreibung)}</div>`:""}
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+        ${f.status==="offen"
+          ?`<button onclick="fundbueroClaim(${f.id})" style="flex:1;min-height:44px;border:none;border-radius:10px;background:#059669;color:#fff;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer">🙋 Gehört uns!</button>`
+          :`<div style="flex:1;font-size:12.5px;font-weight:700;color:#059669">✅ Geklärt${f.claimed_label?` – ${esc(f.claimed_label)}`:""}</div>`}
+        ${istTrainer?`<button onclick="fundbueroDelete(${f.id})" title="Löschen" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface);cursor:pointer">🗑</button>`:""}
+      </div>
+    </div>`).join("");
+  items.forEach(f=>{if(f.foto_path)fundbueroFoto(f.id,f.foto_path);});
+}
+async function fundbueroFoto(id,path){
+  try{
+    const r=await fetch(`${SB_URL}/storage/v1/object/authenticated/fundbuero/${path}`,{headers:{'Authorization':'Bearer '+sbToken()}});
+    if(!r.ok)return;
+    const img=document.getElementById("fb-img-"+id);
+    if(img)img.src=URL.createObjectURL(await r.blob());
+  }catch(e){}
+}
+async function fundbueroUpload(btn){
+  const titel=(document.getElementById("fb-titel")?.value||"").trim();
+  const input=document.getElementById("fb-foto");
+  const file=input&&input.files&&input.files[0];
+  if(!titel){toast("Bitte kurz beschreiben, was gefunden wurde","err");return;}
+  if(btn)btn.disabled=true;
+  try{
+    let path=null;
+    if(file){
+      const blob=await fotoCompress(file,700); // 700px reicht fürs Wiedererkennen, schont Storage
+      path=((window.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now()))+".jpg";
+      const up=await fetch(`${SB_URL}/storage/v1/object/fundbuero/${path}`,{method:"POST",headers:{'Authorization':'Bearer '+sbToken(),'Content-Type':'image/jpeg'},body:blob});
+      if(!up.ok){toast("Foto-Upload fehlgeschlagen","err");return;}
+    }
+    const r=await fetch(`${SB_URL}/rest/v1/fundbuero`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({titel,foto_path:path})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast("Speichern fehlgeschlagen","err");return;}
+    toast("Fundstück eingestellt ✓");
+    const t=document.getElementById("fb-titel"); if(t)t.value="";
+    if(input)input.value="";
+    fundbueroRender();
+  }catch(e){toast("Foto konnte nicht verarbeitet werden","err");}
+  finally{if(btn)btn.disabled=false;}
+}
+async function fundbueroClaim(id){
+  const label=(prompt("Wem gehört es? (z. B. Familie Mika)","")||"").trim();
+  if(!label)return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/fundbuero_claim`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({p_id:id,p_label:label})});
+    if(!r.ok){toast("Konnte nicht markieren","err");return;}
+    toast("Als geklärt markiert ✓");
+    fundbueroRender();
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+async function fundbueroDelete(id){
+  if(!confirm("Fundstück wirklich löschen?"))return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/fundbuero?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast("Löschen fehlgeschlagen","err");return;}
+    fundbueroRender();
+  }catch(e){}
+}
+
+/* ═══════════════════════════════════
+   TAKTIK-BIBLIOTHEK (Welle 1, FEAT AB)
+   "Übung speichern" sichert den kompletten Board-Zustand als Template
+   in taktik_templates (Trainer-only RLS): Formation, Token-Positionen
+   (bereits in Feld-%), Ball und gezeichnete Strokes. Strokes werden
+   beim Speichern auf 0..1 normalisiert UND ausgedünnt (jeder 3. Punkt,
+   4 Nachkommastellen) -> wenige KB pro Template, kein JSONB-Ballast.
+═══════════════════════════════════ */
+function ttSnapshot(){
+  const cv=document.getElementById("tb-draw");
+  const w=(cv&&cv.width)||1, h=(cv&&cv.height)||1;
+  const strokes=(dwStrokes||[]).filter(s=>s.points&&s.points.length>1).map(s=>({
+    mode:s.mode,
+    points:s.points.filter((_,i)=>i%3===0||i===s.points.length-1).map(p=>[+(p.x/w).toFixed(4),+(p.y/h).toFixed(4)])
+  }));
+  return {
+    formation:tbFormation,
+    field:tbField.map(p=>({name:p.name,x:Math.round(p.x*10)/10,y:Math.round(p.y*10)/10,cls:p.cls,role:p.role})),
+    ball:{x:Math.round(tbBall.x*10)/10,y:Math.round(tbBall.y*10)/10},
+    strokes
+  };
+}
+async function ttSave(){
+  if(!tbField||!tbField.length){toast("Erst eine Aufstellung aufs Feld stellen","err");return;}
+  const name=(prompt("Name der Übung / Spielsituation:","")||"").trim();
+  if(!name)return;
+  const snap=ttSnapshot();
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/taktik_templates`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({name,formation:snap.formation,data:snap})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast("Speichern fehlgeschlagen","err");return;}
+    toast("💾 In Bibliothek gespeichert ✓");
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+async function ttOpen(){
+  document.getElementById("tt-modal")?.remove();
+  const m=document.createElement("div");m.id="tt-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:460px;width:100%;margin:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-weight:800;font-size:16px">📚 Taktik-Bibliothek</div>
+      <button onclick="document.getElementById('tt-modal').remove()" style="border:none;background:none;font-size:22px;color:var(--text2);cursor:pointer">×</button>
+    </div>
+    <div id="tt-body"><div style="text-align:center;padding:20px;color:var(--text3)">Lade…</div></div>
+  </div>`;
+  document.body.appendChild(m);
+  ttRender();
+}
+async function ttRender(){
+  const body=document.getElementById("tt-body"); if(!body)return;
+  let items=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/taktik_templates?select=id,name,formation,created_at&order=created_at.desc`,{headers:sbAuthHeaders()});
+    if(sbCheck401(r))return;
+    if(r.ok)items=(await r.json())||[];
+  }catch(e){}
+  if(!items.length){body.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Noch keine Übungen gespeichert.<br>Board einrichten → „💾 Übung" drücken.</div>';return;}
+  body.innerHTML=items.map(t=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:10px;border:var(--border-s);border-radius:12px;margin-bottom:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</div>
+        <div style="font-size:11px;color:var(--text3)">${t.formation?esc(t.formation)+" · ":""}${new Date(t.created_at).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})}</div>
+      </div>
+      ${t.formation==="KI-Übung"
+        ?`<button class="btn btn-sm" onclick="ttViewKi(${t.id})"><i class="ti ti-eye"></i>Ansehen</button>`
+        :`<button class="btn btn-p btn-sm" onclick="ttLoad(${t.id})">Laden</button>`}
+      <button onclick="ttDelete(${t.id})" title="Löschen" style="min-width:40px;min-height:40px;border:var(--border-s);border-radius:10px;background:var(--surface);cursor:pointer">🗑</button>
+    </div>`).join("");
+}
+async function ttLoad(id){
+  let row=null;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/taktik_templates?id=eq.${id}&select=data`,{headers:sbAuthHeaders()});
+    if(r.ok)row=((await r.json())||[])[0];
+  }catch(e){}
+  if(!row||!row.data){toast("Übung konnte nicht geladen werden","err");return;}
+  const d=row.data;
+  // Formation + Tokens direkt setzen (KEIN taktikSetup - das würde neu auto-befüllen)
+  if(d.formation&&FORMATIONS[d.formation]){
+    tbFormation=d.formation;
+    document.querySelectorAll(".tb-form-btn").forEach(b=>b.classList.toggle("btn-p",b.dataset.form===d.formation));
+  }
+  tbField=(d.field||[]).map(p=>({...p}));
+  const used=new Set(tbField.map(f=>f.name));
+  tbBench=KADER.map(k=>k.name).filter(n=>!used.has(n));
+  tbBall=d.ball?{...d.ball}:{x:50,y:50};
+  taktikRender();
+  // Strokes: Zeichenmodus aktivieren, Canvas dimensionieren, dann 0..1 -> Pixel
+  if(d.strokes&&d.strokes.length){
+    if(!dwOn)dwToggle();
+    dwResize();
+    const cv=document.getElementById("tb-draw");
+    const w=(cv&&cv.width)||1, h=(cv&&cv.height)||1;
+    dwStrokes=d.strokes.map(s=>({mode:s.mode,points:s.points.map(p=>({x:p[0]*w,y:p[1]*h}))}));
+    dwRedraw();
+  }else{
+    dwStrokes=[];
+    if(dwOn)dwRedraw();
+  }
+  document.getElementById("tt-modal")?.remove();
+  toast("Übung aufs Board geladen ✓");
+}
+async function ttDelete(id){
+  if(!confirm("Übung wirklich löschen?"))return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/taktik_templates?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast("Löschen fehlgeschlagen","err");return;}
+    ttRender();
+  }catch(e){}
+}
+
+/* ═══════════════════════════════════
+   AUSRÜSTUNGS-EXPORT (Welle 2, FEAT U) – Trainer-CSV für Sammelbestellungen.
+   Daten kommen ausschliesslich aus der security-definer-RPC ausruestung_export
+   (Minimaldaten name/nr/groessen, trainer-only). CSV mit ; als Trenner + BOM,
+   damit Excel Umlaute und Spalten korrekt oeffnet.
+═══════════════════════════════════ */
+// HOTFIX 18: In-App-Ausrüstungs-Manager statt CSV. Grid-View mit Trikot-/Schuhgrößen
+// aller Spieler (Daten weiter aus der security-definer-RPC ausruestung_export).
+async function ausruestungGrid(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("ausr-modal")?.remove();
+  const m=document.createElement("div");m.id="ausr-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:460px;width:100%;margin:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-weight:800;font-size:16px">👕 Team-Ausrüstung</div>
+      <button onclick="document.getElementById('ausr-modal').remove()" style="border:none;background:none;font-size:22px;color:var(--text2);cursor:pointer">×</button>
+    </div>
+    <div id="ausr-body"><div style="text-align:center;padding:20px;color:var(--text3)">Lade…</div></div>
+  </div>`;
+  document.body.appendChild(m);
+  ausruestungGridRender();
+}
+async function ausruestungGridRender(){
+  const body=document.getElementById("ausr-body"); if(!body)return;
+  let rows=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/ausruestung_export`,{method:"POST",headers:sbAuthHeaders(),body:"{}"});
+    if(sbCheck401(r))return;
+    if(r.ok)rows=(await r.json())||[];
+  }catch(e){}
+  if(!rows.length){body.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Keine Kaderdaten gefunden.</div>';return;}
+  const mitGroesse=rows.filter(r=>r.trikot_groesse||r.schuh_groesse).length;
+  const cell=v=>v?esc(v):'<span style="color:var(--text3)">–</span>';
+  body.innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">${mitGroesse}/${rows.length} mit Größe · Eltern pflegen die Werte im Portal (Fan-Fakten &amp; Foto).</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="text-align:left;color:var(--text2);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px">
+          <th style="padding:6px 8px">Nr</th><th style="padding:6px 8px">Name</th><th style="padding:6px 8px">👕 Trikot</th><th style="padding:6px 8px">👟 Schuh</th>
+        </tr></thead>
+        <tbody>${rows.map((r,i)=>`<tr style="border-top:1px solid var(--surface2);background:${i%2?'var(--surface2)':'transparent'}">
+          <td style="padding:7px 8px;color:var(--text3)">${r.nr!=null?esc(r.nr):"–"}</td>
+          <td style="padding:7px 8px;font-weight:600">${esc(r.name)}</td>
+          <td style="padding:7px 8px">${cell(r.trikot_groesse)}</td>
+          <td style="padding:7px 8px">${cell(r.schuh_groesse)}</td>
+        </tr>`).join("")}</tbody>
+      </table>
+    </div>`;
+}
+
+/* ═══════════════════════════════════
+   EVENT-GALERIE (Welle 2, FEAT W) – FOTOS-ONLY (bewusste Kostenentscheidung).
+   Teamweite Sicht ueber die security-definer-RPC termin_gallery (Minimaldaten).
+   Fotos: privater Bucket 'termin_media' (5 MB, nur Bilder, Limit serverseitig).
+   Trainer moderiert (Loeschrecht via authRole). Anzeige per Auth-Download + Blob.
+═══════════════════════════════════ */
+async function galerieOpen(terminId,titel){
+  if(!sbToken()){toast("Bitte zuerst anmelden","err");return;}
+  document.getElementById("gal-modal")?.remove();
+  const m=document.createElement("div");m.id="gal-modal";m.dataset.termin=terminId;
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:520px;width:100%;margin:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-weight:800;font-size:16px">📸 Fotos${titel?" · "+esc(titel):""}</div>
+      <button onclick="document.getElementById('gal-modal').remove()" style="border:none;background:none;font-size:22px;color:var(--text2);cursor:pointer">×</button>
+    </div>
+    <div style="padding:10px;border:1.5px dashed var(--text3);border-radius:10px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">Foto hinzufügen</div>
+      <input id="gal-foto" type="file" accept="image/jpeg, image/png, image/webp" capture="environment" style="width:100%;font-size:12px;margin-bottom:8px">
+      <button class="btn btn-p btn-sm" onclick="galerieUpload(this,${terminId})">📸 Hochladen</button>
+      <div style="font-size:10px;color:var(--text3);margin-top:6px">Nur Bilder, max. 5 MB. Für alle Team-Eltern sichtbar.</div>
+    </div>
+    <div id="gal-body"><div style="text-align:center;padding:20px;color:var(--text3)">Lade…</div></div>
+  </div>`;
+  document.body.appendChild(m);
+  galerieRender(terminId);
+}
+async function galerieRender(terminId){
+  const body=document.getElementById("gal-body"); if(!body)return;
+  let items=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/termin_gallery`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({p_termin:terminId})});if(r.ok)items=(await r.json())||[];}catch(e){}
+  const istTrainer=(await authRole())==="trainer";
+  if(!items.length){body.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Noch keine Fotos – mach das erste! 📷</div>';return;}
+  body.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px">
+    ${items.map(f=>`<div style="position:relative">
+      <img id="gal-img-${f.id}" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:#f1f5f9">
+      ${istTrainer?`<button onclick="galerieDelete(${f.id},'${esc(f.foto_path)}',${terminId})" title="Löschen" style="position:absolute;top:4px;right:4px;width:28px;height:28px;border:none;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;cursor:pointer">🗑</button>`:""}
+    </div>`).join("")}
+  </div>`;
+  items.forEach(f=>galerieFoto(f.id,f.foto_path));
+}
+async function galerieFoto(id,path){
+  try{
+    const r=await fetch(`${SB_URL}/storage/v1/object/authenticated/termin_media/${path}`,{headers:{'Authorization':'Bearer '+sbToken()}});
+    if(!r.ok)return;
+    const img=document.getElementById("gal-img-"+id);
+    if(img)img.src=URL.createObjectURL(await r.blob());
+  }catch(e){}
+}
+async function galerieUpload(btn,terminId){
+  const input=document.getElementById("gal-foto");
+  const file=input&&input.files&&input.files[0];
+  if(!file){toast("Bitte ein Foto wählen","err");return;}
+  if(file.size>5*1024*1024){toast("Foto zu groß (max. 5 MB)","err");return;} // schneller Client-Check; hartes Limit macht der Bucket
+  if(btn)btn.disabled=true;
+  try{
+    const blob=await fotoCompress(file,1000); // 1000px: gute Event-Qualität, schont Storage
+    const path=terminId+"/"+((window.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now()))+".jpg";
+    const up=await fetch(`${SB_URL}/storage/v1/object/termin_media/${path}`,{method:"POST",headers:{'Authorization':'Bearer '+sbToken(),'Content-Type':'image/jpeg'},body:blob});
+    if(!up.ok){toast("Foto-Upload fehlgeschlagen","err");return;}
+    const r=await fetch(`${SB_URL}/rest/v1/termin_media`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({termin_id:terminId,foto_path:path})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast("Speichern fehlgeschlagen","err");return;}
+    toast("Foto hochgeladen ✓");
+    if(input)input.value="";
+    galerieRender(terminId);
+  }catch(e){toast("Foto konnte nicht verarbeitet werden","err");}
+  finally{if(btn)btn.disabled=false;}
+}
+async function galerieDelete(id,path,terminId){
+  if(!confirm("Foto wirklich löschen?"))return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termin_media?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast("Löschen fehlgeschlagen","err");return;}
+    try{await fetch(`${SB_URL}/storage/v1/object/termin_media/${path}`,{method:"DELETE",headers:{'Authorization':'Bearer '+sbToken()}});}catch(e){}
+    galerieRender(terminId);
+  }catch(e){}
+}
+
+/* ═══════════════════════════════════
+   ADLER-KASSE (Welle 2, FEAT Z-light) – dauerhafter Spenden-Button.
+   Link kommt aus der Minimal-RPC adlerkasse_link (anon + auth callable).
+   NUR statischer Redirect zu PayPal – die App fasst KEIN Geld an, kein
+   Login noetig. Button erscheint nur, wenn ein echter http(s)-Link gesetzt ist.
+═══════════════════════════════════ */
+async function adlerkasseLinkGet(){
+  try{
+    const h=sbToken()?sbAuthHeaders():{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/adlerkasse_link`,{method:"POST",headers:h,body:"{}"});
+    if(!r.ok)return null;
+    const v=await r.json();
+    const s=(v==null?"":String(v)).trim();
+    return s||null;
+  }catch(e){return null;}
+}
+function adlerkasseCardHtml(link){
+  if(!link||!/^https?:\/\//i.test(link))return ""; // nur echte http(s)-Links (kein javascript: o.ä.)
+  return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;margin-top:12px;text-align:center">
+    <div style="font-size:15px;font-weight:800;color:#1e3a8a">🦅 Adler-Kasse</div>
+    <div style="font-size:12px;color:#64748b;margin:4px 0 10px">Danke, dass du unsere Jungs anfeuerst! Jeder Euro fließt direkt in die Mannschaft – fürs Eis nach dem Sieg 🍦, den Ausflug, die nächste Belohnung.</div>
+    <a href="${esc(link)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#0070ba;color:#fff;border-radius:10px;padding:11px 22px;font-weight:800;font-size:14px;text-decoration:none">☕ Kleinigkeit spenden</a>
+    <div style="font-size:9.5px;color:#cbd5e1;margin-top:8px">Zahlung läuft extern über PayPal. Die App fasst kein Geld an.</div>
+  </div>`;
+}
+
+/* Fairplay-Codex (Phase 18.3): statisches Vollbild-Overlay mit den goldenen Regeln
+   für den Spielfeldrand. Kontrastreich (draußen lesbar), kein Backend, kein DSGVO-Thema. */
+const FAIRPLAY_REGELN=[
+  {emo:"👏", t:"Anfeuern statt anweisen", d:"Coachen ist Trainer-Sache. Ihr feuert an – das gibt den Kindern Rückenwind, ohne sie zu verwirren."},
+  {emo:"🎉", t:"Jedes Kind bejubeln", d:"Ein gutes Dribbling ist ein gutes Dribbling – egal, welches Trikot. Auch die Gegner sind Kinder."},
+  {emo:"🙌", t:"Fehler gehören dazu", d:"Ein Fehlpass ist kein Drama. Mut machen statt meckern – so trauen sich die Kinder etwas."},
+  {emo:"⚖️", t:"Der Schiri hat immer recht", d:"Auch wenn er mal irrt. Respekt vor der Entscheidung – die Kinder schauen sich genau ab, wie wir reagieren."},
+  {emo:"🤝", t:"Ergebnis ist Nebensache", d:"Bei der U9 zählt Spaß, Bewegung und Dazulernen. Die Tabelle merkt sich in fünf Jahren keiner – das Gefühl schon."},
+  {emo:"🚗", t:"Wir sind ein Team – auch abseits", d:"Pünktlich sein, Fahrgemeinschaften teilen, mit anpacken. Was wir vorleben, lernen die Kinder."},
+  {emo:"🚧", t:"Abstand zum Spielfeld halten", d:"Bleibt hinter der Linie oder Bande. Die Kinder brauchen ihren Raum – und der Schiri freie Sicht."},
+  {emo:"🗣️", t:"Eine ruhige Stimme statt Stimmengewirr", d:"Wenige, positive Worte kommen an. Zu viele Zurufe von allen Seiten verwirren die Kinder."},
+  {emo:"🤗", t:"Trösten geht vor Analyse", d:"Nach einem Patzer oder einer Niederlage hilft ein Lächeln und eine Umarmung mehr als eine Manöverkritik."},
+  {emo:"⏳", t:"Geduld mit der Entwicklung", d:"Jedes Kind wächst im eigenen Tempo. Vergleiche bremsen, Zutrauen beflügelt – gebt ihnen Zeit."},
+  {emo:"📵", t:"Handy weg, Kind im Blick", d:"Die schönsten Momente passieren live. Eure Aufmerksamkeit zeigt jedem Kind: Du bist mir wichtig."},
+  {emo:"🧃", t:"Beim Büdchen & Co. mit anpacken", d:"Aufgaben teilen, helfen, aufräumen. Das Team lebt davon, dass alle mitmachen – nicht immer dieselben."},
+  {emo:"👋", t:"Gegner und Gasteltern freundlich behandeln", d:"Ein Gruß, ein Handschlag, ein Danke an den Gastgeber. Wir treten fair und gastfreundlich auf."},
+  {emo:"🎯", t:"Einsatz loben, nicht nur Tore", d:"Mut, Teamgeist und Anstrengung verdienen genauso Applaus wie ein Treffer. Das prägt fürs Leben."},
+  {emo:"🌧️", t:"Verlässlich dabei sein", d:"Rechtzeitig zu- oder absagen, bei jedem Wetter erscheinen. Planbarkeit hilft dem ganzen Team."}
+];
+// Ausformulierter Eltern-Leitfaden (breiter als der Fairplay-Codex). Default = Offline-Fallback,
+// im Normalfall aus der Tabelle eltern_leitfaden geladen (trainer-pflegbar). Name frei änderbar.
+const LEITFADEN_NAME="Eltern-Leitfaden";
+const ELTERN_LEITFADEN=[
+  {emo:"🕒", t:"Pünktlichkeit", d:"Bitte seid rund 10 Minuten vor Beginn da – bei Training und Spielen. Dann kommen die Kinder in Ruhe an, ziehen sich um und starten gemeinsam ins Aufwärmen. Wer zu spät kommt, verpasst genau das – und Aufwärmen schützt vor Verletzungen."},
+  {emo:"👨‍👩‍👧", t:"Immer ein Elternteil vor Ort", d:"Bei jedem Training bleibt mindestens ein Elternteil (oder eine feste Vertretung) auf dem Gelände. Die Trainer sind fürs Fußballspielen da, nicht für die Aufsicht bei Toilettengang, Schürfwunde oder Heimweh. So ist immer jemand ansprechbar, wenn ein Kind etwas braucht."},
+  {emo:"🚗", t:"Bringen & Abholen", d:"Bitte bringt euer Kind nicht deutlich vor Beginn und fahrt dann wieder weg – vor dem offiziellen Start gibt es keine Aufsicht. Holt es ebenso pünktlich nach dem Ende wieder ab. Ein Kind, das allein wartet, ist kein schöner Abschluss einer Einheit."},
+  {emo:"🙋", t:"Verhalten beim Training – etwas Abstand", d:"Setzt euch beim Training bitte etwas abseits und lasst die Kinder mit den Trainern arbeiten. Kinder, die ständig zu Mama oder Papa schauen, sind abgelenkt. Kein Reinrufen, kein Mitcoachen vom Rand – das ist Aufgabe der Trainer."},
+  {emo:"📣", t:"Verhalten am Spielfeldrand", d:"Bei Spielen bleibt hinter der Linie oder Bande, feuert an statt anzuweisen, bejubelt jedes Kind – auch die Gegner – und respektiert den Schiri. Die goldenen Regeln stehen in unserem Fairplay-Codex. Bitte lest ihn und tragt ihn mit."},
+  {emo:"🧃", t:"Büdchen- & Helferdienste", d:"Bei Heimspielen versorgen zwei Familien im Wechsel das Büdchen (Kuchen, Getränke, Kasse). Die Einteilung seht ihr in der App und könnt sie bei Verhinderung weitergeben. Und generell gilt: mit anpacken – Auf- und Abbau, Fahrten, Aufräumen. Das Team lebt davon, dass viele helfen, nicht immer dieselben."},
+  {emo:"📱", t:"Die Adler-App nutzen – zu- & absagen", d:"Bitte meldet euer Kind für JEDEN Termin rechtzeitig zu oder ab, am besten bis zum Vortag. Nur so können die Trainer planen und Teams einteilen. Die App ist unser zentraler Draht: Termine, Infos, Aufstellung, Liveticker und Mitbringlisten laufen darüber."},
+  {emo:"🤒", t:"Krank oder verletzt?", d:"Meldet euer Kind bei Krankheit oder Verletzung ab und schickt es erst wieder, wenn es wirklich fit ist. Fieber, Magen-Darm & Co. bleiben zu Hause – auch dem Team zuliebe. Bei längeren Verletzungen sprecht kurz mit den Trainern."},
+  {emo:"🎒", t:"Die richtige Ausrüstung", d:"Immer dabei: Schienbeinschoner (Pflicht!), Stutzen, passende Schuhe fürs Feld oder die Halle, eine gefüllte Trinkflasche und wettergerechte Kleidung. Bitte alles mit Namen beschriften – so findet jedes Teil zurück."},
+  {emo:"🌦️", t:"Bei (fast) jedem Wetter", d:"Wir trainieren auch bei Wind und leichtem Regen – zieht die Kinder passend an (Regenjacke & Wechselsachen, im Sommer Kappe & Sonnencreme, im Winter warm). Fällt ein Termin platzbedingt aus oder wird verlegt, seht ihr das rechtzeitig in der App an der Platz-Ampel."},
+  {emo:"🗣️", t:"Sorgen? Sprecht uns direkt an", d:"Kritik, Fragen oder Sorgen rund um euer Kind? Sprecht die Trainer bitte direkt und in Ruhe an – am besten über die Funktion „Elterngespräch\" in der App, nicht zwischen Tür und Angel und nicht vor den Kindern. Gemeinsam finden wir eine Lösung."},
+  {emo:"🏆", t:"Entwicklung vor Ergebnis", d:"Bei der U9 zählen Spaß, Bewegung und Lernen – nicht die Tabelle. Jedes Kind entwickelt sich im eigenen Tempo. Lobt Einsatz und Mut, nicht nur Tore, und vergleicht die Kinder nicht untereinander."},
+  {emo:"📸", t:"Fotos & Datenschutz", d:"Fotos vom Team teilen wir nur, wenn ihr die Foto-Freigabe in der App erteilt habt. Bitte macht selbst keine Bilder, auf denen fremde Kinder klar erkennbar sind, und stellt nichts ungefragt in soziale Netzwerke."},
+  {emo:"🎉", t:"Gemeinschaft & Feiern", d:"Geburtstage, Saisonabschluss, Grillfest – solche Momente machen aus einer Mannschaft ein Team. Kommt vorbei, bringt euch ein und lernt die anderen Familien kennen. Für Events findet ihr Mitbringlisten in der App."},
+  {emo:"🧹", t:"Sauberkeit & Sorgfalt", d:"Müll nehmen wir mit, Kabine und Platz hinterlassen wir ordentlich, mit Toren und Material gehen wir sorgsam um. Was wir vorleben, lernen die Kinder ganz nebenbei."},
+  {emo:"💚", t:"Ehrenamt wertschätzen", d:"Trainer und Helfer stecken ihre Freizeit hinein – freiwillig und unbezahlt. Verlässlichkeit, Mithilfe und ein ehrliches Danke sind die schönste Anerkennung. Wenn alle ein bisschen mittragen, wird es für alle leicht."}
+];
+/* Adler-Börse (Phase 23.1): interner Flohmarkt. Preise sind Freitext ("Zu verschenken").
+   Fotos im vorhandenen fundbuero-Bucket (privat, nur Angemeldete), Prefix "boerse/". */
+async function boerseOpen(){
+  document.getElementById("boerse-modal")?.remove();
+  const modal=document.createElement("div");
+  modal.id="boerse-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Adler-Börse");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.id="boerse-card";
+  c.style.cssText="background:var(--surface,#fff);color:var(--text,#0f172a);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  modal.appendChild(c);document.body.appendChild(modal);
+  await boerseRender();
+}
+async function boerseRender(){
+  const c=document.getElementById("boerse-card"); if(!c)return;
+  const meineId=(typeof sbUserId==="function")?sbUserId():null;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/boerse_listings?select=*&order=created_at.desc`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)rows=await r.json();}catch(e){}
+  const fld="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box;background:#fff;color:#0f172a";
+  const liste=rows.map(x=>{
+    const meins=x.created_by===meineId;
+    const reserviert=!!x.reserviert_von;
+    const vonMir=x.reserviert_von===meineId;
+    let aktion;
+    if(meins)aktion=`<button onclick="boerseDelete(${x.id})" style="min-height:40px;padding:6px 12px;border:1.5px solid #fca5a5;border-radius:10px;background:#fef2f2;color:#dc2626;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">Entfernen</button>`;
+    else if(vonMir)aktion=`<button onclick="boerseFreigeben(${x.id})" style="min-height:40px;padding:6px 12px;border:1.5px solid #94a3b8;border-radius:10px;background:#f8fafc;color:#475569;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">✓ von dir – freigeben</button>`;
+    else if(reserviert)aktion=`<span style="font-size:12px;color:#b45309;font-weight:700">reserviert</span>`;
+    else aktion=`<button onclick="boerseReservieren(${x.id})" style="min-height:40px;padding:6px 14px;border:none;border-radius:10px;background:#059669;color:#fff;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer">Nehme ich</button>`;
+    return `<div style="display:flex;gap:10px;padding:10px 0;border-top:1px solid #f1f5f9">
+      ${x.foto_path?`<img id="bo-img-${x.id}" alt="" style="width:56px;height:56px;flex:none;border-radius:10px;object-fit:cover;background:#f1f5f9">`:`<div style="width:56px;height:56px;flex:none;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:24px">🛍️</div>`}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13.5px;font-weight:700">${esc(x.titel)}</div>
+        <div style="font-size:11.5px;color:#64748b">${x.groesse?"Gr. "+esc(x.groesse)+" · ":""}${esc(x.preis||"")}</div>
+        <div style="margin-top:6px">${aktion}</div>
+      </div>
+    </div>`;
+  }).join("");
+  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🛍️ Adler-Börse</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:12px">Zu klein geworden? Hier findet es ein neues Adler-Kind. Preis frei (z. B. „Zu verschenken").</div>
+    ${liste||'<div style="font-size:12px;color:#94a3b8;padding:6px 0">Noch nichts drin. Stell das Erste ein!</div>'}
+    <div style="border-top:1px solid #e2e8f0;margin-top:12px;padding-top:12px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin-bottom:6px">Etwas anbieten</div>
+      <input id="bo-titel" placeholder="Was? z. B. Fußballschuhe blau" style="width:100%;margin-bottom:6px;${fld}">
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="bo-groesse" placeholder="Größe" style="flex:1;${fld}">
+        <input id="bo-preis" placeholder="Preis / „Zu verschenken“" style="flex:2;${fld}">
+      </div>
+      <input id="bo-foto" type="file" accept="image/jpeg,image/png,image/webp" style="width:100%;margin-bottom:8px;font-size:11px">
+      <div style="display:flex;gap:8px">
+        <button onclick="boerseAdd(this)" style="min-height:44px;padding:0 14px;border:none;border-radius:10px;background:#2563eb;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Einstellen</button>
+        <button onclick="document.getElementById('boerse-modal').remove()" style="margin-left:auto;min-height:44px;padding:0 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;cursor:pointer">Schließen</button>
+      </div>
+    </div>`;
+  rows.forEach(x=>{ if(x.foto_path)boerseFoto(x.id,x.foto_path); });
+}
+async function boerseFoto(id,path){
+  try{
+    const r=await fetch(`${SB_URL}/storage/v1/object/authenticated/fundbuero/${path}`,{headers:{'Authorization':'Bearer '+sbToken()}});
+    if(!r.ok)return;
+    const img=document.getElementById("bo-img-"+id);
+    if(img)img.src=URL.createObjectURL(await r.blob());
+  }catch(e){}
+}
+async function boerseAdd(btn){
+  const titel=(document.getElementById("bo-titel")?.value||"").trim();
+  if(!titel){toast("Bitte kurz beschreiben, was du anbietest","err");return;}
+  const groesse=(document.getElementById("bo-groesse")?.value||"").trim()||null;
+  const preis=(document.getElementById("bo-preis")?.value||"").trim()||null;
+  const input=document.getElementById("bo-foto");
+  const file=input&&input.files&&input.files[0];
+  if(btn)btn.disabled=true;
+  try{
+    let path=null;
+    if(file){
+      const blob=await fotoCompress(file,800);
+      path="boerse/"+((window.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now()))+".jpg";
+      const up=await fetch(`${SB_URL}/storage/v1/object/fundbuero/${path}`,{method:"POST",headers:{'Authorization':'Bearer '+sbToken(),'Content-Type':'image/jpeg'},body:blob});
+      if(!up.ok){toast("Foto-Upload fehlgeschlagen","err");return;}
+    }
+    const r=await fetch(`${SB_URL}/rest/v1/boerse_listings`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({titel,groesse,preis,foto_path:path})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht einstellen"),"err");return;}
+  }catch(e){toast("Foto konnte nicht verarbeitet werden","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  toast("Eingestellt ✓");
+  boerseRender();
+}
+async function boerseReservieren(id){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/boerse_reservieren`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_id:id,p_frei:false})});
+    if(sbCheck401(r))return;
+    const d=await r.json().catch(()=>({}));
+    if(d&&d.ok&&d.von_mir)toast("Für euch reserviert ✓ Beim nächsten Training abholen.");
+    else if(d&&d.ok)toast("Schon vergeben – jemand war schneller.","err");
+  }catch(e){toast("Netzwerkfehler","err");}
+  boerseRender();
+}
+async function boerseFreigeben(id){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/boerse_reservieren`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_id:id,p_frei:true})});
+    if(sbCheck401(r))return;
+  }catch(e){}
+  boerseRender();
+}
+async function boerseDelete(id){
+  if(!confirm("Dieses Angebot entfernen?"))return;
+  try{const r=await fetch(`${SB_URL}/rest/v1/boerse_listings?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht entfernen"),"err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  boerseRender();
+}
+
+/* Skill der Woche (Phase 22.2): Trainer setzt eine Heim-Challenge mit Video-Link. */
+async function skillWocheOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("skw-modal")?.remove();
+  let cur=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/skill_woche?aktiv=eq.true&select=*&order=created_at.desc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)cur=(await r.json())[0]||null;}catch(e){}
+  const modal=document.createElement("div");
+  modal.id="skw-modal";modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const fld="width:100%;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:440px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🎬 Skill der Woche</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Kurze Heim-Challenge mit Video-Link. Schafft es das Kind, geben die Eltern 50 Federn frei.</div>
+    ${cur?`<div style="font-size:11px;color:var(--text2);background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:10px">Aktuell: <b>${esc(cur.titel)}</b></div>`:""}
+    <label style="font-size:11px;color:var(--text2)">Titel<input id="skw-titel" value="${esc(cur?.titel||"")}" placeholder="z. B. 10× Ball hochhalten" style="${fld}"></label>
+    <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Video-Link (YouTube o. ä.)<input id="skw-url" value="${esc(cur?.video_url||"")}" placeholder="https://…" style="${fld}"></label>
+    <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Beschreibung (optional)<textarea id="skw-besch" rows="2" style="${fld};resize:vertical">${esc(cur?.beschreibung||"")}</textarea></label>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-p btn-sm" onclick="skillWocheSave(this)"><i class="ti ti-device-floppy"></i>Als aktuelle Challenge setzen</button>
+      <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('skw-modal').remove()">Schließen</button>
+    </div>`;
+  modal.appendChild(c);document.body.appendChild(modal);
+}
+async function skillWocheSave(btn){
+  const titel=(document.getElementById("skw-titel")?.value||"").trim();
+  if(!titel){toast("Bitte einen Titel","err");return;}
+  const url=(document.getElementById("skw-url")?.value||"").trim();
+  if(url&&!/^https?:\/\//i.test(url)){toast("Bitte einen vollständigen Link (https://…)","err");return;}
+  const besch=(document.getElementById("skw-besch")?.value||"").trim()||null;
+  if(btn)btn.disabled=true;
+  try{
+    // alte deaktivieren, neue als aktiv einfügen (Historie bleibt, neue Challenge = neue Federn)
+    await fetch(`${SB_URL}/rest/v1/skill_woche?aktiv=eq.true`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({aktiv:false})});
+    const r=await fetch(`${SB_URL}/rest/v1/skill_woche`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({titel,video_url:url||null,beschreibung:besch,aktiv:true})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  toast("Skill der Woche gesetzt ✓");
+  document.getElementById("skw-modal")?.remove();
+}
+
+/* Skill der Woche bei den Eltern: aktive Challenge + "Geschafft" (50 Federn fürs Kind). */
+async function elternSkillLoad(kids){
+  const slot=document.getElementById("skill-slot"); if(!slot)return;
+  let sk=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/skill_woche?aktiv=eq.true&select=*&order=created_at.desc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)sk=(await r.json())[0]||null;}catch(e){}
+  if(!sk){ slot.innerHTML=""; return; }
+  const kidBtns=(kids||[]).map(k=>`<button onclick="skillGeschafft(${sk.id},${k.spieler_id},'${jsq((k.kader&&k.kader.name)||"")}')" style="flex:1;min-width:130px;min-height:44px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#6d28d9;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🎉 ${esc((k.kader&&k.kader.name)||"Kind")} hat's geschafft</button>`).join("");
+  slot.innerHTML=`<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">
+    <div style="font-weight:700;margin-bottom:2px">🎬 Skill der Woche</div>
+    <div style="font-size:14px;font-weight:700;color:#6d28d9;margin:2px 0">${esc(sk.titel)}</div>
+    ${sk.beschreibung?`<div style="font-size:12.5px;color:#475569;margin-bottom:8px">${esc(sk.beschreibung)}</div>`:""}
+    ${sk.video_url?`<a href="${esc(sk.video_url)}" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;padding:11px;border:1.5px solid #7c3aed;border-radius:10px;background:#faf5ff;color:#6d28d9;font-weight:700;font-size:13px;text-decoration:none;margin-bottom:8px">▶️ Video ansehen</a>`:""}
+    <div style="font-size:11px;color:#64748b;margin-bottom:8px">Zuhause geübt und geschafft? Dann Federn freigeben:</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${kidBtns}</div>
+  </div>`;
+}
+async function skillGeschafft(skillId,spielerId,name){
+  if(!confirm(`${name||"Dein Kind"} hat den Skill geschafft?\n\nEs gibt 50 Federn fürs Kind.`))return;
+  let neu=0;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/xp_award_event`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler_id:spielerId,p_quelle:'skillwoche',p_quelle_id:String(skillId)})});
+    if(r.ok){const d=await r.json(); if(d>0)neu=d;}
+    else if(r.status===403){toast("Nur fürs eigene Kind","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  toast(neu>0?`Stark! 🪶 +${neu} Federn fürs Kind`:"Diesen Skill hattet ihr schon – gut geübt! 💪");
+}
+
+/* Trikot-Wäsche-Rotator (Phase 21.1) bei den Eltern: wer wäscht als Nächstes?
+   Meldet sich eine Familie, bekommt das Kind 100 Federn. Anstupsen, wenn die eigene
+   Familie lange nicht dran war. Bezahlung/Wäsche läuft real – die App trackt nur.
+   AKTUELL AUSGEBLENDET: alle Eltern waschen die Trikots selbst. Zum Reaktivieren
+   einfach WAESCHE_AKTIV auf true setzen – Slot, Loader und Federn kommen zurück. */
+const WAESCHE_AKTIV=false;
+async function elternWaescheLoad(kids){
+  const slot=document.getElementById("waesche-slot"); if(!slot)return;
+  let log=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/waesche_log?select=datum,spieler_id,kader(name)&order=datum.desc,id.desc&limit=8`,{headers:sbAuthHeaders()});
+    if(r.ok)log=await r.json();
+  }catch(e){}
+  const meineIds=(kids||[]).map(k=>k.spieler_id);
+  // Wann war die eigene Familie zuletzt dran?
+  const meinLetzter=log.find(x=>meineIds.includes(x.spieler_id));
+  const tageHer=meinLetzter?Math.floor((Date.now()-new Date(meinLetzter.datum).getTime())/864e5):null;
+  const langeNichtDran=tageHer===null||tageHer>49; // ~7 Wochen oder noch nie
+  const fmt=d=>new Date(d+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+  const verlauf=log.length
+    ? log.slice(0,5).map(x=>`<div style="display:flex;gap:6px;font-size:12px;padding:3px 0;border-top:1px solid #f1f5f9"><span style="color:#94a3b8;width:44px">${fmt(x.datum)}</span><span>${esc((x.kader&&x.kader.name)||"—")}s Familie</span></div>`).join("")
+    : `<div style="font-size:12px;color:#94a3b8;padding:4px 0">Noch niemand eingetragen.</div>`;
+  const kidBtns=(kids||[]).map(k=>`<button onclick="waescheUebernehmen(${k.spieler_id},'${jsq((k.kader&&k.kader.name)||"")}')" style="flex:1;min-width:130px;min-height:44px;padding:9px;border:1.5px solid #2563eb;border-radius:10px;background:#fff;color:#1d4ed8;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🧺 ${esc((k.kader&&k.kader.name)||"Kind")} übernimmt</button>`).join("");
+  slot.innerHTML=`<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">
+    <div style="font-weight:700;margin-bottom:2px">🧺 Trikot-Wäsche</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Wer nimmt die Trikots mit? Übernimmt deine Familie, gibt's ${XP_ICON} <b>100 Federn</b> fürs Kind.</div>
+    ${langeNichtDran?`<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:8px 10px;font-size:12px;color:#1e40af;margin-bottom:8px">👋 ${tageHer===null?"Ihr wart noch nicht dran":"Ihr wart lange nicht dran"} – mögt ihr diesmal?</div>`:""}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">${kidBtns}</div>
+    <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;margin-bottom:2px">Zuletzt gewaschen</div>
+    ${verlauf}
+  </div>`;
+}
+async function waescheUebernehmen(spielerId,name){
+  if(!confirm(`${name||"Dein Kind"}s Familie übernimmt die nächste Wäsche?\n\nDanke! Es gibt 100 Federn fürs Kind.`))return;
+  const heute=new Date().toISOString().slice(0,10);
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/waesche_log`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({spieler_id:spielerId,datum:heute})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht eintragen"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  // 100 Federn – pro Wasch-Termin (quelle_id = Datum) einmal, Server dedupliziert.
+  let neu=0;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/xp_award_event`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler_id:spielerId,p_quelle:'waesche',p_quelle_id:heute})});
+    if(r.ok){const d=await r.json(); if(d>0)neu=d;}
+  }catch(e){}
+  toast(neu>0?`Danke! 🪶 +${neu} Federn fürs Kind`:"Eingetragen – danke!");
+  if(typeof elternDashLoad==="function")elternDashLoad();
+}
+
+/* Event-Mitbringliste bei den Eltern (löst die Geld-Töpfe ab): zu jedem kommenden
+   Event-Termin (typ='event') tragen die Eltern ein, WAS sie mitbringen – Salat,
+   Kuchen, Getränke, Pavillon … Reine Absprache, kein Geld. Alle sehen die Liste,
+   jeder darf eintragen; löschen darf man nur den eigenen Eintrag (RLS). */
+async function mitbringEventsLaden(){
+  const heute=new Date().toISOString().slice(0,10);
+  const r=await fetch(`${SB_URL}/rest/v1/termine?typ=eq.event&datum=gte.${heute}&select=id,titel,datum,ort&order=datum.asc&limit=4`,{headers:sbAuthHeaders()});
+  if(!r.ok)return [];
+  return await r.json();
+}
+async function mitbringItems(terminIds){
+  const map={};
+  if(!terminIds.length)return map;
+  const r=await fetch(`${SB_URL}/rest/v1/event_mitbringen?termin_id=in.(${terminIds.join(",")})&select=id,termin_id,was,wer,created_by&order=id.asc`,{headers:sbAuthHeaders()});
+  if(r.ok)(await r.json()).forEach(x=>{(map[x.termin_id]=map[x.termin_id]||[]).push(x);});
+  return map;
+}
+async function elternMitbringLoad(kids){
+  const slot=document.getElementById("mitbring-slot"); if(!slot)return;
+  window._elternKids=kids||window._elternKids||[];
+  let events=[]; try{events=await mitbringEventsLaden();}catch(e){}
+  if(!events.length){ slot.innerHTML=""; return; }
+  let itemsMap={}; try{itemsMap=await mitbringItems(events.map(e=>e.id));}catch(e){}
+  let uid=""; try{uid=sbUserId()||"";}catch(e){}
+  const fmtD=d=>new Date(d+"T00:00:00").toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"});
+  const kidOpts=(kids||[]).map(k=>`<option value="${k.spieler_id}">${esc((k.kader&&k.kader.name)||"Kind")}</option>`).join("");
+  slot.innerHTML=events.map(ev=>{
+    const items=itemsMap[ev.id]||[];
+    const liste=items.length
+      ? items.map(it=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 0;border-top:1px solid #f1f5f9">
+          <span style="flex:1">🍽️ <b>${esc(it.was)}</b>${it.wer?` <span style="color:#94a3b8">· ${esc(it.wer)}</span>`:""}</span>
+          ${(uid&&it.created_by===uid)?`<button onclick="mitbringDelete(${it.id})" aria-label="Eintrag löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;min-width:32px;min-height:32px;font-size:15px">✕</button>`:""}
+        </div>`).join("")
+      : `<div style="font-size:12px;color:#94a3b8;padding:4px 0">Noch nichts eingetragen – mach den Anfang! 🎉</div>`;
+    const kidSel=(kids&&kids.length>1)?`<select id="mb-kid-${ev.id}" style="min-height:44px;padding:9px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:13px;background:#fff">${kidOpts}</select>`:"";
+    return `<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">
+      <div style="font-weight:700;margin-bottom:2px">🎉 ${esc(ev.titel||"Event")} · Mitbringliste</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:8px">${fmtD(ev.datum)}${ev.ort?" · "+esc(ev.ort):""} — wer bringt was mit? (Salat, Kuchen, Getränke, Pavillon …)</div>
+      ${liste}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+        <input id="mb-was-${ev.id}" placeholder="Was bringst du mit?" style="flex:1;min-width:150px;min-height:44px;padding:9px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:13px" onkeydown="if(event.key==='Enter')mitbringAdd(${ev.id})">
+        ${kidSel}
+        <button onclick="mitbringAdd(${ev.id})" style="min-height:44px;padding:9px 16px;border:none;border-radius:10px;background:#16a34a;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Eintragen</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+async function mitbringAdd(terminId){
+  const inp=document.getElementById("mb-was-"+terminId);
+  const was=(inp&&inp.value||"").trim();
+  if(!was){toast("Bitte eintragen, was du mitbringst","err");return;}
+  const kids=window._elternKids||[];
+  let wer="", spielerId=null;
+  const sel=document.getElementById("mb-kid-"+terminId);
+  if(sel&&sel.value){ spielerId=Number(sel.value); const k=kids.find(x=>x.spieler_id===spielerId); wer=(k&&k.kader&&k.kader.name)||""; }
+  else if(kids.length){ spielerId=kids[0].spieler_id; wer=(kids[0].kader&&kids[0].kader.name)||""; }
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/event_mitbringen`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({termin_id:terminId,was,wer:wer||null,spieler_id:spielerId})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht eintragen"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  if(inp)inp.value="";
+  toast("Eingetragen – danke! 🎉");
+  elternMitbringLoad(kids);
+}
+async function mitbringDelete(id){
+  if(!confirm("Deinen Eintrag entfernen?"))return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/event_mitbringen?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht löschen"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  elternMitbringLoad(window._elternKids||[]);
+}
+
+/* Büdchen bei Heimspielen: 2 Familien pro Heimspiel, faire Rotation server-seitig
+   (RPC buedchen_plan – weist beim Anschauen automatisch auf, wenn noch nicht voll).
+   Die eigene Familie kann per Opt-out absagen, dann rückt die nächste nach. */
+async function elternBuedchenLoad(termine,kids){
+  const slot=document.getElementById("buedchen-slot"); if(!slot)return;
+  window._elternKids=kids||window._elternKids||[];
+  const heim=(termine||[]).filter(t=>(t.typ==="spiel"||t.typ==="turnier")&&t.heim===true).slice(0,3);
+  if(!heim.length){ slot.innerHTML=""; return; }
+  const meineIds=(kids||[]).map(k=>k.spieler_id);
+  const cards=[];
+  for(const t of heim){
+    let fam=[];
+    try{const r=await fetch(`${SB_URL}/rest/v1/rpc/buedchen_plan`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_termin:t.id})});if(r.ok)fam=await r.json();}catch(e){}
+    const d=new Date(t.datum+"T00:00:00");
+    const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+    const zeit=t.uhrzeit?String(t.uhrzeit).slice(0,5)+" Uhr":"";
+    const meine=(fam||[]).find(f=>meineIds.includes(f.spieler_id));
+    const namen=(fam&&fam.length)?fam.map(f=>esc(f.name)+"s Familie").join(" & "):"– wird eingeteilt –";
+    cards.push(`<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05);${meine?"border:2px solid #16a34a":""}">
+      <div style="font-weight:700;margin-bottom:2px">🍿 Büdchen · Heimspiel${(t.gegner||t.titel)?" gegen "+esc(t.gegner||t.titel):""}</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:8px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""} · 2 Familien betreuen das Büdchen</div>
+      <div style="font-size:13px">Eingeteilt: <b>${namen}</b></div>
+      ${meine?`<div style="margin-top:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 10px;font-size:12.5px;color:#15803d">Ihr seid diesmal dran – danke fürs Büdchen! 🙌</div>
+        <button onclick="buedchenOptout(${t.id},${meine.spieler_id})" style="width:100%;margin-top:8px;min-height:44px;border:1.5px solid #dc2626;border-radius:10px;background:#fff;color:#dc2626;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Wir können leider nicht – nächste Familie</button>`:""}
+    </div>`);
+  }
+  slot.innerHTML=cards.join("");
+}
+async function buedchenOptout(terminId,spielerId){
+  if(!confirm("Ihr könnt beim Büdchen nicht? Dann rückt automatisch die nächste Familie nach."))return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/buedchen_optout`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_termin:terminId,p_spieler:spielerId})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht ändern"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Danke – die nächste Familie rückt nach.");
+  if(typeof elternDashLoad==="function")elternDashLoad();
+}
+/* Elterngespräch: die Eltern signalisieren Bedarf, der Trainer sieht die Wünsche und
+   meldet sich zur Terminabstimmung. Anfrage = eine Zeile in elterngespraech_wunsch. */
+async function elternGespraechStatus(){
+  const slot=document.getElementById("eg-slot"); if(!slot)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/elterngespraech_wunsch?status=eq.offen&select=id,thema,created_at&order=created_at.desc`,{headers:sbAuthHeaders()});if(r.ok)rows=await r.json();}catch(e){}
+  if(!rows.length){slot.innerHTML="";return;}
+  slot.innerHTML=rows.map(w=>`<div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:12.5px;color:#6b21a8">✓ Anfrage gesendet – der Trainer meldet sich.${w.thema?`<div style="font-size:11px;color:#7c3aed;margin-top:2px">Thema: ${esc(w.thema)}</div>`:""}</div>`).join("");
+}
+function elternGespraechOpen(){
+  const kids=window._elternKids||[];
+  document.getElementById("eg-modal")?.remove();
+  const m=document.createElement("div");m.id="eg-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10041;display:flex;align-items:center;justify-content:center;padding:16px";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  const kidSel=(kids.length>1)?`<label style="font-size:11px;color:#64748b;display:block;margin-bottom:8px">Um welches Kind geht es?<select id="eg-kid" style="width:100%;padding:9px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:14px;margin-top:2px">${kids.map(k=>`<option value="${k.spieler_id}">${esc((k.kader&&k.kader.name)||"Kind")}</option>`).join("")}</select></label>`:"";
+  m.innerHTML=`<div style="background:#fff;color:#1a1a2e;max-width:380px;width:100%;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)">
+    <div style="font-weight:800;font-size:16px;margin-bottom:2px">🗣️ Elterngespräch anfragen</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:12px">Der Trainer bekommt deinen Wunsch und meldet sich zur Terminabstimmung.</div>
+    ${kidSel}
+    <label style="font-size:11px;color:#64748b">Worum geht es? (optional)<textarea id="eg-thema" rows="3" placeholder="z. B. Entwicklung, Position, eine Frage …" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:14px;margin-top:2px;resize:vertical"></textarea></label>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button onclick="elternGespraechSave(this)" style="flex:1;min-height:44px;border:none;border-radius:10px;background:#7c3aed;color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">Anfrage senden</button>
+      <button onclick="document.getElementById('eg-modal').remove()" style="min-height:44px;padding:0 16px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;color:#334155;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Abbrechen</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+async function elternGespraechSave(btn){
+  const kids=window._elternKids||[];
+  const sel=document.getElementById("eg-kid");
+  const spielerId=sel?Number(sel.value):(kids[0]&&kids[0].spieler_id)||null;
+  const thema=(document.getElementById("eg-thema")?.value||"").trim()||null;
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/elterngespraech_wunsch`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({spieler_id:spielerId,thema})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht senden"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  document.getElementById("eg-modal")?.remove();
+  toast("Anfrage gesendet – der Trainer meldet sich 🗣️");
+  elternGespraechStatus();
+}
+/* Elterngespräch-Doodle (Eltern-Seite): der Trainer hat Termine vorgeschlagen –
+   die Familie stimmt je Termin ab. RLS zeigt nur die eigenen Polls. */
+async function elternPollLoad(){
+  const slot=document.getElementById("eltern-poll-slot"); if(!slot)return;
+  let polls=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_poll?select=*&order=created_at.desc&limit=5`,{headers:sbAuthHeaders()});if(r.ok)polls=await r.json();}catch(e){}
+  if(!polls.length){slot.innerHTML="";return;}
+  const pids=polls.map(p=>p.id);
+  let slots=[],votes=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_poll_slot?poll_id=in.(${pids.join(",")})&select=*&order=datum.asc,uhrzeit.asc.nullslast`,{headers:sbAuthHeaders()});if(r.ok)slots=await r.json();}catch(e){}
+  const sids=slots.map(s=>s.id);
+  if(sids.length){try{const r=await fetch(`${SB_URL}/rest/v1/eltern_poll_vote?slot_id=in.(${sids.join(",")})&select=slot_id,voter,status`,{headers:sbAuthHeaders()});if(r.ok)votes=await r.json();}catch(e){}}
+  let uid=""; try{uid=sbUserId()||"";}catch(e){}
+  const byPoll={}; slots.forEach(s=>{(byPoll[s.poll_id]=byPoll[s.poll_id]||[]).push(s);});
+  const bySlot={}; votes.forEach(v=>{(bySlot[v.slot_id]=bySlot[v.slot_id]||[]).push(v);});
+  slot.innerHTML=polls.map(p=>{
+    const ss=byPoll[p.id]||[]; if(!ss.length)return "";
+    const rows=ss.map(s=>{
+      const dstr=new Date(s.datum+"T00:00:00").toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"});
+      const zstr=s.uhrzeit?" · "+String(s.uhrzeit).slice(0,5)+" Uhr":"";
+      const decided=p.decided_slot_id===s.id;
+      if(p.status==="entschieden")return decided?`<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px;margin-top:6px;font-size:13px;font-weight:700;color:#15803d">✅ Termin: ${dstr}${zstr}</div>`:"";
+      const mine=((bySlot[s.id]||[]).find(v=>v.voter===uid)||{}).status||null;
+      const btns=["ja","vielleicht","nein"].map(st=>{const on=mine===st;const c=st==="ja"?{e:"👍",col:"#16a34a",l:"Passt"}:st==="vielleicht"?{e:"🤔",col:"#ca8a04",l:"Evtl."}:{e:"👎",col:"#dc2626",l:"Nein"};
+        return `<button onclick="epollVote(${s.id},'${st}')" style="flex:1;min-width:60px;padding:8px 4px;border-radius:9px;border:1.5px solid ${on?c.col:"#e2e8f0"};background:${on?c.col:"#fff"};color:${on?"#fff":"#334155"};font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer">${c.e} ${c.l}</button>`;}).join("");
+      return `<div style="margin-top:8px"><div style="font-size:12.5px;font-weight:700;margin-bottom:4px">${dstr}${zstr}</div><div style="display:flex;gap:5px">${btns}</div></div>`;
+    }).join("");
+    return `<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05);border:2px solid #7c3aed">
+      <div style="font-weight:700;margin-bottom:2px">🗓️ ${esc(p.titel||"Elterngespräch")}</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:6px">${p.status==="entschieden"?"Der Termin steht:":"Der Trainer schlägt Termine vor – wann passt es dir?"}</div>
+      ${rows}
+    </div>`;
+  }).join("");
+}
+async function epollVote(slotId,status){
+  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_poll_vote?on_conflict=slot_id,voter`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({slot_id:slotId,status})});if(sbCheck401(r))return;if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht abstimmen"),"err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Danke für deine Rückmeldung ✓");
+  elternPollLoad();
+}
+// Trainer-Terminliste: die eingeteilten Büdchen-Familien je Heimspiel nachladen (plant bei Bedarf).
+async function buedchenTrainerFill(t){
+  const slot=document.getElementById("bd-tm-"+t.id); if(!slot)return;
+  let fam=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/buedchen_plan`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_termin:t.id})});if(r.ok)fam=await r.json();}catch(e){}
+  const namen=(fam&&fam.length)?fam.map(f=>esc(f.name)).join(" & "):"– noch offen –";
+  slot.innerHTML=`🍿 Büdchen: <b style="color:var(--text)">${namen}</b>`;
+}
+
+/* Fairplay-Quiz für die Eltern (Phase 18.3): fester Fragensatz rund um den Codex.
+   Bestehen bringt dem Kind 50 Federn – genau EINMAL, serverseitig über xp_award_event
+   dedupliziert. Wiederholen zum Üben ist erlaubt, Federn gibt es nur beim ersten Mal. */
+const FAIRPLAY_QUIZ=[
+  {q:"Dein Kind vertändelt den Ball kurz vorm Tor. Was hilft ihm am meisten?",
+   opts:["Weiter anfeuern und Mut machen","Laut schimpfen","Genervt den Kopf schütteln"],correct:0,
+   fun:"Mut machen! Kinder trauen sich mehr, wenn sie sich sicher fühlen."},
+  {q:"Der Schiri pfeift ein Foul, das keins war. Wie reagierst du am Rand?",
+   opts:["Ruhig bleiben, Entscheidung akzeptieren","Lautstark protestieren","Auf den Schiri zeigen und meckern"],correct:0,
+   fun:"Die Kinder schauen sich genau ab, wie wir mit Fehlern umgehen."},
+  {q:"Ein Kind der gegnerischen Mannschaft macht ein tolles Tor. Und jetzt?",
+   opts:["Ruhig anerkennen – das war stark","Still bleiben, ist ja der Gegner","Buhen"],correct:0,
+   fun:"Ein gutes Tor ist ein gutes Tor – egal welches Trikot."},
+  {q:"Vom Spielfeldrand Taktik-Kommandos ins Spiel rufen – gute Idee?",
+   opts:["Nein, das Coachen macht der Trainer","Ja, je lauter desto besser","Nur bei wichtigen Spielen"],correct:0,
+   fun:"Zu viele Rufe verwirren die Kinder. Anfeuern ja, anweisen nein."},
+  {q:"Euer Team verliert deutlich. Was tut der Heimweg dem Kind gut?",
+   opts:["Positives hervorheben, Spaß betonen","Jeden Fehler durchgehen","Schweigen und schlechte Laune"],correct:0,
+   fun:"Bei der U9 zählt das Gefühl, nicht das Ergebnis."},
+  {q:"Ein Mitspieler deines Kindes weint nach einem Fehler. Was ist stark?",
+   opts:["Ihn aufmuntern – Kopf hoch!","Ihm sagen, er soll sich zusammenreißen","Weggucken"],correct:0,
+   fun:"Ein Team hält zusammen – auch am Spielfeldrand."}
+];
+let FQ_IDX=0, FQ_RICHTIG=0, FQ_KIDS=[];
+function fairplayQuizStart(kids){
+  FQ_IDX=0; FQ_RICHTIG=0; FQ_KIDS=(kids||[]).slice();
+  document.getElementById("fq-ov")?.remove();
+  const ov=document.createElement("div");
+  ov.id="fq-ov";
+  ov.style.cssText="position:fixed;inset:0;z-index:10055;background:linear-gradient(160deg,#0e3a5f,#0b2f4d);color:#fff;overflow-y:auto;font-family:inherit";
+  document.body.appendChild(ov);
+  fairplayQuizRender();
+}
+function fairplayQuizRender(){
+  const ov=document.getElementById("fq-ov"); if(!ov)return;
+  const q=FAIRPLAY_QUIZ[FQ_IDX];
+  // Antworten mischen, damit die richtige nicht immer oben steht
+  const order=q.opts.map((t,i)=>({t,i})).sort(()=>Math.random()-0.5);
+  ov.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:24px 18px 40px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:800;opacity:.9">🤝 Fairplay-Quiz</div>
+      <button onclick="document.getElementById('fq-ov').remove()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div style="height:6px;background:rgba(255,255,255,.2);border-radius:3px;overflow:hidden;margin-bottom:16px"><div style="height:100%;width:${Math.round(FQ_IDX/FAIRPLAY_QUIZ.length*100)}%;background:#38bdf8;border-radius:3px;transition:width .3s"></div></div>
+    <div style="font-size:11px;opacity:.8;margin-bottom:6px">Frage ${FQ_IDX+1} von ${FAIRPLAY_QUIZ.length}</div>
+    <div style="font-size:18px;font-weight:800;line-height:1.4;margin-bottom:18px">${esc(q.q)}</div>
+    <div id="fq-opts" style="display:flex;flex-direction:column;gap:10px">
+      ${order.map(o=>`<button onclick="fairplayQuizAnswer(${o.i},this)" style="text-align:left;padding:15px 16px;min-height:56px;border:2px solid rgba(255,255,255,.25);border-radius:14px;background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:14.5px;font-weight:600;cursor:pointer">${esc(o.t)}</button>`).join("")}
+    </div>
+    <div id="fq-feedback" style="margin-top:16px"></div>
+  </div>`;
+}
+function fairplayQuizAnswer(i,btn){
+  const q=FAIRPLAY_QUIZ[FQ_IDX];
+  document.querySelectorAll("#fq-opts button").forEach(b=>b.disabled=true);
+  const richtig=i===q.correct;
+  if(richtig)FQ_RICHTIG++;
+  btn.style.borderColor=richtig?"#22c55e":"#ef4444";
+  btn.style.background=richtig?"rgba(34,197,94,.25)":"rgba(239,68,68,.25)";
+  try{navigator.vibrate&&navigator.vibrate(richtig?20:[40,40,40]);}catch(e){}
+  document.getElementById("fq-feedback").innerHTML=`<div style="background:rgba(255,255,255,.1);border-radius:12px;padding:12px 14px">
+    <div style="font-size:14px;font-weight:800">${richtig?"👍 Genau!":"💡 Fast – so geht's fairer:"}</div>
+    <div style="font-size:13px;opacity:.95;margin-top:3px">${esc(q.fun)}</div>
+    <button onclick="fairplayQuizNext()" style="width:100%;min-height:48px;margin-top:12px;border:none;border-radius:12px;background:#fff;color:#0b2f4d;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">${FQ_IDX<FAIRPLAY_QUIZ.length-1?"Weiter":"Fertig 🎉"}</button>
+  </div>`;
+}
+function fairplayQuizNext(){
+  if(FQ_IDX<FAIRPLAY_QUIZ.length-1){FQ_IDX++;fairplayQuizRender();}
+  else fairplayQuizResult();
+}
+async function fairplayQuizResult(){
+  const ov=document.getElementById("fq-ov"); if(!ov)return;
+  ov.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:60px 18px;text-align:center;opacity:.85">Federn werden gutgeschrieben …</div>`;
+  // Federn fürs eigene Kind – genau einmal (Server dedupliziert). Bei mehreren Kindern jedes.
+  let neu=0, schonGehabt=false;
+  for(const k of FQ_KIDS){
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/rpc/xp_award_event`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},
+        body:JSON.stringify({p_spieler_id:k.spieler_id,p_quelle:'fairplay_quiz',p_quelle_id:'done'})});
+      if(r.ok){const d=await r.json(); if(d>0)neu+=d; else schonGehabt=true;}
+    }catch(e){}
+  }
+  if(!document.getElementById("fq-ov"))return;
+  try{navigator.vibrate&&navigator.vibrate([100,50,100,50,200]);}catch(e){}
+  const federnZeile=neu>0
+    ? `<div style="font-size:17px;font-weight:900;color:#fde047">🪶 +${neu} Federn fürs Kind!</div>`
+    : (schonGehabt?`<div style="font-size:14px;opacity:.92">Die Federn hattet ihr schon – aber Üben schadet nie. 💚</div>`
+                  :`<div style="font-size:13px;opacity:.85">Melde dich an, damit die Federn beim Kind landen.</div>`);
+  ov.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:40px 18px;text-align:center">
+    <div style="font-size:56px">🏅</div>
+    <div style="font-size:24px;font-weight:900;margin-top:8px">${FQ_RICHTIG} von ${FAIRPLAY_QUIZ.length} richtig</div>
+    <div style="font-size:14px;opacity:.9;margin:8px 0 16px">Danke, dass ihr Fairplay vorlebt – die Kinder schauen es sich ab.</div>
+    ${federnZeile}
+    <button onclick="document.getElementById('fq-ov').remove()" style="width:100%;min-height:52px;margin-top:22px;border:none;border-radius:14px;background:#fff;color:#0b2f4d;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer">Schließen</button>
+  </div>`;
+}
+
+// Regeln aus der DB laden; leer/offline → die fest verdrahteten als Fallback.
+async function fairplayRegelnLaden(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/fairplay_regeln?select=emoji,titel,text&order=sort.asc,id.asc`,{headers:sbAuthHeaders()});
+    if(r.ok){
+      const rows=await r.json();
+      if(rows.length)return rows.map(x=>({emo:x.emoji||"•",t:x.titel||"",d:x.text||""}));
+    }
+  }catch(e){}
+  return FAIRPLAY_REGELN;
+}
+/* Fairplay-Commitment: die Eltern haken den Codex bewusst ab („verstanden und ich bin dabei").
+   Serverseitig je Elternteil eine Zeile (fairplay_commit) – ein klares, festgehaltenes Ja. */
+async function fairplayCommitCheck(){
+  if(!sbToken())return null;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/fairplay_commit?select=committed_at&limit=1`,{headers:sbAuthHeaders()});
+    if(r.ok){const rows=await r.json(); if(rows&&rows.length)return rows[0].committed_at;}
+  }catch(e){}
+  return null;
+}
+async function fairplayCommitLoad(){
+  const slot=document.getElementById("fp-commit-slot"); if(!slot)return;
+  if(!sbToken()){slot.innerHTML="";return;} // nur eingeloggte Eltern
+  const committed=await fairplayCommitCheck();
+  if(committed){
+    const d=new Date(committed);
+    slot.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid #16a34a;border-radius:10px;background:#f0fdf4">
+      <span style="font-size:20px">✅</span>
+      <div style="font-size:12.5px;color:#15803d;font-weight:700">Verstanden und dabei${isNaN(d)?"":` · seit ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})}`}<div style="font-weight:500;color:#166534;font-size:11.5px;margin-top:1px">Danke, dass du unseren Codex mitträgst! 💚</div></div>
+    </div>`;
+  }else{
+    slot.innerHTML=`<label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1.5px dashed #16a34a;border-radius:10px;background:#f0fdf4;cursor:pointer">
+      <input type="checkbox" id="fp-commit-cb" onchange="fairplayCommitDo(this)" style="margin-top:2px;flex:none">
+      <span style="font-size:12.5px;color:#15803d">Ich habe den Codex gelesen – <b>verstanden und ich bin dabei.</b></span>
+    </label>`;
+  }
+}
+async function fairplayCommitDo(cb){
+  if(cb&&!cb.checked)return;              // nur das Abhaken zählt als Zusage
+  if(cb)cb.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/fairplay_commit?on_conflict=user_id`,{method:"POST",headers:sbAuthHeaders({'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify({committed_at:new Date().toISOString()})});
+    if(sbCheck401(r)){if(cb){cb.disabled=false;cb.checked=false;}return;}
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");if(cb){cb.disabled=false;cb.checked=false;}return;}
+  }catch(e){toast("Netzwerkfehler","err");if(cb){cb.disabled=false;cb.checked=false;}return;}
+  toast("Danke – dein Ja zum Fairplay-Codex ist notiert! 💚");
+  try{navigator.vibrate&&navigator.vibrate([20,30,20]);}catch(e){}
+  fairplayCommitLoad(); // Karte im Eltern-Bereich auf die Bestätigung umschalten
+  if(document.getElementById("fp-modal-commit"))fairplayModalCommitRender(true); // Codex-Fenster mitziehen
+}
+// Commitment-Block im Codex-Fenster (unter den Regeln) – Häkchen + „ich bin dabei".
+function fairplayModalCommitRender(committed){
+  const box=document.getElementById("fp-modal-commit"); if(!box)return;
+  if(committed){
+    box.innerHTML=`<div style="display:flex;align-items:center;gap:10px;justify-content:center;padding:14px;border-radius:14px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28)">
+      <span style="font-size:22px">✅</span><span style="font-size:14px;font-weight:800">Du bist dabei – danke! 💚</span></div>
+      <button onclick="document.getElementById('fairplay-ov').remove()" style="width:100%;min-height:52px;margin-top:12px;border:none;border-radius:14px;background:#fff;color:#065f46;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer">Schließen</button>`;
+  }else{
+    box.innerHTML=`<label style="display:flex;align-items:flex-start;gap:12px;padding:14px;border-radius:14px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);cursor:pointer;text-align:left">
+        <input type="checkbox" id="fp-modal-cb" onchange="fairplayCommitDo(this)" style="margin-top:2px;flex:none;width:24px;height:24px">
+        <span style="font-size:14.5px;font-weight:700;line-height:1.4">Ich habe den Codex gelesen – <u>verstanden und ich bin dabei.</u></span>
+      </label>
+      <button onclick="document.getElementById('fairplay-ov').remove()" style="width:100%;min-height:48px;margin-top:10px;border:1.5px solid rgba(255,255,255,.6);border-radius:14px;background:transparent;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Später</button>`;
+  }
+}
+async function fairplayOpen(){
+  document.getElementById("fairplay-ov")?.remove();
+  const ov=document.createElement("div");
+  ov.id="fairplay-ov";
+  ov.style.cssText="position:fixed;inset:0;z-index:10050;background:linear-gradient(160deg,#065f46,#064e3b);color:#fff;overflow-y:auto;font-family:inherit;-webkit-overflow-scrolling:touch";
+  ov.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:80px 18px;text-align:center;opacity:.85">Lade Codex …</div>`;
+  document.body.appendChild(ov);
+  const regeln=await fairplayRegelnLaden();
+  if(!document.getElementById("fairplay-ov"))return; // zwischenzeitlich geschlossen
+  ov.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:24px 18px 40px">
+    <div style="text-align:center;margin-bottom:6px;font-size:40px">🦅</div>
+    <div style="text-align:center;font-size:22px;font-weight:900;letter-spacing:.3px">Unser Fairplay-Codex</div>
+    <div style="text-align:center;font-size:13px;opacity:.9;margin:6px 0 20px">SV Adler Dellbrück · U9 – für einen guten Spielfeldrand</div>
+    ${regeln.map((r,i)=>`<div style="display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:16px;margin-bottom:12px">
+      <div style="font-size:30px;line-height:1">${esc(r.emo)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:16px;font-weight:800">${i+1}. ${esc(r.t)}</div>
+        <div style="font-size:13.5px;opacity:.95;line-height:1.55;margin-top:3px">${esc(r.d)}</div>
+      </div>
+    </div>`).join("")}
+    <div style="text-align:center;font-size:13px;opacity:.9;margin:16px 0 14px">Danke, dass ihr das mittragt. 💚</div>
+    <div id="fp-modal-commit"></div>
+  </div>`;
+  fairplayCommitCheck().then(c=>fairplayModalCommitRender(!!c));
+}
+
+/* Trainer-Editor für den Fairplay-Codex. Der Trainer pflegt die Regeln, die Eltern
+   sehen sie im Overlay. Gespeichert wird als komplette Liste (delete-all + insert) –
+   die Datenmenge ist winzig und das erspart id-Jonglieren beim Umsortieren. */
+let FP_EDIT=[];
+async function fairplayEditOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("fpe-modal")?.remove();
+  FP_EDIT=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/fairplay_regeln?select=emoji,titel,text&order=sort.asc,id.asc`,{headers:sbAuthHeaders()});
+    if(r.ok)FP_EDIT=(await r.json()).map(x=>({emo:x.emoji||"",titel:x.titel||"",text:x.text||""}));
+  }catch(e){}
+  if(!FP_EDIT.length)FP_EDIT=FAIRPLAY_REGELN.map(r=>({emo:r.emo,titel:r.t,text:r.d}));
+  const modal=document.createElement("div");
+  modal.id="fpe-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Fairplay-Codex bearbeiten");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.id="fpe-card";
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  modal.appendChild(c);document.body.appendChild(modal);
+  fairplayEditRender();
+}
+function fairplayEditRender(){
+  const c=document.getElementById("fpe-card"); if(!c)return;
+  const fld="padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
+  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🤝 Fairplay-Codex bearbeiten</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Diese Regeln sehen die Eltern im Codex-Overlay. Reihenfolge mit den Pfeilen.</div>
+    ${FP_EDIT.map((r,i)=>`<div style="border:var(--border-s);border-radius:10px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <input value="${esc(r.emo)}" oninput="FP_EDIT[${i}].emo=this.value" maxlength="4" style="width:52px;text-align:center;font-size:18px;${fld}">
+        <input value="${esc(r.titel)}" oninput="FP_EDIT[${i}].titel=this.value" placeholder="Titel der Regel" style="flex:1;font-weight:700;${fld}">
+      </div>
+      <textarea oninput="FP_EDIT[${i}].text=this.value" rows="2" placeholder="Kurze Erklärung (optional)" style="width:100%;resize:vertical;${fld}">${esc(r.text)}</textarea>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn btn-sm" onclick="fairplayEditMove(${i},-1)" ${i===0?"disabled":""} title="nach oben"><i class="ti ti-arrow-up"></i></button>
+        <button class="btn btn-sm" onclick="fairplayEditMove(${i},1)" ${i===FP_EDIT.length-1?"disabled":""} title="nach unten"><i class="ti ti-arrow-down"></i></button>
+        <button class="btn btn-sm btn-d" style="margin-left:auto" onclick="fairplayEditDel(${i})"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`).join("")}
+    <button class="btn btn-sm" style="width:100%;margin-bottom:12px" onclick="fairplayEditAdd()"><i class="ti ti-plus"></i>Regel hinzufügen</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-p btn-sm" onclick="fairplayEditSave(this)"><i class="ti ti-device-floppy"></i>Speichern</button>
+      <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('fpe-modal').remove()">Schließen</button>
+    </div>`;
+}
+function fairplayEditAdd(){ FP_EDIT.push({emo:"⭐",titel:"",text:""}); fairplayEditRender(); }
+function fairplayEditDel(i){ FP_EDIT.splice(i,1); fairplayEditRender(); }
+function fairplayEditMove(i,dir){ const j=i+dir; if(j<0||j>=FP_EDIT.length)return; const t=FP_EDIT[i];FP_EDIT[i]=FP_EDIT[j];FP_EDIT[j]=t; fairplayEditRender(); }
+async function fairplayEditSave(btn){
+  const rows=FP_EDIT.map((r,i)=>({sort:i,emoji:(r.emo||"").trim()||null,titel:(r.titel||"").trim(),text:(r.text||"").trim()||null}))
+                    .filter(r=>r.titel); // Regeln ohne Titel verwerfen
+  if(!rows.length){toast("Mindestens eine Regel mit Titel","err");return;}
+  if(btn)btn.disabled=true;
+  try{
+    // Ganze Liste ersetzen: erst leeren, dann neu einfügen.
+    const del=await fetch(`${SB_URL}/rest/v1/fairplay_regeln?id=gt.0`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(sbCheck401(del))return;
+    if(!del.ok){toast(sbDeniedMsg(del,"Konnte nicht speichern"),"err");return;}
+    const ins=await fetch(`${SB_URL}/rest/v1/fairplay_regeln`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify(rows)});
+    if(!ins.ok){toast("Speichern fehlgeschlagen","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  toast("Codex gespeichert ✓ Die Eltern sehen ihn sofort.");
+  document.getElementById("fpe-modal")?.remove();
+}
+
+/* ── Eltern-Leitfaden: ausformulierte Vereinbarung, abrufbar im Eltern-Bereich, trainer-pflegbar.
+   Gleiches Muster wie der Fairplay-Codex (Tabelle eltern_leitfaden, Default = Offline-Fallback). ── */
+async function leitfadenLaden(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/eltern_leitfaden?select=emoji,titel,text&aktiv=eq.true&order=sort.asc,id.asc`,{headers:sbAuthHeaders()});
+    if(r.ok){const rows=await r.json(); if(rows.length)return rows.map(x=>({emo:x.emoji||"•",t:x.titel||"",d:x.text||""}));}
+  }catch(e){}
+  return ELTERN_LEITFADEN;
+}
+async function leitfadenOpen(){
+  document.getElementById("leitfaden-ov")?.remove();
+  const ov=document.createElement("div");
+  ov.id="leitfaden-ov";
+  ov.style.cssText="position:fixed;inset:0;z-index:10050;background:linear-gradient(160deg,#0c4a6e,#082f49);color:#fff;overflow-y:auto;font-family:inherit;-webkit-overflow-scrolling:touch";
+  ov.innerHTML=`<div style="max-width:560px;margin:0 auto;padding:80px 18px;text-align:center;opacity:.85">Lade ${esc(LEITFADEN_NAME)} …</div>`;
+  document.body.appendChild(ov);
+  const teile=await leitfadenLaden();
+  if(!document.getElementById("leitfaden-ov"))return;
+  ov.innerHTML=`<div style="max-width:560px;margin:0 auto;padding:24px 18px 40px">
+    <div style="text-align:center;margin-bottom:6px;font-size:40px">📖</div>
+    <div style="text-align:center;font-size:22px;font-weight:900;letter-spacing:.3px">${esc(LEITFADEN_NAME)}</div>
+    <div style="text-align:center;font-size:13px;opacity:.9;margin:6px 0 20px">SV Adler Dellbrück · U9 – damit unser Miteinander gelingt</div>
+    ${teile.map((r,i)=>`<div style="display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:16px;margin-bottom:12px">
+      <div style="font-size:28px;line-height:1">${esc(r.emo)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:16px;font-weight:800">${i+1}. ${esc(r.t)}</div>
+        ${r.d?`<div style="font-size:13.5px;opacity:.95;line-height:1.6;margin-top:4px">${esc(r.d)}</div>`:""}
+      </div>
+    </div>`).join("")}
+    <div style="text-align:center;font-size:13px;opacity:.9;margin:16px 0 20px">Danke, dass ihr das mittragt. 💙</div>
+    <button onclick="document.getElementById('leitfaden-ov').remove()" style="width:100%;min-height:52px;border:none;border-radius:14px;background:#fff;color:#0c4a6e;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer">Verstanden 👍</button>
+  </div>`;
+}
+// Trainer-Editor (spiegelt den Fairplay-Editor).
+let LF_EDIT=[];
+async function leitfadenEditOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("lfe-modal")?.remove();
+  LF_EDIT=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/eltern_leitfaden?select=emoji,titel,text&order=sort.asc,id.asc`,{headers:sbAuthHeaders()});
+    if(r.ok)LF_EDIT=(await r.json()).map(x=>({emo:x.emoji||"",titel:x.titel||"",text:x.text||""}));
+  }catch(e){}
+  if(!LF_EDIT.length)LF_EDIT=ELTERN_LEITFADEN.map(r=>({emo:r.emo,titel:r.t,text:r.d}));
+  const modal=document.createElement("div");
+  modal.id="lfe-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Eltern-Leitfaden bearbeiten");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.id="lfe-card";
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  modal.appendChild(c);document.body.appendChild(modal);
+  leitfadenEditRender();
+}
+function leitfadenEditRender(){
+  const c=document.getElementById("lfe-card"); if(!c)return;
+  const fld="padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
+  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">📖 ${esc(LEITFADEN_NAME)} bearbeiten</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Diese Punkte sehen die Eltern in ihrem Bereich. Reihenfolge mit den Pfeilen.</div>
+    ${LF_EDIT.map((r,i)=>`<div style="border:var(--border-s);border-radius:10px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <input value="${esc(r.emo)}" oninput="LF_EDIT[${i}].emo=this.value" maxlength="4" style="width:52px;text-align:center;font-size:18px;${fld}">
+        <input value="${esc(r.titel)}" oninput="LF_EDIT[${i}].titel=this.value" placeholder="Überschrift" style="flex:1;font-weight:700;${fld}">
+      </div>
+      <textarea oninput="LF_EDIT[${i}].text=this.value" rows="3" placeholder="Ausformulierter Text" style="width:100%;resize:vertical;${fld}">${esc(r.text)}</textarea>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn btn-sm" onclick="leitfadenEditMove(${i},-1)" ${i===0?"disabled":""} title="nach oben"><i class="ti ti-arrow-up"></i></button>
+        <button class="btn btn-sm" onclick="leitfadenEditMove(${i},1)" ${i===LF_EDIT.length-1?"disabled":""} title="nach unten"><i class="ti ti-arrow-down"></i></button>
+        <button class="btn btn-sm btn-d" style="margin-left:auto" onclick="leitfadenEditDel(${i})"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`).join("")}
+    <button class="btn btn-sm" style="width:100%;margin-bottom:12px" onclick="leitfadenEditAdd()"><i class="ti ti-plus"></i>Punkt hinzufügen</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-p btn-sm" onclick="leitfadenEditSave(this)"><i class="ti ti-device-floppy"></i>Speichern</button>
+      <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('lfe-modal').remove()">Schließen</button>
+    </div>`;
+}
+function leitfadenEditAdd(){ LF_EDIT.push({emo:"⭐",titel:"",text:""}); leitfadenEditRender(); }
+function leitfadenEditDel(i){ LF_EDIT.splice(i,1); leitfadenEditRender(); }
+function leitfadenEditMove(i,dir){ const j=i+dir; if(j<0||j>=LF_EDIT.length)return; const t=LF_EDIT[i];LF_EDIT[i]=LF_EDIT[j];LF_EDIT[j]=t; leitfadenEditRender(); }
+async function leitfadenEditSave(btn){
+  const rows=LF_EDIT.map((r,i)=>({sort:i,emoji:(r.emo||"").trim()||null,titel:(r.titel||"").trim(),text:(r.text||"").trim()||null,aktiv:true}))
+                    .filter(r=>r.titel);
+  if(!rows.length){toast("Mindestens ein Punkt mit Überschrift","err");return;}
+  if(btn)btn.disabled=true;
+  try{
+    const del=await fetch(`${SB_URL}/rest/v1/eltern_leitfaden?id=gt.0`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(sbCheck401(del))return;
+    if(!del.ok){toast(sbDeniedMsg(del,"Konnte nicht speichern"),"err");return;}
+    const ins=await fetch(`${SB_URL}/rest/v1/eltern_leitfaden`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify(rows)});
+    if(!ins.ok){toast("Speichern fehlgeschlagen","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  toast(LEITFADEN_NAME+" gespeichert ✓ Die Eltern sehen ihn sofort.");
+  document.getElementById("lfe-modal")?.remove();
+}
+
+/* Platz-Ampel-Banner für die Eltern – nur wenn der Trainer einen Status gesetzt hat.
+   Farben aus der gemeinsamen PLATZ_AMPEL-Definition, kontrastreich für draußen. */
+function elternPlatzAmpelBanner(termin){
+  const s=termin.platz_status; const a=(typeof PLATZ_AMPEL!=="undefined"&&PLATZ_AMPEL[s]);
+  if(!a)return "";
+  const bg=s==="abgesagt"?"#dc2626":s==="ausweich"?"#d97706":"#16a34a";
+  const wann=termin.platz_status_at?new Date(termin.platz_status_at).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"";
+  const text=s==="abgesagt"?"Der Termin fällt heute aus."
+            :s==="ausweich"?"Heute auf den Ausweichplatz."
+            :"Der Termin findet statt.";
+  return `<div style="background:${bg};color:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 4px 16px ${bg}55">
+    <div style="font-size:18px;font-weight:900;display:flex;align-items:center;gap:8px">${a.emo} ${esc(a.lbl)}</div>
+    <div style="font-size:13.5px;opacity:.97;margin-top:4px">${text}${termin.platz_status_note?` <b>${esc(termin.platz_status_note)}</b>`:""}</div>
+    ${wann?`<div style="font-size:10.5px;opacity:.8;margin-top:6px">Aktualisiert ${wann} Uhr vom Trainer</div>`:""}
+  </div>`;
+}
+
+/* Pausiert mein Kind? Die Nominierungen sind trainer-only, deshalb fragt die RPC
+   kind_nominierungsstatus nur nach dem eigenen Kind. Angezeigt wird die Karte NUR,
+   wenn der Trainer die Einteilung übertragen hat UND das Kind zugesagt hatte –
+   sonst wäre "nicht nominiert" bloß der Normalzustand vor der Einteilung. */
+async function elternPauseLoad(termin,kids){
+  const box=document.getElementById("pause-card");
+  if(!box||!termin)return;
+  const treffer=[];
+  for(const k of kids){
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/rpc/kind_nominierungsstatus`,{method:"POST",
+        headers:{...sbAuthHeaders(),'Content-Type':'application/json'},
+        body:JSON.stringify({p_spieler:k.spieler_id,p_datum:termin.datum})});
+      if(!r.ok)continue;
+      const s=await r.json();
+      if(s&&s.ok&&s.eingeteilt&&!s.nominiert&&s.zugesagt)
+        treffer.push({name:(k.kader&&k.kader.name)||"Dein Kind",grund:s.grund});
+    }catch(e){}
+  }
+  if(!treffer.length){ box.innerHTML=""; return; }
+  const m=(typeof TM_META!=="undefined"&&TM_META[termin.typ])||{label:termin.typ};
+  box.innerHTML=treffer.map(t=>`<div style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:14px;padding:16px;margin-bottom:12px">
+    <div style="font-size:15px;font-weight:800;color:#92400e">😌 Diesmal pausiert ${esc(t.name)}</div>
+    <div style="font-size:12.5px;color:#92400e;line-height:1.55;margin-top:6px">
+      Beim ${esc(m.label)} am ${new Date(termin.datum+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})} ist der Kader voll –
+      ${esc(t.name)} ist diesmal nicht dabei. Beim nächsten Mal ist er wieder eingeplant.
+    </div>
+    ${t.grund?`<div style="margin-top:8px;background:#fff;border-radius:8px;padding:8px 10px;font-size:12.5px;color:#334155">${esc(t.grund)}<div style="font-size:10px;color:#94a3b8;margin-top:3px">Nachricht vom Trainer</div></div>`:""}
+  </div>`).join("");
+}
+
+/* Turnierplan für die Eltern: Begegnungen, Link zum Turnierbaum, Aushang (Foto/PDF).
+   Der Plan liegt je Team unter "<datum>" bzw. "<datum>__t2/3" – wir holen alle
+   Varianten des Tages und gruppieren sie, damit Eltern von Adler 2 ihre Spiele finden. */
+async function elternTurnierplanLoad(termin){
+  const box=document.getElementById("turnierplan-card");
+  if(!box||!termin)return;
+  let plan=[], ergebnisse=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/turnier_plan?datum=like.${encodeURIComponent(termin.datum)}*&select=*&order=datum.asc,sort.asc,id.asc`,{headers:sbAuthHeaders()});
+    if(r.ok)plan=await r.json();
+  }catch(e){}
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/turnier_spiele?datum=like.${encodeURIComponent(termin.datum)}*&select=plan_id,tore,gegentore`,{headers:sbAuthHeaders()});
+    if(r.ok)ergebnisse=await r.json();
+  }catch(e){}
+  const erg={}; ergebnisse.forEach(x=>{ if(x.plan_id)erg[x.plan_id]=x; });
+
+  const knoepfe=[];
+  if(termin.turnierplan_url)knoepfe.push(`<a href="${esc(termin.turnierplan_url)}" target="_blank" rel="noopener noreferrer" style="flex:1;min-width:130px;text-align:center;padding:9px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-size:13px;font-weight:700;text-decoration:none">🔗 Turnierbaum</a>`);
+  if(termin.turnierplan_datei)knoepfe.push(`<button onclick="elternAushangOeffnen('${jsq(termin.turnierplan_datei)}')" style="flex:1;min-width:130px;padding:9px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📄 Aushang ansehen</button>`);
+
+  if(!plan.length&&!knoepfe.length){ box.innerHTML=""; return; }
+
+  let liste="";
+  if(plan.length){
+    const gruppen={};
+    plan.forEach(p=>{ const t=teamLabelFromKey(p.datum)||" · Adler 1"; (gruppen[t]=gruppen[t]||[]).push(p); });
+    const mehrere=Object.keys(gruppen).length>1;
+    liste=Object.entries(gruppen).map(([label,zeilen])=>
+      (mehrere?`<div style="font-size:11px;font-weight:700;color:#64748b;margin:8px 0 2px">${esc(label.replace(/^ · /,""))}</div>`:"")
+      +zeilen.map(p=>{
+        const e=erg[p.id];
+        const farbe=e?(e.tore>e.gegentore?"#059669":e.tore===e.gegentore?"#b45309":"#dc2626"):"#94a3b8";
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid #f1f5f9">
+          <span style="font-size:11.5px;color:#64748b;width:44px">${p.uhrzeit?esc(p.uhrzeit):"--:--"}</span>
+          <span style="flex:1;font-size:12.5px">${esc(p.gegner||"?")}${p.feld?`<span style="color:#94a3b8;font-size:10.5px"> · ${esc(p.feld)}</span>`:""}</span>
+          <span style="font-weight:800;font-size:13px;color:${farbe}">${e?`${e.tore}:${e.gegentore}`:"–"}</span>
+        </div>`;
+      }).join("")).join("");
+  }
+  box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
+    <div style="font-size:12.5px;font-weight:700;color:#1e3a8a;margin-bottom:2px">🏆 Turnierplan</div>
+    ${plan.length?`<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">Ergebnisse erscheinen, sobald der Trainer sie einträgt.</div>`:""}
+    ${liste}
+    ${knoepfe.length?`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">${knoepfe.join("")}</div>`:""}
+  </div>`;
+}
+// Der Bucket ist privat – Datei mit dem Eltern-Token holen und lokal öffnen.
+async function elternAushangOeffnen(pfad){
+  try{
+    const r=await fetch(`${SB_URL}/storage/v1/object/authenticated/termin_media/${pfad}`,{headers:{'Authorization':'Bearer '+sbToken()}});
+    if(!r.ok){toast("Aushang nicht gefunden","err");return;}
+    window.open(URL.createObjectURL(await r.blob()),"_blank","noopener");
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+
+/* Fan-Link: Eltern geben den Spenden-Link an Oma, Opa & Fans weiter.
+   Nur Weitergabe eines Links – die App fasst weiterhin kein Geld an. */
+function akShareBtnHtml(){
+  return `<button onclick="akShare()" style="width:100%;margin-top:8px;padding:10px;border:1.5px solid #0070ba;border-radius:10px;background:#fff;color:#0070ba;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📤 Fan-Link teilen (Oma, Opa &amp; Fans)</button>`;
+}
+function akShare(){
+  const url=window._akLink; if(!url)return;
+  const text=`🦅 Unterstütz die U9 vom SV Adler Dellbrück!\nJeder Euro fließt direkt in die Mannschaft:\n${url}`;
+  if(navigator.share){navigator.share({title:"Adler-Kasse U9",text,url}).catch(()=>{});}
+  else{navigator.clipboard?.writeText(url).then(()=>toast("Fan-Link kopiert ✓"),()=>prompt("Fan-Link:",url));}
+}
+
+/* Liveticker für Eltern: nur bei Spiel/Turnier. Der Ticker-Key ist das Termin-Datum,
+   bei Adler 2/3 mit Suffix __t<n> (siehe spieltagKey()). Team wird kurz abgefragt. */
+function elternTicker(datum,team){
+  const key=Number(team)>1?`${datum}__t${Number(team)}`:datum;
+  location.href=location.pathname+"?ticker="+encodeURIComponent(key);
+}
+/* A1/A2: Persönlicher Nach-dem-Spiel-Gruß. Für das jüngste vergangene Spiel/Turnier holt die
+   App pro Kind die eigenen Ballaktionen (RPC kind_spiel_stats, da match_actions trainer-only)
+   und formt daraus eine warme, kindgerechte Zeile. */
+const GRUSS_AKT={tor:{e:"⚽",l:"Tor"},pass:{e:"🎯",l:"Pass"},dribbling:{e:"🌀",l:"Dribbling"},gewinn:{e:"🦅",l:"Ballgewinn"},parade:{e:"🧤",l:"Parade"},aufbau:{e:"🧩",l:"Aufbau"},heraus:{e:"🚀",l:"Herausspielen"}};
+function grussLine(st){
+  const p=n=>n===1?"":"e";
+  if(st.tor)return `Was für ein Torjäger – ${st.tor} Tor${p(st.tor)}! ⚽🎉`;
+  if(st.parade)return "Ein echter Rückhalt im Tor! 🧤";
+  if((st.gewinn||0)>=3)return "Ballräuber vom Dienst! 🦅";
+  if((st.pass||0)>=3)return "Pass-Maschine – super Teamplay! 🎯";
+  if((st.dribbling||0)>=3)return "Dribbel-Show gezeigt! 🌀";
+  return "Toller Einsatz – weiter so! 💪";
+}
+async function elternMatchGrussLoad(kids){
+  const slot=document.getElementById("match-gruss-slot"); if(!slot)return;
+  const heute=new Date().toISOString().slice(0,10);
+  let game=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=datum,typ,titel,gegner&typ=in.(spiel,turnier)&datum=lt.${heute}&order=datum.desc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)game=(await r.json())[0];}catch(e){}
+  if(!game){slot.innerHTML="";return;}
+  // R3: eine RPC liefert die Stats ALLER Kinder dieses Elternteils (kein N+1 mehr).
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/eltern_kinder_spiel_stats`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_datum:game.datum})});if(r.ok)rows=await r.json();}catch(e){}
+  const d=new Date(game.datum+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+  const cards=[];
+  (rows||[]).forEach(row=>{
+    const st=row.stats||{}, total=Object.values(st).reduce((a,b)=>a+(+b||0),0);
+    if(!total)return;
+    const chips=Object.keys(GRUSS_AKT).filter(a=>st[a]).map(a=>`<span style="display:inline-block;background:#f5f3ff;color:#5b21b6;border-radius:12px;padding:3px 9px;font-size:12px;font-weight:700;margin:2px 3px 2px 0">${GRUSS_AKT[a].e} ${st[a]}× ${GRUSS_AKT[a].l}</span>`).join("");
+    cards.push(`<div style="background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 2px 10px rgba(0,0,0,.05);border-left:3px solid #7c3aed">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Rückblick · ${d}</div>
+      <div style="font-weight:800;font-size:15px;margin-top:2px">🦅 ${esc(row.name||"Kind")}${game.gegner?` gegen ${esc(game.gegner)}`:""}</div>
+      <div style="margin-top:8px">${chips}</div>
+      <div style="font-size:12.5px;color:#15803d;font-weight:700;margin-top:8px">${grussLine(st)}</div>
+    </div>`);
+  });
+  slot.innerHTML=cards.join("");
+}
+// R7: DSGVO-Datenexport – sammelt die vom Elternteil lesbaren Daten des eigenen Kindes.
+async function elternDataExport(btn){
+  if(btn)btn.disabled=true;
+  const kids=window._elternKids||[];
+  const out={ exportiert_am:new Date().toISOString(), verein:"SV Adler Dellbrück · U9", kinder:[] };
+  for(const k of kids){
+    const kid={ name:(k.kader&&k.kader.name)||"", nr:(k.kader&&k.kader.nr)??null, spieler_id:k.spieler_id, rueckmeldungen:[], federn:[], sprachlob_anzahl:0 };
+    try{const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?spieler_id=eq.${k.spieler_id}&select=termin_id,status,kommentar,updated_at`,{headers:sbAuthHeaders()});if(r.ok)kid.rueckmeldungen=await r.json();}catch(e){}
+    try{const r=await fetch(`${SB_URL}/rest/v1/punkte_log?spieler_id=eq.${k.spieler_id}&select=delta,grund,quelle,created_at&order=created_at.asc`,{headers:sbAuthHeaders()});if(r.ok)kid.federn=await r.json();}catch(e){}
+    try{const r=await fetch(`${SB_URL}/rest/v1/kabine_lob?spieler_id=eq.${k.spieler_id}&select=created_at`,{headers:sbAuthHeaders()});if(r.ok)kid.sprachlob_anzahl=((await r.json())||[]).length;}catch(e){}
+    out.kinder.push(kid);
+  }
+  try{
+    const blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="adler-daten-"+new Date().toISOString().slice(0,10)+".json";
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    toast("Daten heruntergeladen ✓");
+  }catch(e){toast("Download nicht möglich","err");}
+  if(btn)btn.disabled=false;
+}
+// Konferenz: alle Teams eines Spieltags in EINEM Ticker (Key <datum>__konf).
+function elternTickerKonf(datum){
+  location.href=location.pathname+"?ticker="+encodeURIComponent(datum+"__konf");
+}
+// Container – die eigentliche Auswahl macht elternTickerLoad async (Team-Auto-Erkennung).
+function elternTickerHtml(termin){
+  if(termin.typ!=="spiel"&&termin.typ!=="turnier")return "";
+  return `<div id="eltern-ticker-slot" data-datum="${esc(termin.datum)}"></div>`;
+}
+// Erkennt automatisch, in welchem Team das eigene Kind spielt (aus der Team-Einteilung
+// <datum>__teams), und öffnet direkt dessen Ticker – ohne Auswahl. Zusätzlich: Konferenz.
+async function elternTickerLoad(termin){
+  const slot=document.getElementById("eltern-ticker-slot"); if(!slot)return;
+  if(!termin||(termin.typ!=="spiel"&&termin.typ!=="turnier")){slot.innerHTML="";return;}
+  const datum=termin.datum, kids=window._elternKids||[];
+  // Team des eigenen Kindes serverseitig ermitteln (nominierungen ist trainer-only -> RPC kind_team).
+  let anzahl=1; const myTeams=new Set();
+  for(const k of kids){
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/rpc/kind_team`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler:k.spieler_id,p_datum:datum})});
+      if(r.ok){const s=await r.json(); if(s&&s.ok){ if(s.anzahl)anzahl=Math.max(anzahl,Number(s.anzahl)||1); if(s.team&&Number(s.team)>=1)myTeams.add(Number(s.team)); }}
+    }catch(e){}
+  }
+  const wrap=(inner)=>`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
+    <div style="font-size:12.5px;font-weight:700;color:#dc2626;margin-bottom:2px">📣 Liveticker</div>${inner}</div>`;
+  const bigBtn=(label,onclick,filled)=>`<button onclick="${onclick}" style="width:100%;min-height:48px;margin-top:6px;padding:12px;border:1.5px solid #dc2626;border-radius:10px;background:${filled?"#dc2626":"#fff"};color:${filled?"#fff":"#dc2626"};font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">${label}</button>`;
+  const konfBtn = anzahl>1 ? bigBtn("👥 Konferenz · alle Teams live",`elternTickerKonf('${datum}')`,false) : "";
+
+  if(myTeams.size===1){
+    const t=[...myTeams][0];
+    slot.innerHTML=wrap(`<div style="font-size:11px;color:#64748b;margin-bottom:2px">Automatisch erkannt: dein Kind spielt heute in <b style="color:#dc2626">Adler ${t}</b>.</div>
+      ${bigBtn(`📣 Liveticker öffnen · Adler ${t}`,`elternTicker('${datum}',${t})`,true)}${konfBtn}`);
+  }else if(myTeams.size>1){
+    const btns=[...myTeams].sort().map(t=>bigBtn(`📣 Adler ${t} (dein Kind)`,`elternTicker('${datum}',${t})`,true)).join("");
+    slot.innerHTML=wrap(`<div style="font-size:11px;color:#64748b;margin-bottom:2px">Deine Kinder spielen in mehreren Teams:</div>${btns}${konfBtn}`);
+  }else if(anzahl>1){
+    // Teams stehen (mehrere), aber das eigene Kind ist (noch) keinem zugeordnet.
+    slot.innerHTML=wrap(`<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">Die Team-Einteilung deines Kindes steht noch nicht fest. Sieh einfach alle Teams gemeinsam:</div>${bigBtn("👥 Konferenz · alle Teams live",`elternTickerKonf('${datum}')`,true)}`);
+  }else{
+    // Nur ein Team an diesem Spieltag – kein Auswahl-/Konferenzbedarf.
+    slot.innerHTML=wrap(`<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">Nicht dabei? Hier gibt's Tore und Spielstand live.</div>${bigBtn("📣 Liveticker öffnen",`elternTicker('${datum}',1)`,true)}`);
+  }
+}
+
+/* ═══════════════════════════════════
+   KI-TRAININGS-ASSISTENT (Welle 3, FEAT AC) – "Adler-Coach".
+   Ruft die Edge Function ki-uebung (Auth-Zwang: nur Trainer; Rate-Limit
+   20/Tag; LLM-Key nur serverseitig; erzwungenes JSON-Schema). Client:
+   AbortController-Timeout (die UI haengt nie), robuste Fehleranzeige,
+   Trainer-in-the-Loop – Uebungen werden nur auf Klick in der Taktik-
+   Bibliothek gespeichert (taktik_templates mit data.typ="ki").
+═══════════════════════════════════ */
+let kiLastUebungen=[];
+function kiCoachOpen(){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  document.getElementById("ki-modal")?.remove();
+  const m=document.createElement("div");m.id="ki-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  const chip=t=>`<button onclick="document.getElementById('ki-prompt').value='${t.replace(/'/g,"")}'" style="border:var(--border-s);background:var(--surface);border-radius:14px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit">${t}</button>`;
+  m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:460px;width:100%;margin:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-weight:800;font-size:16px">🤖 Adler-Coach (KI)</div>
+      <button onclick="document.getElementById('ki-modal').remove()" style="border:none;background:none;font-size:22px;color:var(--text2);cursor:pointer">×</button>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Beschreibe, was du trainieren willst – der Coach schlägt altersgerechte U8/U9-Übungen vor. Du entscheidest, was in die Bibliothek kommt.</div>
+    <textarea id="ki-prompt" rows="2" placeholder="z. B. 2 Übungen für Zweikampfhärte" style="width:100%;box-sizing:border-box;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px"></textarea>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${chip("Dribbling & Ballführung")}${chip("Passspiel in der Raute")}${chip("Torschuss mit Spaß")}${chip("Zweikampf & Mut")}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button id="ki-gen-btn" class="btn btn-p btn-sm" onclick="kiCoachGenerate()"><i class="ti ti-sparkles"></i>Übungen vorschlagen</button>
+      <button class="btn btn-sm" onclick="kiCoachInsertNotes()" title="Deine letzten Trainer-Notizen als Kontext einfügen"><i class="ti ti-notes"></i>📓 Aus meinen Notizen</button>
+    </div>
+    <div id="ki-result" style="margin-top:12px"></div>
+  </div>`;
+  document.body.appendChild(m);
+}
+/* KI-Loop (18.1): der Trainer holt seine letzten Voice-Diary-Notizen als Kontext in den
+   Prompt – bewusst per Klick (Trainer-in-the-Loop), nicht serverseitig-automatisch, damit
+   der LLM-Key serverseitig bleibt und der Trainer sieht/steuert, was an die KI geht. */
+async function kiCoachInsertNotes(){
+  let notes=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/trainer_notes?select=text,datum&order=created_at.desc&limit=3`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)notes=await r.json();}catch(e){}
+  if(!notes.length){toast("Noch keine Trainer-Notizen vorhanden","err");return;}
+  const ta=document.getElementById("ki-prompt"); if(!ta)return;
+  const ctx="Meine Beobachtungen aus dem letzten Spiel/Training: "+notes.map(n=>n.text.trim()).filter(Boolean).join(" • ")+". Leite daraus passende Übungen ab.";
+  ta.value=(ta.value.trim()?ta.value.trim()+"\n\n":"")+ctx;
+  ta.focus();
+  toast("Notizen eingefügt – ergänze bei Bedarf");
+}
+async function kiCoachGenerate(){
+  const prompt=(document.getElementById("ki-prompt")?.value||"").trim();
+  if(!prompt){toast("Bitte kurz beschreiben","err");return;}
+  const out=document.getElementById("ki-result"), btn=document.getElementById("ki-gen-btn");
+  if(out)out.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">🧠 Adler-Coach denkt nach…</div>';
+  if(btn)btn.disabled=true;
+  const ctrl=new AbortController(), to=setTimeout(()=>ctrl.abort(),30000); // UI haengt nie
+  try{
+    const r=await fetch(`${SB_URL}/functions/v1/ki-uebung`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({prompt}),signal:ctrl.signal});
+    clearTimeout(to);
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){ if(out)out.innerHTML=`<div style="color:#dc2626;font-size:13px;padding:10px">${esc(d.error||("Fehler "+r.status))}</div>`; return; }
+    kiCoachRender(d.uebungen||[], d.rest);
+  }catch(e){
+    clearTimeout(to);
+    if(out)out.innerHTML=`<div style="color:#dc2626;font-size:13px;padding:10px">${e&&e.name==="AbortError"?"Zeitüberschreitung – bitte nochmal versuchen.":"Netzwerkfehler – bist du online?"}</div>`;
+  }finally{ if(btn)btn.disabled=false; }
+}
+// Kategorien für die Bibliothek (gleiche Keys wie renderTraining/PERIOD_CATS).
+const KI_KATS=[["aufwaermen","Aufwärmen"],["raute","Raute & Grundordnung"],["passspiel","Passspiel"],["wahrnehmung","Wahrnehmung & IQ"],["technik","Technik & Ball"],["pressing","Pressing & Umschalten"],["spass","Spaß & Wettbewerb"],["torwart","Torwart"],["individual","Individual"],["mindset","Mindset"]];
+function kiCoachRender(uebungen,rest){
+  kiLastUebungen=uebungen||[];
+  const out=document.getElementById("ki-result"); if(!out)return;
+  if(!kiLastUebungen.length){out.innerHTML='<div style="padding:10px;color:var(--text3);font-size:13px">Keine Übungen erhalten – bitte anders formulieren.</div>';return;}
+  out.innerHTML=kiLastUebungen.map((u,i)=>`<div style="border:var(--border-s);border-radius:12px;padding:12px;margin-bottom:10px">
+    <div style="font-weight:800;font-size:14px">${esc(u.titel||"Übung")}</div>
+    <div style="font-size:11px;color:var(--text2);margin:2px 0 6px">${u.dauer?"⏱ "+esc(u.dauer):""}${u.material?" · 🎒 "+esc(u.material):""}</div>
+    <div style="font-size:12.5px;line-height:1.5;white-space:pre-wrap">${esc(u.beschreibung||"")}</div>
+    ${u.variante?`<div style="font-size:11.5px;color:var(--text2);margin-top:5px">➕ ${esc(u.variante)}</div>`:""}
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px">
+      <label style="font-size:11px;color:var(--text2)">Kategorie:
+        <select id="ki-kat-${i}" style="padding:6px 8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text)">
+          ${KI_KATS.map(([k,l])=>`<option value="${k}"${k==="technik"?" selected":""}>${l}</option>`).join("")}
+        </select>
+      </label>
+      <button class="btn btn-sm btn-p" onclick="kiCoachSaveForm(${i})"><i class="ti ti-clipboard-list"></i>In Bibliothek übernehmen</button>
+    </div>
+  </div>`).join("")+(rest!=null?`<div style="font-size:10px;color:var(--text3);text-align:center;margin-top:2px">Noch ${esc(rest)} KI-Anfragen heute frei</div>`:"");
+}
+async function kiCoachSave(i){
+  const u=kiLastUebungen[i]; if(!u)return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/taktik_templates`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({name:(u.titel||"KI-Übung").slice(0,120),formation:"KI-Übung",data:{typ:"ki",titel:u.titel,dauer:u.dauer,material:u.material,beschreibung:u.beschreibung,variante:u.variante}})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast("Speichern fehlgeschlagen","err");return;}
+    toast("💾 In Bibliothek gespeichert ✓");
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+// KI-Übung aus der Bibliothek als Text-Modal ansehen (nicht aufs Board laden)
+async function ttViewKi(id){
+  let row=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/taktik_templates?id=eq.${id}&select=name,data`,{headers:sbAuthHeaders()});if(r.ok)row=((await r.json())||[])[0];}catch(e){}
+  if(!row||!row.data){toast("Übung nicht gefunden","err");return;}
+  const u=row.data;
+  document.getElementById("tt-modal")?.remove();
+  const m=document.createElement("div");m.id="tt-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:440px;width:100%;margin:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-weight:800;font-size:16px">🤖 ${esc(u.titel||row.name||"Übung")}</div>
+      <button onclick="document.getElementById('tt-modal').remove()" style="border:none;background:none;font-size:22px;color:var(--text2);cursor:pointer">×</button>
+    </div>
+    <div style="font-size:11.5px;color:var(--text2);margin-bottom:8px">${u.dauer?"⏱ "+esc(u.dauer):""}${u.material?" · 🎒 "+esc(u.material):""}</div>
+    <div style="font-size:13.5px;line-height:1.6;white-space:pre-wrap">${esc(u.beschreibung||"")}</div>
+    ${u.variante?`<div style="font-size:12.5px;color:var(--text2);margin-top:8px">➕ <b>Variante:</b> ${esc(u.variante)}</div>`:""}
+  </div>`;
+  document.body.appendChild(m);
+}
+
+// FEAT AC-Folge: KI-Übung als echte Trainingsform speichern (Tabelle trainingsformen,
+// gleicher Weg wie saveCustomTraining). Danach ist sie via tpAllForms() in ALLEN
+// Planungs-Dropdowns waehlbar (jede Phase, jedes Datum) -> Trainer setzt sie an die
+// gewuenschte Stelle. Navigiert direkt in die Planung.
+async function kiCoachSaveForm(i){
+  const u=kiLastUebungen[i]; if(!u)return;
+  const kat=document.getElementById("ki-kat-"+i)?.value||"technik"; // vom Trainer gewählte Kategorie
+  const ablauf=(u.beschreibung||"")+(u.variante?"\n\nVariante: "+u.variante:"");
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  // Spalten exakt wie in trainingsformen: KEIN svg (existiert nicht), tags ist text (kein Array).
+  const form={
+    name:(u.titel||"KI-Übung").slice(0,120),
+    kat:kat,
+    ablauf:ablauf,
+    varianten:u.variante||"",
+    coaching:"Vom Adler-Coach (KI) vorgeschlagen – altersgerecht für U8/U9.",
+    spieler:"", feld:u.material||"", dauer:u.dauer||"",
+    spass:5, diff:2,
+    custom:true, focus:false, tags:"KI-Coach",
+    kurz:(u.beschreibung||"").slice(0,80)
+  };
+  try{
+    // Trainer-Token (RLS: trainingsformen schreibbar nur fuer is_trainer, NICHT anon)
+    const r=await fetch(`${SB_URL}/rest/v1/trainingsformen`,{method:"POST",headers:sbAuthHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(form)});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast("Speichern fehlgeschlagen","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  if(typeof CUSTOM_FORMS!=="undefined")CUSTOM_FORMS.push(form);
+  document.getElementById("ki-modal")?.remove();
+  toast("🏃 In Trainings-Bibliothek – jetzt in der Planung wählbar ✓");
+  if(typeof go==="function")go("planung"); // direkt zur Planung, dort in gewünschte Phase setzen
+}

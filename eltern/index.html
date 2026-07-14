@@ -42,7 +42,7 @@
 (async function(){
   const shell=await (await fetch("shell.html")).text();
   document.body.insertAdjacentHTML("afterbegin",shell);
-  for(const datei of ["data.js","core.js","engine.js","views.js","quiz.js","matchday.js","boot.js"]){
+  for(const datei of ["data.js","core.js","engine.js","views.js","quiz.js","matchday-eltern.js","matchday-planung.js","matchday-spiel.js","matchday-card.js","matchday-extras.js","boot.js"]){
     await new Promise((fertig,fehler)=>{
       const s=document.createElement("script");
       s.src=datei; s.onload=fertig; s.onerror=()=>fehler(new Error(datei));
