@@ -481,6 +481,13 @@ function ensureChart(){
 // Ort/Adresse → antippbarer Karten-Link (Google Maps, öffnet native App auf dem Handy).
 function mapsUrl(q){ return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q||""); }
 function mapsAnchor(ort,color){ if(!ort)return ""; return `<a href="${mapsUrl(ort)}" target="_blank" rel="noopener" style="color:${color||"var(--blue)"};text-decoration:none">📍 ${esc(ort)}</a>`; }
+// F3: klarer „Route"-Knopf (Maps-Deep-Link) aus einer Adresse. block=true -> volle Breite fürs
+// Eltern-Detailfenster (eigenes Design), sonst kompakter .btn fürs Trainer-Karten-Raster.
+function routeBtn(addr,opts){
+  if(!addr)return ""; opts=opts||{};
+  if(opts.block)return `<a href="${mapsUrl(addr)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:46px;margin-top:8px;border:1.5px solid #1e3a8a;border-radius:10px;background:#eef2ff;color:#1e3a8a;font-family:inherit;font-size:14px;font-weight:800;text-decoration:none">🧭 Route öffnen</a>`;
+  return `<a class="btn btn-sm" href="${mapsUrl(addr)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none"><i class="ti ti-navigation"></i>🧭 Route</a>`;
+}
 
 const WETTER_LAT=50.98, WETTER_LON=7.05; // SV Adler Dellbrück (Heim)
 function wetterCodeInfo(c){

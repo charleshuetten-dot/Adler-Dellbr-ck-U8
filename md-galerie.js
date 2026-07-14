@@ -4,6 +4,20 @@
    Fotos: privater Bucket 'termin_media' (5 MB, nur Bilder, Limit serverseitig).
    Trainer moderiert (Loeschrecht via authRole). Anzeige per Auth-Download + Blob.
 ═══════════════════════════════════ */
+// F2: Fotofreigabe-Übersicht fürs Team – zeigt VOR dem Posten, wer freigegeben ist und wer
+// NICHT erkennbar gezeigt werden darf. Quelle: spieler.foto_stadionheft_ok (die EINE Freigabe
+// für „Adler Nest" + Team-Galerie). Nur sinnvoll im Trainer-Kontext (KADER geladen).
+function fotoConsentBannerHtml(){
+  const kids=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
+  if(!kids.length)return "";
+  const ok=kids.filter(k=>k.foto_stadionheft_ok), no=kids.filter(k=>!k.foto_stadionheft_ok);
+  const noNames=no.map(k=>esc(k.name)).join(", ");
+  return `<div style="padding:10px;border-radius:10px;margin-bottom:12px;background:${no.length?"#fff7ed":"#f0fdf4"};border:1px solid ${no.length?"#fdba74":"#86efac"}">
+    <div style="font-size:11.5px;font-weight:800;color:${no.length?"#9a3412":"#15803d"};margin-bottom:2px">📸 Fotofreigabe: ✅ ${ok.length} frei${no.length?` · ⛔ ${no.length} ohne`:""}</div>
+    ${no.length?`<div style="font-size:11.5px;color:#9a3412">Bitte <b>nicht erkennbar</b> zeigen: ${noNames}</div>`:'<div style="font-size:11px;color:#15803d">Alle aktiven Kinder haben Freigabe. 👍</div>'}
+    <div style="font-size:10px;color:var(--text3);margin-top:3px">Freigabe je Kind im Kader änderbar.</div>
+  </div>`;
+}
 async function galerieOpen(terminId,titel){
   if(!sbToken()){toast("Bitte zuerst anmelden","err");return;}
   document.getElementById("gal-modal")?.remove();
@@ -15,6 +29,7 @@ async function galerieOpen(terminId,titel){
       <div style="font-weight:800;font-size:16px">📸 Fotos${titel?" · "+esc(titel):""}</div>
       <button onclick="document.getElementById('gal-modal').remove()" style="border:none;background:none;font-size:22px;color:var(--text2);cursor:pointer">×</button>
     </div>
+    ${fotoConsentBannerHtml()}
     <div style="padding:10px;border:1.5px dashed var(--text3);border-radius:10px;margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">Foto hinzufügen</div>
       <input id="gal-foto" type="file" accept="image/jpeg, image/png, image/webp" capture="environment" style="width:100%;font-size:12px;margin-bottom:8px">

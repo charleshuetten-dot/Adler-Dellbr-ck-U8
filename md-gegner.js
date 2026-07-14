@@ -218,6 +218,31 @@ function tmDetailOpen(id){
   // Nachlader wie in der Terminliste anstoßen (Wetter + Büdchen füllen ihre Slots per id).
   try{ wetterInto("wx-tm-"+t.id,t.datum,t.ort,t.uhrzeit); }catch(e){}
   if(t.heim===true&&(t.typ==="spiel"||t.typ==="turnier")){ try{ buedchenTrainerFill(t); }catch(e){} }
+  if(["training","spiel","turnier"].includes(t.typ)&&t.datum<new Date().toISOString().slice(0,10)){ try{ pulsTrainerFill(t); }catch(e){} } // F4
+}
+// F4: Eltern-Puls-Aggregat fürs Trainer-Detail (anonym via puls_aggregate).
+async function pulsTrainerFill(t){
+  const box=document.getElementById("puls-tm-"+t.id); if(!box)return;
+  let a=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/puls_aggregate`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_termin:Number(t.id)})});if(r.ok)a=await r.json();}catch(e){}
+  if(!a||!a.n){box.innerHTML='🌡️ Eltern-Puls: noch keine Rückmeldung';return;}
+  const comments=(a.comments||[]);
+  window._pulsCmt=window._pulsCmt||{}; window._pulsCmt[t.id]=comments;
+  box.innerHTML=`🌡️ <b>Eltern-Puls</b> (${a.n}): 😀 ${a.up} · 😐 ${a.mid} · 😟 ${a.down} · Ø ${a.avg}`+
+    (comments.length?` <button onclick="pulsComments(${Number(t.id)})" style="border:none;background:none;color:var(--blue);cursor:pointer;font-size:11px;font-family:inherit;padding:0">💬 ${comments.length}</button>`:"");
+}
+function pulsComments(id){
+  const arr=(window._pulsCmt||{})[id]||[]; if(!arr.length)return;
+  document.getElementById("puls-cmt-modal")?.remove();
+  const modal=document.createElement("div"); modal.id="puls-cmt-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10060;display:flex;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.innerHTML=`<div style="font-weight:800;font-size:15px;margin-bottom:8px">💬 Eltern-Feedback <span style="font-weight:400;color:var(--text3);font-size:11px">(anonym)</span></div>
+    ${arr.map(x=>`<div style="padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:6px;font-size:13px">${esc(x)}</div>`).join("")}
+    <button class="btn btn-sm" style="margin-top:6px" onclick="document.getElementById('puls-cmt-modal').remove()">Schließen</button>`;
+  modal.appendChild(c); document.body.appendChild(modal);
 }
 // Archiv (vergangene Termine) ein-/ausklappen – standardmäßig zu, damit nur Kommendes im Fokus ist.
 function tmToggleArchiv(){
@@ -332,6 +357,7 @@ async function platzAmpelNote(id,val){
 }
 function tmCard(t){
   const m=TM_META[t.typ]||TM_META.training;
+  const routeAddr=t.ort||(t.heim===true?VEREIN_ADRESSE:""); // F3: Route auch bei Heimspiel ohne Extra-Adresse
   const d=new Date(t.datum+"T00:00:00");
   const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
   const datumStr=wtag+" "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
@@ -374,6 +400,7 @@ function tmCard(t){
     ${t.datum>=new Date().toISOString().slice(0,10)?platzAmpelTrainer(t):""}
     <div id="wx-tm-${t.id}"></div>
     ${(t.heim===true&&(t.typ==="spiel"||t.typ==="turnier")&&t.datum>=new Date().toISOString().slice(0,10))?`<div id="bd-tm-${t.id}" style="font-size:11px;color:var(--text2);margin-top:4px">🍿 Büdchen: lädt …</div>`:""}
+    ${(["training","spiel","turnier"].includes(t.typ)&&t.datum<new Date().toISOString().slice(0,10))?`<div id="puls-tm-${t.id}" style="font-size:11.5px;color:var(--text2);margin-top:4px"></div>`:""}
     ${t.datum>=new Date().toISOString().slice(0,10)?`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px">
       <span style="font-size:10px;color:var(--text3);font-weight:700">Trainer dabei?</span>
       ${(typeof TRAINER!=="undefined"?TRAINER:[]).map(tn=>{const stt=(t.trainer_status||{})[tn];const bg=stt==="ja"?"#16a34a":stt==="unsicher"?"#ca8a04":stt==="nein"?"#dc2626":"var(--surface2)";const col=stt?"#fff":"var(--text2)";const mk=stt==="ja"?" ✓":stt==="unsicher"?" 🤔":stt==="nein"?" ✕":"";return `<button onclick="tmTrainerToggle(${Number(t.id)},'${tn.replace(/'/g,"")}')" title="Tippen wechselt: dabei → unsicher → nicht dabei → offen" style="border:var(--border-s);border-radius:12px;padding:2px 8px;font-size:10.5px;font-weight:700;background:${bg};color:${col};cursor:pointer;font-family:inherit">${esc(tn)}${mk}</button>`;}).join("")}
@@ -381,7 +408,8 @@ function tmCard(t){
     ${notizClean?`<div style="font-size:11px;color:var(--text3)">${esc(notizClean)}</div>`:""}
     ${istSpiel?`<div style="display:flex;align-items:center;gap:6px;margin:6px 0"><span style="font-size:11px;color:var(--text2)">Ergebnis:</span><input type="text" value="${esc(t.ergebnis||"")}" placeholder="z. B. 3:2" onchange="tmSetResult(${Number(t.id)},this.value)" style="width:90px;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:12px;font-family:inherit"></div>`:""}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-      ${actions}${remindBtn}
+      ${actions}${remindBtn}${routeAddr?routeBtn(routeAddr):""}
+      ${t.datum>=new Date().toISOString().slice(0,10)?`<button class="btn btn-sm" onclick="handoverOpen(${Number(t.id)})" title="Read-Only-Paket für eine Vertretung"><i class="ti ti-user-share"></i>Vertretung</button>`:""}
       <button class="btn btn-sm" onclick="galerieOpen(${Number(t.id)},'${(t.titel||m.label).replace(/'/g,'')}')"><i class="ti ti-photo"></i>Fotos</button>
       <button class="btn btn-sm btn-d" style="margin-left:auto" onclick="tmDelete(${Number(t.id)})"><i class="ti ti-trash"></i></button>
     </div>
@@ -389,6 +417,105 @@ function tmCard(t){
 }
 async function tmSetResult(id,val){
   try{await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({ergebnis:val})});}catch(e){}
+}
+/* ═══════════════════════════════════
+   F6: VERTRETUNGS-/HANDOVER-PAKET – selbst-enthaltener Read-Only-Link.
+   Alle Infos (Zusagen, Trainingsplan, Notiz) stecken im URL-Fragment (#h=…);
+   nichts landet auf dem Server oder in Server-Logs. Snapshot, nicht live.
+═══════════════════════════════════ */
+function handoverEncode(pkt){ try{ return btoa(unescape(encodeURIComponent(JSON.stringify(pkt)))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }catch(e){ return ""; } }
+function handoverDecode(s){ try{ s=s.replace(/-/g,"+").replace(/_/g,"/"); return JSON.parse(decodeURIComponent(escape(atob(s)))); }catch(e){ return null; } }
+async function handoverOpen(id){
+  const t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(id)); if(!t){toast("Termin nicht gefunden","err");return;}
+  const m=TM_META[t.typ]||TM_META.training;
+  let byId={};
+  try{const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${t.id}&select=spieler_id,status`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)(await r.json()).forEach(x=>byId[x.spieler_id]=x.status);}catch(e){}
+  const kids=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
+  const grp={zugesagt:[],offen:[],abgesagt:[],krank:[]};
+  kids.forEach(k=>{const s=byId[k.id]||"offen";(grp[s]||grp.offen).push(k.name);});
+  let plan=[]; if(t.typ==="training"){ try{ plan=await tpPlanLoad(t.datum); }catch(e){} }
+  window._handoverData={t,grp,plan};
+  document.getElementById("handover-modal")?.remove();
+  const modal=document.createElement("div"); modal.id="handover-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10050;display:flex;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:480px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  const d=new Date(t.datum+"T00:00:00"), wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+  const datumStr=wtag+" "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"long"});
+  c.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-weight:800;font-size:16px">🧑‍🏫 Vertretungs-Paket</div>
+      <button onclick="document.getElementById('handover-modal').remove()" style="border:none;background:none;font-size:22px;color:var(--text2);cursor:pointer">×</button>
+    </div>
+    <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px">${m.icon} ${esc(t.titel||m.label)} · ${datumStr}</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Erzeugt einen <b>Read-Only-Link</b> für eine Ersatz-Betreuung. Zusagen, ${t.typ==="training"?"Trainingsplan":"Spielinfos"} und deine Notiz stecken direkt im Link – kein Login, nichts wird gespeichert.</div>
+    <label style="font-size:12px;font-weight:700">Kurz-Notiz für die Vertretung</label>
+    <textarea id="handover-notiz" rows="3" placeholder="z. B. Torwart heute Max · Ball-Beutel im Vereinsheim · Abschluss 4+1 …" style="width:100%;margin-top:4px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;resize:vertical;box-sizing:border-box"></textarea>
+    <div style="font-size:11px;color:var(--text3);margin:6px 0 12px">Zusagen: ${grp.zugesagt.length} · offen: ${grp.offen.length} · ab/krank: ${grp.abgesagt.length+grp.krank.length}${plan.length?` · Plan: ${plan.length} Stationen`:""}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-p btn-sm" onclick="handoverGen('open')"><i class="ti ti-external-link"></i>Vorschau</button>
+      <button class="btn btn-sm" onclick="handoverGen('copy')"><i class="ti ti-copy"></i>Link kopieren</button>
+      <button class="btn btn-sm" onclick="handoverGen('wa')"><i class="ti ti-brand-whatsapp"></i>WhatsApp</button>
+    </div>`;
+  modal.appendChild(c); document.body.appendChild(modal);
+}
+function handoverGen(mode){
+  const dd=window._handoverData; if(!dd)return;
+  const t=dd.t, notiz=(document.getElementById("handover-notiz")?.value||"").slice(0,600);
+  const pkt={v:1,typ:t.typ,datum:t.datum,zeit:t.uhrzeit?String(t.uhrzeit).slice(0,5):"",titel:t.titel||"",gegner:t.gegner||"",heim:t.heim,ort:t.ort||"",platz:t.platz||"",spielform:t.spielform||"",
+    ja:dd.grp.zugesagt,offen:dd.grp.offen,ab:dd.grp.abgesagt,krank:dd.grp.krank,
+    plan:(dd.plan||[]).map(p=>({s:p.slotLabel||"",f:p.formName||"",tr:p.trainer||""})),notiz};
+  const link=appRoot()+"?handover#h="+handoverEncode(pkt);
+  if(mode==="open"){ window.open(link,"_blank","noopener"); return; }
+  if(mode==="wa"){
+    const d=new Date(t.datum+"T00:00:00"), ds=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()]+" "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+    const txt=`🦅 SV Adler U9 – Vertretung ${pkt.zeit?pkt.zeit+" Uhr ":""}am ${ds}\nAlle Infos (Zusagen, Plan, Notizen):\n${link}`;
+    window.open("https://wa.me/?text="+encodeURIComponent(txt),"_blank","noopener"); return;
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(()=>toast("Link kopiert ✓"),()=>toast("Kopieren nicht möglich – Vorschau nutzen","err")); }
+  else toast("Kopieren nicht möglich – Vorschau nutzen","err");
+}
+// Öffentliche Read-Only-Ansicht (?handover, Daten im #-Fragment). Kein Login, kein Server.
+function renderHandoverView(){
+  const hash=location.hash||"", mm=hash.match(/h=(.+)$/);
+  const pkt=mm?handoverDecode(mm[1]):null;
+  const root=document.createElement("div");
+  root.style.cssText="max-width:520px;margin:0 auto;padding:16px;font-family:inherit;min-height:100vh;background:#f1f5f9;color:#1a1a2e";
+  document.body.appendChild(root);
+  if(!pkt){ root.innerHTML='<div style="text-align:center;padding:48px;color:#64748b">Dieser Vertretungs-Link ist ungültig oder unvollständig.</div>'; return; }
+  const META={training:{i:"🏃",l:"Training"},spiel:{i:"⚽",l:"Spiel"},turnier:{i:"🏆",l:"Turnier"},event:{i:"🎉",l:"Event"}};
+  const m=META[pkt.typ]||META.training;
+  const d=new Date(pkt.datum+"T00:00:00"), wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+  const datumStr=wtag+", "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"long",year:"numeric"});
+  const addr=pkt.ort||(pkt.heim===true?"Thurner Kamp 97, 51069 Köln":"");
+  const e2=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const list=(title,arr,col)=>arr&&arr.length?`<div style="margin-top:6px;font-size:14px"><b style="color:${col}">${title} (${arr.length}):</b> ${arr.map(e2).join(", ")}</div>`:"";
+  const planHtml=(pkt.plan&&pkt.plan.length)?`<div style="background:#fff;border-radius:14px;padding:14px;margin-top:12px">
+      <div style="font-weight:800;margin-bottom:6px">📋 Trainingsplan</div>
+      ${pkt.plan.map(p=>`<div style="padding:6px 0;border-top:1px solid #f1f5f9;font-size:14px">${p.s?`<span style="color:#64748b">${e2(p.s)}: </span>`:""}<b>${e2(p.f)}</b>${p.tr&&p.tr!=="Alle"?` <span style="font-size:11px;color:#3730a3">(${e2(p.tr)})</span>`:""}</div>`).join("")}
+    </div>`:"";
+  root.innerHTML=`
+    <div style="text-align:center;margin:8px 0 14px">
+      <img src="logo.png" style="width:52px;height:52px" alt="">
+      <div style="font-size:17px;font-weight:800;color:#1e3a8a;margin-top:6px">🧑‍🏫 Vertretung – ${m.i} ${e2(pkt.titel||m.l)}${pkt.gegner?" · "+e2(pkt.gegner):""}</div>
+      <div style="font-size:13px;color:#64748b">${datumStr}${pkt.zeit?" · "+e2(pkt.zeit)+" Uhr":""}</div>
+    </div>
+    <div style="background:#fff;border-radius:14px;padding:14px">
+      <div style="font-weight:800;margin-bottom:4px">📍 Ort</div>
+      <div style="font-size:14px">${addr?e2(addr):(pkt.heim===false?"Auswärts – bitte beim Verein erfragen":"—")}${pkt.platz?` · Platz: ${e2(pkt.platz)}`:""}${pkt.spielform?` · ${e2(pkt.spielform)}`:""}</div>
+      ${addr?`<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;padding:8px 12px;background:#eef2ff;color:#1e3a8a;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px">🧭 Route</a>`:""}
+    </div>
+    <div style="background:#fff;border-radius:14px;padding:14px;margin-top:12px">
+      <div style="font-weight:800;margin-bottom:2px">✅ Rückmeldungen</div>
+      ${list("Dabei",pkt.ja,"#15803d")||'<div style="color:#94a3b8;font-size:13px">Noch keine Zusagen erfasst.</div>'}
+      ${list("Offen",pkt.offen,"#b45309")}
+      ${list("Abgesagt",pkt.ab,"#dc2626")}
+      ${list("Krank",pkt.krank,"#d97706")}
+    </div>
+    ${planHtml}
+    ${pkt.notiz?`<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:14px;padding:14px;margin-top:12px"><div style="font-weight:800;color:#854d0e;margin-bottom:4px">📝 Notiz vom Trainer</div><div style="font-size:14px;white-space:pre-wrap;color:#713f12">${e2(pkt.notiz)}</div></div>`:""}
+    <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:16px">Snapshot – Stand beim Erstellen des Links · SV Adler Dellbrück e.V.</div>`;
 }
 async function tmDelete(id){
   // HOTFIX 3: Löschen räumt via ON DELETE CASCADE automatisch Anwesenheit, Live-Aktionen,

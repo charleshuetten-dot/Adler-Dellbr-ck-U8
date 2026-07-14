@@ -29,7 +29,7 @@
   var suche=location.search||"";
   var p=new URLSearchParams(suche);
   // Alles, was nicht die Trainer-Ansicht ist, laeuft im Eltern-Ordner.
-  var elternRouten=["portal","quiz","heft","ticker","kind","delegate","match","eltern","rsvp"];
+  var elternRouten=["portal","quiz","heft","ticker","kind","delegate","match","eltern","rsvp","handover"];
   var ordner=elternRouten.some(function(k){return p.has(k);})?"eltern/":"trainer/";
   location.replace(ordner+suche+location.hash);
 })();

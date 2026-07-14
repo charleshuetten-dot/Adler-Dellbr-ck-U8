@@ -337,6 +337,7 @@ async function elternDashLoad(){
       <button onclick="abzeichenOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #f59e0b;border-radius:10px;background:#fffbeb;color:#b45309;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🎖️ Technik-Abzeichen</button>
       <button onclick="childWrappedShare(${k.spieler_id})" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🎬 Saison-Rückblick (Wrapped)</button>
       <button onclick="elternFanfactsOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #64748b;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">✏️ Fan-Fakten &amp; Foto</button>
+      <button onclick="notfallOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #dc2626;border-radius:10px;background:#fef2f2;color:#b91c1c;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🚑 Notfallkarte</button>
       <div style="font-size:10.5px;color:#94a3b8;margin-top:6px">Foto: Unter „Fan-Fakten &amp; Foto" steuerst du selbst, ob das Bild deines Kindes im „Adler Nest" und in der Team-Galerie erscheint.</div>`);
   }).join("");
   // Mehr vom Team: Stadionheft (öffentliche Leseansicht)
@@ -539,6 +540,7 @@ async function terminDetailOpen(id){
     <div id="td-wetter" style="margin-bottom:6px"></div>
     ${istSpiel?infoRow(t.heim===true?"🏠":t.heim===false?"✈️":"❓","Spielort", t.heim===true?"🏠 Heimspiel":t.heim===false?"✈️ Auswärtsspiel":'<span style="color:#b45309">Heim/Auswärts trägt der Trainer noch nach</span>'):""}
     ${infoRow("📍","Adresse", tdAdresse(t))}
+    ${(t.ort||t.heim===true)?routeBtn(t.ort||VEREIN_ADRESSE,{block:true}):""}
     ${infoRow("🏟️","Platz", t.platz?esc(t.platz):"")}
     ${infoRow("⚽","Spielform", spielformLbl)}
     <div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
@@ -548,6 +550,7 @@ async function terminDetailOpen(id){
     <div id="td-nom"></div>
     <div id="td-betreuung"></div>
     <div id="td-buedchen"></div>
+    <div id="td-puls"></div>
     ${t.typ==="event"?`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
       <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🎉 Mitbringliste</div>
       <div style="font-size:11.5px;color:#64748b;margin-bottom:8px">Wer bringt was mit? (Salat, Kuchen, Getränke, Pavillon …)</div>
@@ -559,6 +562,110 @@ async function terminDetailOpen(id){
   tdNomLoad(t,kids);
   if(t.typ==="training")tdBetreuungLoad(t,kids);
   if(istSpiel&&t.heim===true)tdBuedchenLoad(t,kids);
+  tdPulsLoad(t); // F4: Eltern-Puls (nur bei vergangenem Training/Spiel)
+}
+/* F4: Eltern-Puls – anonyme 1-Tap-Stimmung nach Training/Spiel. Der Trainer sieht nur das
+   Aggregat (puls_aggregate, keine user_ids). Ein Datensatz pro Elternteil/Termin (upsert). */
+async function tdPulsLoad(t){
+  const box=document.getElementById("td-puls"); if(!box)return;
+  const today=new Date().toISOString().slice(0,10);
+  if(!(["training","spiel","turnier"].includes(t.typ)&&t.datum<=today)){box.innerHTML="";return;}
+  let mine=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/event_puls?termin_id=eq.${t.id}&select=mood,kommentar`,{headers:sbAuthHeaders()});if(r.ok){mine=(await r.json())[0]||null;}}catch(e){}
+  tdPulsRender(t.id,mine);
+}
+function tdPulsRender(terminId,mine){
+  const box=document.getElementById("td-puls"); if(!box)return;
+  const moods=[{v:3,e:"😀",l:"Top"},{v:2,e:"😐",l:"Ok"},{v:1,e:"😟",l:"Naja"}];
+  const cur=mine?mine.mood:null;
+  box.dataset.mood=cur||"";
+  box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
+    <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🌡️ Wie war's? <span style="font-weight:400;color:#94a3b8;font-size:11px">(anonym, nur fürs Trainerteam)</span></div>
+    <div style="display:flex;gap:8px;margin:8px 0">
+      ${moods.map(mo=>{const on=cur===mo.v;return `<button onclick="tdPulsSave(${terminId},${mo.v})" style="flex:1;padding:10px 6px;border-radius:10px;border:1.5px solid ${on?"#1e3a8a":"#e2e8f0"};background:${on?"#eef2ff":"#fff"};cursor:pointer;font-family:inherit"><div style="font-size:22px">${mo.e}</div><div style="font-size:10px;color:#64748b">${mo.l}</div></button>`;}).join("")}
+    </div>
+    <input id="td-puls-txt" type="text" maxlength="200" value="${mine&&mine.kommentar?esc(mine.kommentar):""}" placeholder="Optional: ein Satz Feedback…" onblur="tdPulsSaveText(${terminId})" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box">
+    <div id="td-puls-done" style="font-size:11px;color:#16a34a;margin-top:4px">${cur?"Danke fürs Feedback ✓":""}</div>
+  </div>`;
+}
+async function tdPulsSave(terminId,mood){
+  const txt=(document.getElementById("td-puls-txt")?.value||"").trim().slice(0,200);
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/event_puls?on_conflict=termin_id,user_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({termin_id:terminId,mood,kommentar:txt||null})});
+    if(!r.ok){toast("Konnte nicht speichern","err");return;}
+    tdPulsRender(terminId,{mood,kommentar:txt});
+    try{navigator.vibrate&&navigator.vibrate(40);}catch(e){}
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+async function tdPulsSaveText(terminId){
+  const box=document.getElementById("td-puls"); const mood=box&&box.dataset.mood?Number(box.dataset.mood):0;
+  if(!mood)return; // Stimmung zuerst wählen (mood ist Pflicht)
+  const txt=(document.getElementById("td-puls-txt")?.value||"").trim().slice(0,200);
+  try{await fetch(`${SB_URL}/rest/v1/event_puls?on_conflict=termin_id,user_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({termin_id:terminId,mood,kommentar:txt||null})});}catch(e){}
+}
+
+/* F1: Notfall-/Gesundheitskarte (Art. 9 DSGVO – Gesundheitsdaten). Eltern pflegen sie fürs
+   eigene Kind; der Trainer sieht sie NUR lesend (RLS kn_trainer_read). Speichern nur mit
+   ausdrücklicher Einwilligung; Widerruf durch Leeren der Karte. */
+const NF_FIELDS=[
+  {k:"notfallkontakt",l:"Notfallkontakt (Name)",ph:"z. B. Mama – Anna Muster"},
+  {k:"notfall_tel",l:"Notfall-Telefon",ph:"z. B. 0170 …",tel:true},
+  {k:"allergien",l:"Allergien",ph:"z. B. Nüsse, Insektenstiche",area:true},
+  {k:"medikamente",l:"Medikamente / Bedarf",ph:"z. B. Asthmaspray in der Tasche",area:true},
+  {k:"krankenversicherung",l:"Krankenversicherung",ph:"z. B. AOK"},
+  {k:"blutgruppe",l:"Blutgruppe (optional)",ph:"z. B. 0+"},
+  {k:"arzt",l:"Kinderarzt (optional)",ph:"Name / Telefon"},
+  {k:"hinweise",l:"Weitere Hinweise",ph:"was das Trainerteam im Notfall wissen sollte",area:true}
+];
+async function notfallOpen(spielerId,name){
+  let cur={};
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_notfall?spieler_id=eq.${spielerId}&select=*`,{headers:sbAuthHeaders()});if(r.ok)cur=(await r.json())[0]||{};}catch(e){}
+  document.getElementById("nf-modal")?.remove();
+  const modal=document.createElement("div"); modal.id="nf-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10050;display:flex;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.style.cssText="background:#fff;color:#1a1a2e;max-width:480px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  const field=f=>`<label style="display:block;font-size:12px;font-weight:700;margin-top:10px">${f.l}</label>`+
+    (f.area?`<textarea id="nf-${f.k}" rows="2" placeholder="${f.ph}" style="width:100%;margin-top:3px;padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box;resize:vertical">${esc(cur[f.k]||"")}</textarea>`
+      :`<input id="nf-${f.k}" type="${f.tel?"tel":"text"}" placeholder="${f.ph}" value="${esc(cur[f.k]||"")}" style="width:100%;margin-top:3px;padding:9px;border:1px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box">`);
+  c.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+      <div style="font-weight:800;font-size:16px">🚑 Notfallkarte · ${esc(name)}</div>
+      <button onclick="document.getElementById('nf-modal').remove()" style="border:none;background:none;font-size:24px;color:#94a3b8;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="font-size:11.5px;color:#64748b;margin-bottom:6px">Diese Angaben sieht ausschließlich das <b>Trainerteam</b> – schreibgeschützt, damit im Notfall am Platz alles griffbereit ist. Du kannst sie jederzeit ändern oder leeren.</div>
+    ${NF_FIELDS.map(field).join("")}
+    <label style="display:flex;gap:8px;align-items:flex-start;margin-top:14px;font-size:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px">
+      <input id="nf-consent" type="checkbox" ${cur.einwilligung?"checked":""} style="margin-top:2px;width:18px;height:18px;flex:none">
+      <span>Ich willige ein, dass diese <b>Gesundheitsdaten</b> zum Zweck der Notfallvorsorge gespeichert und dem Trainerteam angezeigt werden (Art. 9 DSGVO). Widerruf jederzeit durch Leeren der Karte.</span>
+    </label>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn btn-p btn-sm" onclick="notfallSave(${spielerId})" style="flex:1;min-height:46px">Speichern</button>
+      ${cur.spieler_id?`<button class="btn btn-sm btn-d" onclick="notfallClear(${spielerId})" style="min-height:46px">Karte leeren</button>`:""}
+    </div>`;
+  modal.appendChild(c); document.body.appendChild(modal);
+}
+async function notfallSave(spielerId){
+  const consent=document.getElementById("nf-consent")?.checked;
+  if(!consent){toast("Bitte zuerst der Speicherung zustimmen","err");return;}
+  const body={spieler_id:spielerId,einwilligung:true,updated_at:new Date().toISOString()};
+  NF_FIELDS.forEach(f=>{const v=(document.getElementById("nf-"+f.k)?.value||"").trim();body[f.k]=v||null;});
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kind_notfall?on_conflict=spieler_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(body)});
+    if(!r.ok){toast((typeof sbDeniedMsg==="function")?sbDeniedMsg(r):"Konnte nicht speichern","err");return;}
+    document.getElementById("nf-modal")?.remove();
+    toast("Notfallkarte gespeichert ✓");
+  }catch(e){toast("Netzwerkfehler","err");}
+}
+async function notfallClear(spielerId){
+  if(!confirm("Notfallkarte wirklich leeren? Alle Angaben werden gelöscht."))return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kind_notfall?spieler_id=eq.${spielerId}`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(!r.ok){toast("Konnte nicht löschen","err");return;}
+    document.getElementById("nf-modal")?.remove();
+    toast("Notfallkarte geleert ✓");
+  }catch(e){toast("Netzwerkfehler","err");}
 }
 async function tdRsvp(terminId,spielerId,status){
   try{

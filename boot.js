@@ -486,6 +486,7 @@ function awSave(){
   // FEAT S: Trainings-XP für anwesende Kinder – idempotent pro Datum (quelle_id),
   // Mehrfach-Speichern vergibt also nie doppelt. Un-Toggle nimmt bewusst nichts weg.
   KADER.forEach(k=>{if(data[k.name]&&data[k.name].da)xpAwardByName(k.name,"training",datum).catch(()=>{});});
+  awStreakAward(data); // F7: Serien-Meilensteine + Feier-Toast
   awRenderStats();
   awRenderTrainerStats();
   try{navigator.vibrate&&navigator.vibrate(50);}catch(e){} // 1C: haptische Bestätigung
@@ -605,6 +606,28 @@ function awRenderTrainerStats(){
   wrap.innerHTML=html;
 }
 
+/* F7: Anwesenheits-Serie – aufeinanderfolgende ERFASSTE Einheiten (neueste zuerst), in
+   denen das Kind „da" war. Erste Abwesenheit beendet die Serie; Einheiten vor dem Beitritt
+   (Kind fehlt im Datensatz) werden übersprungen, nicht als Lücke gewertet. */
+const AW_STREAK_MILES=[3,5,8,12,16,20];
+function awStreak(name){
+  const dates=Object.keys(AW_DATA).sort().reverse();
+  let s=0;
+  for(const d of dates){ const day=AW_DATA[d]; if(!day||!(name in day))continue; if(day[name]&&day[name].da)s++; else break; }
+  return s;
+}
+// Milestone-Federn für erreichte Serien (idempotent pro Meilenstein via xp_award_event) +
+// eine Feier-Toast für die längste neue Serie. Aufruf nach dem Speichern der Anwesenheit.
+function awStreakAward(data){
+  let bestStreak=0,bestName="";
+  KADER.forEach(k=>{
+    if(!(data[k.name]&&data[k.name].da))return;
+    const st=awStreak(k.name);
+    AW_STREAK_MILES.filter(m=>m<=st).forEach(m=>{try{xpAwardByName(k.name,"streak","s"+m).catch(()=>{});}catch(e){}});
+    if(st>bestStreak){bestStreak=st;bestName=k.name;}
+  });
+  if(bestStreak>=3)setTimeout(()=>toast(`🔥 ${bestName}: ${bestStreak}× in Folge dabei!`),700);
+}
 function awRenderStats(){
   const wrap=document.getElementById("aw-stats");
   if(!wrap)return;
@@ -630,8 +653,10 @@ function awRenderStats(){
     const pct=s.total?Math.round(s.da/s.total*100):0;
     const avgQ=s.qualCount?Math.round(s.qualSum/s.qualCount*10)/10:"-";
     const col=pct>=80?"#16a34a":pct>=50?"#b45309":"#dc2626";
+    const st=awStreak(k.name);
+    const flame=st>=2?` <span title="${st}× in Folge dabei" style="font-size:11px;font-weight:700;color:#ea580c">🔥${st}</span>`:"";
     html+=`<div style="display:grid;grid-template-columns:1fr 60px 60px 70px;padding:6px 10px;border-top:var(--border);align-items:center">
-      <div style="font-weight:600">${k.name}</div>
+      <div style="font-weight:600">${k.name}${flame}</div>
       <div style="color:${col};font-weight:700">${pct}%</div>
       <div>${avgQ!=="-"?"★".repeat(Math.round(avgQ)):"-"}</div>
       <div style="color:var(--text2)">${s.da}/${s.total}</div>
@@ -768,7 +793,8 @@ function tpRenderTimeline(){
   const trainerCount=tpGetTrainerCount();
   const allForms=tpAllForms();
   let time=0;
-  let html='';
+  // F5: Stationstimer – laeuft die Plan-Stationen am Platz mit Countdown + Pfiff durch.
+  let html='<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button class="btn btn-p btn-sm" onclick="stTimerStart()" title="Stationen am Platz mit Countdown durchlaufen">⏱️ Stationstimer</button></div>';
   tpSlots.forEach((slot,si)=>{
     const startMin=time;
     const endMin=time+slot.dauer;
@@ -1080,6 +1106,15 @@ async function pinCheck(){
     setTimeout(pwaInstallNudge,1800);
     return;
   }
+  // F6: Vertretungs-Paket (?handover) – selbst-enthaltener Read-Only-Snapshot (Daten im #-Fragment), kein Login, kein Server.
+  if(params.has("handover")){
+    document.title="Vertretung – SV Adler Dellbrück U9";
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#1e3a8a");
+    document.getElementById("pin-gate")?.remove();
+    document.getElementById("main-app")?.remove();
+    renderHandoverView();
+    return;
+  }
   // Digitales Stadionheft: Nur-Ansehen fuer alle Eltern (?heft), kein Login. Namen maskiert, Fotos nur bei Einwilligung.
   if(params.has("heft")){
     document.title="Adler Nest – SV Adler Dellbrück U9";
@@ -1262,6 +1297,73 @@ async function tpPlanLoad(datum){
     const rows=await r.json();
     return (rows[0]&&rows[0].plan)||[];
   }catch(e){return [];}
+}
+
+/* ═══════════════════════════════════
+   F5: TRAININGS-STATIONSTIMER – die Plan-Stationen (tpSlots) am Platz mit
+   Countdown + Pfiff durchlaufen. Reines Frontend, kein Server.
+═══════════════════════════════════ */
+let _stT={ix:0,left:0,timer:null,stations:[],paused:false};
+// Stationen aus dem aktuellen Zeitplan: Label + Dauer je Slot, plus die gewählten Übungen.
+function stTimerStations(){
+  return tpSlots.map((slot,si)=>{
+    const forms=[...document.querySelectorAll(`.tp-form-sel[id^="tp-form-${si}-"]`)]
+      .map(s=>(s.value&&s.selectedOptions[0])?s.selectedOptions[0].textContent.replace(/\s*\([^)]*\)\s*$/,"").trim():"")
+      .filter(Boolean);
+    return {label:slot.label||("Station "+(si+1)),dauer:Math.max(1,slot.dauer||10),farbe:slot.farbe||"#1a56db",forms:[...new Set(forms)]};
+  });
+}
+function stTimerStart(){
+  const st=stTimerStations();
+  if(!st.length){toast("Kein Plan vorhanden – erst Stationen anlegen (Auto-Plan)","err");return;}
+  _stT={ix:0,left:st[0].dauer*60,timer:null,stations:st,paused:false};
+  document.getElementById("st-timer")?.remove();
+  const ov=document.createElement("div"); ov.id="st-timer";
+  ov.style.cssText="position:fixed;inset:0;background:#0b1220;color:#fff;z-index:11000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;font-family:inherit";
+  document.body.appendChild(ov);
+  stTimerRender();
+  _stT.timer=setInterval(stTimerTick,1000);
+  try{if(typeof requestWakeLock==="function")requestWakeLock();}catch(e){}
+}
+function stTimerTick(){
+  if(_stT.paused)return;
+  _stT.left--;
+  if(_stT.left<=0){
+    stTimerWhistle();
+    if(_stT.ix>=_stT.stations.length-1){ stTimerRender(true); if(_stT.timer){clearInterval(_stT.timer);_stT.timer=null;} return; }
+    _stT.ix++; _stT.left=_stT.stations[_stT.ix].dauer*60;
+  }
+  stTimerRender();
+}
+function stTimerWhistle(){ try{if(typeof rotBeep==="function"){rotBeep();setTimeout(rotBeep,260);}}catch(e){} try{navigator.vibrate&&navigator.vibrate([120,80,120]);}catch(e){} }
+function stTimerNext(){
+  if(!_stT.stations.length)return; stTimerWhistle();
+  if(_stT.ix>=_stT.stations.length-1){ stTimerRender(true); if(_stT.timer){clearInterval(_stT.timer);_stT.timer=null;} return; }
+  _stT.ix++; _stT.left=_stT.stations[_stT.ix].dauer*60; stTimerRender();
+}
+function stTimerPause(){ _stT.paused=!_stT.paused; stTimerRender(); }
+function stTimerStop(){ if(_stT.timer){clearInterval(_stT.timer);_stT.timer=null;} document.getElementById("st-timer")?.remove(); try{if(typeof releaseWakeLock==="function")releaseWakeLock();}catch(e){} }
+function stTimerRender(done){
+  const ov=document.getElementById("st-timer"); if(!ov)return;
+  if(done){
+    ov.innerHTML=`<div style="font-size:60px">🎉</div><div style="font-size:26px;font-weight:800;margin:12px 0">Training geschafft!</div>
+      <button onclick="stTimerStop()" style="margin-top:20px;padding:14px 28px;border:none;border-radius:12px;background:#16a34a;color:#fff;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer">Fertig</button>`;
+    return;
+  }
+  const s=_stT.stations[_stT.ix]||{}, next=_stT.stations[_stT.ix+1];
+  const mm=Math.floor(Math.max(0,_stT.left)/60), ss=Math.max(0,_stT.left)%60, clock=mm+":"+(ss<10?"0":"")+ss;
+  const warn=_stT.left<=10;
+  ov.innerHTML=`
+    <div style="font-size:13px;letter-spacing:1px;color:#94a3b8;text-transform:uppercase">Station ${_stT.ix+1}/${_stT.stations.length}${_stT.paused?" · ⏸ Pause":""}</div>
+    <div style="font-size:26px;font-weight:800;margin:8px 0;color:${s.farbe||"#60a5fa"}">${esc(s.label||"")}</div>
+    ${s.forms&&s.forms.length?`<div style="font-size:16px;color:#e2e8f0;margin-bottom:6px;max-width:520px">${s.forms.map(esc).join(" · ")}</div>`:""}
+    <div style="font-size:84px;font-weight:900;line-height:1;margin:10px 0;color:${warn?"#f87171":"#fff"}">${clock}</div>
+    ${next?`<div style="font-size:14px;color:#94a3b8;max-width:520px">Als Nächstes: ${esc(next.label)}${next.forms&&next.forms.length?" – "+esc(next.forms.join(", ")):""}</div>`:'<div style="font-size:14px;color:#94a3b8">Letzte Station</div>'}
+    <div style="display:flex;gap:10px;margin-top:26px;flex-wrap:wrap;justify-content:center">
+      <button onclick="stTimerPause()" style="padding:14px 22px;border:none;border-radius:12px;background:#334155;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">${_stT.paused?"▶️ Weiter":"⏸ Pause"}</button>
+      <button onclick="stTimerNext()" style="padding:14px 22px;border:none;border-radius:12px;background:#1a56db;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">⏭ Nächste</button>
+      <button onclick="stTimerStop()" style="padding:14px 22px;border:1px solid #475569;border-radius:12px;background:transparent;color:#cbd5e1;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">✕ Beenden</button>
+    </div>`;
 }
 
 function evalRenderList(){

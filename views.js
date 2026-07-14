@@ -758,6 +758,37 @@ async function backupExport(){
   }catch(e){toast("Backup fehlgeschlagen","err");}
 }
 
+/* F1: Notfall-/Gesundheitskarten – Trainer-Leseansicht. Lädt alle Karten (RLS erlaubt dem
+   Trainer nur SELECT) und legt sie zusätzlich in localStorage ab, damit sie am Platz auch
+   OHNE Netz griffbereit sind. Kein Schreibweg – gepflegt wird ausschließlich von den Eltern. */
+async function notfallTrainerOpen(){
+  let rows=null, offline=false;
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_notfall?select=*`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok){rows=await r.json();try{localStorage.setItem("adler_nf_cache",JSON.stringify({at:Date.now(),rows}));}catch(e){}}}catch(e){}
+  if(!rows){ try{const c=JSON.parse(localStorage.getItem("adler_nf_cache")||"null");if(c&&c.rows){rows=c.rows;offline=true;}}catch(e){} }
+  rows=rows||[];
+  const nameById={}; (typeof KADER!=="undefined"?KADER:[]).forEach(k=>{nameById[k.id]=k.name;});
+  const flds=[["notfall_tel","☎️ Notfall"],["notfallkontakt","👤 Kontakt"],["allergien","⚠️ Allergien"],["medikamente","💊 Medikamente"],["krankenversicherung","🏥 Versicherung"],["blutgruppe","🩸 Blutgruppe"],["arzt","🩺 Arzt"],["hinweise","📝 Hinweise"]];
+  const cards=rows.filter(x=>flds.some(f=>x[f[0]])).sort((a,b)=>String(nameById[a.spieler_id]||"").localeCompare(String(nameById[b.spieler_id]||"")));
+  document.getElementById("nf-tr-modal")?.remove();
+  const modal=document.createElement("div"); modal.id="nf-tr-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10050;display:flex;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:520px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  const tel=v=>{const num=String(v).replace(/[^\d+]/g,"");return num?`<a href="tel:${num}" style="color:#dc2626;font-weight:700;text-decoration:none">${esc(v)}</a>`:esc(v);};
+  c.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-weight:800;font-size:16px">🚑 Notfallkarten</div>
+      <button onclick="document.getElementById('nf-tr-modal').remove()" style="border:none;background:none;font-size:24px;color:var(--text2);cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Von den Eltern gepflegt · schreibgeschützt${offline?' · <b style="color:#b45309">📴 Offline-Stand</b>':""}. Bitte vertraulich behandeln.</div>
+    ${cards.length?cards.map(x=>`<div style="border:var(--border-s);border-left:3px solid #dc2626;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+        <div style="font-weight:800;font-size:14px;margin-bottom:4px">${esc(nameById[x.spieler_id]||("Kind #"+x.spieler_id))}</div>
+        ${flds.filter(f=>x[f[0]]).map(f=>`<div style="font-size:12.5px;padding:2px 0"><span style="color:var(--text2)">${f[1]}:</span> ${f[0]==="notfall_tel"?tel(x[f[0]]):esc(x[f[0]])}</div>`).join("")}
+      </div>`).join(""):'<div style="text-align:center;color:var(--text3);font-size:13px;padding:24px">Noch keine Notfallkarten hinterlegt.<br>Die Eltern füllen sie im Eltern-Bereich (🚑 Notfallkarte).</div>'}
+    <button class="btn btn-sm" style="margin-top:6px" onclick="document.getElementById('nf-tr-modal').remove()">Schließen</button>`;
+  modal.appendChild(c); document.body.appendChild(modal);
+}
 function renderKader(){
   const names=Object.keys(DB).sort();const wrap=document.getElementById("kader-content");
   if(!window._dbLoaded&&!names.length){wrap.innerHTML=skeletonRows(3);return;} // L2
@@ -770,7 +801,7 @@ function renderKader(){
   });
   if(!filtered.length){wrap.innerHTML='<div class="empty"><i class="ti ti-filter"></i>Kein Spieler für diesen Filter</div>';renderRauteMap(names);return;}
   const dimCols=["#1a56db","#7c3aed","#d97706","#059669","#0e7490"];
-  let html=`<table class="kader-t"><thead><tr><th>Spieler</th><th>Rolle</th><th>Grp</th><th>Tech.</th><th>Wahr.</th><th>Phys.</th><th>Ges.</th><th>Pot.</th><th>Von</th><th></th></tr></thead><tbody>`;
+  let html=`<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button class="btn btn-sm" onclick="notfallTrainerOpen()" title="Notfall-/Gesundheitskarten der Kinder – schreibgeschützt, für den Platz auch offline">🚑 Notfallkarten</button></div><table class="kader-t"><thead><tr><th>Spieler</th><th>Rolle</th><th>Grp</th><th>Tech.</th><th>Wahr.</th><th>Phys.</th><th>Ges.</th><th>Pot.</th><th>Von</th><th></th></tr></thead><tbody>`;
   filtered.forEach(name=>{
     const lat=DB[name][DB[name].length-1];
     const sc=safeParse(lat.scores,[0,0,0,0,0]);
