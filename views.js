@@ -845,6 +845,51 @@ function setupRemindPush(){
   if(typeof pushSendToParents!=="function"){toast("Push nicht verfügbar","err");return;}
   pushSendToParents("🦅 Kurz einrichten?","Bitte im Eltern-Bereich unter 'Erste Schritte' Foto-Freigabe & Notfallkarte prüfen.",appRoot()+"?portal");
 }
+/* C: Pausen-Setter (Trainer). „pausiert bis" pro Kind; nimmt istRecovery (auto krank) als
+   Vorschlag auf. Fließt in Nominierung/Prognose/Buddy ein (kind_pause). */
+async function pausenOpen(){
+  if(typeof pauseLoad==="function")await pauseLoad(true);
+  const kids=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
+  const paused=kids.filter(k=>PAUSE_MAP[k.name]);
+  const frei=kids.filter(k=>!PAUSE_MAP[k.name]);
+  let reco=[]; try{ if(typeof RECOVERY!=="undefined"&&RECOVERY)reco=[...RECOVERY].filter(n=>!PAUSE_MAP[n]); }catch(e){}
+  const defBis=new Date(Date.now()+14*864e5).toISOString().slice(0,10);
+  document.getElementById("pause-modal")?.remove();
+  const modal=document.createElement("div"); modal.id="pause-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10050;display:flex;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-weight:800;font-size:16px">⏸ Pausen & Wiedereinstieg</div>
+      <button onclick="document.getElementById('pause-modal').remove()" style="border:none;background:none;font-size:24px;color:var(--text2);cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Pausierte Kinder sind bei Prognose, Nominierung und Buddy-Auslosung automatisch raus – bis zum Datum. Grund optional, keine Diagnosen.</div>
+    ${paused.length?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin:4px 0 2px">Aktuell pausiert</div>${paused.map(k=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:var(--border)"><span style="flex:1;font-size:13px">${esc(k.name)} <span style="color:#b45309;font-weight:700">· bis ${pauseBisLabel(k.name)}</span>${PAUSE_MAP[k.name].grund?`<span style="color:var(--text3);font-size:11px"> · ${esc(PAUSE_MAP[k.name].grund)}</span>`:""}</span><button class="btn btn-sm" onclick="pauseEnd(${k._id})">Beenden</button></div>`).join("")}`:'<div style="font-size:12.5px;color:var(--text3);padding:4px 0">Aktuell pausiert niemand.</div>'}
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin:14px 0 4px">Kind pausieren</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <select id="pause-kid" style="flex:1;min-width:120px;min-height:40px;padding:6px 8px;border:var(--border-s);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">${frei.map(k=>`<option value="${k._id}">${esc(k.name)}</option>`).join("")}</select>
+      <input type="date" id="pause-bis" value="${defBis}" style="min-height:40px;padding:6px 8px;border:var(--border-s);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">
+    </div>
+    <input type="text" id="pause-grund" maxlength="80" placeholder="Grund (optional, keine Diagnosen)" style="width:100%;margin-top:6px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:12.5px;background:var(--surface);color:var(--text);box-sizing:border-box">
+    <button class="btn btn-p btn-sm" style="width:100%;margin-top:8px" onclick="pauseSetFromPicker()">⏸ Pausieren</button>
+    ${reco.length?`<div style="font-size:11.5px;color:#9a3412;background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:7px 10px;margin-top:12px">🩹 Zuletzt krank gemeldet (letzte 14 T.): <b>${reco.map(esc).join(", ")}</b> – bei Bedarf hier als Pause setzen.</div>`:""}
+    <button class="btn btn-sm" style="width:100%;margin-top:10px" onclick="document.getElementById('pause-modal').remove()">Schließen</button>`;
+  modal.appendChild(c); document.body.appendChild(modal);
+}
+async function pauseSetFromPicker(){
+  const id=Number(document.getElementById("pause-kid")?.value);
+  const bis=document.getElementById("pause-bis")?.value;
+  const grund=(document.getElementById("pause-grund")?.value||"").trim()||null;
+  if(!id||!bis){toast("Kind und Datum wählen","err");return;}
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_pause?on_conflict=spieler_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({spieler_id:id,bis,grund,updated_at:new Date().toISOString()})});if(!r.ok){toast((typeof sbDeniedMsg==="function")?sbDeniedMsg(r):"Konnte nicht speichern","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Pause gesetzt ⏸"); if(typeof pauseClear==="function")pauseClear(); pausenOpen();
+}
+async function pauseEnd(id){
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_pause?spieler_id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(!r.ok){toast("Konnte nicht beenden","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Pause beendet ✓"); if(typeof pauseClear==="function")pauseClear(); pausenOpen();
+}
 /* F1: Notfall-/Gesundheitskarten – Trainer-Leseansicht. Lädt alle Karten (RLS erlaubt dem
    Trainer nur SELECT) und legt sie zusätzlich in localStorage ab, damit sie am Platz auch
    OHNE Netz griffbereit sind. Kein Schreibweg – gepflegt wird ausschließlich von den Eltern. */
@@ -888,7 +933,7 @@ function renderKader(){
   });
   if(!filtered.length){wrap.innerHTML='<div class="empty"><i class="ti ti-filter"></i>Kein Spieler für diesen Filter</div>';renderRauteMap(names);return;}
   const dimCols=["#1a56db","#7c3aed","#d97706","#059669","#0e7490"];
-  let html=`<div style="display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-bottom:8px"><button class="btn btn-sm" onclick="setupTrainerOpen()" title="Wer hat Foto-Freigabe & Notfallkarte schon eingerichtet?">🚀 Eltern-Setup</button><button class="btn btn-sm" onclick="notfallTrainerOpen()" title="Notfall-/Gesundheitskarten der Kinder – schreibgeschützt, für den Platz auch offline">🚑 Notfallkarten</button></div><table class="kader-t"><thead><tr><th>Spieler</th><th>Rolle</th><th>Grp</th><th>Tech.</th><th>Wahr.</th><th>Phys.</th><th>Ges.</th><th>Pot.</th><th>Von</th><th></th></tr></thead><tbody>`;
+  let html=`<div style="display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-bottom:8px"><button class="btn btn-sm" onclick="pausenOpen()" title="Kinder pausieren (fließt in Prognose/Nominierung/Buddy)">⏸ Pausen</button><button class="btn btn-sm" onclick="setupTrainerOpen()" title="Wer hat Foto-Freigabe & Notfallkarte schon eingerichtet?">🚀 Eltern-Setup</button><button class="btn btn-sm" onclick="notfallTrainerOpen()" title="Notfall-/Gesundheitskarten der Kinder – schreibgeschützt, für den Platz auch offline">🚑 Notfallkarten</button></div><table class="kader-t"><thead><tr><th>Spieler</th><th>Rolle</th><th>Grp</th><th>Tech.</th><th>Wahr.</th><th>Phys.</th><th>Ges.</th><th>Pot.</th><th>Von</th><th></th></tr></thead><tbody>`;
   filtered.forEach(name=>{
     const lat=DB[name][DB[name].length-1];
     const sc=safeParse(lat.scores,[0,0,0,0,0]);

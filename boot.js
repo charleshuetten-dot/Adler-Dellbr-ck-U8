@@ -500,8 +500,10 @@ function awSave(){
    Anzeige zuerst (fürs Hochhalten am Platz), Persistenz best-effort
    in termine.buddies des Termins am gewählten Datum.
 ═══════════════════════════════════ */
-function buddyShuffle(){
-  const anwesend=KADER.filter(k=>document.querySelector(`.aw-toggle[data-player="${k.name}"]`)?.classList.contains("on")).map(k=>k.name);
+async function buddyShuffle(){
+  if(typeof pauseLoad==="function")await pauseLoad(); // C: pausierte Kinder nicht mitlosen
+  const anwesend=KADER.filter(k=>document.querySelector(`.aw-toggle[data-player="${k.name}"]`)?.classList.contains("on")).map(k=>k.name)
+    .filter(n=>!(typeof istPaused==="function"&&istPaused(n)));
   if(anwesend.length<2){toast("Erst mindestens 2 Kinder als anwesend markieren","err");return;}
   for(let i=anwesend.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[anwesend[i],anwesend[j]]=[anwesend[j],anwesend[i]];}
   const paare=[];
@@ -897,6 +899,7 @@ function tpRenderTimeline(){
    Zusagen (fix) plus historischer Anwesenheitsquote je Kind (für noch offene). */
 async function tpPrognoseLoad(){
   const el=document.getElementById("tp-prognose"); if(!el)return;
+  if(typeof pauseLoad==="function")await pauseLoad(); // C: Pausen berücksichtigen
   const datum=document.getElementById("tp-date")?.value;
   const dates=Object.keys(AW_DATA); const anyHist=dates.length>0;
   const rate={};
@@ -904,7 +907,9 @@ async function tpPrognoseLoad(){
   let rsvp={};
   if(datum){ try{ const tid=await terminIdForDatum(datum); if(tid){ const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${tid}&select=spieler_id,status`,{headers:sbAuthHeaders()}); if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(x=>rsvp[x.spieler_id]=x.status); } }catch(e){} }
   let exp=0, sure=0;
-  KADER.forEach(k=>{ const st=rsvp[k.id];
+  KADER.forEach(k=>{
+    if(typeof istPaused==="function"&&istPaused(k.name))return; // pausiert -> zählt 0
+    const st=rsvp[k.id];
     if(st==="zugesagt"){exp+=1;sure++;}
     else if(st==="abgesagt"||st==="krank"){/* 0 */}
     else exp+=(anyHist?rate[k.name]:0.7);

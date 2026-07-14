@@ -489,6 +489,27 @@ function routeBtn(addr,opts){
   return `<a class="btn btn-sm" href="${mapsUrl(addr)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none"><i class="ti ti-navigation"></i>🧭 Route</a>`;
 }
 
+/* C: Pausen-Status. Explizites „pausiert bis TT.MM." (kind_pause, trainer-gesetzt) – das
+   verlässliche „ist raus", das istRecovery (auto aus krank, 14 Tage) ergänzt/überschreibt.
+   Fließt in Prognose, Nominierung und Buddy-Auslosung ein. Name-keyed (wie RECOVERY). */
+let PAUSE_MAP={}; let _pauseAt=0;
+async function pauseLoad(force){
+  if(!force && PAUSE_MAP && Date.now()-_pauseAt<30000) return PAUSE_MAP;
+  const heute=new Date().toISOString().slice(0,10); const m={};
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kind_pause?select=spieler_id,bis,grund&bis=gte.${heute}`,{headers:sbAuthHeaders()});
+    if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(x=>{
+      const k=(typeof KADER!=="undefined"?KADER:[]).find(kk=>kk._id===x.spieler_id||kk.id===x.spieler_id);
+      if(k)m[k.name]={bis:x.bis,grund:x.grund,id:x.spieler_id};
+    });
+  }catch(e){}
+  PAUSE_MAP=m; _pauseAt=Date.now(); return PAUSE_MAP;
+}
+function pauseClear(){ _pauseAt=0; }
+function istPaused(name){ return !!PAUSE_MAP[name]; }
+function pauseBis(name){ return PAUSE_MAP[name]?PAUSE_MAP[name].bis:null; }
+function pauseBisLabel(name){ const b=pauseBis(name); if(!b)return ""; const d=new Date(b+"T00:00:00"); return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.`; }
+
 const WETTER_LAT=50.98, WETTER_LON=7.05; // SV Adler Dellbrück (Heim)
 function wetterCodeInfo(c){
   c=Number(c);

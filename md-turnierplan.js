@@ -408,6 +408,8 @@ async function nomLoad(){
   await kapitaenLoad();   // Kapitän dieses Spiels + Fairness-Zählung
   // Eltern-Zusagen automatisch übernehmen – außer wo der Trainer manuell überstimmt hat (nomOvr).
   Object.keys(nomRsvp).forEach(name=>{ if(!nomOvr.has(name)) nomStatus[name]=nomRsvp[name].status==="zugesagt"?"dabei":"nicht"; });
+  // C: explizit pausierte Kinder sind raus (außer der Trainer hat manuell überstimmt).
+  if(typeof pauseLoad==="function"){ await pauseLoad(); Object.keys(PAUSE_MAP||{}).forEach(name=>{ if(!nomOvr.has(name)) nomStatus[name]="nicht"; }); }
   const nr=document.getElementById("nom-team-nr"); if(nr)nr.textContent=String(spieltagTeam);
   nomRender();
   if(document.getElementById("rollen-panel"))rollenPanelRender(); // B2: faire Rollen
@@ -444,7 +446,7 @@ function nomRender(){
       const badge=rv?`<span title="Eltern-Rückmeldung: ${esc(rv.status)}${rv.kommentar?' – '+esc(rv.kommentar):''}" style="font-size:13px;width:16px;text-align:center">${rvEmo[rv.status]||""}</span>`:'<span style="width:16px"></span>';
       return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
         ${badge}
-        <span style="flex:1;font-size:12.5px">${getKader(k.name)?.nr?getKader(k.name).nr+" ":""}${esc(k.name)}</span>
+        <span style="flex:1;font-size:12.5px">${getKader(k.name)?.nr?getKader(k.name).nr+" ":""}${esc(k.name)}${(typeof istPaused==="function"&&istPaused(k.name))?` <span title="Pausiert – zählt nicht mit" style="font-size:10px;font-weight:700;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:1px 6px">⏸ bis ${pauseBisLabel(k.name)}</span>`:""}</span>
         ${["dabei","nicht","verletzt"].map(s=>`<button onclick="nomSet('${k.name}','${s}')" style="min-height:44px;padding:5px 9px;font-size:11px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;background:${cur===s?stCfg[s].col:"var(--surface)"};color:${cur===s?"#fff":"var(--text2)"}">${stCfg[s].lbl}</button>`).join("")}
       </div>`;
     }).join("");
