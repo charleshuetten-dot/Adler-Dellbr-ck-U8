@@ -255,6 +255,57 @@ function teamEinsatzText(n){
   return `<span style="color:var(--text2)">${e==null?"–":e} Einsätze</span>`;
 }
 
+/* A-lite: Rollen-Erfahrung. Aggregiert die gespeicherten Start-Aufstellungen
+   (aufstellungen.lineup = {tw,auf,fll,flr,jaeg}) zu einer Kind×Rolle-Matrix + TW-Einsätzen.
+   Nur vorhandene Daten (4+1, benannte Rollen); zeigt vor allem „wer war noch nie im Tor" –
+   wichtig für den Übergang zur E-Jugend mit festem Torwart. Keine minutengenaue Abrechnung. */
+const ROLLEN_EXP=[{k:"tw",l:"🥅 TW"},{k:"auf",l:"Aufp."},{k:"fll",l:"Fl.L"},{k:"flr",l:"Fl.R"},{k:"jaeg",l:"Jäger"}];
+let _rollenExp={data:null,at:0};
+async function rollenExpFetch(){
+  if(_rollenExp.data&&Date.now()-_rollenExp.at<60000)return _rollenExp.data;
+  const ab=(typeof saisonStart==="function")?saisonStart():"2000-01-01";
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/aufstellungen?select=datum,lineup&datum=gte.${ab}&order=datum.asc`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)rows=await r.json();}catch(e){}
+  const byKid={}, ens=n=>byKid[n]||(byKid[n]={tw:0,auf:0,fll:0,flr:0,jaeg:0,total:0});
+  rows.forEach(row=>{const lu=row.lineup||{}; ["tw","auf","fll","flr","jaeg"].forEach(rk=>{const nm=lu[rk]; if(nm){ens(nm)[rk]++; byKid[nm].total++;}});});
+  _rollenExp={data:{byKid,games:rows.length},at:Date.now()};
+  return _rollenExp.data;
+}
+function rollenExpClear(){ _rollenExp.at=0; }
+// Kinder (aktiv), die in keiner gespeicherten Aufstellung im Tor standen.
+function _neverTW(byKid){ return (typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false&&!(byKid[k.name]&&byKid[k.name].tw>0)).map(k=>k.name); }
+async function rollenHintFill(){
+  const el=document.getElementById("team-rollen-hint"); if(!el)return;
+  const {byKid,games}=await rollenExpFetch();
+  if(!games){el.innerHTML="";return;} // noch keine gespeicherten Aufstellungen
+  const nie=_neverTW(byKid);
+  if(!nie.length){el.innerHTML="";return;}
+  el.innerHTML=`<div style="font-size:11.5px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:6px 10px;margin-bottom:8px">🥅 Noch nie im Tor: <b>${nie.map(esc).join(", ")}</b> · <span onclick="rollenMatrixOpen()" style="color:var(--blue);cursor:pointer;font-weight:700">Rollen-Matrix ›</span></div>`;
+}
+async function rollenMatrixOpen(){
+  const {byKid,games}=await rollenExpFetch();
+  const kids=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
+  const cell=v=>`<div style="text-align:center;background:${v===0?"#fef2f2":v<=1?"#fffbeb":"#f0fdf4"};color:${v===0?"#b91c1c":"var(--text)"};border-radius:6px;padding:5px 0;font-weight:${v===0?"800":"700"};font-size:12px">${v}</div>`;
+  const head=`<div style="display:grid;grid-template-columns:1fr repeat(5,42px);gap:3px;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;padding:0 0 4px"><div>Kind</div>${ROLLEN_EXP.map(r=>`<div style="text-align:center">${r.l}</div>`).join("")}</div>`;
+  const rows=kids.map(k=>{const b=byKid[k.name]||{}; return `<div style="display:grid;grid-template-columns:1fr repeat(5,42px);gap:3px;align-items:center;padding:2px 0;border-top:var(--border)"><div style="font-size:12.5px;font-weight:600">${esc(k.name)}</div>${ROLLEN_EXP.map(r=>cell(b[r.k]||0)).join("")}</div>`;}).join("");
+  const nie=_neverTW(byKid);
+  document.getElementById("rollen-modal")?.remove();
+  const modal=document.createElement("div"); modal.id="rollen-modal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10050;display:flex;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+      <div style="font-weight:800;font-size:16px">🎽 Rollen-Erfahrung</div>
+      <button onclick="document.getElementById('rollen-modal').remove()" style="border:none;background:none;font-size:24px;color:var(--text2);cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Wie oft stand jedes Kind in welcher Start-Rolle? (aus ${games} gespeicherten Aufstellungen, nur 4+1). Rot = noch nie.</div>
+    ${games?head+rows:'<div style="font-size:13px;color:var(--text3);padding:16px;text-align:center">Noch keine Aufstellungen gespeichert.<br>Speichere im Spieltag unter „Aufstellung" eine Startelf – dann füllt sich die Matrix.</div>'}
+    ${games&&nie.length?`<div style="font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;margin-top:12px">🥅 <b>Noch nie im Tor:</b> ${nie.map(esc).join(", ")} – vor dem E-Jugend-Wechsel (fester TW) mal ranlassen.</div>`:""}
+    <button class="btn btn-sm" style="width:100%;margin-top:12px" onclick="document.getElementById('rollen-modal').remove()">Schließen</button>`;
+  modal.appendChild(c); document.body.appendChild(modal);
+}
 function teamsRender(){
   const box=document.getElementById("team-panel");
   if(!box)return;
@@ -279,7 +330,10 @@ function teamsRender(){
   html+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       <button class="btn btn-sm" onclick="teamsAuto()"><i class="ti ti-wand"></i>Automatisch einteilen</button>
       <button class="btn btn-sm btn-p" onclick="teamsAnwenden()"><i class="ti ti-arrow-right"></i>In die Nominierungen übertragen</button>
-    </div>`;
+      <button class="btn btn-sm" onclick="rollenMatrixOpen()" title="Wer stand wie oft in welcher Rolle?"><i class="ti ti-layout-grid"></i>Rollen-Erfahrung</button>
+    </div>
+    <div id="team-rollen-hint"></div>`;
+  setTimeout(()=>{try{rollenHintFill();}catch(e){}},0); // A-lite: „noch nie im Tor"-Hinweis nachladen
 
   // Zu wenige Torwarte? Das merkt man sonst erst beim Anpfiff.
   if(kd.tw){
