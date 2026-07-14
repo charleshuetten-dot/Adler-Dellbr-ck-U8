@@ -626,6 +626,8 @@ function tmJump(ziel,datum,spielform){
       const seg=document.getElementById("spieltag-team-seg");
       if(seg){seg.querySelectorAll(".seg-btn").forEach(b=>b.classList.toggle("active",b.dataset.val==="1"));}
       spieltagDatesLoad(datum);toast("Spieltag "+datum);
+      const ph=document.getElementById("mt-phase-nach"); if(ph)ph.open=true; // Phase „Nach dem Spiel" aufklappen
+      setTimeout(()=>document.getElementById("blitz-panel")?.scrollIntoView({behavior:"smooth",block:"start"}),200);
     },120);
   }
 }

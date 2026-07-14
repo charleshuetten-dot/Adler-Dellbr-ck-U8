@@ -523,24 +523,40 @@
       </div>
     </div>
     <button onclick="turnierOpen()" class="btn" style="width:100%;margin-bottom:12px"><i class="ti ti-trophy"></i>🏆 Turnier-Modus (mehrere Kurzspiele)</button>
-    <div class="sl nt"><i class="ti ti-clock"></i>Match-Uhr</div>
-    <div id="mc-panel"></div>
-    <div class="sl nt" style="margin-top:16px"><i class="ti ti-users-group"></i>Team-Einteilung</div>
-    <div id="team-panel"></div>
-    <div class="sl nt" style="margin-top:16px"><i class="ti ti-user-check"></i>Nominierung <span style="font-weight:400;color:var(--text3);font-size:11px">· für Adler <span id="nom-team-nr">1</span></span></div>
-    <div id="nom-panel"></div>
-    <div class="sl nt" style="margin-top:16px"><i class="ti ti-clock-play"></i>Rotations-Timer (faire Einsatzzeiten)</div>
-    <div id="rot-panel"></div>
-    <div class="sl nt" style="margin-top:16px"><i class="ti ti-arrows-shuffle"></i>Faire Rollen</div>
-    <div id="rollen-panel"></div>
-    <div class="sl nt" style="margin-top:16px"><i class="ti ti-trophy"></i>Team-Quests &amp; Belohnung</div>
-    <div id="quest-panel"></div>
-    <div class="sl nt" style="margin-top:16px"><i class="ti ti-player-track-next"></i>Live-Aktionen (während des Spiels)</div>
-    <div id="action-panel"></div>
-    <div class="sl nt" style="margin-top:16px"><i class="ti ti-broadcast"></i>Eltern-Liveticker</div>
-    <div id="ticker-panel"></div>
-    <div class="sl nt" style="margin-top:16px"><i class="ti ti-bolt"></i>Blitz-Rating nach dem Spiel</div>
-    <div id="blitz-panel"></div>
+    <!-- Spieltag-Phasen: Vor / Während / Nach dem Spiel – einklappbar für den Fokus -->
+    <details class="el-sect" open>
+      <summary><i class="ti ti-list-check"></i>① Vor dem Spiel</summary>
+      <div>
+        <div class="sl nt"><i class="ti ti-users-group"></i>Team-Einteilung</div>
+        <div id="team-panel"></div>
+        <div class="sl nt" style="margin-top:16px"><i class="ti ti-user-check"></i>Nominierung <span style="font-weight:400;color:var(--text3);font-size:11px">· für Adler <span id="nom-team-nr">1</span></span></div>
+        <div id="nom-panel"></div>
+        <div class="sl nt" style="margin-top:16px"><i class="ti ti-arrows-shuffle"></i>Faire Rollen</div>
+        <div id="rollen-panel"></div>
+      </div>
+    </details>
+    <details class="el-sect" open>
+      <summary><i class="ti ti-whistle"></i>② Während des Spiels</summary>
+      <div>
+        <div class="sl nt"><i class="ti ti-clock"></i>Match-Uhr</div>
+        <div id="mc-panel"></div>
+        <div class="sl nt" style="margin-top:16px"><i class="ti ti-clock-play"></i>Rotations-Timer (faire Einsatzzeiten)</div>
+        <div id="rot-panel"></div>
+        <div class="sl nt" style="margin-top:16px"><i class="ti ti-player-track-next"></i>Live-Aktionen (während des Spiels)</div>
+        <div id="action-panel"></div>
+        <div class="sl nt" style="margin-top:16px"><i class="ti ti-broadcast"></i>Eltern-Liveticker</div>
+        <div id="ticker-panel"></div>
+        <div class="sl nt" style="margin-top:16px"><i class="ti ti-trophy"></i>Team-Quests &amp; Belohnung</div>
+        <div id="quest-panel"></div>
+      </div>
+    </details>
+    <details class="el-sect" id="mt-phase-nach">
+      <summary><i class="ti ti-bolt"></i>③ Nach dem Spiel</summary>
+      <div>
+        <div class="sl nt"><i class="ti ti-bolt"></i>Blitz-Rating nach dem Spiel</div>
+        <div id="blitz-panel"></div>
+      </div>
+    </details>
   </div><!-- /train-sub-spieltag -->
 
 </div><!-- /view-training -->
