@@ -322,8 +322,7 @@ async function elternDashLoad(){
   html+=`<div id="match-gruss-slot"></div>`;  // A1: persönlicher Nach-dem-Spiel-Gruß pro Kind
   // ── TERMINE ──
   html+=sec("📅 Termine");
-  html+=familyOverviewHtml(termineListe,kids,rsvpAll); // Familien-Sammelansicht (nur ≥2 Kinder)
-  html+=elternTermineCarouselHtml(termineListe,kids,rsvpAll); // Schnell-Zu-/Absage für alle Termine
+  html+=elternTermineCarouselHtml(termineListe,kids,rsvpAll); // Schnell-Zu-/Absage für alle Termine (deckt „kommende Termine × Kinder" ab)
   html+=card(`<button onclick="elternTermineOpen()" style="width:100%;min-height:46px;padding:12px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">📅 Alle Termine &amp; Kalender-Abo</button>`);
   // ── FÜR DIE KINDER ──
   html+=sec("🎮 Für die Kinder");
@@ -645,32 +644,6 @@ async function elternChecklistLoad(kids){
   </div>`;
 }
 function elternChecklistDismiss(){ try{localStorage.setItem("adler_setup_hide",new Date().toISOString().slice(0,10));}catch(e){} const s=document.getElementById("eltern-checklist-slot"); if(s)s.innerHTML=""; }
-/* Familien-Sammelansicht: Mehrkind-Familien sehen die nächsten Termine × Kinder auf einen
-   Blick (wer ist wo dabei). Nutzt die schon geladenen Daten (termine/kids/rsvpAll). */
-function familyOverviewHtml(termine,kids,rsvpAll){
-  if(!kids||kids.length<2)return "";
-  const evs=(termine||[]).slice(0,5);
-  if(!evs.length)return "";
-  const stMap={zugesagt:{e:"👍",c:"#16a34a"},abgesagt:{e:"👎",c:"#dc2626"},krank:{e:"🤒",c:"#d97706"}};
-  const rows=evs.map(t=>{
-    const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ};
-    const d=new Date(t.datum+"T00:00:00"), ds=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()]+" "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
-    const chips=kids.map(k=>{
-      const st=(rsvpAll[t.id]||{})[k.spieler_id], s=stMap[st]||{e:"❓",c:"#b45309"};
-      const nm=esc(((k.kader&&k.kader.name)||k.label||"Kind").split(" ")[0]);
-      return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:11.5px;color:${s.c};font-weight:700;margin-right:10px;white-space:nowrap">${s.e} ${nm}</span>`;
-    }).join("");
-    return `<div onclick="terminDetailOpen(${t.id})" style="padding:8px 0;border-top:1px solid #f1f5f9;cursor:pointer">
-      <div style="font-size:13px;font-weight:700">${m.icon} ${esc(t.titel||t.gegner||m.label)}<span style="font-weight:400;color:#94a3b8;font-size:11px"> · ${ds}</span></div>
-      <div style="margin-top:4px;display:flex;flex-wrap:wrap">${chips}</div>
-    </div>`;
-  }).join("");
-  return `<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">
-    <div style="font-weight:700;font-size:14px;margin-bottom:2px">👨‍👩‍👧‍👦 Unsere Familie</div>
-    <div style="font-size:11.5px;color:#64748b;margin-bottom:2px">Alle ${kids.length} Kinder auf einen Blick – wer ist bei den nächsten Terminen dabei? Tippen öffnet den Termin.</div>
-    ${rows}
-  </div>`;
-}
 /* Puls-Erinnerung: sanfter Nudge für das jüngste vergangene Training/Spiel (≤14 Tage), zu dem
    dieser Elternteil noch KEIN Puls-Feedback gegeben hat. Ein Tap genügt (nutzt tdPulsRender/Save). */
 async function pulsNudgeLoad(){
