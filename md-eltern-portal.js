@@ -313,6 +313,8 @@ async function elternDashLoad(){
       </div>
     </div>`;
   }
+  html+=familyOverviewHtml(termineListe,kids,rsvpAll); // Familien-Sammelansicht (nur ≥2 Kinder)
+  html+=`<div id="puls-nudge-slot"></div>`;    // Puls-Erinnerung: jüngstes Event ohne eigenes Feedback
   html+=`<div id="match-gruss-slot"></div>`;  // A1: persönlicher Nach-dem-Spiel-Gruß pro Kind
   html+=`<div id="eltern-level-slot" style="margin-bottom:12px"></div>`;  // C1: kollektives Team-Level
   html+=elternTermineCarouselHtml(termineListe,kids,rsvpAll); // Schnell-Zu-/Absage für alle Termine
@@ -415,6 +417,7 @@ async function elternDashLoad(){
   if(typeof teamLevelLoad==="function")teamLevelLoad("eltern-level-slot"); // C1: Team-Level
   if(WAESCHE_AKTIV)elternWaescheLoad(kids);    // Trikot-Wäsche-Rotator (aktuell ausgeblendet)
   elternSkillLoad(kids);   // Skill der Woche
+  pulsNudgeLoad();         // Puls-Erinnerung fürs jüngste Event ohne Feedback
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
   let backToKabine=false; try{backToKabine=sessionStorage.getItem("adler_open_kabine")==="1";sessionStorage.removeItem("adler_open_kabine");}catch(e){}
   if(backToKabine)setTimeout(kabineOpen,50);
@@ -574,13 +577,13 @@ async function tdPulsLoad(t){
   try{const r=await fetch(`${SB_URL}/rest/v1/event_puls?termin_id=eq.${t.id}&select=mood,kommentar`,{headers:sbAuthHeaders()});if(r.ok){mine=(await r.json())[0]||null;}}catch(e){}
   tdPulsRender(t.id,mine);
 }
-function tdPulsRender(terminId,mine){
+function tdPulsRender(terminId,mine,bare){
   const box=document.getElementById("td-puls"); if(!box)return;
   const moods=[{v:3,e:"😀",l:"Top"},{v:2,e:"😐",l:"Ok"},{v:1,e:"😟",l:"Naja"}];
   const cur=mine?mine.mood:null;
   box.dataset.mood=cur||"";
-  box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
-    <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🌡️ Wie war's? <span style="font-weight:400;color:#94a3b8;font-size:11px">(anonym, nur fürs Trainerteam)</span></div>
+  box.innerHTML=`<div style="${bare?"":"border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px"}">
+    ${bare?"":`<div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🌡️ Wie war's? <span style="font-weight:400;color:#94a3b8;font-size:11px">(anonym, nur fürs Trainerteam)</span></div>`}
     <div style="display:flex;gap:8px;margin:8px 0">
       ${moods.map(mo=>{const on=cur===mo.v;return `<button onclick="tdPulsSave(${terminId},${mo.v})" style="flex:1;padding:10px 6px;border-radius:10px;border:1.5px solid ${on?"#1e3a8a":"#e2e8f0"};background:${on?"#eef2ff":"#fff"};cursor:pointer;font-family:inherit"><div style="font-size:22px">${mo.e}</div><div style="font-size:10px;color:#64748b">${mo.l}</div></button>`;}).join("")}
     </div>
@@ -604,6 +607,54 @@ async function tdPulsSaveText(terminId){
   try{await fetch(`${SB_URL}/rest/v1/event_puls?on_conflict=termin_id,user_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({termin_id:terminId,mood,kommentar:txt||null})});}catch(e){}
 }
 
+/* Familien-Sammelansicht: Mehrkind-Familien sehen die nächsten Termine × Kinder auf einen
+   Blick (wer ist wo dabei). Nutzt die schon geladenen Daten (termine/kids/rsvpAll). */
+function familyOverviewHtml(termine,kids,rsvpAll){
+  if(!kids||kids.length<2)return "";
+  const evs=(termine||[]).slice(0,5);
+  if(!evs.length)return "";
+  const stMap={zugesagt:{e:"👍",c:"#16a34a"},abgesagt:{e:"👎",c:"#dc2626"},krank:{e:"🤒",c:"#d97706"}};
+  const rows=evs.map(t=>{
+    const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ};
+    const d=new Date(t.datum+"T00:00:00"), ds=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()]+" "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+    const chips=kids.map(k=>{
+      const st=(rsvpAll[t.id]||{})[k.spieler_id], s=stMap[st]||{e:"❓",c:"#b45309"};
+      const nm=esc(((k.kader&&k.kader.name)||k.label||"Kind").split(" ")[0]);
+      return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:11.5px;color:${s.c};font-weight:700;margin-right:10px;white-space:nowrap">${s.e} ${nm}</span>`;
+    }).join("");
+    return `<div onclick="terminDetailOpen(${t.id})" style="padding:8px 0;border-top:1px solid #f1f5f9;cursor:pointer">
+      <div style="font-size:13px;font-weight:700">${m.icon} ${esc(t.titel||t.gegner||m.label)}<span style="font-weight:400;color:#94a3b8;font-size:11px"> · ${ds}</span></div>
+      <div style="margin-top:4px;display:flex;flex-wrap:wrap">${chips}</div>
+    </div>`;
+  }).join("");
+  return `<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">
+    <div style="font-weight:700;font-size:14px;margin-bottom:2px">👨‍👩‍👧‍👦 Unsere Familie</div>
+    <div style="font-size:11.5px;color:#64748b;margin-bottom:2px">Alle ${kids.length} Kinder auf einen Blick – wer ist bei den nächsten Terminen dabei? Tippen öffnet den Termin.</div>
+    ${rows}
+  </div>`;
+}
+/* Puls-Erinnerung: sanfter Nudge für das jüngste vergangene Training/Spiel (≤14 Tage), zu dem
+   dieser Elternteil noch KEIN Puls-Feedback gegeben hat. Ein Tap genügt (nutzt tdPulsRender/Save). */
+async function pulsNudgeLoad(){
+  const slot=document.getElementById("puls-nudge-slot"); if(!slot)return;
+  const heute=new Date().toISOString().slice(0,10);
+  const vor14=new Date(Date.now()-14*864e5).toISOString().slice(0,10);
+  let evs=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,typ,titel,gegner,datum&typ=in.(training,spiel,turnier)&datum=lt.${heute}&datum=gte.${vor14}&order=datum.desc&limit=6`,{headers:sbAuthHeaders()});if(r.ok)evs=await r.json();}catch(e){}
+  if(!evs.length)return;
+  let answered=new Set();
+  try{const ids=evs.map(e=>e.id).join(",");const r=await fetch(`${SB_URL}/rest/v1/event_puls?termin_id=in.(${ids})&select=termin_id`,{headers:sbAuthHeaders()});if(r.ok)(await r.json()).forEach(x=>answered.add(x.termin_id));}catch(e){}
+  const first=evs.find(e=>!answered.has(e.id));
+  if(!first)return;
+  const m=(typeof TM_META!=="undefined"&&TM_META[first.typ])||{icon:"📅",label:first.typ};
+  const d=new Date(first.datum+"T00:00:00"), ds=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()]+", "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+  slot.innerHTML=`<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05);border:1.5px solid #bfdbfe">
+    <div style="font-weight:700;font-size:14px;margin-bottom:2px">🌡️ Wie war ${m.icon} ${esc(first.titel||first.gegner||m.label)}?</div>
+    <div style="font-size:11.5px;color:#64748b">${ds} · anonym, nur fürs Trainerteam – ein Tap genügt.</div>
+    <div id="td-puls"></div>
+  </div>`;
+  tdPulsRender(first.id,null,true);
+}
 /* F1: Notfall-/Gesundheitskarte (Art. 9 DSGVO – Gesundheitsdaten). Eltern pflegen sie fürs
    eigene Kind; der Trainer sieht sie NUR lesend (RLS kn_trainer_read). Speichern nur mit
    ausdrücklicher Einwilligung; Widerruf durch Leeren der Karte. */
