@@ -339,14 +339,14 @@ async function kabineRollenFor(id,name){
       <button onclick="kabineHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
       <div style="flex:1;font-size:16px;font-weight:800;color:#fff">🎽 Wo spielt ${esc(name||"du")}?</div></div>`;
   if(!r.games){ b.innerHTML=head+'<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#fff;opacity:.85;padding:24px;text-align:center">Noch keine Aufstellung gespeichert.<br>Nach dem nächsten Spiel siehst du hier deine Rollen! ⚽</div>'; return; }
-  const R=[{k:"tw",l:"🥅 Im Tor",c:"#f59e0b"},{k:"auf",l:"🛡️ Aufpasser",c:"#3b82f6"},{k:"fll",l:"⚡ Flitzer links",c:"#f97316"},{k:"flr",l:"⚡ Flitzer rechts",c:"#22c55e"},{k:"jaeg",l:"🎯 Jäger",c:"#ef4444"}];
+  // Torwart bewusst NICHT anzeigen – wir haben feste Torhüter (Feldrollen sind das Thema).
+  const R=[{k:"auf",l:"🛡️ Aufpasser",c:"#3b82f6"},{k:"fll",l:"⚡ Flitzer links",c:"#f97316"},{k:"flr",l:"⚡ Flitzer rechts",c:"#22c55e"},{k:"jaeg",l:"🎯 Jäger",c:"#ef4444"}];
   const max=Math.max(1,...R.map(x=>r[x.k]||0));
   const bars=R.map(x=>{const v=r[x.k]||0, w=Math.round((v/max)*100);
     return `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;color:#fff"><span>${x.l}</span><span>${v}×</span></div><div style="height:12px;background:rgba(255,255,255,.15);border-radius:6px;overflow:hidden;margin-top:3px"><div style="height:100%;width:${w}%;background:${x.c};border-radius:6px"></div></div></div>`;}).join("");
   b.innerHTML=head+`<div style="flex:1;overflow-y:auto;padding:14px 16px">
     <div style="color:#fff;opacity:.85;font-size:13px;margin-bottom:12px">In ${r.games} Aufstellungen hast du diese Rollen gespielt:</div>
-    ${bars}
-    ${(r.tw||0)===0?'<div style="color:#fff;background:rgba(255,255,255,.14);border-radius:14px;padding:12px;margin-top:6px;font-size:13px">🥅 Im Tor warst du noch nie – willst du das mal ausprobieren?</div>':""}</div>`;
+    ${bars}</div>`;
 }
 function kabineShowQuests(){
   const b=document.getElementById("kabine-body"); if(!b)return;
