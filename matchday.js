@@ -333,6 +333,7 @@ async function elternDashLoad(){
     return card(`<div style="font-weight:700;font-size:15px;margin-bottom:2px">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="color:#94a3b8;font-weight:600">#${kd.nr}</span>`:""}</div>
       <div id="xp-chip-${k.spieler_id}" style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:8px"></div>
       <button onclick="elternCardOpen(${k.spieler_id})" style="width:100%;padding:9px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🃏 Adler-Karte ansehen</button>
+      <button onclick="lobPlay(${k.spieler_id})" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #db2777;border-radius:10px;background:#fdf2f8;color:#be185d;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🎧 Sprachlob vom Trainer anhören</button>
       <button onclick="abzeichenOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #f59e0b;border-radius:10px;background:#fffbeb;color:#b45309;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🎖️ Technik-Abzeichen</button>
       <button onclick="childWrappedShare(${k.spieler_id})" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🎬 Saison-Rückblick (Wrapped)</button>
       <button onclick="elternFanfactsOpen(${k.spieler_id},'${(kd.name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #64748b;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">✏️ Fan-Fakten &amp; Foto</button>
@@ -1231,6 +1232,101 @@ async function teamLevelLoad(elId){
     <div style="font-size:11px;opacity:.92;margin-top:6px">Noch ${L.need} ${XP_LABEL} bis Level ${L.level+1} – jede Feder zählt fürs ganze Team!</div>
   </div>`;
 }
+/* C2 – Panini-Sammelalbum: die Karten der Teamkollegen werden durch Antippen freigeschaltet
+   (lokal gemerkt). Sammel-Gefühl fürs ganze Team – Fortschritt X/Y. */
+function _albumGet(){ try{return JSON.parse(localStorage.getItem("adler_album")||"{}");}catch(e){return {};} }
+function kabineAlbum(){
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  const data=(typeof kabineGalleryData!=="undefined"&&kabineGalleryData)||[];
+  const col=_albumGet();
+  const got=data.filter(g=>col[g.name]).length;
+  const cards=data.map(g=>{
+    const on=!!col[g.name];
+    return `<button onclick="kabineAlbumTap('${String(g.name).replace(/'/g,"")}')" style="border:none;border-radius:14px;aspect-ratio:3/4;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;${on?"background:linear-gradient(135deg,#f59e0b,#ec4899);color:#fff;box-shadow:0 4px 14px rgba(236,72,153,.4)":"background:rgba(255,255,255,.08);color:rgba(255,255,255,.45)"}">
+      <span style="font-size:30px">${on?"🦅":"❓"}</span>
+      <span style="font-size:12px;font-weight:800">${on?esc(g.name):"?"}</span>
+      ${on&&g.nr!=null?`<span style="font-size:10px;opacity:.9">#${g.nr}</span>`:""}
+    </button>`;
+  }).join("");
+  b.innerHTML=`<div style="flex:1;overflow-y:auto;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px">
+      <button onclick="kabineHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
+      <div style="flex:1;font-size:18px;font-weight:800">📖 Sammelalbum</div>
+      <div style="font-size:13px;font-weight:800;opacity:.9">${got}/${data.length}</div>
+    </div>
+    <div style="font-size:11.5px;opacity:.8;padding:0 16px 8px;text-align:center">Tippe auf eine Karte, um sie freizuschalten – sammle das ganze Team! ${got===data.length&&data.length?"🎉 Komplett!":""}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 16px 16px">${cards||'<div style="opacity:.7;grid-column:1/-1;text-align:center;padding:20px">Noch keine Karten im Team.</div>'}</div>
+  </div>`;
+}
+function kabineAlbumTap(name){
+  const c=_albumGet();
+  if(!c[name]){ c[name]=1; try{localStorage.setItem("adler_album",JSON.stringify(c));}catch(e){} try{navigator.vibrate&&navigator.vibrate([20,30,40]);}catch(e){} }
+  kabineAlbum();
+}
+/* C5 – Trainer-Sprachlob: der Trainer nimmt ein kurzes Lob auf (MediaRecorder → Storage),
+   das Kind hört es im Eltern-Bereich/der Kabine. Bucket kabine-lob (privat, signierte URLs). */
+let _lobRec=null,_lobChunks=[],_lobBlob=null,_lobSpieler=null,_lobName="";
+function lobRecordOpen(spielerId,name){
+  if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
+  if(!(navigator.mediaDevices&&window.MediaRecorder)){toast("Aufnahme wird hier nicht unterstützt","err");return;}
+  _lobBlob=null;_lobChunks=[];_lobSpieler=spielerId;_lobName=name||"";
+  document.getElementById("lob-modal")?.remove();
+  const m=document.createElement("div");m.id="lob-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10003;display:flex;align-items:center;justify-content:center;padding:16px";
+  m.onclick=e=>{if(e.target===m){lobRecStop();m.remove();}};
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:18px;max-width:400px;width:100%">
+    <div style="font-weight:800;font-size:16px;margin-bottom:2px">🎤 Sprachlob für ${esc(_lobName)}</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">Kurzes Lob aufnehmen – ${esc(_lobName)} hört es im Eltern-Bereich unter „Für dein Kind".</div>
+    <div id="lob-ui" style="text-align:center"></div>
+    <button class="btn btn-sm" style="width:100%;margin-top:14px" onclick="lobRecStop();document.getElementById('lob-modal').remove()">Schließen</button>
+  </div>`;
+  document.body.appendChild(m);
+  lobUI("idle");
+}
+function lobUI(state){
+  const el=document.getElementById("lob-ui"); if(!el)return;
+  if(state==="recording") el.innerHTML=`<div style="font-size:40px">🔴</div><div style="font-size:13px;color:#dc2626;font-weight:700;margin:6px 0">Aufnahme läuft…</div><button class="btn btn-p" onclick="lobRecStop()"><i class="ti ti-player-stop"></i>Stopp</button>`;
+  else if(state==="ready") el.innerHTML=`<audio controls src="${_lobBlob?URL.createObjectURL(_lobBlob):""}" style="width:100%"></audio><div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-sm" onclick="lobRecStart()"><i class="ti ti-refresh"></i>Neu</button><button class="btn btn-p btn-sm" style="margin-left:auto" onclick="lobUpload(this)"><i class="ti ti-cloud-upload"></i>An das Kind senden</button></div>`;
+  else el.innerHTML=`<button class="btn btn-p" onclick="lobRecStart()"><i class="ti ti-microphone"></i>Aufnahme starten</button>`;
+}
+async function lobRecStart(){
+  _lobBlob=null;_lobChunks=[];
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    _lobRec=new MediaRecorder(stream);
+    _lobRec.ondataavailable=e=>{if(e.data&&e.data.size)_lobChunks.push(e.data);};
+    _lobRec.onstop=()=>{ _lobBlob=new Blob(_lobChunks,{type:(_lobRec&&_lobRec.mimeType)||"audio/webm"}); try{stream.getTracks().forEach(t=>t.stop());}catch(_){} lobUI("ready"); };
+    _lobRec.start(); lobUI("recording");
+  }catch(e){ toast("Mikrofon nicht verfügbar – bitte erlauben.","err"); }
+}
+function lobRecStop(){ try{ if(_lobRec&&_lobRec.state==="recording")_lobRec.stop(); }catch(e){} }
+async function lobUpload(btn){
+  if(!_lobBlob||!_lobSpieler){toast("Erst aufnehmen","err");return;}
+  if(btn)btn.disabled=true;
+  const ext=(_lobBlob.type||"").includes("mp4")?"mp4":"webm";
+  const path=`${_lobSpieler}/${Date.now()}.${ext}`;
+  try{
+    const up=await fetch(`${SB_URL}/storage/v1/object/kabine-lob/${path}`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':_lobBlob.type||"audio/webm"},body:_lobBlob});
+    if(!up.ok){toast("Upload fehlgeschlagen","err");if(btn)btn.disabled=false;return;}
+    const r=await fetch(`${SB_URL}/rest/v1/kabine_lob`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({spieler_id:_lobSpieler,path})});
+    if(sbCheck401(r)){if(btn)btn.disabled=false;return;}
+    if(!r.ok){toast(sbDeniedMsg(r,"Speichern fehlgeschlagen"),"err");if(btn)btn.disabled=false;return;}
+    toast("🎤 Sprachlob gesendet ✓");
+    document.getElementById("lob-modal")?.remove();
+  }catch(e){toast("Netzwerkfehler","err");if(btn)btn.disabled=false;}
+}
+// Kind/Eltern: jüngstes Sprachlob abspielen (signierte URL aus dem privaten Bucket).
+async function lobPlay(spielerId){
+  let row=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/kabine_lob?spieler_id=eq.${spielerId}&select=path&order=created_at.desc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)row=(await r.json())[0];}catch(e){}
+  if(!row){toast("Noch kein Sprachlob da 🙂","err");return;}
+  try{
+    const sr=await fetch(`${SB_URL}/storage/v1/object/sign/kabine-lob/${row.path}`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({expiresIn:600})});
+    const sj=await sr.json();
+    if(sj&&sj.signedURL){ new Audio(`${SB_URL}/storage/v1${sj.signedURL}`).play().catch(()=>toast("Tippe nochmal zum Abspielen","err")); }
+    else toast("Konnte nicht abspielen","err");
+  }catch(e){toast("Konnte nicht abspielen","err");}
+}
 /* C3 – Team-Arena: Einlauf-Song + Schlachtruf (team_config). Identität wie bei den Großen. */
 async function arenaKabineLoad(elId){
   const el=document.getElementById(elId); if(!el)return;
@@ -1295,6 +1391,7 @@ function kabineHome(){
       <button onclick="kabineAbzeichen()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎖️</span>Abzeichen</button>
       <button onclick="kabineSkillWoche()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎬</span>Skill der Woche</button>
       <button onclick="kabineHype()" style="border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:800;min-height:120px"><span style="font-size:44px">🎵</span>Kabinen-Hype</button>
+      <button onclick="kabineAlbum()" style="grid-column:1/-1;border:none;border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;font-size:17px;font-weight:800;min-height:76px"><span style="font-size:34px">📖</span>Sammelalbum</button>
     </div>
     </div>
     <button onclick="kabineExit()" style="margin:0 16px 18px;padding:12px;border:none;border-radius:14px;background:rgba(0,0,0,.25);color:#fff;font-family:inherit;font-size:14px;cursor:pointer">🔒 Für Erwachsene: Kabine verlassen</button>`;
@@ -3347,6 +3444,44 @@ async function kapitaenLoad(){
     });
   }catch(e){}
 }
+/* B2 – Faire Rollen: „jeder mal dran". Kapitän gibt es schon; hier zusätzlich die Rolle
+   „Anstoß" und eine Fairness-Übersicht, wer eine Rolle noch nie hatte (⭐). */
+let ANSTOSS_COUNT={}, matchAnstoss=null;
+async function anstossLoad(){
+  ANSTOSS_COUNT={}; matchAnstoss=null; const datum=spieltagKey();
+  try{const r=await fetch(`${SB_URL}/rest/v1/match_actions?aktion=eq.anstoss&select=spieler,datum&order=created_at.desc`,{headers:sbAuthHeaders()});
+    if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(x=>{ANSTOSS_COUNT[x.spieler]=(ANSTOSS_COUNT[x.spieler]||0)+1; if(x.datum===datum&&!matchAnstoss)matchAnstoss=x.spieler;});}catch(e){}
+}
+async function anstossSet(name){
+  if(!name)return; const datum=spieltagKey();
+  try{ await fetch(`${SB_URL}/rest/v1/match_actions?datum=eq.${encodeURIComponent(datum)}&aktion=eq.anstoss`,{method:"DELETE",headers:sbAuthHeaders()}); }catch(e){}
+  if(ANSTOSS_COUNT[matchAnstoss])ANSTOSS_COUNT[matchAnstoss]--;
+  matchAnstoss=name; ANSTOSS_COUNT[name]=(ANSTOSS_COUNT[name]||0)+1;
+  try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
+  terminIdForDatum(datum).then(tid=>sbQueuedPost("match_actions",{datum,spieler:name,aktion:"anstoss",termin_id:tid}));
+  toast(`🏁 ${name} stößt heute an`);
+  rollenPanelRender();
+}
+async function rollenPanelRender(){
+  const box=document.getElementById("rollen-panel"); if(!box)return;
+  await anstossLoad(); // KAP_COUNT wird über kapitaenLoad in nomLoad gefüllt
+  const squad=(typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():KADER.map(k=>k.name);
+  const nie=(cnt)=>squad.filter(n=>!(cnt[n]>0));
+  const opts=(cnt,cur)=>squad.slice().sort((a,b)=>(cnt[a]||0)-(cnt[b]||0)).filter(n=>n!==cur).map(n=>`<option value="${esc(n)}">${getKader(n)?.nr?getKader(n).nr+" ":""}${esc(n)} · ${(cnt[n]||0)===0?"noch nie ⭐":(cnt[n]||0)+"×"}</option>`).join("");
+  const row=(icon,label,cnt,cur,setFn)=>{
+    const offen=nie(cnt);
+    return `<div style="background:var(--surface);border:var(--border-s);border-radius:12px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="flex:1;font-size:12.5px;font-weight:700">${icon} ${label}${cur?`: <span style="color:var(--blue)">${esc(cur)}</span>`:""}</span>
+        <select onchange="if(this.value)${setFn}(this.value)" style="padding:6px 8px;border:var(--border-s);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--surface2);color:var(--text)"><option value="">${cur?"wechseln…":"wählen…"}</option>${opts(cnt,cur)}</select>
+      </div>
+      ${offen.length?`<div style="font-size:10.5px;color:var(--text2);margin-top:5px">Noch nie dran ⭐: ${offen.map(esc).join(", ")}</div>`:`<div style="font-size:10.5px;color:#16a34a;margin-top:5px">Alle waren schon dran – fair verteilt ✓</div>`}
+    </div>`;
+  };
+  box.innerHTML=`<div style="font-size:10.5px;color:var(--text3);margin-bottom:6px">Damit jedes Kind mal die besondere Rolle bekommt.</div>`+
+    row("©️","Kapitän",(typeof KAP_COUNT!=="undefined"?KAP_COUNT:{}),(typeof matchKapitaen!=="undefined"?matchKapitaen:null),"kapitaenSet")+
+    row("🏁","Anstoß",ANSTOSS_COUNT,matchAnstoss,"anstossSet");
+}
 async function kapitaenSet(name){
   if(!name)return;
   const datum=spieltagKey();
@@ -3401,6 +3536,7 @@ async function nomLoad(){
   Object.keys(nomRsvp).forEach(name=>{ if(!nomOvr.has(name)) nomStatus[name]=nomRsvp[name].status==="zugesagt"?"dabei":"nicht"; });
   const nr=document.getElementById("nom-team-nr"); if(nr)nr.textContent=String(spieltagTeam);
   nomRender();
+  if(document.getElementById("rollen-panel"))rollenPanelRender(); // B2: faire Rollen
   await teamsLoad();   // Einteilung gehört zum Datum, nicht zum einzelnen Team
   nomApplyToTools();
   if(document.getElementById("action-panel"))atInit(); // Aktionen fürs neue Datum laden
