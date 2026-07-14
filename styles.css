@@ -744,6 +744,13 @@ label:has(> input[type="checkbox"]){min-height:44px;display:flex;align-items:cen
 /* Der Schalter bleibt optisch klein, die Trefferfläche wächst unsichtbar auf 44 px */
 .aw-toggle::before{content:'';position:absolute;top:-11px;bottom:-11px;left:-4px;right:-4px}
 
+/* Einklappbare Abschnitte im Eltern-Bereich (weniger Scrollen) */
+details.el-sect{margin-bottom:12px}
+details.el-sect>summary{cursor:pointer;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;padding:8px 4px;min-height:44px;display:flex;align-items:center;gap:6px}
+details.el-sect>summary::-webkit-details-marker{display:none}
+details.el-sect>summary::after{content:"▾ mehr";margin-left:auto;font-size:11px;color:#94a3b8;text-transform:none;letter-spacing:0;font-weight:700}
+details.el-sect[open]>summary::after{content:"▴ weniger"}
+
 /* ── Touch-Target-Sicherheitsnetz (Audit v251) ──
    Viele Buttons in Modals/Karten haben KEINE .btn-Klasse und waren daher von der 48-px-Regel
    nie erfasst (Inline-Styles). Alle klassenlosen Buttons bekommen jetzt eine Mindesthöhe von

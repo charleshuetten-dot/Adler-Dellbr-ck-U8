@@ -343,6 +343,8 @@ async function elternDashLoad(){
   html+=card(`<div style="font-weight:700;margin-bottom:6px">📰 Mehr vom Team</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Das digitale Stadionheft mit Neuigkeiten, Ergebnissen und Geburtstagen.</div>
     <a href="${location.pathname}?heft" style="display:block;text-align:center;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;text-decoration:none">📰 Adler Nest öffnen</a>`);
+  // R2: „Regeln & Vereinbarungen" einklappbar (weniger Scrollen).
+  html+=`<details class="el-sect"><summary>📋 Regeln & Vereinbarungen</summary><div>`;
   // Fairplay-Codex (Phase 18.3) – die goldenen Regeln fürs Verhalten am Spielfeldrand
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🤝 Unser Fairplay-Codex</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Die Regeln, damit der Spielfeldrand ein guter Ort für die Kinder bleibt.</div>
@@ -353,12 +355,15 @@ async function elternDashLoad(){
   html+=card(`<div style="font-weight:700;margin-bottom:6px">📖 ${esc(LEITFADEN_NAME)}</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Unsere ausformulierten Vereinbarungen: Pünktlichkeit, Aufsicht, Büdchen, Verhalten am Platz, App-Nutzung und mehr – jederzeit zum Nachlesen.</div>
     <button onclick="leitfadenOpen()" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">${esc(LEITFADEN_NAME)} öffnen</button>`);
+  html+=`</div></details>`; // /Regeln & Vereinbarungen
   // Elterngespräch anfragen – signalisiert dem Trainer den Bedarf
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🗣️ Elterngespräch</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Du möchtest mit dem Trainer über dein Kind sprechen? Sag kurz Bescheid – der Trainer meldet sich zur Terminabstimmung.</div>
     <div id="eg-slot"></div>
     <button onclick="elternGespraechOpen()" style="width:100%;padding:11px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Elterngespräch anfragen</button>`);
   html+=`<div id="eltern-poll-slot"></div>`; // Terminvorschläge des Trainers fürs Elterngespräch
+  // R2: „Mitmachen im Team" einklappbar.
+  html+=`<details class="el-sect"><summary>🤝 Mitmachen im Team</summary><div>`;
   // Adler-Börse (Phase 23.1): interner Flohmarkt
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🛍️ Adler-Börse</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Zu kleine Schuhe oder Trikots? Gib sie an ein anderes Adler-Kind weiter.</div>
@@ -367,6 +372,7 @@ async function elternDashLoad(){
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🧦 Fundbüro</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Trinkflasche verschwunden? Jacke gefunden? Hier sammelt das Team.</div>
     <button onclick="fundbueroOpen()" style="width:100%;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Fundbüro öffnen</button>`);
+  html+=`</div></details>`; // /Mitmachen im Team
   html+=`<div id="skill-slot"></div>`;        // Skill der Woche
   if(WAESCHE_AKTIV)html+=`<div id="waesche-slot"></div>`;  // Trikot-Wäsche-Rotator (aktuell ausgeblendet)
   // Teamkasse (read-only): Saldo + offene Umlagen über RPC, PayPal nur als Link
@@ -383,6 +389,10 @@ async function elternDashLoad(){
       <div style="font-size:10px;color:#94a3b8;margin-top:8px">Informativ. Zahlungen laufen extern über PayPal.</div>`);
   }
   html+=`<div id="ak-slot"></div>`; // FEAT Z: Adler-Kasse (async, nur wenn Link gesetzt)
+  // R7: DSGVO – Eltern laden alle Daten ihres Kindes als Datei herunter.
+  html+=`<details class="el-sect"><summary>🔒 Datenschutz</summary><div>`+card(`<div style="font-weight:700;margin-bottom:6px">📥 Meine Daten</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Lade alle bei uns gespeicherten Daten deines Kindes als Datei herunter (Rückmeldungen, Federn, Metadaten).</div>
+    <button onclick="elternDataExport(this)" style="width:100%;min-height:44px;padding:11px;border:1.5px solid #64748b;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Daten herunterladen (JSON)</button>`)+`</div></details>`;
   body.innerHTML=html;
   elternThemeInit();          // Observer für Modals/Slots (einmalig)
   elternThemeSweep(body);     // Dashboard bei Dark-Theme einfärben
@@ -1215,12 +1225,15 @@ function teamLevelInfo(total){
   return {level,into,need:TEAM_LEVEL_STEP-into,pct:Math.round(into/TEAM_LEVEL_STEP*100),total,
     title:TEAM_LEVEL_TITLES[Math.min(level-1,TEAM_LEVEL_TITLES.length-1)]};
 }
+let _teamFedern={val:0,at:0};
 async function teamLevelLoad(elId){
   const el=document.getElementById(elId); if(!el)return;
-  let total=0;
-  try{const h=sbToken()?sbAuthHeaders():{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
-    const r=await fetch(`${SB_URL}/rest/v1/rpc/team_federn_total`,{method:"POST",headers:{...h,'Content-Type':'application/json'},body:"{}"});
-    if(r.ok)total=await r.json();}catch(e){}
+  let total=_teamFedern.val;
+  if(Date.now()-_teamFedern.at>60000){ // R4: 60s-Cache – wird von mehreren Slots gleichzeitig gerendert
+    try{const h=sbToken()?sbAuthHeaders():{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+      const r=await fetch(`${SB_URL}/rest/v1/rpc/team_federn_total`,{method:"POST",headers:{...h,'Content-Type':'application/json'},body:"{}"});
+      if(r.ok){total=await r.json();_teamFedern={val:total||0,at:Date.now()};}}catch(e){}
+  }
   const L=teamLevelInfo(total||0);
   el.innerHTML=`<div style="background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;border-radius:16px;padding:14px 16px">
     <div style="display:flex;align-items:center;gap:10px"><span style="font-size:26px">🦅</span>
@@ -1529,9 +1542,9 @@ const KABINE_HASH_FALLBACK="2c1f3f5f6523af84fde4af934caa1126ae6bcebacd36e397fbdd
 async function kabineCodeHash(){
   if(sbToken()){
     try{
-      const r=await fetch(`${SB_URL}/rest/v1/team_config?id=eq.1&select=kabine_code_hash`,{headers:sbAuthHeaders()});
+      const r=await fetch(`${SB_URL}/rest/v1/kabine_config?id=eq.1&select=code_hash`,{headers:sbAuthHeaders()});
       if(r.ok){
-        const h=((await r.json())[0]||{}).kabine_code_hash;
+        const h=((await r.json())[0]||{}).code_hash;
         if(h){ try{localStorage.setItem(KABINE_HASH_KEY,h);}catch(e){} return h; }
       }
     }catch(e){/* offline: gleich der Zwischenspeicher */}
@@ -7477,23 +7490,43 @@ async function elternMatchGrussLoad(kids){
   let game=null;
   try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=datum,typ,titel,gegner&typ=in.(spiel,turnier)&datum=lt.${heute}&order=datum.desc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)game=(await r.json())[0];}catch(e){}
   if(!game){slot.innerHTML="";return;}
+  // R3: eine RPC liefert die Stats ALLER Kinder dieses Elternteils (kein N+1 mehr).
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/eltern_kinder_spiel_stats`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_datum:game.datum})});if(r.ok)rows=await r.json();}catch(e){}
+  const d=new Date(game.datum+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
   const cards=[];
-  for(const k of (kids||[])){
-    let s=null;
-    try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kind_spiel_stats`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler:k.spieler_id,p_datum:game.datum})});if(r.ok)s=await r.json();}catch(e){}
-    if(!s||!s.ok)continue;
-    const st=s.stats||{}, total=Object.values(st).reduce((a,b)=>a+(+b||0),0);
-    if(!total)continue;
+  (rows||[]).forEach(row=>{
+    const st=row.stats||{}, total=Object.values(st).reduce((a,b)=>a+(+b||0),0);
+    if(!total)return;
     const chips=Object.keys(GRUSS_AKT).filter(a=>st[a]).map(a=>`<span style="display:inline-block;background:#f5f3ff;color:#5b21b6;border-radius:12px;padding:3px 9px;font-size:12px;font-weight:700;margin:2px 3px 2px 0">${GRUSS_AKT[a].e} ${st[a]}× ${GRUSS_AKT[a].l}</span>`).join("");
-    const d=new Date(game.datum+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
     cards.push(`<div style="background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 2px 10px rgba(0,0,0,.05);border-left:3px solid #7c3aed">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Rückblick · ${d}</div>
-      <div style="font-weight:800;font-size:15px;margin-top:2px">🦅 ${esc((k.kader&&k.kader.name)||"Kind")}${game.gegner?` gegen ${esc(game.gegner)}`:""}</div>
+      <div style="font-weight:800;font-size:15px;margin-top:2px">🦅 ${esc(row.name||"Kind")}${game.gegner?` gegen ${esc(game.gegner)}`:""}</div>
       <div style="margin-top:8px">${chips}</div>
       <div style="font-size:12.5px;color:#15803d;font-weight:700;margin-top:8px">${grussLine(st)}</div>
     </div>`);
-  }
+  });
   slot.innerHTML=cards.join("");
+}
+// R7: DSGVO-Datenexport – sammelt die vom Elternteil lesbaren Daten des eigenen Kindes.
+async function elternDataExport(btn){
+  if(btn)btn.disabled=true;
+  const kids=window._elternKids||[];
+  const out={ exportiert_am:new Date().toISOString(), verein:"SV Adler Dellbrück · U9", kinder:[] };
+  for(const k of kids){
+    const kid={ name:(k.kader&&k.kader.name)||"", nr:(k.kader&&k.kader.nr)??null, spieler_id:k.spieler_id, rueckmeldungen:[], federn:[], sprachlob_anzahl:0 };
+    try{const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?spieler_id=eq.${k.spieler_id}&select=termin_id,status,kommentar,updated_at`,{headers:sbAuthHeaders()});if(r.ok)kid.rueckmeldungen=await r.json();}catch(e){}
+    try{const r=await fetch(`${SB_URL}/rest/v1/punkte_log?spieler_id=eq.${k.spieler_id}&select=delta,grund,quelle,created_at&order=created_at.asc`,{headers:sbAuthHeaders()});if(r.ok)kid.federn=await r.json();}catch(e){}
+    try{const r=await fetch(`${SB_URL}/rest/v1/kabine_lob?spieler_id=eq.${k.spieler_id}&select=created_at`,{headers:sbAuthHeaders()});if(r.ok)kid.sprachlob_anzahl=((await r.json())||[]).length;}catch(e){}
+    out.kinder.push(kid);
+  }
+  try{
+    const blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="adler-daten-"+new Date().toISOString().slice(0,10)+".json";
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    toast("Daten heruntergeladen ✓");
+  }catch(e){toast("Download nicht möglich","err");}
+  if(btn)btn.disabled=false;
 }
 // Konferenz: alle Teams eines Spieltags in EINEM Ticker (Key <datum>__konf).
 function elternTickerKonf(datum){

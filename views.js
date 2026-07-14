@@ -2364,17 +2364,21 @@ function elternInvitePaket(){
 async function saisonCockpitOpen(){
   const active=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
   const ab=(typeof saisonStart==="function")?saisonStart():"2000-01-01";
-  // Torschützen (match_actions aktion=tor, ab Saisonstart)
-  let tore={}, toreGesamt=0;
-  try{const r=await fetch(`${SB_URL}/rest/v1/match_actions?aktion=eq.tor&datum=gte.${ab}&select=spieler`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(a=>{if(!a.spieler)return;tore[a.spieler]=(tore[a.spieler]||0)+1;toreGesamt++;});}catch(e){}
+  // Torschützen (match_actions aktion=tor, ab Saisonstart) + R8: Tore je Team (datum-Suffix __tN)
+  let tore={}, toreGesamt=0; const toreTeam={1:0,2:0,3:0};
+  try{const r=await fetch(`${SB_URL}/rest/v1/match_actions?aktion=eq.tor&datum=gte.${ab}&select=spieler,datum`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(a=>{if(!a.spieler)return;tore[a.spieler]=(tore[a.spieler]||0)+1;toreGesamt++;const m=/__t(\d+)$/.exec(a.datum||"");const t=m?Number(m[1]):1;if(toreTeam[t]!=null)toreTeam[t]++;});}catch(e){}
   const scorers=Object.entries(tore).sort((a,b)=>b[1]-a[1]).slice(0,8);
   // Spiele/Turniere der Saison
   let spiele=0; try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=id&typ=in.(spiel,turnier)&datum=gte.${ab}`,{headers:sbAuthHeaders()});if(r.ok)spiele=((await r.json())||[]).length;}catch(e){}
   // Anwesenheit kombiniert (Training aus AW_DATA + Spiele aus nominierungen)
-  const att={}; active.forEach(k=>att[k.name]={p:0,t:0});
+  const att={}, einsatz={}; active.forEach(k=>{att[k.name]={p:0,t:0};einsatz[k.name]=0;});
   let trainings=0;
   try{Object.keys(AW_DATA||{}).forEach(d=>{trainings++;const day=AW_DATA[d]||{};active.forEach(k=>{const e=day[k.name];if(e&&typeof e.da==="boolean"){att[k.name].t++;if(e.da)att[k.name].p++;}});});}catch(e){}
-  try{const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(row=>{const data=row.data||{};active.forEach(k=>{const s=data[k.name];if(s==="dabei"||s==="nicht"||s==="verletzt"){att[k.name].t++;if(s==="dabei")att[k.name].p++;}});});}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(row=>{const data=row.data||{};active.forEach(k=>{const s=data[k.name];if(s==="dabei"||s==="nicht"||s==="verletzt"){att[k.name].t++;if(s==="dabei"){att[k.name].p++;einsatz[k.name]++;}}});});}catch(e){}
+  // R6: faire Einsätze – die mit den wenigsten Spiel-Einsätzen (nur wenn überhaupt gespielt wurde)
+  const maxEins=Math.max(0,...active.map(k=>einsatz[k.name]));
+  const fairArr=active.map(k=>({name:k.name,e:einsatz[k.name]})).sort((a,b)=>a.e-b.e);
+  const wenig=maxEins>=2?fairArr.filter(x=>x.e<maxEins).slice(0,4):[];
   const attArr=active.map(k=>({name:k.name,pct:att[k.name].t?Math.round(att[k.name].p/att[k.name].t*100):null,t:att[k.name].t})).filter(x=>x.pct!=null).sort((a,b)=>b.pct-a.pct);
   const topAtt=attArr.slice(0,5);
   const lowAtt=attArr.filter(x=>x.pct<60).slice(-3);
@@ -2396,6 +2400,8 @@ async function saisonCockpitOpen(){
     <div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">📊 Anwesenheit – am zuverlässigsten</div>
     ${topAtt.length?topAtt.map(attRow).join(""):'<div style="font-size:12px;color:var(--text3)">Noch keine Daten.</div>'}
     ${lowAtt.length?`<div style="font-weight:800;font-size:12.5px;margin:12px 0 2px;color:#b45309">Zuletzt oft gefehlt – dranbleiben</div>${lowAtt.map(attRow).join("")}`:""}
+    ${wenig.length?`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">⚖️ Faire Einsätze – wer war seltener dabei</div>${wenig.map(x=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0"><span style="flex:1">${esc(x.name)}</span><span style="font-size:11px;color:var(--text3)">${x.e} Einsätze</span></div>`).join("")}`:""}
+    ${(toreTeam[2]||toreTeam[3])?`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🏆 Tore je Team</div><div style="display:flex;gap:8px;flex-wrap:wrap">${[1,2,3].filter(t=>toreTeam[t]>0||t===1).map(t=>`<div style="flex:1;min-width:70px;text-align:center;background:var(--surface2);border-radius:10px;padding:8px"><div style="font-size:11px;color:var(--text2)">Adler ${t}</div><div style="font-size:18px;font-weight:900;color:#059669">⚽ ${toreTeam[t]||0}</div></div>`).join("")}</div>`:""}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
       <button class="btn btn-sm" onclick="document.getElementById('sc-modal').remove();anwesenheitOpen()"><i class="ti ti-checkbox"></i>Volle Anwesenheits-Quote</button>
       <button class="btn btn-sm" onclick="document.getElementById('sc-modal').remove();go('analyse')"><i class="ti ti-scale"></i>Einsatz-Fairness</button>
@@ -2594,7 +2600,7 @@ async function kabineCodeSave(btn){
   }
   if(btn)btn.disabled=true;
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/team_config?id=eq.1`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({kabine_code_hash:hash,updated_at:new Date().toISOString()})});
+    const r=await fetch(`${SB_URL}/rest/v1/kabine_config?on_conflict=id`,{method:"POST",headers:sbAuthHeaders({'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify({id:1,code_hash:hash})});
     if(sbCheck401(r))return;
     if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return;}
   }catch(e){toast("Netzwerkfehler","err");return;}
