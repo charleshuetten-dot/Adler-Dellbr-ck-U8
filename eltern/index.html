@@ -42,13 +42,27 @@
 (async function(){
   const shell=await (await fetch("shell.html")).text();
   document.body.insertAdjacentHTML("afterbegin",shell);
-  for(const datei of ["data.js","core.js","engine.js","views.js","quiz.js","matchday-eltern.js","matchday-planung.js","matchday-spiel.js","matchday-card.js","matchday-extras.js","boot.js"]){
-    await new Promise((fertig,fehler)=>{
+  const dateien=["data.js","core.js","engine.js","views.js","quiz.js",
+    "md-eltern-portal.js","md-abzeichen.js","md-carpool.js","md-fanfakten.js","md-teamkasse.js","md-kabine.js",
+    "md-aufstellung.js","md-print.js","md-taktikboard.js","md-taktik-draw.js","md-taktik-video.js","md-kalender.js","md-gegner.js","md-turnierplan.js",
+    "md-teams.js","md-matchuhr.js","md-liveticker.js","md-spielbericht.js",
+    "md-matchcard.js","md-analyse.js","md-quests.js","md-voice.js",
+    "md-live-vollbild.js","md-fundbuero.js","md-taktik-bib.js","md-ausruestung.js","md-galerie.js","md-kasse.js","md-ki-coach.js",
+    "boot.js"];
+  // Parallel laden, aber in Array-Reihenfolge AUSFUEHREN: dynamisch eingehaengte Skripte
+  // mit async=false behalten die Ausfuehrungsreihenfolge, laden aber gleichzeitig herunter
+  // (kein Round-Trip-Stau bei vielen kleinen Feature-Dateien). onload feuert nach der
+  // Ausfuehrung -> offen===0 heisst: alle geladen UND ausgefuehrt.
+  await new Promise((fertig,fehler)=>{
+    let offen=dateien.length;
+    dateien.forEach(datei=>{
       const s=document.createElement("script");
-      s.src=datei; s.onload=fertig; s.onerror=()=>fehler(new Error(datei));
+      s.src=datei; s.async=false;
+      s.onload=()=>{ if(--offen===0)fertig(); };
+      s.onerror=()=>fehler(new Error(datei));
       document.body.appendChild(s);
     });
-  }
+  });
   if(document.readyState!=="loading")document.dispatchEvent(new Event("DOMContentLoaded"));
 })().catch(e=>{
   console.error(e);
