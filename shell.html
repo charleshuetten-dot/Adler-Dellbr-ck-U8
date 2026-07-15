@@ -216,8 +216,8 @@
     <strong>IGEL (defensiv, eng):</strong> Alle 4 Feldspieler ziehen zusammen, enge Abstände, Räume eng halten – Verteidigungspositionen, Pressing als Einheit.<br>
     <span style="font-size:11px;opacity:.8">Kommando "Adler!" = breit & offensiv · Kommando "Igel!" = eng & defensiv. Beide Begriffe direkt im Training als Zuruf nutzbar.</span>
   </div>
-  <button class="print-btn" onclick="printView('kombi')"><i class="ti ti-printer"></i>Aufstellung drucken</button>
   <div id="kombi-content"><div class="empty"><i class="ti ti-users-group"></i>Noch keine Spieler bewertet</div></div>
+  <button class="print-btn" style="margin-top:14px" onclick="printView('kombi')"><i class="ti ti-printer"></i>Aufstellung drucken</button>
 </div>
 
 <!-- TAKTIK VIEW -->
@@ -437,12 +437,12 @@
     </div>
     <div id="tp-diagnose"></div>
     <div id="tp-timeline"></div>
-    <button class="btn btn-p btn-sm" style="margin-top:10px" onclick="tpAddSlot()"><i class="ti ti-plus"></i>Phase hinzufügen</button>
+    <button class="btn btn-sm" style="margin-top:10px" onclick="tpAddSlot()"><i class="ti ti-plus"></i>Phase hinzufügen</button>
     <button class="btn btn-sm" style="margin-top:10px" onclick="tpGenerate()"><i class="ti ti-wand"></i>Auto-Plan</button>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-      <button class="btn" onclick="tpPlanSave()"><i class="ti ti-device-floppy"></i>Plan speichern</button>
-      <button class="btn" onclick="tpPlanLoad()"><i class="ti ti-cloud-download"></i>Plan laden</button>
-      <button class="btn" onclick="tpShareEinheit()"><i class="ti ti-share"></i>Einheit teilen</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      <button onclick="tpPlanSave()" style="flex:1;min-width:150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:none;border-radius:12px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.28)"><i class="ti ti-device-floppy"></i>Plan speichern</button>
+      <button class="btn" onclick="tpPlanLoad()"><i class="ti ti-cloud-download"></i>Laden</button>
+      <button class="btn" onclick="tpShareEinheit()"><i class="ti ti-share"></i>Teilen</button>
     </div>
   </div><!-- /train-sub-planung -->
 
@@ -529,7 +529,11 @@
         <button type="button" class="seg-btn" data-val="3" onclick="spieltagSetTeam(3,this)">Adler 3</button>
       </div>
     </div>
-    <button onclick="turnierOpen()" class="btn" style="width:100%;margin-bottom:12px"><i class="ti ti-trophy"></i>🏆 Turnier-Modus (mehrere Kurzspiele)</button>
+    <button onclick="turnierOpen()" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 14px;margin-bottom:12px;border:none;border-radius:14px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(217,119,6,.25)">
+      <span style="font-size:22px;line-height:1">🏆</span>
+      <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:800">Turnier-Modus</span><span style="display:block;font-size:11.5px;opacity:.92;margin-top:1px">Mehrere Kurzspiele erfassen – Spielplan &amp; Ergebnisse</span></span>
+      <span style="font-size:18px;opacity:.85">›</span>
+    </button>
     <!-- Spieltag-Phasen: Vor / Während / Nach dem Spiel – einklappbar für den Fokus -->
     <details class="el-sect" id="mt-phase-vor">
       <summary><i class="ti ti-list-check"></i>① Vor dem Spiel</summary>
