@@ -859,6 +859,9 @@ window._mdlSuppress=0;
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
   window.addEventListener("popstate",()=>{
     if(window._mdlSuppress>0){window._mdlSuppress--;return;}
+    // Kabinen-Unterseite offen? Zurück-Taste führt zur Kabinen-Startseite statt aus der App
+    // (#kabine selbst bleibt untracked, damit Zurück den Kabinen-Code nicht umgeht).
+    if(window._kabSubOn){ window._kabSubOn=false; try{ if(document.getElementById("kabine")&&typeof kabineHome==="function")kabineHome(); }catch(e){} return; }
     // Eltern-Kategorie-Fenster (wird nur versteckt, nicht entfernt) zuerst schließen
     try{ const ov=document.getElementById("el-cat-overlay"); if(ov&&ov.style.display==="block"&&typeof elternCatClose==="function"){ elternCatClose(true); return; } }catch(e){}
     const id=stack.pop();

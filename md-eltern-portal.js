@@ -353,7 +353,8 @@ async function elternGenesungLoad(kids){
   try{const r=await fetch(`${SB_URL}/rest/v1/kind_pause?select=spieler_id&bis=gte.${heute}`,{headers:sbAuthHeaders()});if(r.ok)pausen=((await r.json())||[]).map(x=>x.spieler_id).filter(id=>!eigene.includes(id));}catch(e){}
   if(!pausen.length){el.innerHTML="";return;}
   let namen={};
-  try{const r=await fetch(`${SB_URL}/rest/v1/kader?id=in.(${pausen.join(",")})&select=id,name`,{headers:sbAuthHeaders()});if(r.ok)(await r.json()).forEach(k=>namen[k.id]=k.name);}catch(e){}
+  // RPC statt Direkt-Select: die Eltern-RLS auf kader zeigt nur die eigenen Kinder (Bugfix)
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kader_namen`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)((await r.json())||[]).forEach(k=>namen[k.id]=k.name);}catch(e){}
   // heute schon gegrüßt? (vom ersten eigenen Kind aus)
   let schon=[];
   try{const r=await fetch(`${SB_URL}/rest/v1/kabine_post?von_spieler=eq.${eigene[0]}&datum=eq.${heute}&an_spieler=in.(${pausen.join(",")})&select=an_spieler`,{headers:sbAuthHeaders()});if(r.ok)schon=((await r.json())||[]).map(x=>x.an_spieler);}catch(e){}
@@ -563,8 +564,8 @@ async function elternDashLoad(){
   html+=`<div id="cat-regeln" class="el-cat-panel" style="display:none">`;
   html+=elRow("🤝","Fairplay-Codex ansehen","Die Regeln für den Spielfeldrand – kurz &amp; klar","fairplayOpen()","#15803d");
   html+=`<div id="fp-commit-slot" style="margin-bottom:8px"></div>`;
-  html+=elRow("🏅","Fairplay-Quiz spielen",`${XP_ICON} 50 Federn fürs Kind – kurze Fragen zum Codex`,"fairplayQuizStart(window._elternKids||[])","#16a34a");
   html+=elRow("📖",esc(LEITFADEN_NAME),"Pünktlichkeit, Aufsicht, Büdchen, App &amp; mehr – zum Nachlesen","leitfadenOpen()","#059669");
+  html+=elRow("🏅","Fairplay-Quiz spielen",`${XP_ICON} 50 Federn fürs Kind – kurze Fragen zum Codex`,"fairplayQuizStart(window._elternKids||[])","#16a34a"); // bewusst ganz unten (PO)
   html+=`</div>`; // /cat-regeln
   // ── DATENSCHUTZ & FREIGABEN (NEU): Foto/Video + Notfallkarte pro Kind + Datenexport ──
   html+=`<div id="cat-datenschutz" class="el-cat-panel" style="display:none">`;

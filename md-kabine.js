@@ -12,6 +12,9 @@ async function kabineOpen(){
   m.style.cssText="position:fixed;inset:0;z-index:10050;background:linear-gradient(160deg,#0f172a,#1e3a8a);color:#fff;display:flex;flex-direction:column;overflow:hidden";
   m.innerHTML='<div id="kabine-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div>';
   document.body.appendChild(m);
+  // Tägliche Sticker-Tüte: der erste Kabinen-Besuch des Tages bringt +1 (fürs Sammelalbum)
+  try{const heute=new Date().toISOString().slice(0,10);
+    if(localStorage.getItem("adler_tuete_tag")!==heute){localStorage.setItem("adler_tuete_tag",heute);kabineTuetenAdd(1);}}catch(e){}
   kabineHome();
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/team_gallery`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)kabineGalleryData=await r.json();}catch(e){}
   if(typeof loadTeamConfig==="function"){try{await loadTeamConfig();}catch(e){}}
@@ -46,36 +49,88 @@ async function teamLevelLoad(elId){
     <div style="font-size:11px;opacity:.92;margin-top:6px">Noch ${L.need} ${XP_LABEL} bis Level ${L.level+1} – jede Feder zählt fürs ganze Team!</div>
   </div>`;
 }
-/* C2 – Panini-Sammelalbum: die Karten der Teamkollegen werden durch Antippen freigeschaltet
-   (lokal gemerkt). Sammel-Gefühl fürs ganze Team – Fortschritt X/Y. */
+/* C2 → Umbau (PO: „Antippen ist langweilig"): Panini-Sammelalbum mit STICKER-TÜTEN.
+   Tüten verdient man durch echte Aktionen (1× täglich Kabine, Stimmung abgeben, Tasche
+   komplett packen, Kompliment schenken – je +1, max. 5 Vorrat). Eine Tüte = 3 zufällige
+   Sticker mit Aufdeck-Moment; Duplikate zählen hoch („schon 2×") – wie am Kiosk. */
 function _albumGet(){ try{return JSON.parse(localStorage.getItem("adler_album")||"{}");}catch(e){return {};} }
-function kabineAlbum(){
+function _albumSet(c){ try{localStorage.setItem("adler_album",JSON.stringify(c));}catch(e){} }
+function kabineTueten(){ try{return Math.max(0,parseInt(localStorage.getItem("adler_tueten")||"0",10)||0);}catch(e){return 0;} }
+function kabineTuetenAdd(n){ try{localStorage.setItem("adler_tueten",String(Math.max(0,Math.min(5,kabineTueten()+n))));}catch(e){} }
+// Voller Kader als Sticker-Grundlage (RPC, da Eltern-RLS auf kader nur eigene Kinder zeigt)
+async function _albumRoster(){
+  if(window._kabRoster&&window._kabRoster.length)return window._kabRoster;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kader_namen`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)rows=(await r.json())||[];}catch(e){}
+  if(rows.length)window._kabRoster=rows;
+  return rows;
+}
+async function kabineAlbum(){
   const b=document.getElementById("kabine-body"); if(!b)return;
-  const data=(typeof kabineGalleryData!=="undefined"&&kabineGalleryData)||[];
+  b.innerHTML=`<div style="text-align:center;padding:60px 16px;opacity:.85;color:#fff">Lade …</div>`;
+  const data=await _albumRoster();
   const col=_albumGet();
   const got=data.filter(g=>col[g.name]).length;
+  const voll=data.length>0&&got===data.length;
+  const t=kabineTueten();
   const cards=data.map(g=>{
-    const on=!!col[g.name];
-    return `<button onclick="kabineAlbumTap('${String(g.name).replace(/'/g,"")}')" style="border:none;border-radius:14px;aspect-ratio:3/4;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;${on?"background:linear-gradient(135deg,#f59e0b,#ec4899);color:#fff;box-shadow:0 4px 14px rgba(236,72,153,.4)":"background:rgba(255,255,255,.08);color:rgba(255,255,255,.45)"}">
-      <span style="font-size:30px">${on?"🦅":"❓"}</span>
-      <span style="font-size:12px;font-weight:800">${on?esc(g.name):"?"}</span>
-      ${on&&g.nr!=null?`<span style="font-size:10px;opacity:.9">#${g.nr}</span>`:""}
-    </button>`;
+    const n=col[g.name]||0;
+    return `<div style="border-radius:14px;aspect-ratio:3/4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;position:relative;${n?"background:linear-gradient(135deg,#f59e0b,#ec4899);color:#fff;box-shadow:0 4px 14px rgba(236,72,153,.4)":"background:rgba(255,255,255,.08);color:rgba(255,255,255,.45)"}">
+      ${n>1?`<span style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.35);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:800">${n}×</span>`:""}
+      <span style="font-size:30px">${n?"🦅":"❓"}</span>
+      <span style="font-size:12px;font-weight:800">${n?esc(g.name):"?"}</span>
+      ${n&&g.nr!=null?`<span style="font-size:10px;opacity:.9">#${g.nr}</span>`:""}
+    </div>`;
   }).join("");
-  b.innerHTML=`<div style="flex:1;overflow-y:auto;display:flex;flex-direction:column">
+  b.innerHTML=`<div id="kab-album-view" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;position:relative">
     <div style="display:flex;align-items:center;gap:10px;padding:14px 16px">
       <button onclick="kabineHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
       <div style="flex:1;font-size:18px;font-weight:800">📖 Sammelalbum</div>
       <div style="font-size:13px;font-weight:800;opacity:.9">${got}/${data.length}</div>
     </div>
-    <div style="font-size:11.5px;opacity:.8;padding:0 16px 8px;text-align:center">Tippe auf eine Karte, um sie freizuschalten – sammle das ganze Team! ${got===data.length&&data.length?"🎉 Komplett!":""}</div>
+    <div style="margin:0 16px 10px;background:rgba(255,255,255,.12);border-radius:16px;padding:12px 14px;text-align:center">
+      <div style="font-size:14px;font-weight:900">🎁 Sticker-Tüten: ${t}</div>
+      <button onclick="kabineAlbumPack()" ${t<1||!data.length?"disabled":""} style="width:100%;margin-top:8px;border:none;border-radius:14px;padding:14px;font-family:inherit;font-size:16px;font-weight:900;cursor:${t<1?"default":"pointer"};${t<1?"background:rgba(255,255,255,.10);color:rgba(255,255,255,.5)":"background:linear-gradient(135deg,#f59e0b,#ec4899);color:#fff;box-shadow:0 4px 14px rgba(236,72,153,.4)"}">${t<1?"Keine Tüte übrig":"Tüte aufreißen! ✂️"}</button>
+      <div style="font-size:10.5px;opacity:.8;margin-top:6px">Neue Tüten gibt's für: jeden Kabinen-Tag · Stimmung abgeben · Tasche packen · Kompliment schenken</div>
+    </div>
+    ${voll?'<div style="text-align:center;font-size:14px;font-weight:900;padding:0 16px 8px">🎉 ALBUM VOLL – das ganze Team gesammelt!</div>':""}
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 16px 16px">${cards||'<div style="opacity:.7;grid-column:1/-1;text-align:center;padding:20px">Noch keine Karten im Team.</div>'}</div>
   </div>`;
+  if(voll){const cont=document.getElementById("kab-album-view");if(cont&&typeof confetti==="function")confetti(cont);}
 }
-function kabineAlbumTap(name){
-  const c=_albumGet();
-  if(!c[name]){ c[name]=1; try{localStorage.setItem("adler_album",JSON.stringify(c));}catch(e){} try{navigator.vibrate&&navigator.vibrate([20,30,40]);}catch(e){} }
-  kabineAlbum();
+async function kabineAlbumPack(){
+  if(kabineTueten()<1)return;
+  const data=await _albumRoster(); if(!data.length)return;
+  kabineTuetenAdd(-1);
+  // 3 verschiedene Sticker ziehen (bei Mini-Kadern entsprechend weniger)
+  const pool=data.slice().sort(()=>Math.random()-.5).slice(0,Math.min(3,data.length));
+  const col=_albumGet();
+  window._packCards=pool.map(p=>{const had=col[p.name]||0;col[p.name]=had+1;return {name:p.name,nr:p.nr,neu:!had,count:had+1,open:false};});
+  _albumSet(col);
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  b.innerHTML=`<div id="kab-pack-open" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;color:#fff;position:relative;overflow:hidden">
+    <div style="font-size:20px;font-weight:900">✂️ Tüte ist offen!</div>
+    <div style="font-size:12.5px;opacity:.85">Tippe die Sticker an, um sie umzudrehen 👀</div>
+    <div style="display:flex;gap:10px;width:100%;max-width:380px;justify-content:center">
+      ${window._packCards.map((c,i)=>`<button id="pk-${i}" onclick="kabineAlbumFlip(${i})" style="flex:1;max-width:110px;border:none;border-radius:14px;aspect-ratio:3/4;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#334155,#1e293b);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:0 4px 14px rgba(0,0,0,.35)"><span style="font-size:34px">🎴</span></button>`).join("")}
+    </div>
+    <button id="pk-done" onclick="kabineAlbum()" style="display:none;margin-top:10px;border:none;border-radius:14px;background:rgba(255,255,255,.16);color:#fff;font-family:inherit;font-size:14px;font-weight:800;padding:12px 22px;cursor:pointer">Ins Album kleben 📖</button>
+  </div>`;
+}
+function kabineAlbumFlip(i){
+  const c=(window._packCards||[])[i]; if(!c||c.open)return;
+  c.open=true;
+  const el=document.getElementById("pk-"+i); if(!el)return;
+  try{navigator.vibrate&&navigator.vibrate(c.neu?[40,60,90]:30);}catch(e){}
+  el.style.background=c.neu?"linear-gradient(135deg,#f59e0b,#ec4899)":"linear-gradient(135deg,#64748b,#475569)";
+  el.innerHTML=`<span style="font-size:10px;font-weight:900;${c.neu?"color:#fff":"opacity:.8"}">${c.neu?"✨ NEU!":"schon "+c.count+"×"}</span>
+    <span style="font-size:28px">🦅</span>
+    <span style="font-size:11.5px;font-weight:800;line-height:1.1">${esc(c.name)}</span>
+    ${c.nr!=null?`<span style="font-size:9.5px;opacity:.9">#${c.nr}</span>`:""}`;
+  if(window._packCards.every(x=>x.open)){
+    const done=document.getElementById("pk-done"); if(done)done.style.display="inline-block";
+    if(window._packCards.some(x=>x.neu)){const cont=document.getElementById("kab-pack-open");if(cont&&typeof confetti==="function")confetti(cont);}
+  }
 }
 /* C5 – Trainer-Sprachlob: der Trainer nimmt ein kurzes Lob auf (MediaRecorder → Storage),
    das Kind hört es im Eltern-Bereich/der Kabine. Bucket kabine-lob (privat, signierte URLs). */
@@ -186,7 +241,27 @@ async function arenaSave(btn){
   toast("Arena gespeichert ✓");
   document.getElementById("arena-modal")?.remove();
 }
+/* ── Zurück-Taste in der Kabine (PO-Feedback): #kabine selbst bleibt bewusst vom globalen
+   Back-Handler ausgenommen (Zurück darf den Kabinen-Code nicht umgehen). Aber UNTERSEITEN
+   (Album, Post, Komplimente, Stärken …) bekommen einen History-Eintrag: die Smartphone-
+   Zurück-Taste führt dann zur Kabinen-Startseite statt aus der App. Der ←-Button verbraucht
+   den Eintrag still (gleiches Muster wie elternCatClose). ── */
+window._kabSubOn=false;
+function kabSubMark(){
+  if(document.getElementById("kabine")&&!window._kabSubOn){
+    window._kabSubOn=true;
+    try{history.pushState({kabSub:1},"");}catch(e){}
+  }
+}
+function kabSubConsume(){
+  if(!window._kabSubOn)return;
+  window._kabSubOn=false;
+  window._mdlSuppress=(window._mdlSuppress||0)+1;
+  try{history.back();}catch(e){window._mdlSuppress--;}
+}
+// (Der popstate-Teil sitzt im zentralen Back-Handler in core.js – eine Stelle, korrekte Reihenfolge.)
 function kabineHome(){
+  kabSubConsume(); // Rückkehr per ←-Button: den Unterseiten-History-Eintrag still verbrauchen
   const b=document.getElementById("kabine-body"); if(!b)return;
   b.innerHTML=`
     <div style="flex:1;overflow-y:auto">
@@ -360,9 +435,12 @@ async function kabinePackTap(sid,idx,name){
     const cont=document.getElementById("kab-pack-view");
     if(cont&&typeof confetti==="function")confetti(cont);
     try{navigator.vibrate&&navigator.vibrate([40,60,40,60,120]);}catch(e){}
+    // Sticker-Tüte fürs komplette Packen – 1× je Kind & Spieltag (Farming-Schutz per Flag)
+    try{const pk=`adler_tuete_pack_${sid}_${t.datum}`;
+      if(!localStorage.getItem(pk)){localStorage.setItem(pk,"1");kabineTuetenAdd(1);}}catch(e){}
     try{
       const r=await fetch(`${SB_URL}/rest/v1/rpc/xp_award_event`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler_id:sid,p_quelle:"packliste",p_quelle_id:"pack"+t.datum})});
-      if(r.ok){const d=await r.json();if(d>0)toast(`🎒 Tasche gepackt – ${XP_ICON} +${d} ${XP_LABEL}!`);}
+      if(r.ok){const d=await r.json();if(d>0)toast(`🎒 Tasche gepackt – ${XP_ICON} +${d} ${XP_LABEL} und 🎁 +1 Sticker-Tüte!`);}
     }catch(e){}
   }
 }
@@ -399,7 +477,8 @@ async function kabineStimmungSet(sid,mood){
     if(!r.ok&&r.status!==201){toast("Konnte nicht speichern","err");return;}
   }catch(e){toast("Netzwerkfehler","err");return;}
   try{navigator.vibrate&&navigator.vibrate([30,40,60]);}catch(e){}
-  toast(mood===3?"Super! 😄":mood===2?"Danke dir! 🙂":"Danke, dass du ehrlich bist – dein Trainer ist für dich da! 💙");
+  kabineTuetenAdd(1); // Sticker-Tüte fürs Mitmachen (max. 1/Tag/Kind über die DB-Unique)
+  toast((mood===3?"Super! 😄":mood===2?"Danke dir! 🙂":"Danke, dass du ehrlich bist – dein Trainer ist für dich da! 💙")+" · 🎁 +1 Sticker-Tüte");
   kabineStimmungLoad();
 }
 /* H7 – Team-Meilensteine: die RPC berechnet & persistiert Team-Marken (Tore/Spiele/Federn/
@@ -446,11 +525,10 @@ async function kabinePostOpen(){
   try{const ids=kids.map(k=>k.spieler_id).join(",");
     const r=await fetch(`${SB_URL}/rest/v1/kabine_post?an_spieler=in.(${ids})&created_at=gte.${ab}&select=*&order=created_at.desc`,{headers:sbAuthHeaders()});
     if(r.ok)rows=(await r.json())||[];}catch(e){}
-  // Absender-Namen (Kader ist für Eltern lesbar: id, name, nr)
+  // Absender-Namen über die RPC (Eltern-RLS auf kader zeigt nur die eigenen Kinder)
   const nameById={};
-  try{const von=[...new Set(rows.map(x=>x.von_spieler))].join(",");
-    if(von){const r=await fetch(`${SB_URL}/rest/v1/kader?id=in.(${von})&select=id,name`,{headers:sbAuthHeaders()});
-      if(r.ok)(await r.json()).forEach(k=>nameById[k.id]=k.name);}}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kader_namen`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});
+    if(r.ok)((await r.json())||[]).forEach(k=>nameById[k.id]=k.name);}catch(e){}
   const kidName=sid=>{const k=kids.find(x=>x.spieler_id===sid);return (k&&k.kader&&k.kader.name)||"";};
   const neuIds=rows.filter(x=>!x.gesehen).map(x=>x.id);
   b.innerHTML=`<div id="kab-post-view" style="flex:1;overflow-y:auto;position:relative">
@@ -486,7 +564,8 @@ async function kabineKudosFor(vonSid,vonName){
   b.innerHTML=`<div style="text-align:center;padding:60px 16px;opacity:.85;color:#fff">Lade …</div>`;
   const heute=new Date().toISOString().slice(0,10);
   let team=[],pausen={};
-  try{const r=await fetch(`${SB_URL}/rest/v1/kader?select=id,name&aktiv=not.is.false&order=name.asc`,{headers:sbAuthHeaders()});if(r.ok)team=(await r.json())||[];}catch(e){}
+  // RPC statt Direkt-Select: die Eltern-RLS auf kader zeigt nur die EIGENEN Kinder (Bugfix)
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kader_namen`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)team=(await r.json())||[];}catch(e){}
   try{const r=await fetch(`${SB_URL}/rest/v1/kind_pause?select=spieler_id,gruesse_ok&bis=gte.${heute}`,{headers:sbAuthHeaders()});
     if(r.ok)(await r.json()).forEach(p=>{if(p.gruesse_ok)pausen[p.spieler_id]=1;});}catch(e){}
   const andere=team.filter(k=>k.id!==vonSid);
@@ -527,7 +606,11 @@ async function kabineKudosSend(vonSid,anSid,typ,key,btn){
     if(!r.ok&&r.status!==201){toast("Konnte nicht senden","err");if(btn)btn.disabled=false;return;}
   }catch(e){toast("Netzwerkfehler","err");if(btn)btn.disabled=false;return;}
   try{navigator.vibrate&&navigator.vibrate([30,50,80]);}catch(e){}
-  toast(typ==="genesung"?"💌 Gruß ist unterwegs!":"👏 Kompliment verschenkt – stark von dir!");
+  // Sticker-Tüte fürs Verschenken – 1× pro Tag (nicht je Empfänger, sonst Tüten-Farming)
+  let tuete=false;
+  try{const tk="adler_tuete_kudos_"+heute;
+    if(!localStorage.getItem(tk)){localStorage.setItem(tk,"1");kabineTuetenAdd(1);tuete=true;}}catch(e){}
+  toast((typ==="genesung"?"💌 Gruß ist unterwegs!":"👏 Kompliment verschenkt – stark von dir!")+(tuete?" · 🎁 +1 Sticker-Tüte":""));
   kabineHome();
 }
 /* I-A – Kabinen-Wahl: die Kinder stimmen ab (Song/Motto/Spielform). Der Trainer legt die
@@ -618,7 +701,10 @@ function kabineStaerkenFrage(){
   const b=document.getElementById("kabine-body"); if(!b)return;
   if(_ksIdx>=KAB_SELBST_FRAGEN.length){kabineStaerkenSave();return;}
   const f=KAB_SELBST_FRAGEN[_ksIdx];
-  b.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;color:#fff">
+  b.innerHTML=`<div style="display:flex;align-items:center;padding:14px 16px 0">
+    <button onclick="kabineHome()" aria-label="Zurück" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0 24px 24px;text-align:center;color:#fff">
     <div style="font-size:12px;opacity:.8">Frage ${_ksIdx+1} von ${KAB_SELBST_FRAGEN.length} · ${esc(_ksName)}</div>
     <div style="font-size:64px;line-height:1">${f.emo}</div>
     <div style="font-size:24px;font-weight:900">${esc(f.t)}</div>
@@ -704,7 +790,10 @@ function kabineReporterFrage(){
     if(cont&&typeof confetti==="function")confetti(cont);
     return;
   }
-  b.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;color:#fff">
+  b.innerHTML=`<div style="display:flex;align-items:center;padding:14px 16px 0">
+    <button onclick="kabineHome()" aria-label="Zurück" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0 24px 24px;text-align:center;color:#fff">
     <div style="font-size:12px;opacity:.8">🎙️ Kabinen-Reporter · ${esc(_krName)}</div>
     <div style="font-size:22px;font-weight:900;max-width:340px">${esc(q.f)}</div>
     <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:340px">
@@ -917,9 +1006,16 @@ async function kabineExit(){
   const ans=prompt("Nur für Erwachsene 🔒\nBitte den Code eingeben:");
   if(ans===null)return;
   const [eingabe,soll]=await Promise.all([hashPin(String(ans).trim()),kabineCodeHash()]);
-  if(eingabe===soll){ isKidsMode=false; document.getElementById("kabine")?.remove(); }
+  if(eingabe===soll){ isKidsMode=false; kabSubConsume(); document.getElementById("kabine")?.remove(); }
   else { toast("Falscher Code – die Kabine bleibt zu.","err"); }
 }
+/* Alle Kabinen-Unterseiten setzen beim Öffnen einen History-Eintrag (kabSubMark), damit die
+   Smartphone-Zurück-Taste zur Kabinen-Startseite führt. Wrapper statt 15 Einzel-Edits –
+   function-Declarations sind window-Properties, die Neubelegung greift auch für onclick. */
+["kabinePickKid","kabinePostOpen","kabineKudosFor","kabinePackFor","kabineStaerkenFor","kabineReporterFor","kabineRevealShow","kabineAlbum","kabineHype","kabineSkillWoche","kabineMissionFor","kabineRollenFor","kabineShowQuests","kabineShowGallery"].forEach(fn=>{
+  const orig=window[fn];
+  if(typeof orig==="function")window[fn]=function(){ kabSubMark(); return orig.apply(this,arguments); };
+});
 function elternPortalTrainerNotice(root){
   root.innerHTML=`<div style="max-width:360px;margin:8vh auto;background:#fff;border-radius:16px;padding:24px;text-align:center">
     <div style="font-size:40px">🧑‍🏫</div>
