@@ -2733,6 +2733,7 @@ async function adlerWeltOpen(){
   </div>`).join("");
   c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🪶 Adler-Welt</div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Federn, Karten, Abzeichen & Challenge – ansehen und verwalten.</div>
+    <div id="aw-team-level" style="margin-bottom:12px"></div>
     <button class="btn btn-p btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();wochenChallengeOpen()"><i class="ti ti-trophy"></i>Wochen-Challenge setzen / bearbeiten</button>
     <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('aw-modal').remove();skillWocheOpen()"><i class="ti ti-video"></i>🎬 Skill der Woche setzen</button>
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🎵 Kabinen-Playlist</div>
@@ -2763,6 +2764,7 @@ async function adlerWeltOpen(){
     <button class="btn btn-sm btn-p" style="width:100%" onclick="document.getElementById('aw-modal').remove();elternInvitePaket()"><i class="ti ti-brand-whatsapp"></i>Einladung erstellen</button>
     <button class="btn btn-sm" style="margin-top:12px;width:100%" onclick="document.getElementById('aw-modal').remove()">Schließen</button>`;
   modal.appendChild(c);document.body.appendChild(modal);
+  if(typeof teamLevelLoad==="function")teamLevelLoad("aw-team-level"); // Küken-Schwarm (Team-Level) jetzt hier
   active.forEach(k=>{xpTotal(k.id).then(t=>{const el=document.getElementById("aw-fed-"+k.id);if(el){const b=xpBadge(t);el.textContent=`${XP_ICON} ${t} · ${b.emo} ${b.t}`;}}).catch(()=>{});});
   // aktuelle Spotify-Playlist vorbefüllen
   fetch(`${SB_URL}/rest/v1/team_config?id=eq.1&select=spotify_playlist`,{headers:sbAuthHeaders()}).then(r=>r.ok?r.json():[]).then(rows=>{const el=document.getElementById("aw-spotify");if(el&&rows[0]&&rows[0].spotify_playlist)el.value=rows[0].spotify_playlist;}).catch(()=>{});
@@ -2918,26 +2920,41 @@ async function renderHome(){
     ${onboardHtml}
     <div id="home-next">${card('<div style="font-size:12px;color:var(--text3)">Lade nächsten Termin...</div>')}</div>
     <div id="home-carousel"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-p" style="flex:1;min-height:48px" onclick="openTab('spieltag')"><i class="ti ti-whistle"></i>Spieltag</button>
-      <button class="btn" style="flex:1;min-height:48px" onclick="go('anwesenheit')"><i class="ti ti-checkbox"></i>Anwesenheit</button>
-      <button class="btn" style="flex:1;min-height:48px" onclick="go('termine')"><i class="ti ti-calendar-plus"></i>Termin</button>
+    <div style="display:flex;gap:8px;margin-bottom:2px">
+      <button onclick="openTab('spieltag')" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-height:72px;padding:12px 6px;border:none;border-radius:var(--rl);cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;box-shadow:0 2px 10px rgba(37,99,235,.28)">
+        <i class="ti ti-whistle" style="font-size:24px"></i><span style="font-size:12.5px;font-weight:800">Spieltag</span></button>
+      <button onclick="go('anwesenheit')" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-height:72px;padding:12px 6px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;background:var(--surface);color:var(--text)">
+        <i class="ti ti-checkbox" style="font-size:24px;color:#2563eb"></i><span style="font-size:12.5px;font-weight:800">Anwesenheit</span></button>
+      <button onclick="go('termine')" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-height:72px;padding:12px 6px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;background:var(--surface);color:var(--text)">
+        <i class="ti ti-calendar-plus" style="font-size:24px;color:#2563eb"></i><span style="font-size:12.5px;font-weight:800">Termin</span></button>
     </div>
     <!-- Aufmerksamkeit/To-dos: direkt unter den Hauptaktionen, ohne Überschrift (leer = unsichtbar) -->
     <div id="home-rsvp"></div>
     <div id="home-antifrust"></div>
     <div id="eg-trainer"></div>
-    ${stale>0?`<div onclick="go('bew')" class="card" style="padding:12px 14px;margin-bottom:10px;border-left:3px solid #dc2626;cursor:pointer;display:flex;align-items:center;gap:8px">
-      <span style="font-size:18px">⏰</span>
-      <span style="flex:1;font-size:12.5px"><strong style="color:#dc2626">${stale} Spieler überfällig</strong> – seit über 6 Wochen nicht bewertet.</span>
-      <span style="font-size:11px;font-weight:800;color:var(--blue)">ansehen ›</span>
-    </div>`:""}
     <div class="sl nt" style="margin-top:18px"><i class="ti ti-tools"></i>Werkzeuge</div>
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:2px 2px 6px">Auswerten</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
       ${homeTool("📈 Saison-Cockpit","saisonCockpitOpen()")}
       ${homeTool("⭐ Einheit bewerten","einheitBewertenOpen()")}
       ${homeTool("📊 Anwesenheits-Quote","anwesenheitOpen()")}
+    </div>
+    <!-- Team-Check (Kader/bewertet/überfällig/Radar) – jetzt bei den Werkzeugen -->
+    <div class="card" style="padding:0;margin:8px 0 10px;overflow:hidden">
+      <button onclick="toggleTeamCheck()" style="width:100%;display:flex;align-items:center;gap:8px;padding:13px 14px;min-height:48px;border:none;background:transparent;font-family:inherit;cursor:pointer;color:var(--text)">
+        <span style="font-size:16px">🩺</span>
+        <span style="flex:1;text-align:left;font-size:13px;font-weight:700">Team-Check</span>
+        <span style="font-size:11px;color:var(--text2)">${KADER.length} im Kader · ${bewertet} bewertet${stale>0?` · <span style="color:#dc2626">${stale} überfällig</span>`:""}</span>
+        <span id="tc-caret" style="font-size:12px;color:var(--text3)">▾</span>
+      </button>
+      <div id="team-check-body" style="display:none;padding:0 14px 14px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          ${statTile(KADER.length,"Kader","var(--blue)","go('kader')")}
+          ${statTile(bewertet+"/"+KADER.length,"bewertet","#059669","go('bew')")}
+          ${statTile(stale,"überfällig >6 Wo","#dc2626","go('bew')")}
+        </div>
+        <div id="home-radar"></div>
+      </div>
     </div>
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:12px 2px 6px">Organisieren</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
@@ -2954,25 +2971,8 @@ async function renderHome(){
       ${homeTool("🪶 Adler-Welt","adlerWeltOpen()")}
     </div>
     <div class="sl nt" style="margin-top:18px"><i class="ti ti-clipboard-heart"></i>Team-Status</div>
-    <div id="team-level-slot" style="margin-bottom:10px"></div>
     <div id="home-birthday"></div>
     ${gebHtml}
-    <div class="card" style="padding:0;margin-bottom:10px;overflow:hidden">
-      <button onclick="toggleTeamCheck()" style="width:100%;display:flex;align-items:center;gap:8px;padding:13px 14px;min-height:48px;border:none;background:transparent;font-family:inherit;cursor:pointer;color:var(--text)">
-        <span style="font-size:16px">🩺</span>
-        <span style="flex:1;text-align:left;font-size:13px;font-weight:700">Team-Check</span>
-        <span style="font-size:11px;color:var(--text2)">${KADER.length} im Kader · ${bewertet} bewertet${stale>0?` · <span style="color:#dc2626">${stale} überfällig</span>`:""}</span>
-        <span id="tc-caret" style="font-size:12px;color:var(--text3)">▾</span>
-      </button>
-      <div id="team-check-body" style="display:none;padding:0 14px 14px">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          ${statTile(KADER.length,"Kader","var(--blue)","go('kader')")}
-          ${statTile(bewertet+"/"+KADER.length,"bewertet","#059669","go('bew')")}
-          ${statTile(stale,"überfällig >6 Wo","#dc2626","go('bew')")}
-        </div>
-        <div id="home-radar"></div>
-      </div>
-    </div>
     <div class="sl nt" style="margin-top:18px"><i class="ti ti-settings"></i>Einstellungen</div>
     <div id="push-slot-trainer" style="margin-bottom:10px"></div>
     <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>
@@ -2982,7 +2982,7 @@ async function renderHome(){
   elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche
   homeRsvpNudge(); // "wer hat noch nicht geantwortet" für den nächsten Termin
   homeAntiFrust(); // Anti-Frust-Radar: wer braucht heute eine Bühne
-  if(typeof teamLevelLoad==="function")teamLevelLoad("team-level-slot"); // C1: kollektives Team-Level
+  // Team-Level ("Küken-Schwarm") lebt jetzt in der Adler-Welt, nicht mehr auf der Startseite
   homeBirthday(); // C4: Geburtstags-Automatik
   if(typeof pushRenderInto==="function")pushRenderInto("push-slot-trainer","trainer"); // Push-An/Aus
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
