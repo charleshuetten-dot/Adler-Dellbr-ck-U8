@@ -257,11 +257,12 @@ function elternThemeOnToggle(){
    Async-Loader ihre Slots füllen); der Button zeigt nur das gewählte Panel im Vollbild-Overlay. */
 function elternCatOpen(id){
   const ov=document.getElementById("el-cat-overlay"); if(!ov)return;
-  const T={todo:"📌 Zu erledigen",mehr:"📰 Mehr vom Team",regeln:"📋 Regeln & Vereinbarungen",datenschutz:"🔒 Datenschutz & Freigaben",kontakt:"⚙️ Kontakt & Benachrichtigungen"};
+  const T={todo:"📌 Zu erledigen",news:"📣 Adler News",mehr:"📰 Mehr vom Team",regeln:"📋 Regeln & Vereinbarungen",datenschutz:"🔒 Datenschutz & Freigaben",kontakt:"⚙️ Kontakt & Benachrichtigungen"};
   ov.querySelectorAll(".el-cat-panel").forEach(p=>p.style.display="none");
   const panel=document.getElementById("cat-"+id); if(panel)panel.style.display="block";
   const ttl=document.getElementById("el-cat-title"); if(ttl)ttl.textContent=T[id]||"";
   ov.style.display="block"; ov.scrollTop=0;
+  if(id==="news"&&typeof elternNewsMarkSeen==="function")elternNewsMarkSeen(); // Öffnen = gelesen
   if(typeof elternDarkActive==="function"&&elternDarkActive()&&typeof elternThemeSweep==="function")elternThemeSweep(ov);
 }
 function elternCatClose(){ const ov=document.getElementById("el-cat-overlay"); if(ov)ov.style.display="none"; }
@@ -271,6 +272,40 @@ function elternTodoSync(){
   const n=["eltern-checklist-slot","mitbring-slot","buedchen-slot","puls-nudge-slot"].filter(id=>{const el=document.getElementById(id);return el&&el.innerHTML.trim().length>0;}).length;
   btn.style.display=n?"flex":"none";
   const b=document.getElementById("eltern-todo-badge"); if(b)b.textContent=n?String(n):"";
+}
+/* 📣 Adler News: aggregiert „neu seit letztem Blick" (RPC eltern_news + Federn-Level je Kind).
+   Gelesen-Status pro Quelle in localStorage adler_news_seen; Erstbesuch = Baseline (keine Flut). */
+async function elternNewsLoad(kids){
+  const panel=document.getElementById("cat-news"); if(!panel)return;
+  let data=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/eltern_news`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)data=await r.json();}catch(e){}
+  if(!data){ panel.innerHTML='<div style="background:#fff;border-radius:14px;padding:20px;text-align:center;color:#94a3b8;font-size:13px">Neuigkeiten offline nicht verfügbar.</div>'; return; }
+  // aktuelle Werte je Quelle
+  const cur={ nest:data.nest_at||"", boerse:data.boerse_at||"", fund:data.fund_at||"", skill:data.skill_at||"" };
+  (data.lob||[]).forEach(l=>cur["lob_"+l.sid]=l.at);
+  const federn={};
+  await Promise.all((kids||[]).map(async k=>{ try{federn[k.spieler_id]=await xpTotal(k.spieler_id);}catch(e){federn[k.spieler_id]=0;} }));
+  (kids||[]).forEach(k=>{ try{cur["level_"+k.spieler_id]=(xpBadge(federn[k.spieler_id]||0)||{}).t||"";}catch(e){} });
+  window._elternNewsCur=cur;
+  let seen=null; try{seen=JSON.parse(localStorage.getItem("adler_news_seen")||"null");}catch(e){}
+  if(!seen){ try{localStorage.setItem("adler_news_seen",JSON.stringify(cur));}catch(e){} seen=cur; } // Erstbesuch = Baseline
+  const kidName=sid=>{const k=(kids||[]).find(x=>x.spieler_id===sid);return (k&&k.kader&&k.kader.name)||"Dein Kind";};
+  const items=[];
+  if(cur.nest&&cur.nest>(seen.nest||"")) items.push({emo:"📰",txt:"Das Adler Nest ist frisch erschienen.",act:`location.href='${location.pathname}?heft'`});
+  if(cur.boerse&&cur.boerse>(seen.boerse||"")) items.push({emo:"🛍️",txt:"Neues in der Adler-Börse.",act:"elternCatClose();boerseOpen()"});
+  if(cur.fund&&cur.fund>(seen.fund||"")) items.push({emo:"🧦",txt:"Neues im Fundbüro.",act:"elternCatClose();fundbueroOpen()"});
+  if(cur.skill&&cur.skill.slice(0,4)!=="1970"&&cur.skill>(seen.skill||"")) items.push({emo:"🏅",txt:"Neuer Skill der Woche / neue Challenge.",act:"elternCatOpen('mehr')"});
+  (data.lob||[]).forEach(l=>{ if(l.at>(seen["lob_"+l.sid]||"")) items.push({emo:"🎧",txt:`Neues Sprachlob für ${esc(kidName(l.sid))}.`,act:`elternCatClose();lobPlay(${l.sid})`}); });
+  (kids||[]).forEach(k=>{ const lv=cur["level_"+k.spieler_id]; const sv=seen["level_"+k.spieler_id]; if(lv&&sv!=null&&lv!==sv) items.push({emo:"🎉",txt:`${esc(kidName(k.spieler_id))} hat ein neues Level erreicht: ${esc(lv)}!`,act:`elternCatClose();elternCardOpen(${k.spieler_id})`}); });
+  const badge=document.getElementById("eltern-news-badge");
+  if(badge){ badge.textContent=items.length?String(items.length):"0"; badge.style.display=items.length?"inline-block":"none"; }
+  panel.innerHTML = items.length
+    ? items.map(i=>`<button onclick="${i.act}" style="display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:8px;font-family:inherit;cursor:pointer"><span style="font-size:20px;line-height:1">${i.emo}</span><span style="flex:1;font-size:13px;color:#334155;line-height:1.4">${i.txt}</span><span style="font-size:14px;color:#94a3b8">›</span></button>`).join("")
+    : '<div style="background:#fff;border-radius:14px;padding:24px;text-align:center;color:#94a3b8;font-size:13px">Aktuell nichts Neues 🦅</div>';
+}
+function elternNewsMarkSeen(){
+  try{ if(window._elternNewsCur)localStorage.setItem("adler_news_seen",JSON.stringify(window._elternNewsCur)); }catch(e){}
+  const b=document.getElementById("eltern-news-badge"); if(b){ b.textContent="0"; b.style.display="none"; }
 }
 async function elternDashLoad(){
   const body=document.getElementById("ep-dash-body");
@@ -310,6 +345,13 @@ async function elternDashLoad(){
     <span style="font-size:22px;line-height:1">📌</span>
     <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:800">Zu erledigen</span><span style="display:block;font-size:11.5px;opacity:.92;margin-top:1px">Rückmeldungen, Mitbringen, Büdchen, „Wie war's"</span></span>
     <span id="eltern-todo-badge" style="background:#fff;color:#d97706;font-weight:800;font-size:12px;border-radius:12px;padding:2px 9px"></span>
+    <span style="font-size:18px;opacity:.85">›</span>
+  </button>`;
+  // 📣 Adler News: eigener Button (News ≠ To-Do); Panel #cat-news; roter Badge bei Ungelesenem.
+  html+=`<button id="eltern-news-btn" onclick="elternCatOpen('news')" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:10px;border:none;border-radius:14px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(2,132,199,.22)">
+    <span style="font-size:22px;line-height:1">📣</span>
+    <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:800">Adler News</span><span style="display:block;font-size:11.5px;opacity:.92;margin-top:1px">Neues aus dem Team &amp; von deinem Kind</span></span>
+    <span id="eltern-news-badge" style="display:none;background:#ef4444;color:#fff;font-weight:800;font-size:12px;border-radius:12px;padding:2px 9px">0</span>
     <span style="font-size:18px;opacity:.85">›</span>
   </button>`;
   html+=`<div id="match-gruss-slot"></div>`;  // A1: persönlicher Nach-dem-Spiel-Gruß (positiv, kein To-Do)
@@ -410,6 +452,7 @@ async function elternDashLoad(){
       <div id="buedchen-slot"></div>
       <div id="puls-nudge-slot"></div>
     </div>
+    <div id="cat-news" class="el-cat-panel" style="display:none"></div>
     <div id="cat-mehr" class="el-cat-panel" style="display:none">`;
   html+=card(`<div style="font-weight:700;margin-bottom:6px">📰 Adler Nest (Stadionheft)</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Das digitale Stadionheft mit Neuigkeiten, Ergebnissen und Geburtstagen.</div>
@@ -491,6 +534,7 @@ async function elternDashLoad(){
   elternSkillLoad(kids);   // Skill der Woche
   pulsNudgeLoad();         // Puls-Erinnerung fürs jüngste Event ohne Feedback
   elternChecklistLoad(kids); // „Erste Schritte"-Checkliste (Adoption)
+  elternNewsLoad(kids);    // 📣 Adler News: Neues seit letztem Blick + roter Badge
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
   let backToKabine=false; try{backToKabine=sessionStorage.getItem("adler_open_kabine")==="1";sessionStorage.removeItem("adler_open_kabine");}catch(e){}
   if(backToKabine)setTimeout(kabineOpen,50);
