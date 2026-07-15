@@ -12,9 +12,12 @@ async function kabineOpen(){
   m.style.cssText="position:fixed;inset:0;z-index:10050;background:linear-gradient(160deg,#0f172a,#1e3a8a);color:#fff;display:flex;flex-direction:column;overflow:hidden";
   m.innerHTML='<div id="kabine-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div>';
   document.body.appendChild(m);
-  // Tägliche Sticker-Tüte: der erste Kabinen-Besuch des Tages bringt +1 (fürs Sammelalbum)
+  // Tages-Tüte je Kind (tuete_tag in der DB verhindert Doppelvergabe – auch geräteübergreifend)
   try{const heute=new Date().toISOString().slice(0,10);
-    if(localStorage.getItem("adler_tuete_tag")!==heute){localStorage.setItem("adler_tuete_tag",heute);kabineTuetenAdd(1);}}catch(e){}
+    (window._elternKids||[]).forEach(async k=>{
+      const row=await _albumRow(k.spieler_id);
+      if(row.tuete_tag!==heute){row.tuete_tag=heute;row.tueten=Math.min(9,(row.tueten||0)+1);_albumSave(row);}
+    });}catch(e){}
   kabineHome();
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/team_gallery`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)kabineGalleryData=await r.json();}catch(e){}
   if(typeof loadTeamConfig==="function"){try{await loadTeamConfig();}catch(e){}}
@@ -49,14 +52,38 @@ async function teamLevelLoad(elId){
     <div style="font-size:11px;opacity:.92;margin-top:6px">Noch ${L.need} ${XP_LABEL} bis Level ${L.level+1} – jede Feder zählt fürs ganze Team!</div>
   </div>`;
 }
-/* C2 → Umbau (PO: „Antippen ist langweilig"): Panini-Sammelalbum mit STICKER-TÜTEN.
-   Tüten verdient man durch echte Aktionen (1× täglich Kabine, Stimmung abgeben, Tasche
-   komplett packen, Kompliment schenken – je +1, max. 5 Vorrat). Eine Tüte = 3 zufällige
-   Sticker mit Aufdeck-Moment; Duplikate zählen hoch („schon 2×") – wie am Kiosk. */
-function _albumGet(){ try{return JSON.parse(localStorage.getItem("adler_album")||"{}");}catch(e){return {};} }
-function _albumSet(c){ try{localStorage.setItem("adler_album",JSON.stringify(c));}catch(e){} }
-function kabineTueten(){ try{return Math.max(0,parseInt(localStorage.getItem("adler_tueten")||"0",10)||0);}catch(e){return 0;} }
-function kabineTuetenAdd(n){ try{localStorage.setItem("adler_tueten",String(Math.max(0,Math.min(5,kabineTueten()+n))));}catch(e){} }
+/* C2 → v322: Panini-Album PRO KIND in der DB (album_kind) – geräteübergreifend und
+   Grundlage der TAUSCHBÖRSE. Tüten & Sticker hängen jetzt am Kind, nicht mehr am Handy.
+   Tüten verdient man weiter durch Aktionen (täglich, Stimmung, Packliste, Kompliment –
+   je +1, max. 9 Vorrat). Ein alter localStorage-Stand wird einmalig allen Familien-
+   Kindern gutgeschrieben (sie haben ohnehin gemeinsam am Gerät gesammelt). */
+async function _albumRow(sid){
+  try{const r=await fetch(`${SB_URL}/rest/v1/album_kind?spieler_id=eq.${sid}&select=*`,{headers:sbAuthHeaders()});
+    if(r.ok){const row=((await r.json())||[])[0];if(row){row.sticker=row.sticker||{};return row;}}}catch(e){}
+  return {spieler_id:sid,sticker:{},tueten:0,tuete_tag:null};
+}
+async function _albumSave(row){
+  try{await fetch(`${SB_URL}/rest/v1/album_kind?on_conflict=spieler_id`,{method:"POST",headers:sbAuthHeaders({'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify({spieler_id:row.spieler_id,sticker:row.sticker||{},tueten:row.tueten||0,tuete_tag:row.tuete_tag||null,updated_at:new Date().toISOString()})});}catch(e){}
+}
+async function albumTuete(sid){ if(!sid)return; const row=await _albumRow(sid); row.tueten=Math.min(9,(row.tueten||0)+1); await _albumSave(row); }
+// Einmalige Migration: alte Geräte-Sammlung (localStorage) allen Familien-Kindern gutschreiben
+async function _albumMigrate(kids){
+  try{
+    if(localStorage.getItem("adler_album_mig"))return;
+    let local=null; try{local=JSON.parse(localStorage.getItem("adler_album")||"null");}catch(e){}
+    const lt=Math.max(0,parseInt(localStorage.getItem("adler_tueten")||"0",10)||0);
+    if(local&&Object.keys(local).length){
+      for(const k of (kids||[])){
+        const row=await _albumRow(k.spieler_id);
+        Object.keys(local).forEach(key=>{row.sticker[key]=Math.max(row.sticker[key]||0,local[key]||0);});
+        row.tueten=Math.min(9,(row.tueten||0)+lt);
+        await _albumSave(row);
+      }
+    }
+    localStorage.setItem("adler_album_mig","1");
+    localStorage.removeItem("adler_album"); localStorage.removeItem("adler_tueten");
+  }catch(e){}
+}
 // Voller Kader als Sticker-Grundlage (RPC, da Eltern-RLS auf kader nur eigene Kinder zeigt)
 async function _albumRoster(){
   if(window._kabRoster&&window._kabRoster.length)return window._kabRoster;
@@ -83,8 +110,10 @@ async function _albumPool(){
   pool.push({key:"sp_trikot",label:"Adler-Trikot",sub:"Unsere Farben",emo:"👕",rar:"episch"});
   pool.push({key:"sp_pokal",label:"Der Pokal",sub:"Für große Träume",emo:"🏆",rar:"legendaer"});
   pool.push({key:"sp_horst",label:"Horst der Adler",sub:"Unser Maskottchen",emo:"🦅",rar:"legendaer"});
+  pool.forEach((p,i)=>p.num=i+1); // Album-Nummern wie im echten Panini-Heft
   return pool;
 }
+function _poolByKey(pool){ const m={}; pool.forEach(p=>m[p.key]=p); return m; }
 // n verschiedene Sticker gewichtet ziehen (seltene Raritäten fallen entsprechend seltener)
 function _albumDraw(pool,n){
   const bag=pool.slice(), out=[];
@@ -96,36 +125,80 @@ function _albumDraw(pool,n){
   }
   return out;
 }
-// Eine Sticker-Kachel (Album-Grid und Tüten-Aufdeckung teilen sich die Optik)
+/* Sticker-Design v2: echte Sammelkarten-Anmutung – Kopfzeile mit Album-Nummer und
+   Duplikat-Zähler, Raritäts-Schriftzug, Avatar-Medaillon (Foto bei Freigabe, sonst
+   Emoji) mit weißem Ring auf Glanz-Verlauf, dunkles Namensband unten. Grid und
+   Tüten-Aufdeckung teilen sich die Optik. */
 function _albumStickerHtml(g,n){
   const R=KAB_RAR[g.rar]||KAB_RAR.kind;
   const dunkel=g.rar==="legendaer";
-  if(!n)return `<div style="border-radius:14px;aspect-ratio:3/4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);${R.dash?`border:1.5px dashed ${R.dash}`:""}">
-      <span style="font-size:30px">❓</span>
-      <span style="font-size:8.5px;font-weight:900;letter-spacing:.5px;opacity:.75">${R.lbl||"?"}</span>
+  if(!n)return `<div style="border-radius:14px;aspect-ratio:3/4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.45);${R.dash?`border:1.5px dashed ${R.dash}`:"border:1.5px dashed rgba(255,255,255,.18)"}">
+      <span style="font-size:9px;font-weight:800;opacity:.65">Nr. ${g.num||"?"}</span>
+      <span style="font-size:26px;opacity:.7">❓</span>
+      ${R.lbl?`<span style="font-size:8.5px;font-weight:900;letter-spacing:.5px;opacity:.8">${R.lbl}</span>`:""}
     </div>`;
-  return `<div class="${R.foil?"kab-st"+(R.leg?" kab-leg":""):""}" style="border-radius:14px;aspect-ratio:3/4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;position:relative;background:${R.own};color:${dunkel?"#78350f":"#fff"};box-shadow:${R.shadow}">
-      ${n>1?`<span style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.35);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:800;z-index:1;color:#fff">${n}×</span>`:""}
-      ${R.lbl?`<span style="font-size:8px;font-weight:900;letter-spacing:.6px;${dunkel?"":"opacity:.9"}">${R.lbl}</span>`:""}
-      ${g.img?`<img src="${g.img}" alt="" style="width:34px;height:34px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.3))">`:`<span style="font-size:28px">${g.emo}</span>`}
-      <span style="font-size:11px;font-weight:800;line-height:1.1;padding:0 4px;text-align:center">${esc(g.label)}</span>
-      ${g.sub?`<span style="font-size:9px;${dunkel?"":"opacity:.9"}">${esc(g.sub)}</span>`:""}
+  return `<div class="${R.foil?"kab-st"+(R.leg?" kab-leg":""):""}" style="border-radius:14px;aspect-ratio:3/4;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;background:radial-gradient(130% 80% at 50% -10%,rgba(255,255,255,.35),transparent 55%),${R.own};border:2px solid rgba(255,255,255,.6);box-shadow:${R.shadow};color:${dunkel?"#78350f":"#fff"}">
+      <div style="display:flex;justify-content:space-between;align-items:center;width:100%;padding:5px 7px 0;font-size:8.5px;font-weight:900;letter-spacing:.4px;box-sizing:border-box">
+        <span>Nr. ${g.num||"?"}</span>${n>1?`<span style="background:rgba(0,0,0,.3);color:#fff;border-radius:8px;padding:0 6px">${n}×</span>`:"<span></span>"}
+      </div>
+      ${R.lbl?`<div style="font-size:7.5px;font-weight:900;letter-spacing:1.2px;margin-top:1px">${R.lbl}</div>`:""}
+      <div data-st-ava="${esc(g.key)}" style="flex:1;display:flex;align-items:center;justify-content:center;width:100%;min-height:0">
+        <div style="width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.25);border:2px solid rgba(255,255,255,.75);display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.25)">${g.img?`<img src="${g.img}" alt="" style="width:72%;height:72%;object-fit:contain">`:`<span style="font-size:24px">${g.emo}</span>`}</div>
+      </div>
+      <div style="width:100%;background:rgba(0,0,0,.28);padding:4px 4px 5px;text-align:center;box-sizing:border-box">
+        <div style="font-size:10.5px;font-weight:900;line-height:1.1;color:#fff">${esc(g.label)}</div>
+        ${g.sub?`<div style="font-size:8.5px;color:rgba(255,255,255,.85)">${esc(g.sub)}</div>`:""}
+      </div>
       ${R.foil?'<div class="stfoil"></div>':""}
     </div>`;
 }
-async function kabineAlbum(){
+// Fotos progressiv nachladen (nur Kinder MIT Freigabe – team_gallery liefert foto_path
+// bereits consent-gefiltert). Emoji bleibt Platzhalter, das Foto ersetzt es sanft.
+function _albumFotosLaden(pool,col){
+  if(typeof fotoLoadImage!=="function")return;
+  const gal=(typeof kabineGalleryData!=="undefined"&&kabineGalleryData)||[];
+  pool.filter(g=>g.rar==="kind"&&col[g.key]).forEach(g=>{
+    const gd=gal.find(x=>x.name===g.key); if(!gd||!gd.foto_path)return;
+    fotoLoadImage(gd.foto_path).then(img=>{ if(!img)return;
+      document.querySelectorAll(`[data-st-ava="${CSS.escape(g.key)}"]>div`).forEach(av=>{
+        av.innerHTML=""; const im=document.createElement("img"); im.src=img.src; im.alt="";
+        im.style.cssText="width:100%;height:100%;object-fit:cover"; av.appendChild(im);
+      });
+    }).catch(()=>{});
+  });
+}
+let _albKid=null,_albName="",_albRow=null;
+function kabineAlbum(){
+  const kids=window._elternKids||[];
+  if(!kids.length)return;
+  if(kids.length===1){ kabineAlbumFor(kids[0].spieler_id,(kids[0].kader&&kids[0].kader.name)||""); return; }
+  kabinePickKid("📖 Wessen Album?","kabineAlbumFor");
+}
+async function kabineAlbumFor(sid,name){
   const b=document.getElementById("kabine-body"); if(!b)return;
   b.innerHTML=`<div style="text-align:center;padding:60px 16px;opacity:.85;color:#fff">Lade …</div>`;
+  await _albumMigrate(window._elternKids||[]);
   const pool=await _albumPool();
-  const col=_albumGet();
+  const row=await _albumRow(sid);
+  _albKid=sid;_albName=name||"";_albRow=row;
+  const col=row.sticker||{};
   const got=pool.filter(g=>col[g.key]).length;
   const voll=pool.length>0&&got===pool.length;
-  const t=kabineTueten();
+  const t=row.tueten||0;
+  // Fortschritts-Federn: 50 % und 100 % geben einmalig +25 (idempotent über quelle_id)
+  if(pool.length){
+    const pct=got/pool.length;
+    const marke=voll?"album100":(pct>=0.5?"album50":null);
+    if(marke){
+      try{const r=await fetch(`${SB_URL}/rest/v1/rpc/xp_award_event`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler_id:sid,p_quelle:"album",p_quelle_id:marke})});
+        if(r.ok){const d=await r.json();if(d>0)toast(`📖 ${voll?"Album voll":"Halbes Album geschafft"} – ${XP_ICON} +${d} ${XP_LABEL}!`);}}catch(e){}
+    }
+  }
   const cards=pool.map(g=>_albumStickerHtml(g,col[g.key]||0)).join("");
   b.innerHTML=`<div id="kab-album-view" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;position:relative">
     <div style="display:flex;align-items:center;gap:10px;padding:14px 16px">
       <button onclick="kabineHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
-      <div style="flex:1;font-size:18px;font-weight:800">📖 Sammelalbum</div>
+      <div style="flex:1;font-size:18px;font-weight:800">📖 ${esc(name?name+"s":"Mein")} Album</div>
       <div style="font-size:13px;font-weight:800;opacity:.9">${got}/${pool.length}</div>
     </div>
     <div style="margin:0 16px 10px;background:rgba(255,255,255,.12);border-radius:16px;padding:12px 14px;text-align:center">
@@ -133,28 +206,48 @@ async function kabineAlbum(){
       <button onclick="kabineAlbumPack()" ${t<1||!pool.length?"disabled":""} style="width:100%;margin-top:8px;border:none;border-radius:14px;padding:14px;font-family:inherit;font-size:16px;font-weight:900;cursor:${t<1?"default":"pointer"};${t<1?"background:rgba(255,255,255,.10);color:rgba(255,255,255,.5)":"background:linear-gradient(135deg,#f59e0b,#ec4899);color:#fff;box-shadow:0 4px 14px rgba(236,72,153,.4)"}">${t<1?"Keine Tüte übrig":"Tüte aufreißen! ✂️"}</button>
       <div style="font-size:10.5px;opacity:.8;margin-top:6px">Neue Tüten gibt's für: jeden Kabinen-Tag · Stimmung abgeben · Tasche packen · Kompliment schenken</div>
     </div>
+    <button onclick="kabineTausch()" style="display:flex;align-items:center;gap:10px;margin:0 16px 10px;border:1px solid rgba(255,255,255,.18);border-radius:16px;background:linear-gradient(135deg,rgba(56,189,248,.45),rgba(2,132,199,.3));color:#fff;font-family:inherit;cursor:pointer;padding:12px 14px;text-align:left">
+      <span style="font-size:24px">🔁</span>
+      <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:900">Tauschbörse</span>
+      <span style="display:block;font-size:11px;opacity:.85">Doppelte gegen fehlende tauschen – mit dem ganzen Team!</span></span>
+      <span style="font-size:16px;opacity:.85">›</span>
+    </button>
     ${voll?'<div style="text-align:center;font-size:14px;font-weight:900;padding:0 16px 8px">🎉 ALBUM VOLL – alles gesammelt, Wahnsinn!</div>':""}
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 16px 16px">${cards||'<div style="opacity:.7;grid-column:1/-1;text-align:center;padding:20px">Noch keine Karten im Team.</div>'}</div>
   </div>`;
+  _albumFotosLaden(pool,col);
   if(voll){const cont=document.getElementById("kab-album-view");if(cont&&typeof confetti==="function")confetti(cont);}
 }
 async function kabineAlbumPack(){
-  if(kabineTueten()<1)return;
+  const row=_albRow; if(!row||!_albKid||(row.tueten||0)<1)return;
   const pool=await _albumPool(); if(!pool.length)return;
-  kabineTuetenAdd(-1);
-  // 3 verschiedene Sticker gewichtet ziehen (Raritäten fallen selten – wie am Kiosk)
-  const picks=_albumDraw(pool,3);
-  const col=_albumGet();
+  row.tueten=(row.tueten||0)-1;
+  let picks=_albumDraw(pool,3);
+  // ✨ Spieltags-Glückstüte: die erste Tüte am Spieltag enthält garantiert eine Rarität
+  let glueck=false;
+  try{
+    const heute=new Date().toISOString().slice(0,10), gk=`adler_glueck_${_albKid}_${heute}`;
+    if(window._kabSpieltag&&!localStorage.getItem(gk)){
+      localStorage.setItem(gk,"1");
+      if(!picks.some(p=>p.rar!=="kind")){
+        const rare=pool.filter(p=>p.rar!=="kind");
+        if(rare.length){picks[0]=_albumDraw(rare,1)[0];glueck=true;}
+      }else glueck=true;
+    }
+  }catch(e){}
+  const col=row.sticker||{};
   window._packCards=picks.map(p=>{const had=col[p.key]||0;col[p.key]=had+1;return Object.assign({},p,{neu:!had,count:had+1,open:false});});
-  _albumSet(col);
+  row.sticker=col;
+  await _albumSave(row);
   const b=document.getElementById("kabine-body"); if(!b)return;
   b.innerHTML=`<div id="kab-pack-open" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;color:#fff;position:relative;overflow:hidden">
     <div style="font-size:20px;font-weight:900">✂️ Tüte ist offen!</div>
+    ${glueck?'<div style="font-size:12px;font-weight:800;background:rgba(253,224,71,.25);border:1px solid rgba(253,224,71,.5);border-radius:12px;padding:6px 12px">✨ Spieltags-Glückstüte – heute ist eine Rarität drin!</div>':""}
     <div style="font-size:12.5px;opacity:.85">Tippe die Sticker an, um sie umzudrehen 👀</div>
     <div style="display:flex;gap:10px;width:100%;max-width:380px;justify-content:center">
       ${window._packCards.map((c,i)=>`<button id="pk-${i}" onclick="kabineAlbumFlip(${i})" style="flex:1;max-width:110px;border:none;border-radius:14px;aspect-ratio:3/4;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#334155,#1e293b);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:0 4px 14px rgba(0,0,0,.35)"><span style="font-size:34px">🎴</span></button>`).join("")}
     </div>
-    <button id="pk-done" onclick="kabineAlbum()" style="display:none;margin-top:10px;border:none;border-radius:14px;background:rgba(255,255,255,.16);color:#fff;font-family:inherit;font-size:14px;font-weight:800;padding:12px 22px;cursor:pointer">Ins Album kleben 📖</button>
+    <button id="pk-done" onclick="kabineAlbumFor(_albKid,_albName)" style="display:none;margin-top:10px;border:none;border-radius:14px;background:rgba(255,255,255,.16);color:#fff;font-family:inherit;font-size:14px;font-weight:800;padding:12px 22px;cursor:pointer">Ins Album kleben 📖</button>
   </div>`;
 }
 function kabineAlbumFlip(i){
@@ -178,6 +271,99 @@ function kabineAlbumFlip(i){
     const done=document.getElementById("pk-done"); if(done)done.style.display="inline-block";
     if(window._packCards.some(x=>x.neu)){const cont=document.getElementById("kab-pack-open");if(cont&&typeof confetti==="function")confetti(cont);}
   }
+}
+/* ── Tauschbörse: „Ich gebe X (doppelt) und suche Y." Angebote sind team-öffentlich;
+   angenommen wird atomar über die RPC album_tausch_annehmen. Kinder-Schutzregel:
+   getauscht wird nur, was BEIDE doppelt haben – niemand verliert seinen letzten Sticker. ── */
+let _twGebe=null,_twWill=null;
+async function kabineTausch(){
+  const b=document.getElementById("kabine-body"); if(!b||!_albKid)return;
+  b.innerHTML=`<div style="text-align:center;padding:60px 16px;opacity:.85;color:#fff">Lade …</div>`;
+  const pool=await _albumPool(); const byKey=_poolByKey(pool);
+  const row=await _albumRow(_albKid); _albRow=row;
+  const col=row.sticker||{};
+  const doppelte=pool.filter(g=>(col[g.key]||0)>=2);
+  const fehlende=pool.filter(g=>!(col[g.key]||0));
+  let offers=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/album_tausch?status=eq.offen&select=*&order=created_at.desc&limit=25`,{headers:sbAuthHeaders()});if(r.ok)offers=(await r.json())||[];}catch(e){}
+  const roster=await _albumRoster(); const nameById={}; roster.forEach(k=>nameById[k.id]=k.name);
+  _twGebe=null;_twWill=null;
+  const chip=(g,typ)=>`<button data-tw="${typ}" data-key="${esc(g.key)}" onclick="kabineTwPick(this)" style="border:1.5px solid rgba(255,255,255,.3);border-radius:12px;background:rgba(255,255,255,.10);color:#fff;font-family:inherit;font-size:12px;font-weight:800;padding:8px 10px;cursor:pointer">${g.img?"🦅":g.emo} ${esc(g.label)}${(KAB_RAR[g.rar]||{}).lbl?` <span style="font-size:8px;opacity:.8">${KAB_RAR[g.rar].lbl}</span>`:""}</button>`;
+  const meine=offers.filter(o=>o.von_spieler===_albKid);
+  const andere=offers.filter(o=>o.von_spieler!==_albKid);
+  const stLbl=k=>{const g=byKey[k];return g?`${g.img?"🦅":g.emo} ${esc(g.label)}`:esc(k);};
+  b.innerHTML=`<div style="flex:1;overflow-y:auto">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px">
+      <button onclick="kabineAlbumFor(_albKid,_albName)" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
+      <div style="flex:1;font-size:18px;font-weight:800;color:#fff">🔁 Tauschbörse</div>
+    </div>
+    <div style="margin:0 16px 12px;background:rgba(255,255,255,.12);border-radius:16px;padding:12px 14px;color:#fff">
+      <div style="font-size:13.5px;font-weight:900">Neues Angebot von ${esc(_albName)}</div>
+      ${doppelte.length?`
+        <div style="font-size:11px;opacity:.85;margin:8px 0 5px">1️⃣ Was gibst du her? (nur Doppelte)</div>
+        <div id="tw-gebe" style="display:flex;flex-wrap:wrap;gap:6px">${doppelte.map(g=>chip(g,"gebe")).join("")}</div>
+        <div style="font-size:11px;opacity:.85;margin:10px 0 5px">2️⃣ Was suchst du dafür?</div>
+        <div id="tw-will" style="display:flex;flex-wrap:wrap;gap:6px">${(fehlende.length?fehlende:pool.filter(g=>g.key!==(_twGebe||""))).map(g=>chip(g,"will")).join("")}</div>
+        <button id="tw-btn" onclick="kabineTwAnbieten(this)" disabled style="width:100%;margin-top:12px;border:none;border-radius:14px;padding:13px;font-family:inherit;font-size:15px;font-weight:900;cursor:pointer;background:rgba(255,255,255,.10);color:rgba(255,255,255,.5)">Erst Sticker auswählen</button>`
+      :'<div style="font-size:12px;opacity:.8;margin-top:6px">Du hast noch keine doppelten Sticker – öffne erst ein paar Tüten! 🎁</div>'}
+    </div>
+    ${meine.length?`<div style="margin:0 16px 12px;color:#fff">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;opacity:.7;margin-bottom:6px">Deine Angebote</div>
+      ${meine.map(o=>`<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.10);border-radius:14px;padding:10px 12px;margin-bottom:6px;font-size:12.5px">
+        <span style="flex:1">Gebe ${stLbl(o.gebe_key)} · suche ${stLbl(o.will_key)}</span>
+        <button onclick="kabineTwZurueck(${o.id})" style="border:none;background:rgba(0,0,0,.25);color:#fff;border-radius:10px;padding:6px 10px;font-family:inherit;font-size:11px;font-weight:800;cursor:pointer">Zurückziehen</button>
+      </div>`).join("")}</div>`:""}
+    <div style="margin:0 16px 16px;color:#fff">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;opacity:.7;margin-bottom:6px">Angebote der anderen Adler</div>
+      ${andere.length?andere.map(o=>{
+        const kannGeben=(col[o.will_key]||0)>=2;
+        return `<div style="background:rgba(255,255,255,.10);border-radius:14px;padding:10px 12px;margin-bottom:6px;font-size:12.5px">
+          <div><b>${esc(nameById[o.von_spieler]||"Ein Adler")}</b> gibt ${stLbl(o.gebe_key)} · sucht ${stLbl(o.will_key)}</div>
+          ${kannGeben?`<button onclick="kabineTwAnnehmen(${o.id},this)" style="width:100%;margin-top:7px;border:none;border-radius:12px;padding:11px;font-family:inherit;font-size:13.5px;font-weight:900;cursor:pointer;background:linear-gradient(135deg,#38bdf8,#0284c7);color:#fff">🔁 Tauschen!</button>`
+                     :`<div style="font-size:10.5px;opacity:.75;margin-top:5px">Dafür bräuchtest du ${stLbl(o.will_key)} doppelt.</div>`}
+        </div>`;}).join(""):'<div style="font-size:12px;opacity:.75">Gerade hängt kein Angebot aus – häng du das erste auf! 📌</div>'}
+    </div>
+  </div>`;
+}
+function kabineTwPick(btn){
+  const typ=btn.dataset.tw,key=btn.dataset.key;
+  if(typ==="gebe")_twGebe=key; else _twWill=key;
+  const wrap=document.getElementById("tw-"+typ);
+  if(wrap)wrap.querySelectorAll("button").forEach(x=>{const on=x===btn;x.style.background=on?"linear-gradient(135deg,#38bdf8,#0284c7)":"rgba(255,255,255,.10)";x.style.borderColor=on?"#7dd3fc":"rgba(255,255,255,.3)";});
+  const go=document.getElementById("tw-btn");
+  if(go){const ok=_twGebe&&_twWill&&_twGebe!==_twWill;go.disabled=!ok;
+    go.style.background=ok?"linear-gradient(135deg,#f59e0b,#ec4899)":"rgba(255,255,255,.10)";
+    go.style.color=ok?"#fff":"rgba(255,255,255,.5)";
+    go.textContent=ok?"Angebot aufhängen 📌":"Erst Sticker auswählen";}
+  try{navigator.vibrate&&navigator.vibrate(15);}catch(e){}
+}
+async function kabineTwAnbieten(btn){
+  if(!_twGebe||!_twWill||!_albKid)return;
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/album_tausch`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({von_spieler:_albKid,gebe_key:_twGebe,will_key:_twWill})});
+    if(!r.ok&&r.status!==201){toast("Konnte das Angebot nicht aufhängen","err");if(btn)btn.disabled=false;return;}
+  }catch(e){toast("Netzwerkfehler","err");if(btn)btn.disabled=false;return;}
+  try{navigator.vibrate&&navigator.vibrate([30,50,30]);}catch(e){}
+  toast("📌 Angebot hängt an der Tauschbörse!");
+  kabineTausch();
+}
+async function kabineTwZurueck(id){
+  try{const r=await fetch(`${SB_URL}/rest/v1/album_tausch?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(!r.ok&&r.status!==204){toast("Konnte nicht zurückziehen","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  kabineTausch();
+}
+async function kabineTwAnnehmen(id,btn){
+  if(btn)btn.disabled=true;
+  let d=null;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/album_tausch_annehmen`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_tausch:id,p_spieler:_albKid})});
+    if(r.ok)d=await r.json();
+  }catch(e){}
+  if(!d||!d.ok){toast((d&&d.error)||"Tausch hat nicht geklappt","err");kabineTausch();return;}
+  try{navigator.vibrate&&navigator.vibrate([40,60,40,60,120]);}catch(e){}
+  toast("🔁 Getauscht – schau in dein Album!");
+  kabineTausch();
 }
 /* C5 – Trainer-Sprachlob: der Trainer nimmt ein kurzes Lob auf (MediaRecorder → Storage),
    das Kind hört es im Eltern-Bereich/der Kabine. Bucket kabine-lob (privat, signierte URLs). */
@@ -368,9 +554,10 @@ async function kabineCountdownLoad(){
   const heute=new Date().toISOString().slice(0,10);
   let t=null;
   try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=datum,typ,gegner,titel&typ=in.(spiel,turnier)&datum=gte.${heute}&order=datum.asc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)t=(await r.json())[0]||null;}catch(e){}
-  if(!t){el.innerHTML="";return;}
+  if(!t){el.innerHTML="";window._kabSpieltag=false;return;}
   const d=new Date(t.datum+"T00:00:00"), today=new Date(heute+"T00:00:00");
   const days=Math.round((d-today)/864e5);
+  window._kabSpieltag=days<=0; // ✨ fürs Album: Spieltags-Glückstüte
   const label=days<=0?"Heute ist Spieltag! 🔥":days===1?"Morgen ist Spieltag! 🔥":`Noch ${days}× schlafen bis zum Spiel!`;
   el.innerHTML=`<div style="margin:2px 16px 8px;background:rgba(255,255,255,.14);border-radius:16px;padding:12px;text-align:center;color:#fff">
     <div style="font-size:15px;font-weight:900">⚽ ${label}</div>
@@ -484,7 +671,7 @@ async function kabinePackTap(sid,idx,name){
     try{navigator.vibrate&&navigator.vibrate([40,60,40,60,120]);}catch(e){}
     // Sticker-Tüte fürs komplette Packen – 1× je Kind & Spieltag (Farming-Schutz per Flag)
     try{const pk=`adler_tuete_pack_${sid}_${t.datum}`;
-      if(!localStorage.getItem(pk)){localStorage.setItem(pk,"1");kabineTuetenAdd(1);}}catch(e){}
+      if(!localStorage.getItem(pk)){localStorage.setItem(pk,"1");albumTuete(sid);}}catch(e){}
     try{
       const r=await fetch(`${SB_URL}/rest/v1/rpc/xp_award_event`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler_id:sid,p_quelle:"packliste",p_quelle_id:"pack"+t.datum})});
       if(r.ok){const d=await r.json();if(d>0)toast(`🎒 Tasche gepackt – ${XP_ICON} +${d} ${XP_LABEL} und 🎁 +1 Sticker-Tüte!`);}
@@ -524,7 +711,7 @@ async function kabineStimmungSet(sid,mood){
     if(!r.ok&&r.status!==201){toast("Konnte nicht speichern","err");return;}
   }catch(e){toast("Netzwerkfehler","err");return;}
   try{navigator.vibrate&&navigator.vibrate([30,40,60]);}catch(e){}
-  kabineTuetenAdd(1); // Sticker-Tüte fürs Mitmachen (max. 1/Tag/Kind über die DB-Unique)
+  albumTuete(sid); // Sticker-Tüte fürs Mitmachen (max. 1/Tag/Kind über die DB-Unique)
   toast((mood===3?"Super! 😄":mood===2?"Danke dir! 🙂":"Danke, dass du ehrlich bist – dein Trainer ist für dich da! 💙")+" · 🎁 +1 Sticker-Tüte");
   kabineStimmungLoad();
 }
@@ -656,7 +843,7 @@ async function kabineKudosSend(vonSid,anSid,typ,key,btn){
   // Sticker-Tüte fürs Verschenken – 1× pro Tag (nicht je Empfänger, sonst Tüten-Farming)
   let tuete=false;
   try{const tk="adler_tuete_kudos_"+heute;
-    if(!localStorage.getItem(tk)){localStorage.setItem(tk,"1");kabineTuetenAdd(1);tuete=true;}}catch(e){}
+    if(!localStorage.getItem(tk)){localStorage.setItem(tk,"1");albumTuete(vonSid);tuete=true;}}catch(e){}
   toast((typ==="genesung"?"💌 Gruß ist unterwegs!":"👏 Kompliment verschenkt – stark von dir!")+(tuete?" · 🎁 +1 Sticker-Tüte":""));
   kabineHome();
 }
@@ -1059,7 +1246,7 @@ async function kabineExit(){
 /* Alle Kabinen-Unterseiten setzen beim Öffnen einen History-Eintrag (kabSubMark), damit die
    Smartphone-Zurück-Taste zur Kabinen-Startseite führt. Wrapper statt 15 Einzel-Edits –
    function-Declarations sind window-Properties, die Neubelegung greift auch für onclick. */
-["kabinePickKid","kabinePostOpen","kabineKudosFor","kabinePackFor","kabineStaerkenFor","kabineReporterFor","kabineRevealShow","kabineAlbum","kabineHype","kabineSkillWoche","kabineMissionFor","kabineRollenFor","kabineShowQuests","kabineShowGallery"].forEach(fn=>{
+["kabinePickKid","kabinePostOpen","kabineKudosFor","kabinePackFor","kabineStaerkenFor","kabineReporterFor","kabineRevealShow","kabineAlbum","kabineAlbumFor","kabineTausch","kabineHype","kabineSkillWoche","kabineMissionFor","kabineRollenFor","kabineShowQuests","kabineShowGallery"].forEach(fn=>{
   const orig=window[fn];
   if(typeof orig==="function")window[fn]=function(){ kabSubMark(); return orig.apply(this,arguments); };
 });
