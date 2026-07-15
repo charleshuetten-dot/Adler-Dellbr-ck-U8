@@ -688,8 +688,7 @@ async function zieleOpen(spielerId){
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const card=document.createElement("div");
   card.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  card.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🎯 Entwicklungs-Ziele</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${esc(k?.name||"Spieler")} · 1–2 Förderziele für die Saison</div>
+  card.innerHTML=`${mdlHead("ziele-modal","🎯","Entwicklungs-Ziele",`${esc(k?.name||"Spieler")} · 1–2 Förderziele für die Saison`,"#d97706")}
     <div id="ziele-list" style="margin-bottom:12px"><div style="color:var(--text3);font-size:12px">Lade…</div></div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Vorlage antippen (verknüpft passende Übungen) – oder unten frei formulieren:</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${ZIEL_VORLAGEN.map((v,i)=>`<button onclick="zieleAddVorlage(${spielerId},${i})" style="padding:6px 10px;border:1.5px solid #c7d2fe;border-radius:16px;background:#eef2ff;color:#3730a3;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer">🎯 ${esc(v.ziel)}</button>`).join("")}</div>
@@ -2637,8 +2636,7 @@ function hilfeOpen(){
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:480px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">❓ Hilfe & Funktionen</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Alles, was die App kann – tippe auf → um direkt hinzuspringen.</div>
+  c.innerHTML=`${mdlHead("hilfe-modal","❓","Hilfe & Funktionen","Alles, was die App kann – tippe auf → zum Hinspringen","#475569")}
     <button class="btn btn-p btn-sm" style="width:100%" onclick="hilfeClose();tourStart()"><i class="ti ti-player-play"></i>Kurze Feature-Tour starten</button>
     <input type="text" placeholder="Suchen… (z. B. Wetter, Aufstellung)" oninput="hilfeRender(this.value)" style="width:100%;margin-top:10px;padding:8px 12px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box">
     <div id="hilfe-list"></div>
@@ -2799,8 +2797,7 @@ function pwChangeOpen(){
   m.onclick=e=>{if(e.target===m)m.remove();};
   const fld="width:100%;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text);box-sizing:border-box";
   m.innerHTML=`<div style="background:var(--surface);color:var(--text);max-width:360px;width:100%;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)">
-    <div style="font-weight:800;font-size:16px;margin-bottom:2px">🔑 Passwort ändern</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Wähle ein eigenes, sicheres Passwort (mind. 8 Zeichen).</div>
+    ${mdlHead("pw-modal","🔑","Passwort ändern","Eigenes, sicheres Passwort (mind. 8 Zeichen)","#334155")}
     <label style="font-size:11px;color:var(--text2)">Neues Passwort<input type="password" id="pw-new" autocomplete="new-password" style="${fld}"></label>
     <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Nochmal eingeben<input type="password" id="pw-new2" autocomplete="new-password" onkeydown="if(event.key==='Enter')pwChangeSave()" style="${fld}"></label>
     <div id="pw-err" style="color:#dc2626;font-size:12px;min-height:16px;margin-top:6px"></div>
@@ -3259,7 +3256,7 @@ function heftRenderEditor(){
   const card=document.createElement("div");
   card.style.cssText="background:var(--surface);color:var(--text);max-width:900px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   card.innerHTML=`
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div style="font-weight:800;font-size:16px">📰 Adler-Nest-Editor</div><span style="font-size:11px;color:var(--text2)">frei bearbeiten · Vorschau live · Texte werden gemerkt</span></div>
+    ${mdlHead("heft-modal","📰","Adler-Nest-Editor","frei bearbeiten · Vorschau live · Texte werden gemerkt","#1e3a8a")}
     <button id="heft-ai-btn" onclick="heftAutoContent()" class="btn" style="width:100%;margin-bottom:4px;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;border:none;min-height:44px;font-weight:800"><i class="ti ti-sparkles"></i> Auto-Entwurf aus den letzten Wochen (KI)</button>
     <div style="font-size:10.5px;color:var(--text2);margin:0 0 12px;text-align:center">Zieht Trainings, Ergebnisse & Geburtstage – kindgerecht formuliert, danach frei änderbar.</div>
     <div style="display:grid;grid-template-columns:1fr;gap:16px">

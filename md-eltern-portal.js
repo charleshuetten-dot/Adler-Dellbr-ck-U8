@@ -853,10 +853,7 @@ async function notfallOpen(spielerId,name){
     (f.area?`<textarea id="nf-${f.k}" rows="2" placeholder="${f.ph}" style="width:100%;margin-top:3px;padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box;resize:vertical">${esc(cur[f.k]||"")}</textarea>`
       :`<input id="nf-${f.k}" type="${f.tel?"tel":"text"}" placeholder="${f.ph}" value="${esc(cur[f.k]||"")}" style="width:100%;margin-top:3px;padding:9px;border:1px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box">`);
   c.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
-      <div style="font-weight:800;font-size:16px">🚑 Notfallkarte · ${esc(name)}</div>
-      <button onclick="document.getElementById('nf-modal').remove()" style="border:none;background:none;font-size:24px;color:#94a3b8;cursor:pointer;line-height:1">×</button>
-    </div>
+    ${mdlHead("nf-modal","🚑",`Notfallkarte · ${esc(name)}`,"","#dc2626")}
     <div style="font-size:11.5px;color:#64748b;margin-bottom:6px">Diese Angaben sieht ausschließlich das <b>Trainerteam</b> – schreibgeschützt, damit im Notfall am Platz alles griffbereit ist. Du kannst sie jederzeit ändern oder leeren.</div>
     ${NF_FIELDS.map(field).join("")}
     <label style="display:flex;gap:8px;align-items:flex-start;margin-top:14px;font-size:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px">
@@ -925,10 +922,7 @@ async function elternFotoConsentOpen(spielerId,name){
   const c=document.createElement("div");
   c.style.cssText="background:#fff;color:#1a1a2e;max-width:500px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   c.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
-      <div style="font-weight:800;font-size:16px">📸 Foto- &amp; Video-Freigabe · ${esc(name)}</div>
-      <button onclick="document.getElementById('fc-modal').remove()" style="border:none;background:none;font-size:24px;color:#94a3b8;cursor:pointer;line-height:1">×</button>
-    </div>
+    ${mdlHead("fc-modal","📸",`Foto- &amp; Video-Freigabe · ${esc(name)}`,"","#0d9488")}
     <div style="font-size:11.5px;color:#475569;line-height:1.6;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px;margin:8px 0 4px">${esc(txt)}</div>
     ${FOTO_STUFEN.map(row).join("")}
     <div style="font-size:10.5px;color:#94a3b8;margin-top:10px;line-height:1.5">ℹ️ Bei <b>Gruppenfotos</b> zeigen wir dein Kind öffentlich nur, wenn <u>alle</u> abgebildeten Familien der Stufe „Öffentlich“ zugestimmt haben. Freiwillig &amp; jederzeit widerrufbar.</div>
@@ -1073,7 +1067,7 @@ function elternTermineOpen(){
     </div>`;}).join(""):'<div style="font-size:12.5px;color:#94a3b8;padding:10px 0">Aktuell sind keine Termine geplant.</div>';
   const c=document.createElement("div");
   c.style.cssText="background:#fff;color:#1a1a2e;max-width:440px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:10px">📅 Alle Termine</div>
+  c.innerHTML=`${mdlHead("et-modal","📅","Alle Termine","Kommende Termine + Kalender-Abo","#1e3a8a")}
     <div style="max-height:55vh;overflow-y:auto">${list}</div>
     ${rows.length?`<button onclick="elternTermineIcs()" style="width:100%;margin-top:12px;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📥 Alle in meinen Kalender (einmalig)</button>`:""}
     <a href="${SEASON_ICS_WEBCAL}" style="display:block;text-align:center;width:100%;margin-top:8px;padding:11px;border:1.5px solid #16a34a;border-radius:10px;background:#f0fdf4;color:#15803d;font-family:inherit;font-size:13px;font-weight:700;text-decoration:none;box-sizing:border-box">🔔 Termine abonnieren (aktualisiert sich automatisch)</a>

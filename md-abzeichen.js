@@ -26,7 +26,7 @@ async function abzeichenOpen(spielerId,name,kidsMode){
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const card=document.createElement("div");
   card.style.cssText="background:#fff;color:#1a1a2e;max-width:480px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  card.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🎖️ Technik-Abzeichen${name?" · "+esc(name):""}</div>
+  card.innerHTML=`${mdlHead("abzeichen-modal","🎖️",`Technik-Abzeichen${name?" · "+esc(name):""}`,"","#6d28d9")}
     <div style="font-size:12px;color:#64748b;margin-bottom:12px">${kidsMode?`Das hast du schon geschafft! Neue Abzeichen trägt Mama oder Papa im Eltern-Bereich ein – dann gibt's Adler-Federn ${XP_ICON}.`:`Übt zuhause und beim Spielen. Wenn dein Kind ein Abzeichen schafft, hakst du es ab – es gibt Adler-Federn ${XP_ICON}!`}</div>
     <div id="abzeichen-list" style="display:flex;flex-direction:column;gap:8px"><div style="color:#94a3b8;font-size:12px">Lade…</div></div>
     <button class="btn btn-sm" style="margin-top:12px;width:100%" onclick="document.getElementById('abzeichen-modal').remove()">Schließen</button>`;

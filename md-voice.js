@@ -144,7 +144,7 @@ function voiceDiaryOpen(datum){
   const micBtn=voiceSupported
     ?`<button id="vd-mic" class="btn btn-sm" onclick="vdMicToggle()"><i class="ti ti-microphone"></i>Aufnehmen</button>`
     :`<span style="font-size:11px;color:var(--text3)">🎤 Spracheingabe auf diesem Gerät nicht verfügbar – bitte tippen.</span>`;
-  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🎤 Trainer-Notiz</div>
+  c.innerHTML=`${mdlHead("vd-modal","🎤","Trainer-Notiz","","#334155")}
     <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Direkt nach Abpfiff festhalten, bevor Details weg sind. Der Adler-Coach (KI) kann deine Notizen später einbeziehen.</div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">${micBtn}<span id="vd-interim" style="font-size:12px;color:var(--text3);flex:1"></span></div>
     <textarea id="vd-text" rows="5" placeholder="z. B. Umschaltspiel war heute mies – wir standen nach Ballverlust zu offen." style="width:100%;box-sizing:border-box;padding:10px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;line-height:1.5;background:var(--surface2);color:var(--text);resize:vertical"></textarea>

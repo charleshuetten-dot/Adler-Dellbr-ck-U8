@@ -89,7 +89,7 @@ function lobRecordOpen(spielerId,name){
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10003;display:flex;align-items:center;justify-content:center;padding:16px";
   m.onclick=e=>{if(e.target===m){lobRecStop();m.remove();}};
   m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:18px;max-width:400px;width:100%">
-    <div style="font-weight:800;font-size:16px;margin-bottom:2px">🎤 Sprachlob für ${esc(_lobName)}</div>
+    ${mdlHead("lob-modal","🎤",`Sprachlob für ${esc(_lobName)}`,"","#db2777")}
     <div style="font-size:12px;color:var(--text2);margin-bottom:14px">Kurzes Lob aufnehmen – ${esc(_lobName)} hört es im Eltern-Bereich unter „Für dein Kind".</div>
     <div id="lob-ui" style="text-align:center"></div>
     <button class="btn btn-sm" style="width:100%;margin-top:14px" onclick="lobRecStop();document.getElementById('lob-modal').remove()">Schließen</button>
@@ -163,7 +163,7 @@ async function arenaEditOpen(){
   m.onclick=e=>{if(e.target===m)m.remove();};
   const fld="width:100%;box-sizing:border-box;padding:10px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text);margin-top:4px";
   m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:420px;width:100%;margin:auto">
-    <div style="font-weight:800;font-size:16px;margin-bottom:2px">🏟️ Team-Arena</div>
+    ${mdlHead("arena-modal","🏟️","Team-Arena","","#8b5cf6")}
     <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Schlachtruf & Einlauf-Song – die Kinder sehen sie in der Kabine.</div>
     <label style="font-size:11px;color:var(--text2)">📣 Schlachtruf<input id="ar-ruf" value="${esc(cfg.schlachtruf||"")}" placeholder="z. B. Adler, Adler – hui hui hui!" style="${fld}"></label>
     <label style="font-size:11px;color:var(--text2);display:block;margin-top:10px">🎵 Einlauf-Song<input id="ar-song" value="${esc(cfg.einlauf_song||"")}" placeholder="z. B. We Are The Champions – Queen" style="${fld}"></label>

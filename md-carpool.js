@@ -10,10 +10,7 @@ function elternCarpoolOpen(spielerId,terminId){
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:#fff;border-radius:16px;padding:18px;max-width:420px;width:100%;margin:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-weight:800;font-size:16px">🚗 Fahrgemeinschaft</div>
-      <button onclick="document.getElementById('carpool-modal').remove()" style="border:none;background:none;font-size:22px;color:#64748b;cursor:pointer">×</button>
-    </div>
+    ${mdlHead("carpool-modal","🚗","Fahrgemeinschaft","Mitfahren oder Plätze anbieten","#2563eb")}
     <div id="carpool-body"><div style="text-align:center;padding:24px;color:#64748b">Lade…</div></div>
   </div>`;
   document.body.appendChild(m);

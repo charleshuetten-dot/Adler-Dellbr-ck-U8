@@ -13,10 +13,7 @@ async function elternFanfactsOpen(spielerId,kindName){
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:#fff;border-radius:16px;padding:18px;max-width:400px;width:100%;margin:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div style="font-weight:800;font-size:16px">✏️ ${esc(kindName||"Kind")} – Fan-Fakten</div>
-      <button onclick="document.getElementById('fanfacts-modal').remove()" style="border:none;background:none;font-size:22px;color:#64748b;cursor:pointer">×</button>
-    </div>
+    ${mdlHead("fanfacts-modal","✏️",`${esc(kindName||"Kind")} – Fan-Fakten`,"","#475569")}
     <div style="font-size:11px;color:#64748b;margin-bottom:12px">Diese Fan-Fakten pflegst du selbst – die sportliche Bewertung bleibt beim Trainer.</div>
     <label style="font-size:12px;color:#475569">Profilbild</label>
     <div style="display:flex;align-items:center;gap:8px;margin:4px 0 12px">

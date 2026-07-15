@@ -66,8 +66,7 @@ async function gegnerManageOpen(){
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const card=document.createElement("div");
   card.style.cssText="background:var(--surface);color:var(--text);max-width:520px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  card.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🗂️ Gegner-Datenbank</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Adresse & Ansprechpartner pro Gegner – nur für Trainer sichtbar. Bei der Termin-Anlage füllt sich die Adresse dann automatisch.</div>
+  card.innerHTML=`${mdlHead("gegner-modal","🗂️","Gegner-Datenbank","Adresse & Ansprechpartner je Gegner · füllt Termine automatisch","#334155")}
     <div id="gegner-list" style="margin-bottom:8px"><div style="color:var(--text3);font-size:12px">Lade…</div></div>
     <div id="gegner-form"></div>
     <button class="btn btn-sm" style="margin-top:12px;width:100%" onclick="document.getElementById('gegner-modal').remove()">Schließen</button>`;
@@ -279,7 +278,7 @@ function pulsComments(id){
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  c.innerHTML=`<div style="font-weight:800;font-size:15px;margin-bottom:8px">💬 Eltern-Feedback <span style="font-weight:400;color:var(--text3);font-size:11px">(anonym)</span></div>
+  c.innerHTML=`${mdlHead("puls-cmt-modal","💬","Eltern-Feedback","anonym gesammelt","#0ea5e9")}
     ${arr.map(x=>`<div style="padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:6px;font-size:13px">${esc(x)}</div>`).join("")}
     <button class="btn btn-sm" style="margin-top:6px" onclick="document.getElementById('puls-cmt-modal').remove()">Schließen</button>`;
   modal.appendChild(c); document.body.appendChild(modal);
@@ -585,7 +584,7 @@ function tmEdit(id){
   const m=TM_META[t.typ]||{icon:"📅",label:t.typ};
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:440px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:10px">✏️ ${m.icon} Termin bearbeiten</div>
+  c.innerHTML=`${mdlHead("tm-edit-modal","✏️",`${m.icon} Termin bearbeiten`,"","#475569")}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <label style="font-size:11px;color:var(--text2)">Datum<input type="date" id="te-datum" value="${t.datum}" style="${fld}"></label>
       <label style="font-size:11px;color:var(--text2)">Uhrzeit<input type="time" id="te-zeit" value="${t.uhrzeit?String(t.uhrzeit).slice(0,5):''}" style="${fld}"></label>

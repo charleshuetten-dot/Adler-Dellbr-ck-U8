@@ -102,8 +102,7 @@ async function periodOpen(){
   const opts=Object.entries(PERIOD_CATS).map(([k,v])=>`<option value="${k}">${v}</option>`).join("");
   const card=document.createElement("div");
   card.style.cssText="background:var(--surface);color:var(--text);max-width:480px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  card.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">📅 Saison-Themenplan</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Ein Schwerpunkt je Monat. Der aktuelle Monat erscheint oben im Trainings-Tab.</div>
+  card.innerHTML=`${mdlHead("period-modal","📅","Saison-Themenplan","Ein Schwerpunkt je Monat · erscheint oben im Trainings-Tab","#2563eb")}
     <div id="period-list" style="margin-bottom:12px"><div style="color:var(--text3);font-size:12px">Lade…</div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <label style="font-size:11px;color:var(--text2)">Monat<input type="month" id="period-monat" value="${new Date().toISOString().slice(0,7)}" style="${fld}"></label>

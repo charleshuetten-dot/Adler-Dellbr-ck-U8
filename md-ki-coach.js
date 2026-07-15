@@ -15,10 +15,7 @@ function kiCoachOpen(){
   m.onclick=e=>{if(e.target===m)m.remove();};
   const chip=t=>`<button onclick="document.getElementById('ki-prompt').value='${t.replace(/'/g,"")}'" style="border:var(--border-s);background:var(--surface);border-radius:14px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit">${t}</button>`;
   m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:460px;width:100%;margin:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div style="font-weight:800;font-size:16px">🤖 Adler-Coach (KI)</div>
-      <button onclick="document.getElementById('ki-modal').remove()" style="border:none;background:none;font-size:22px;color:var(--text2);cursor:pointer">×</button>
-    </div>
+    ${mdlHead("ki-modal","🤖","Adler-Coach (KI)","Schlägt altersgerechte U8/U9-Übungen vor","#7c3aed")}
     <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Beschreibe, was du trainieren willst – der Coach schlägt altersgerechte U8/U9-Übungen vor. Du entscheidest, was in die Bibliothek kommt.</div>
     <textarea id="ki-prompt" rows="2" placeholder="z. B. 2 Übungen für Zweikampfhärte" style="width:100%;box-sizing:border-box;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px"></textarea>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${chip("Dribbling & Ballführung")}${chip("Passspiel in der Raute")}${chip("Torschuss mit Spaß")}${chip("Zweikampf & Mut")}</div>
@@ -102,10 +99,7 @@ async function ttViewKi(id){
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:440px;width:100%;margin:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div style="font-weight:800;font-size:16px">🤖 ${esc(u.titel||row.name||"Übung")}</div>
-      <button onclick="document.getElementById('tt-modal').remove()" style="border:none;background:none;font-size:22px;color:var(--text2);cursor:pointer">×</button>
-    </div>
+    ${mdlHead("tt-modal","🤖",esc(u.titel||row.name||"Übung"),"","#7c3aed")}
     <div style="font-size:11.5px;color:var(--text2);margin-bottom:8px">${u.dauer?"⏱ "+esc(u.dauer):""}${u.material?" · 🎒 "+esc(u.material):""}</div>
     <div style="font-size:13.5px;line-height:1.6;white-space:pre-wrap">${esc(u.beschreibung||"")}</div>
     ${u.variante?`<div style="font-size:12.5px;color:var(--text2);margin-top:8px">➕ <b>Variante:</b> ${esc(u.variante)}</div>`:""}

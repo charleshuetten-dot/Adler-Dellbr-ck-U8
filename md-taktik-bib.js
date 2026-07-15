@@ -38,10 +38,7 @@ async function ttOpen(){
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:460px;width:100%;margin:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div style="font-weight:800;font-size:16px">📚 Taktik-Bibliothek</div>
-      <button onclick="document.getElementById('tt-modal').remove()" style="border:none;background:none;font-size:22px;color:var(--text2);cursor:pointer">×</button>
-    </div>
+    ${mdlHead("tt-modal","📚","Taktik-Bibliothek","Gespeicherte Aufstellungen & Übungen laden","#2563eb")}
     <div id="tt-body"><div style="text-align:center;padding:20px;color:var(--text3)">Lade…</div></div>
   </div>`;
   document.body.appendChild(m);

@@ -75,10 +75,7 @@ async function galerieOpen(terminId,titel){
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:520px;width:100%;margin:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-weight:800;font-size:16px">📸 Fotos${titel?" · "+esc(titel):""}</div>
-      <button onclick="document.getElementById('gal-modal').remove()" style="border:none;background:none;font-size:22px;color:var(--text2);cursor:pointer">×</button>
-    </div>
+    ${mdlHead("gal-modal","📸",`Fotos${titel?" · "+esc(titel):""}`,"Team-Galerie zum Termin – für alle Team-Eltern","#7c3aed")}
     ${fotoConsentBannerHtml()}
     <div style="padding:10px;border:1.5px dashed var(--text3);border-radius:10px;margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">Foto hinzufügen</div>
