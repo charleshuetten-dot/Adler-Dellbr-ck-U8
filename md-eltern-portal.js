@@ -412,13 +412,13 @@ async function elternDashLoad(){
   // ── FÜR DIE KINDER ── (gleiche Button-Optik wie die Kategorien unten: Kabine = Direktstart,
   //    je Kind ein Button, der ein Kind-Fenster im Overlay öffnet)
   html+=sec("🎮 Für die Kinder");
-  html+=`<button onclick="kabineOpen()" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:8px;border:none;border-radius:14px;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(124,58,237,.25)">
+  html+=`<button onclick="kabineOpen()" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:8px;border:none;border-radius:14px;background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(168,85,247,.25)">
     <span style="font-size:22px;line-height:1">🎮</span>
     <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:800">Die Kabine</span><span style="display:block;font-size:11.5px;opacity:.92;margin-top:1px">Kinder-Modus: Galerie, Missionen &amp; Quiz (${XP_ICON} Federn)</span></span>
     <span style="font-size:18px;opacity:.85">›</span>
   </button>`;
   html+=kids.map(k=>{const kd=k.kader||{};
-    return `<button onclick="elternCatOpen('kind-${k.spieler_id}')" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:8px;border:none;border-radius:14px;background:linear-gradient(135deg,#1e3a8a,#3b5bd0);color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(30,58,138,.22)">
+    return `<button onclick="elternCatOpen('kind-${k.spieler_id}')" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:8px;border:none;border-radius:14px;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(109,40,217,.22)">
       <span style="font-size:22px;line-height:1">🃏</span>
       <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:800">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="font-weight:600;opacity:.8">#${kd.nr}</span>`:""}</span><span id="xp-chip-${k.spieler_id}" style="display:block;font-size:11.5px;opacity:.92;margin-top:1px">Karte, Abzeichen, Sprachlob &amp; Statistik</span></span>
       <span style="font-size:18px;opacity:.85">›</span>
@@ -430,11 +430,14 @@ async function elternDashLoad(){
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kasse_summary`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)kasse=await r.json();}catch(e){}
   // ── Kategorie-Buttons: öffnen je ein fokussiertes Fenster (statt Inline-Akkordeon). Die
   //    Inhalte liegen (versteckt) im Overlay, damit die Async-Loader ihre Slots weiter füllen. ──
+  // Einheitliche Aktions-Zeile für die Panel-Inhalte (Icon + Titel + Beschreibung + ›, farbiger
+  // Akzent links in Tönen der Kategorie-Farbe). noClose=true lässt das Fenster offen (z. B. Export).
+  const elRow=(emo,label,d,onclick,col,noClose)=>`<button onclick="${noClose?"":"elternCatClose();"}${onclick}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1px solid #e2e8f0;border-left:4px solid ${col};border-radius:12px;padding:13px;margin-bottom:8px;font-family:inherit;cursor:pointer"><span style="font-size:20px;line-height:1">${emo}</span><span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:700;color:#0f172a">${label}</span><span style="display:block;font-size:11.5px;color:#64748b;margin-top:1px">${d}</span></span><span style="font-size:14px;color:#94a3b8">›</span></button>`;
   const catBtn=(id,emoji,title,desc,grad)=>`<button onclick="elternCatOpen('${id}')" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:8px;border:none;border-radius:14px;background:${grad};color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.08)"><span style="font-size:22px;line-height:1">${emoji}</span><span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:800">${title}</span><span style="display:block;font-size:11.5px;opacity:.92;margin-top:1px">${desc}</span></span><span style="font-size:18px;opacity:.85">›</span></button>`;
   html+=sec("Mehr");
   html+=catBtn('mehr','📰','Mehr vom Team','Adler Nest, Börse, Fundbüro, Kasse','linear-gradient(135deg,#1e3a8a,#2563eb)');
   html+=catBtn('regeln','📋','Regeln &amp; Vereinbarungen','Fairplay-Codex &amp; Eltern-Leitfaden','linear-gradient(135deg,#16a34a,#059669)');
-  html+=catBtn('datenschutz','🔒','Datenschutz &amp; Freigaben','Foto/Video, Notfallkarte, Datenexport','linear-gradient(135deg,#7c3aed,#6d28d9)');
+  html+=catBtn('datenschutz','🔒','Datenschutz &amp; Freigaben','Foto/Video, Notfallkarte, Datenexport','linear-gradient(135deg,#0d9488,#0f766e)');
   html+=catBtn('kontakt','⚙️','Kontakt &amp; Benachrichtigungen','Elterngespräch, Push, Einstellungen','linear-gradient(135deg,#475569,#334155)');
   html+=`<div id="el-cat-overlay" style="display:none;position:fixed;inset:0;z-index:10000;background:var(--bg,#f1f5f9);overflow-y:auto"><div style="max-width:560px;margin:0 auto;padding:12px 16px 40px">
     <div style="display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg,#f1f5f9);padding:8px 0 10px;z-index:1">
@@ -449,24 +452,17 @@ async function elternDashLoad(){
     </div>
     <div id="cat-news" class="el-cat-panel" style="display:none"></div>
     ${kids.map(k=>{const kd=k.kader||{};const nn=(kd.name||"").replace(/'/g,"");
-      const act=(emo,label,d,onclick,col)=>`<button onclick="elternCatClose();${onclick}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1px solid #e2e8f0;border-left:4px solid ${col};border-radius:12px;padding:13px;margin-bottom:8px;font-family:inherit;cursor:pointer"><span style="font-size:20px;line-height:1">${emo}</span><span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:700;color:#0f172a">${label}</span><span style="display:block;font-size:11.5px;color:#64748b;margin-top:1px">${d}</span></span><span style="font-size:14px;color:#94a3b8">›</span></button>`;
       return `<div id="cat-kind-${k.spieler_id}" class="el-cat-panel" data-cat-title="🃏 ${esc(kd.name||"Kind")}" style="display:none">
-        ${act("🃏","Adler-Karte ansehen","Die FUT-Karte mit den aktuellen Werten",`elternCardOpen(${k.spieler_id})`,"#1e3a8a")}
-        ${act("🎖️","Technik-Abzeichen","Übungen zu Hause abhaken – Federn sammeln",`abzeichenOpen(${k.spieler_id},'${nn}')`,"#f59e0b")}
-        ${act("🎧","Sprachlob anhören","Persönliches Lob vom Trainerteam",`lobPlay(${k.spieler_id})`,"#db2777")}
-        ${act("✏️","Fan-Fakten &amp; Foto","Lieblingsverein, Spitzname &amp; Kartenfoto pflegen",`elternFanfactsOpen(${k.spieler_id},'${nn}')`,"#475569")}
-        ${act("📊","Saison-Statistik","Spiele, Einsätze &amp; Highlights – jederzeit aktuell",`childWrappedShare(${k.spieler_id})`,"#7c3aed")}
+        ${elRow("🃏","Adler-Karte ansehen","Die FUT-Karte mit den aktuellen Werten",`elternCardOpen(${k.spieler_id})`,"#5b21b6")}
+        ${elRow("🎖️","Technik-Abzeichen","Übungen zu Hause abhaken – Federn sammeln",`abzeichenOpen(${k.spieler_id},'${nn}')`,"#6d28d9")}
+        ${elRow("🎧","Sprachlob anhören","Persönliches Lob vom Trainerteam",`lobPlay(${k.spieler_id})`,"#7c3aed")}
+        ${elRow("✏️","Fan-Fakten &amp; Foto","Lieblingsverein, Spitzname &amp; Kartenfoto pflegen",`elternFanfactsOpen(${k.spieler_id},'${nn}')`,"#8b5cf6")}
+        ${elRow("📊","Saison-Statistik","Spiele, Einsätze &amp; Highlights – jederzeit aktuell",`childWrappedShare(${k.spieler_id})`,"#a855f7")}
       </div>`;}).join("")}
     <div id="cat-mehr" class="el-cat-panel" style="display:none">`;
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">📰 Adler Nest (Stadionheft)</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Das digitale Stadionheft mit Neuigkeiten, Ergebnissen und Geburtstagen.</div>
-    <a href="${location.pathname}?heft" style="display:block;text-align:center;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;text-decoration:none">📰 Adler Nest öffnen</a>`);
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">🛍️ Adler-Börse</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Zu kleine Schuhe oder Trikots? Gib sie an ein anderes Adler-Kind weiter.</div>
-    <button onclick="boerseOpen()" style="width:100%;padding:11px;border:1.5px solid #2563eb;border-radius:10px;background:#fff;color:#1d4ed8;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Börse öffnen</button>`);
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">🧦 Fundbüro</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Trinkflasche verschwunden? Jacke gefunden? Hier sammelt das Team.</div>
-    <button onclick="fundbueroOpen()" style="width:100%;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Fundbüro öffnen</button>`);
+  html+=elRow("📰","Adler Nest (Stadionheft)","Neuigkeiten, Ergebnisse und Geburtstage",`location.href='${location.pathname}?heft'`,"#1e3a8a");
+  html+=elRow("🛍️","Adler-Börse","Zu kleine Schuhe &amp; Trikots an Adler-Kinder weitergeben","boerseOpen()","#2563eb");
+  html+=elRow("🧦","Fundbüro","Verlorenes &amp; Gefundenes – hier sammelt das Team","fundbueroOpen()","#3b82f6");
   html+=`<div id="skill-slot"></div>`;        // Skill der Woche
   if(WAESCHE_AKTIV)html+=`<div id="waesche-slot"></div>`;  // Trikot-Wäsche-Rotator (aktuell ausgeblendet)
   if(kasse&&(Number(kasse.saldo)!==0||(kasse.umlagen&&kasse.umlagen.length))){
@@ -482,32 +478,22 @@ async function elternDashLoad(){
   html+=`<div id="ak-slot"></div>`; // FEAT Z: Adler-Kasse (async, nur wenn Link gesetzt)
   html+=`</div>`; // /cat-mehr
   html+=`<div id="cat-regeln" class="el-cat-panel" style="display:none">`;
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">🤝 Unser Fairplay-Codex</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Die Regeln, damit der Spielfeldrand ein guter Ort für die Kinder bleibt.</div>
-    <button onclick="fairplayOpen()" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">Codex ansehen</button>
-    <div id="fp-commit-slot" style="margin-top:10px"></div>
-    <button onclick="fairplayQuizStart(window._elternKids||[])" style="width:100%;min-height:48px;margin-top:10px;padding:13px;border:1.5px solid #16a34a;border-radius:10px;background:#fff;color:#15803d;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">🏅 Fairplay-Quiz spielen · ${XP_ICON} 50 Federn fürs Kind</button>`);
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">📖 ${esc(LEITFADEN_NAME)}</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Unsere ausformulierten Vereinbarungen: Pünktlichkeit, Aufsicht, Büdchen, Verhalten am Platz, App-Nutzung und mehr – jederzeit zum Nachlesen.</div>
-    <button onclick="leitfadenOpen()" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">${esc(LEITFADEN_NAME)} öffnen</button>`);
+  html+=elRow("🤝","Fairplay-Codex ansehen","Die Regeln für den Spielfeldrand – kurz &amp; klar","fairplayOpen()","#15803d");
+  html+=`<div id="fp-commit-slot" style="margin-bottom:8px"></div>`;
+  html+=elRow("🏅","Fairplay-Quiz spielen",`${XP_ICON} 50 Federn fürs Kind – kurze Fragen zum Codex`,"fairplayQuizStart(window._elternKids||[])","#16a34a");
+  html+=elRow("📖",esc(LEITFADEN_NAME),"Pünktlichkeit, Aufsicht, Büdchen, App &amp; mehr – zum Nachlesen","leitfadenOpen()","#059669");
   html+=`</div>`; // /cat-regeln
   // ── DATENSCHUTZ & FREIGABEN (NEU): Foto/Video + Notfallkarte pro Kind + Datenexport ──
   html+=`<div id="cat-datenschutz" class="el-cat-panel" style="display:none">`;
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">📸 Foto- &amp; Video-Freigabe</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Entscheide pro Kind getrennt, wo Bilder und Videos gezeigt werden dürfen (app-intern / Trainingsvideos / öffentlich) – jederzeit widerrufbar.</div>
-    ${kids.map(k=>{const nn=((k.kader&&k.kader.name)||"").replace(/'/g,"");return `<button onclick="elternFotoConsentOpen(${k.spieler_id},'${nn}')" style="display:block;width:100%;min-height:44px;margin-bottom:6px;padding:10px;border:1.5px solid #7c3aed;border-radius:10px;background:#faf5ff;color:#6d28d9;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 ${esc((k.kader&&k.kader.name)||"Kind")}: Freigabe verwalten</button>`;}).join("")}`);
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">🚑 Notfallkarte</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Allergien, Medikamente und ein Notfallkontakt pro Kind – sieht ausschließlich das Trainerteam.</div>
-    ${kids.map(k=>{const nn=((k.kader&&k.kader.name)||"").replace(/'/g,"");return `<button onclick="notfallOpen(${k.spieler_id},'${nn}')" style="display:block;width:100%;min-height:44px;margin-bottom:6px;padding:10px;border:1.5px solid #dc2626;border-radius:10px;background:#fef2f2;color:#b91c1c;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🚑 ${esc((k.kader&&k.kader.name)||"Kind")}: Notfallkarte</button>`;}).join("")}`);
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">🔒 Meine Daten</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Lade alle bei uns gespeicherten Daten deines Kindes als Datei herunter (Rückmeldungen, Federn, Metadaten).</div>
-    <button onclick="elternDataExport(this)" style="width:100%;min-height:44px;padding:11px;border:1.5px solid #64748b;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Daten herunterladen (JSON)</button>`);
+  html+=kids.map(k=>{const kn=esc((k.kader&&k.kader.name)||"Kind");const nn=((k.kader&&k.kader.name)||"").replace(/'/g,"");
+    return elRow("📸",`Foto- &amp; Video-Freigabe: ${kn}`,"App-intern / Trainingsvideos / öffentlich – jederzeit widerrufbar",`elternFotoConsentOpen(${k.spieler_id},'${nn}')`,"#0f766e")
+         + elRow("🚑",`Notfallkarte: ${kn}`,"Allergien, Medikamente &amp; Notfallkontakt – nur fürs Trainerteam",`notfallOpen(${k.spieler_id},'${nn}')`,"#0d9488");
+  }).join("");
+  html+=elRow("💾","Meine Daten herunterladen","Alle gespeicherten Daten deines Kindes als Datei (JSON)","elternDataExport(this)","#14b8a6",true);
   html+=`</div>`; // /cat-datenschutz
   html+=`<div id="cat-kontakt" class="el-cat-panel" style="display:none">`;
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">🗣️ Elterngespräch</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Du möchtest mit dem Trainer über dein Kind sprechen? Sag kurz Bescheid – der Trainer meldet sich zur Terminabstimmung.</div>
-    <div id="eg-slot"></div>
-    <button onclick="elternGespraechOpen()" style="width:100%;padding:11px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Elterngespräch anfragen</button>`);
+  html+=`<div id="eg-slot"></div>`; // Status einer laufenden Elterngespräch-Anfrage
+  html+=elRow("🗣️","Elterngespräch anfragen","Kurz Bescheid sagen – der Trainer meldet sich zur Terminabstimmung","elternGespraechOpen()","#334155");
   html+=`<div id="eltern-poll-slot"></div>`; // Terminvorschläge des Trainers fürs Elterngespräch
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🔔 Benachrichtigungen</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Erinnerungen an Termine, offene Rückmeldungen und Neuigkeiten direkt aufs Handy.</div>
