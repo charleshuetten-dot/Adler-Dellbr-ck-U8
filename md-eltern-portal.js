@@ -199,17 +199,36 @@ function _elRgb(s){ const m=/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.ex
 function _elLum(c){ return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2]; }
 function _elMix(c,t,p){ return `rgb(${Math.round(c[0]+(t[0]-c[0])*p)}, ${Math.round(c[1]+(t[1]-c[1])*p)}, ${Math.round(c[2]+(t[2]-c[2])*p)})`; }
 function _elSweepOne(el){
-  const s=el.style; if(!s)return;
+  const s=el.style, d=el.dataset; if(!s)return;
+  if(d.elSwept)return;   // schon eingefärbt – Original in data-el-* bleibt gesichert
+  let changed=false;
   const bg=_elRgb(s.backgroundColor);
-  if(bg&&_elLum(bg)>216) s.backgroundColor=_elMix(bg,[17,24,39],0.90);   // helle Fläche → dunkel
+  if(bg&&_elLum(bg)>216){ d.elBg=s.backgroundColor; s.backgroundColor=_elMix(bg,[17,24,39],0.90); changed=true; }   // helle Fläche → dunkel
   const col=_elRgb(s.color);
   if(col){ const L=_elLum(col);
-    if(L<60) s.color=_elMix(col,[226,232,240],0.86);        // fast-schwarze Tinte → deutlich hell
-    else if(L<128) s.color=_elMix(col,[226,232,240],0.5);   // dunkle Marken-/Textfarbe → aufhellen
+    if(L<60){ d.elCol=s.color; s.color=_elMix(col,[226,232,240],0.86); changed=true; }        // fast-schwarze Tinte → deutlich hell
+    else if(L<128){ d.elCol=s.color; s.color=_elMix(col,[226,232,240],0.5); changed=true; }   // dunkle Marken-/Textfarbe → aufhellen
   }
-  ["borderTopColor","borderRightColor","borderBottomColor","borderLeftColor"].forEach(p=>{
-    const b=_elRgb(s[p]); if(b&&_elLum(b)>205) s[p]=_elMix(b,[51,65,85],0.72);
+  ["Top","Right","Bottom","Left"].forEach(side=>{ const p="border"+side+"Color";
+    const b=_elRgb(s[p]); if(b&&_elLum(b)>205){ d["elB"+side]=s[p]; s[p]=_elMix(b,[51,65,85],0.72); changed=true; }
   });
+  if(changed)d.elSwept="1";
+}
+/* Zurücksetzen bei Dunkel→Hell: der Sweep hat Inline-Farben überschrieben (Original in
+   data-el-* gesichert). Deckt auch Kopfzeile/Rahmen ab, die elternDashLoad NICHT neu
+   rendert – dort blieb der Hintergrund sonst dunkel hängen (Toggle-Bug). */
+function _elUnsweepOne(el){
+  const s=el.style, d=el.dataset; if(!s||!d.elSwept)return;
+  if("elBg" in d){ s.backgroundColor=d.elBg; delete d.elBg; }
+  if("elCol" in d){ s.color=d.elCol; delete d.elCol; }
+  ["Top","Right","Bottom","Left"].forEach(side=>{ const k="elB"+side; if(k in d){ s["border"+side+"Color"]=d[k]; delete d[k]; } });
+  delete d.elSwept;
+}
+function elternThemeRestore(root){
+  root=root||document.body; if(!root||root.nodeType!==1)return;
+  if(root.dataset&&root.dataset.elSwept)_elUnsweepOne(root);
+  const list=root.querySelectorAll?root.querySelectorAll("[data-el-swept]"):[];
+  for(const el of list)_elUnsweepOne(el);
 }
 function elternThemeSweep(root){
   if(!elternDarkActive())return;
@@ -232,7 +251,7 @@ function elternThemeOnToggle(){
   if(!document.getElementById("ep-dash-body"))return;      // nur im Eltern-Dashboard
   if(typeof applyTheme==="function")applyTheme(localStorage.getItem("adler_theme")); // Toggle-Icon
   if(elternDarkActive())elternThemeSweep(document.body);   // dunkel: direkt einfärben
-  else if(typeof elternDashLoad==="function")elternDashLoad(); // hell: sauber neu rendern
+  else { elternThemeRestore(document.body); if(typeof elternDashLoad==="function")elternDashLoad(); } // hell: Inline-Farben überall zurücksetzen (auch Kopfzeile) + Dashboard neu
 }
 async function elternDashLoad(){
   const body=document.getElementById("ep-dash-body");
