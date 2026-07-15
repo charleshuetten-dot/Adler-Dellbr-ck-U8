@@ -1134,12 +1134,14 @@ function renderProfil(){
       ${ef.slice(0,5).map(e=>`<div class="mb-item"><div class="mb-icon" style="background:#fee2e2"><i class="ti ti-arrow-right" style="font-size:11px;color:#b91c1c"></i></div><div class="mb-text">${esc(e)}</div></div>`).join("")}
     </div>`:""}
 
+    <div id="profil-selbstbild"></div>
     <div class="sl"><i class="ti ti-file-description"></i>Vollständiges Profil</div>
     <div class="detail-box"><div class="fazit-display">${esc(lat.fazit||'–')}</div></div>
     <div class="brow">
       <button class="btn" data-edit-player data-name="${esc(name)}" data-snap-idx="${snaps.length-1}"><i class="ti ti-edit"></i>Profil bearbeiten</button>
       <button class="btn" onclick="entwicklungsReport()"><i class="ti ti-file-text"></i>Entwicklungs-Report</button>
     </div>`;
+  profilSelbstbildLoad(name); // I-C: Selbstbild des Kindes aus der Kabine (falls vorhanden)
 
   if(rchart){rchart.destroy();rchart=null;}
   clearTimeout(rchartTimer);
@@ -1149,6 +1151,36 @@ function renderProfil(){
   },80);
 }
 
+/* ── I-C: Selbstbild des Kindes im Trainer-Profil – „Meine Stärken" aus der Kabine.
+   Bewusst KEIN Overlay über das Trainer-Radar (andere Skala, andere Fragen):
+   die Kinderstimme steht für sich, als Gesprächsanlass. */
+const KAB_SELBST_FRAGEN=[
+  {k:"dribbeln",emo:"⚽",t:"Dribbeln"},
+  {k:"passen",emo:"🎯",t:"Passen"},
+  {k:"tore",emo:"🥅",t:"Tore schießen"},
+  {k:"mut",emo:"🦁",t:"Mut im Zweikampf"},
+  {k:"team",emo:"🤝",t:"Anfeuern & Teamgeist"}
+];
+const KAB_SELBST_STUFEN={1:["🌱","übe ich noch"],2:["🙂","geht schon gut"],3:["💪","kann ich super"]};
+async function profilSelbstbildLoad(name){
+  const el=document.getElementById("profil-selbstbild"); if(!el)return;
+  const sid=((typeof KADER!=="undefined"?KADER:[]).find(k=>k.name===name)||{})._id;
+  if(!sid){el.innerHTML="";return;}
+  let row=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_selbstbild?spieler_id=eq.${sid}&select=datum,antworten&order=datum.desc&limit=1`,{headers:sbAuthHeaders()});
+    if(!sbCheck401(r)&&r.ok)row=((await r.json())||[])[0]||null;}catch(e){}
+  const slot=document.getElementById("profil-selbstbild"); if(!slot)return;
+  if(!row){slot.innerHTML="";return;}
+  const a=row.antworten||{};
+  const ueben=KAB_SELBST_FRAGEN.filter(f=>a[f.k]===1);
+  slot.innerHTML=`<div class="card" style="padding:12px 14px;margin:10px 0;border-left:3px solid #7c3aed">
+    <div style="font-weight:800;font-size:13.5px;margin-bottom:6px">💪 So sieht ${esc(name)} sich selbst <span style="font-weight:400;color:var(--text2);font-size:11px">(aus der Kabine · ${esc(row.datum)})</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      ${KAB_SELBST_FRAGEN.map(f=>{const s=KAB_SELBST_STUFEN[a[f.k]];return s?`<span style="font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:12px;background:var(--surface2)">${f.emo} ${esc(f.t)}: ${s[0]}</span>`:"";}).join("")}
+    </div>
+    ${ueben.length?`<div style="font-size:12px;color:#7c3aed;font-weight:700;margin-top:8px">🌱 Will üben: ${ueben.map(f=>esc(f.t)).join(", ")} – guter Aufhänger fürs nächste Lob oder Entwicklungsziel.</div>`:""}
+  </div>`;
+}
 /* ═══════════════════════════════════
    SAISON-ZERTIFIKAT (Print, self-contained)
 ═══════════════════════════════════ */
@@ -3706,6 +3738,15 @@ function heftBuildHtml(cfg,opts){
     }
   }
   const komm=cfg.kommentar&&cfg.kommentar.trim()?`<div class="heft-komm"><div class="heft-komm-h">📣 Ein Wort vom Trainerteam</div><div>${esc(cfg.kommentar).replace(/\n/g,"<br>")}</div></div>`:"";
+  // I-C: Kabinen-Reporter-Rubrik (nur freigegebene Antworten, max. 6)
+  let repHtml="";
+  const reps=((window._heftReporter||[]).filter(x=>x.freigegeben)).slice(0,6);
+  if(reps.length){
+    const nameById={}; heftKader.forEach(k=>nameById[k.id]=k.name);
+    repHtml=`<div class="heft-komm"><div class="heft-komm-h">🎙️ Kabinen-Reporter – die Kinder haben das Wort</div>
+      ${reps.map(x=>`<div style="margin-top:6px;font-size:12.5px"><b>${esc(x.frage)}</b><br>„${esc(x.antwort)}" – <i>${esc(nm(nameById[x.spieler_id]||"ein Adler"))}</i></div>`).join("")}
+    </div>`;
+  }
   return `<div class="heft-wrap">
     <div class="heft-head">
       <img src="logo.png" alt="SV Adler Dellbrück">
@@ -3719,6 +3760,7 @@ function heftBuildHtml(cfg,opts){
     ${fokusHtml}
     <div class="heft-rubrik">⚽ Unsere Mannschaft</div>
     <div class="heft-grid">${cards}</div>
+    ${repHtml}
     ${komm}
     <div class="heft-foot">Auf geht's, Adler! 🦅 · Trainerteam ${(typeof TRAINER!=="undefined"?TRAINER:["Sandy","Charles","Finn","Kenneth","Peter"]).join(" · ")}</div>
   </div>`;
@@ -3726,7 +3768,11 @@ function heftBuildHtml(cfg,opts){
 async function stadionheftOpen(){
   if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
   toast("📰 Adler Nest wird geladen…");
-  heftKader=[];heftFanfacts={};heftTermin=null;heftFotos=[];
+  heftKader=[];heftFanfacts={};heftTermin=null;heftFotos=[];window._heftReporter=[];
+  // I-C: Reporter-Antworten (60 Tage) – freigegebene fürs Heft, offene für die Freigabe-Queue
+  try{const ab=new Date(Date.now()-60*864e5).toISOString();
+    const r=await fetch(`${SB_URL}/rest/v1/kabine_reporter?select=id,spieler_id,frage,antwort,freigegeben,created_at&created_at=gte.${ab}&order=created_at.desc`,{headers:sbAuthHeaders()});
+    if(r.ok)window._heftReporter=(await r.json())||[];}catch(e){}
   try{const r=await fetch(`${SB_URL}/rest/v1/kader?select=id,name,nr,foto_path,lieblingsposition,tw,aktiv&order=nr.asc.nullslast`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)heftKader=(await r.json()).filter(k=>k.aktiv!==false);}catch(e){}
   if(!heftKader.length){toast("Kein Kader gefunden","err");return;}
   try{const r=await fetch(`${SB_URL}/rest/v1/kind_fanfacts?select=spieler_id,spitzname`,{headers:sbAuthHeaders()});if(r.ok)(await r.json()).forEach(f=>{if(f.spitzname)heftFanfacts[f.spieler_id]=f.spitzname;});}catch(e){}
@@ -3795,6 +3841,7 @@ function heftRenderEditor(){
           <textarea id="heft-f-fokustext" rows="2" style="${fld}">${esc(heftCfg.fokusText||"")}</textarea></label>
         <label style="font-size:11px;font-weight:700;color:var(--text2)">📣 Trainer-Kommentar
           <textarea id="heft-f-komm" rows="3" style="${fld}">${esc(heftCfg.kommentar||"")}</textarea></label>
+        <div id="heft-reporter-queue"></div>
       </div>
       <div>
         <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">Vorschau</div>
@@ -3821,7 +3868,36 @@ function heftRenderEditor(){
   const fokusEl=document.getElementById("heft-f-fokus");if(fokusEl)fokusEl.onchange=()=>{heftCfg.fokusId=fokusEl.value;heftCfgSave();heftRenderPreview();};
   const maskEl=document.getElementById("heft-f-mask");if(maskEl)maskEl.onchange=()=>{heftCfg.mask=maskEl.checked;heftCfgSave();heftRenderPreview();};
   const pubEl=document.getElementById("heft-f-pub");if(pubEl)pubEl.onchange=()=>{heftCfg.published=pubEl.checked;};
+  heftReporterQueueRender(); // I-C: offene Kabinen-Reporter-Antworten freigeben
   heftRenderPreview();
+}
+/* ── I-C: Freigabe-Queue der Kabinen-Reporter-Antworten. Nur Freigegebenes erscheint
+   im Heft (Vorschau/Druck/Eltern-Ansicht). Löschen entfernt die Antwort endgültig. ── */
+function heftReporterQueueRender(){
+  const el=document.getElementById("heft-reporter-queue"); if(!el)return;
+  const nameById={}; heftKader.forEach(k=>nameById[k.id]=k.name);
+  const offen=(window._heftReporter||[]).filter(x=>!x.freigegeben);
+  if(!offen.length){el.innerHTML="";return;}
+  el.innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--text2)">🎙️ Kabinen-Reporter – ${offen.length} Antwort${offen.length===1?"":"en"} warten auf Freigabe</div>
+    ${offen.map(x=>`<div style="display:flex;align-items:center;gap:8px;border:var(--border-s);border-left:3px solid #14b8a6;border-radius:10px;padding:8px 10px;margin-top:6px">
+      <div style="flex:1;min-width:0;font-size:12px"><b>${esc(nameById[x.spieler_id]||"?")}</b> · ${esc(x.frage)}<br><span style="color:var(--text2)">„${esc(x.antwort)}"</span></div>
+      <button class="btn btn-sm" style="color:#059669" onclick="heftReporterApprove(${x.id})">✓ Ins Heft</button>
+      <button class="btn btn-sm" style="color:#dc2626" onclick="heftReporterDelete(${x.id})"><i class="ti ti-trash"></i></button>
+    </div>`).join("")}`;
+}
+async function heftReporterApprove(id){
+  try{const r=await fetch(`${SB_URL}/rest/v1/kabine_reporter?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({freigegeben:true})});
+    if(!r.ok&&r.status!==204){toast("Konnte nicht freigeben","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  const row=(window._heftReporter||[]).find(x=>x.id===id); if(row)row.freigegeben=true;
+  toast("🎙️ Ins Heft übernommen ✓");
+  heftReporterQueueRender(); heftRenderPreview();
+}
+async function heftReporterDelete(id){
+  if(!confirm("Diese Reporter-Antwort wirklich löschen?"))return;
+  try{const r=await fetch(`${SB_URL}/rest/v1/kabine_reporter?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(!r.ok&&r.status!==204){toast("Konnte nicht löschen","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  window._heftReporter=(window._heftReporter||[]).filter(x=>x.id!==id);
+  heftReporterQueueRender(); heftRenderPreview();
 }
 // HOTFIX 19 digital: Editor-Inhalt in die stadionheft-Tabelle schreiben (+ Veröffentlichen-Status).
 async function heftSaveDb(){
@@ -3880,6 +3956,14 @@ async function renderStadionheftView(){
       <div style="font-size:16px;font-weight:900;color:#1e293b">${elternEsc(fk.name)}${fk.nr!=null?" · #"+elternEsc(fk.nr):""}</div>
       ${fk.text?`<div style="font-size:12px;color:#475569;margin-top:2px;line-height:1.4">${elternEsc(fk.text).replace(/\n/g,"<br>")}</div>`:""}</div></div>`:"";
   const nestLbl=t=>`<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#94a3b8;margin:16px 4px 8px">${t}</div>`;
+  // I-C: Kabinen-Reporter-Rubrik (RPC reporter_public: nur Freigegebenes, Namen serverseitig maskiert)
+  let repHtml="";
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/reporter_public`,{method:"POST",headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:"{}"});
+    if(r.ok){const reps=((await r.json())||[]).slice(0,6);
+      if(reps.length)repHtml=nestLbl("🎙️ Kabinen-Reporter – die Kinder haben das Wort")
+        +reps.map(x=>`<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #14b8a6;border-radius:12px;padding:10px 13px;margin-bottom:8px;font-size:12.5px;color:#334155"><b>${elternEsc(x.frage)}</b><br>„${elternEsc(x.antwort)}" – <i>${elternEsc(x.name)}</i></div>`).join("");}
+  }catch(e){}
   root.innerHTML=`<div class="elt-fade">
     <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);border-radius:16px;padding:18px 16px;text-align:center;color:#fff;margin:4px 0 14px;box-shadow:0 2px 12px rgba(30,58,138,.28)">
       <img src="logo.png" style="width:56px;height:56px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.3))" alt="SV Adler Dellbrück">
@@ -3891,6 +3975,7 @@ async function renderStadionheftView(){
     ${fokusHtml}
     ${nestLbl("🦅 Unser Kader")}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
+    ${repHtml}
     ${h.kommentar?`${nestLbl("📣 Vom Trainerteam")}<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #16a34a;border-radius:12px;padding:12px 13px;font-size:12.5px;color:#334155;line-height:1.55">${elternEsc(h.kommentar).replace(/\n/g,"<br>")}</div>`:""}
     <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:18px">Auf geht's, Adler! 🦅 · SV Adler Dellbrück e.V.</div></div>`;
 }

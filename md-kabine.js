@@ -217,6 +217,7 @@ function kabineHome(){
       ${tile("kabineAbzeichen()","🎖️","Abzeichen","rgba(147,51,234,.46)","rgba(109,40,217,.30)")}
       ${tile("kabineMission()","🎯","Meine Mission","rgba(139,92,246,.46)","rgba(91,33,182,.32)")}
       ${tile("kabineRollen()","🎽","Wo spiele ich?","rgba(124,58,237,.46)","rgba(76,29,149,.32)")}
+      ${tile("kabineStaerken()","💪","Meine Stärken","rgba(147,51,234,.5)","rgba(88,28,135,.32)",true)}
       ${lbl("Challenges")}
       ${tile("kabineShowQuests()","🏆","Missionen","rgba(245,158,11,.52)","rgba(217,119,6,.32)")}
       ${tile("kabineSkillWoche()","🎬","Skill der Woche","rgba(251,146,60,.48)","rgba(234,88,12,.30)")}
@@ -225,6 +226,7 @@ function kabineHome(){
       ${tile("kabineShowGallery()","🖼️","Team-Galerie","rgba(16,185,129,.48)","rgba(5,150,105,.30)")}
       ${tile("kabineHype()","🎵","Kabinen-Hype","rgba(45,212,191,.44)","rgba(13,148,136,.30)")}
       ${tile("kabineAlbum()","📖","Sammelalbum","rgba(52,211,153,.46)","rgba(4,120,87,.30)")}
+      ${tile("kabineReporter()","🎙️","Kabinen-Reporter","rgba(20,184,166,.5)","rgba(15,118,110,.32)",true)}
     </div>`;})()}
     </div>
     <button onclick="kabineExit()" style="margin:0 16px 18px;padding:12px;border:none;border-radius:14px;background:rgba(0,0,0,.25);color:#fff;font-family:inherit;font-size:14px;cursor:pointer">🔒 Für Erwachsene: Kabine verlassen</button>`;
@@ -573,6 +575,150 @@ async function kabineWahlVote(wahlId,sid,idx){
   try{navigator.vibrate&&navigator.vibrate([30,40,60]);}catch(e){}
   toast("🗳️ Stimme gezählt!");
   kabineWahlLoad();
+}
+/* I-C – „Meine Stärken": kindgerechte Selbsteinschätzung (5 Fragen, 3 Stufen – bewusst
+   nur positive Rahmung, keine Noten). Rhythmus ~6 Wochen wie die Trainer-Bewertung.
+   Der Trainer sieht das Selbstbild im Spieler-Profil als Gesprächsanlass. */
+let _ksAntworten={},_ksIdx=0,_ksSid=null,_ksName="";
+function kabineStaerken(){
+  const kids=window._elternKids||[];
+  if(!kids.length)return;
+  if(kids.length===1){ kabineStaerkenFor(kids[0].spieler_id,(kids[0].kader&&kids[0].kader.name)||""); return; }
+  kabinePickKid("💪 Wessen Stärken?","kabineStaerkenFor");
+}
+async function kabineStaerkenFor(sid,name){
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  b.innerHTML=`<div style="text-align:center;padding:60px 16px;opacity:.85;color:#fff">Lade …</div>`;
+  let last=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_selbstbild?spieler_id=eq.${sid}&select=datum,antworten&order=datum.desc&limit=1`,{headers:sbAuthHeaders()});
+    if(r.ok)last=((await r.json())||[])[0]||null;}catch(e){}
+  const head=`<div style="display:flex;align-items:center;gap:10px;padding:14px 16px">
+      <button onclick="kabineHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
+      <div style="flex:1;font-size:18px;font-weight:800;color:#fff">💪 ${esc(name)}s Stärken</div></div>`;
+  if(last){
+    const tage=Math.round((Date.now()-new Date(last.datum+"T00:00:00"))/864e5);
+    if(tage<42){
+      const a=last.antworten||{};
+      b.innerHTML=head+`<div style="flex:1;padding:0 16px 16px;color:#fff">
+        <div style="background:rgba(255,255,255,.12);border-radius:16px;padding:16px;text-align:center">
+          <div style="font-size:14px;font-weight:900">Das hast du vor Kurzem schon gemacht – stark! 💪</div>
+          <div style="font-size:11.5px;opacity:.85;margin-top:2px">Nächste Runde in ${42-tage} Tag${42-tage===1?"":"en"}. Das hast du gesagt:</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+          ${KAB_SELBST_FRAGEN.map(f=>{const s=KAB_SELBST_STUFEN[a[f.k]];return s?`<div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.10);border-radius:14px;padding:12px 14px;font-size:14px;font-weight:800"><span style="font-size:20px">${f.emo}</span><span style="flex:1">${esc(f.t)}</span><span>${s[0]} ${s[1]}</span></div>`:"";}).join("")}
+        </div>
+      </div>`;
+      return;
+    }
+  }
+  _ksAntworten={};_ksIdx=0;_ksSid=sid;_ksName=name;
+  kabineStaerkenFrage();
+}
+function kabineStaerkenFrage(){
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  if(_ksIdx>=KAB_SELBST_FRAGEN.length){kabineStaerkenSave();return;}
+  const f=KAB_SELBST_FRAGEN[_ksIdx];
+  b.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;color:#fff">
+    <div style="font-size:12px;opacity:.8">Frage ${_ksIdx+1} von ${KAB_SELBST_FRAGEN.length} · ${esc(_ksName)}</div>
+    <div style="font-size:64px;line-height:1">${f.emo}</div>
+    <div style="font-size:24px;font-weight:900">${esc(f.t)}</div>
+    <div style="font-size:13px;opacity:.85">Wie gut klappt das bei dir?</div>
+    <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:340px">
+      ${[3,2,1].map(v=>{const s=KAB_SELBST_STUFEN[v];
+        return `<button onclick="kabineStaerkenAnswer(${v})" style="border:none;border-radius:16px;padding:15px;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer;background:rgba(255,255,255,.14);color:#fff">${s[0]} ${s[1]}</button>`;}).join("")}
+    </div>
+  </div>`;
+}
+function kabineStaerkenAnswer(v){
+  _ksAntworten[KAB_SELBST_FRAGEN[_ksIdx].k]=v;
+  try{navigator.vibrate&&navigator.vibrate(20);}catch(e){}
+  _ksIdx++; kabineStaerkenFrage();
+}
+async function kabineStaerkenSave(){
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  const heute=new Date().toISOString().slice(0,10);
+  try{
+    await fetch(`${SB_URL}/rest/v1/kind_selbstbild?on_conflict=spieler_id,datum`,{method:"POST",headers:sbAuthHeaders({'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify({spieler_id:_ksSid,datum:heute,antworten:_ksAntworten})});
+  }catch(e){}
+  const ueben=KAB_SELBST_FRAGEN.filter(f=>_ksAntworten[f.k]===1);
+  b.innerHTML=`<div id="ks-done" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;color:#fff;position:relative;overflow:hidden">
+    <div style="font-size:64px;line-height:1">🦅</div>
+    <div style="font-size:24px;font-weight:900">Stark, ${esc(_ksName)}!</div>
+    <div style="font-size:14px;opacity:.92;max-width:340px">${ueben.length?`Du willst <b>${ueben.map(f=>esc(f.t)).join(" und ")}</b> üben – sag das deinem Trainer, dann übt ihr es zusammen! 💪`:"Du fühlst dich überall sicher – weiter so, und hilf deinen Mitspielern! 🤝"}</div>
+    <button onclick="kabineHome()" style="margin-top:10px;border:none;border-radius:14px;background:rgba(255,255,255,.16);color:#fff;font-family:inherit;font-size:14px;font-weight:800;padding:12px 22px;cursor:pointer">Zurück zur Kabine</button>
+  </div>`;
+  try{navigator.vibrate&&navigator.vibrate([40,60,40]);}catch(e){}
+  const cont=document.getElementById("ks-done");
+  if(cont&&typeof confetti==="function")confetti(cont);
+}
+/* I-C – Kabinen-Reporter: das Kind beantwortet lustige Interview-Fragen per Antwort-Chips
+   (8-Jährige tippen ungern). Antworten landen in einer Freigabe-Queue; der Trainer gibt
+   im Adler Nest frei, was als Rubrik erscheint. */
+const REPORTER_FRAGEN=[
+  {f:"Dein Traumtor?",o:["Fallrückzieher","Volle Pulle aus der Ferne","Solo durch alle durch","Lupfer über den Torwart"]},
+  {f:"Was isst du am Spieltag?",o:["Nudeln","Müsli","Brötchen","Gar nichts – zu aufgeregt!"]},
+  {f:"Dein Lieblings-Trick?",o:["Übersteiger","Schnelle Drehung","Tunnel","Hackentrick"]},
+  {f:"Was macht unser Team stark?",o:["Wir feuern uns an","Wir passen uns den Ball zu","Wir geben nie auf","Wir lachen ganz viel"]},
+  {f:"Dein bester Moment bisher?",o:["Mein erstes Tor","Ein richtig guter Pass","Eine Mega-Parade","Der Team-Jubel"]},
+  {f:"Dein Torjubel?",o:["Auf den Knien rutschen","Arme hoch und schreien","Ein Tänzchen","Alle umarmen"]},
+  {f:"Wo spielst du am liebsten?",o:["Im Tor","Hinten aufpassen","Mittendrin","Vorne Tore jagen"]},
+  {f:"Vor dem Spiel bin ich …",o:["Mega aufgeregt","Total ruhig","Voller Power","Am Kichern"]}
+];
+let _krSid=null,_krName="",_krOffen=[];
+function kabineReporter(){
+  const kids=window._elternKids||[];
+  if(!kids.length)return;
+  if(kids.length===1){ kabineReporterFor(kids[0].spieler_id,(kids[0].kader&&kids[0].kader.name)||""); return; }
+  kabinePickKid("🎙️ Wer wird interviewt?","kabineReporterFor");
+}
+async function kabineReporterFor(sid,name){
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  b.innerHTML=`<div style="text-align:center;padding:60px 16px;opacity:.85;color:#fff">Lade …</div>`;
+  let beantwortet=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/kabine_reporter?spieler_id=eq.${sid}&select=frage`,{headers:sbAuthHeaders()});
+    if(r.ok)beantwortet=((await r.json())||[]).map(x=>x.frage);}catch(e){}
+  _krSid=sid;_krName=name;
+  _krOffen=REPORTER_FRAGEN.filter(q=>!beantwortet.includes(q.f)).sort(()=>Math.random()-.5).slice(0,2);
+  if(!_krOffen.length){
+    b.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:#fff">
+      <div style="font-size:56px">🎙️</div>
+      <div style="font-size:20px;font-weight:900">Alle Fragen beantwortet!</div>
+      <div style="font-size:13px;opacity:.9;max-width:320px">Du bist ein echter Kabinen-Reporter, ${esc(name)}. Schau ins Adler Nest, was gedruckt wird!</div>
+      <button onclick="kabineHome()" style="margin-top:10px;border:none;border-radius:14px;background:rgba(255,255,255,.16);color:#fff;font-family:inherit;font-size:14px;font-weight:800;padding:12px 22px;cursor:pointer">Zurück zur Kabine</button>
+    </div>`;
+    return;
+  }
+  kabineReporterFrage();
+}
+function kabineReporterFrage(){
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  const q=_krOffen[0];
+  if(!q){
+    b.innerHTML=`<div id="kr-done" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:#fff;position:relative;overflow:hidden">
+      <div style="font-size:56px">🎙️</div>
+      <div style="font-size:22px;font-weight:900">Danke, Reporter ${esc(_krName)}!</div>
+      <div style="font-size:13px;opacity:.9;max-width:320px">Der Trainer schaut sich deine Antworten an – vielleicht stehst du bald im Adler Nest! 📰</div>
+      <button onclick="kabineHome()" style="margin-top:10px;border:none;border-radius:14px;background:rgba(255,255,255,.16);color:#fff;font-family:inherit;font-size:14px;font-weight:800;padding:12px 22px;cursor:pointer">Zurück zur Kabine</button>
+    </div>`;
+    const cont=document.getElementById("kr-done");
+    if(cont&&typeof confetti==="function")confetti(cont);
+    return;
+  }
+  b.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;color:#fff">
+    <div style="font-size:12px;opacity:.8">🎙️ Kabinen-Reporter · ${esc(_krName)}</div>
+    <div style="font-size:22px;font-weight:900;max-width:340px">${esc(q.f)}</div>
+    <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:340px">
+      ${q.o.map((o,i)=>`<button onclick="kabineReporterAnswer(${i})" style="border:none;border-radius:16px;padding:14px;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;background:rgba(255,255,255,.14);color:#fff">${esc(o)}</button>`).join("")}
+    </div>
+  </div>`;
+}
+async function kabineReporterAnswer(idx){
+  const q=_krOffen.shift(); if(!q)return;
+  try{navigator.vibrate&&navigator.vibrate(25);}catch(e){}
+  try{
+    await fetch(`${SB_URL}/rest/v1/kabine_reporter`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({spieler_id:_krSid,frage:q.f,antwort:q.o[idx],datum:new Date().toISOString().slice(0,10)})});
+  }catch(e){}
+  kabineReporterFrage();
 }
 /* Kabinen-DJ (Phase 23.2): die Spotify-Playlist der U9 in der App. Wandelt einen
    Spotify-Link in die Embed-URL um; akzeptiert Playlist/Album/Track. */
