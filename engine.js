@@ -501,21 +501,21 @@ function _renderKombiInner(wrap){
       : `Aus <b>allen bewerteten</b> Spielern – am Spieltag nominieren, dann zählt nur, wer dabei ist.`}</div>
     <div class="kombi-raute">
       <div></div>
-      <div class="kpos kpos-jaeg"><div class="kpos-lbl">Jäger</div><div class="kpos-name">${best.jaeger.name}</div><div class="kpos-score">${best.jaeger.total}%</div></div>
+      <div class="kpos kpos-jaeg"><div class="kpos-lbl">Jäger</div><div class="kpos-name">${esc(best.jaeger.name)}</div><div class="kpos-score">${best.jaeger.total}%</div></div>
       <div></div>
-      <div class="kpos kpos-fl-l"><div class="kpos-lbl">Flitzer L</div><div class="kpos-name">${best.flitzer_l.name}</div><div class="kpos-score">${best.flitzer_l.total}%</div></div>
+      <div class="kpos kpos-fl-l"><div class="kpos-lbl">Flitzer L</div><div class="kpos-name">${esc(best.flitzer_l.name)}</div><div class="kpos-score">${best.flitzer_l.total}%</div></div>
       <div></div>
-      <div class="kpos kpos-fl-r"><div class="kpos-lbl">Flitzer R</div><div class="kpos-name">${best.flitzer_r.name}</div><div class="kpos-score">${best.flitzer_r.total}%</div></div>
+      <div class="kpos kpos-fl-r"><div class="kpos-lbl">Flitzer R</div><div class="kpos-name">${esc(best.flitzer_r.name)}</div><div class="kpos-score">${best.flitzer_r.total}%</div></div>
       <div></div>
-      <div class="kpos kpos-auf"><div class="kpos-lbl">Aufpasser</div><div class="kpos-name">${best.aufpasser.name}</div><div class="kpos-score">${best.aufpasser.total}%</div></div>
+      <div class="kpos kpos-auf"><div class="kpos-lbl">Aufpasser</div><div class="kpos-name">${esc(best.aufpasser.name)}</div><div class="kpos-score">${best.aufpasser.total}%</div></div>
       <div></div>
     </div>
-    ${best.tw?`<div style="text-align:center;padding:6px;background:#fef9c3;border-radius:var(--r);font-size:12.5px;font-weight:600;color:#854d0e;margin-bottom:12px">🥅 +1 Torwart: ${best.tw.name}</div>`:'<div style="text-align:center;padding:6px;background:var(--surface2);border-radius:var(--r);font-size:12px;color:var(--text2);margin-bottom:12px">🥅 Torwart: kein TW-Spieler bewertet</div>'}
+    ${best.tw?`<div style="text-align:center;padding:6px;background:#fef9c3;border-radius:var(--r);font-size:12.5px;font-weight:600;color:#854d0e;margin-bottom:12px">🥅 +1 Torwart: ${esc(best.tw.name)}</div>`:'<div style="text-align:center;padding:6px;background:var(--surface2);border-radius:var(--r);font-size:12px;color:var(--text2);margin-bottom:12px">🥅 Torwart: kein TW-Spieler bewertet</div>'}
     <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:8px">Analyse & Synergien</div>
     <div class="kombi-insights">${insights.map(i=>`
       <div class="kombi-insight-row">
         <div class="ci-icon ${clsMap[i.type]}">${icMap[i.type]}</div>
-        <div>${i.text}</div>
+        <div>${esc(i.text)}</div>
       </div>`).join("")}
     </div>
   </div>`;
@@ -528,11 +528,11 @@ function _renderKombiInner(wrap){
         <div class="alt-item">
           <div class="alt-score">${c.score}%</div>
           <div class="alt-names">
-            <span style="color:#1a56db;font-weight:500">${c.aufpasser.name}</span> ·
-            <span style="color:#b45309">${c.flitzer_l.name}</span> ·
-            <span style="color:#15803d">${c.flitzer_r.name}</span> ·
-            <span style="color:#c2410c">${c.jaeger.name}</span>
-            ${c.tw?`<span style="color:#854d0e"> · 🥅${c.tw.name}</span>`:''}
+            <span style="color:#1a56db;font-weight:500">${esc(c.aufpasser.name)}</span> ·
+            <span style="color:#b45309">${esc(c.flitzer_l.name)}</span> ·
+            <span style="color:#15803d">${esc(c.flitzer_r.name)}</span> ·
+            <span style="color:#c2410c">${esc(c.jaeger.name)}</span>
+            ${c.tw?`<span style="color:#854d0e"> · 🥅${esc(c.tw.name)}</span>`:''}
           </div>
         </div>`).join("")}
     </div>`;

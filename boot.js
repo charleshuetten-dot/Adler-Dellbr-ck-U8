@@ -1700,3 +1700,20 @@ function tpRenderMindsetTip(){
   // Kinder-Quiz die Trainer-App angeboten – und lief als zweiter
   // beforeinstallprompt-Listener parallel. Ersatzlos entfernt.
 })();
+
+/* A11y: Icon-only-Buttons (×, ✕, 🗑, Pfeile) bekommen automatisch einen barrierefreien
+   Namen, falls keiner gesetzt ist. Screenreader lasen sonst „mal-Zeichen“ oder nichts.
+   Eine Stelle deckt ALLE per innerHTML erzeugten Modals ab – heute + kuenftig –, statt
+   verstreuter aria-labels. childList/subtree-Observer -> setAttribute loest keine
+   attribute-Mutation aus, also keine Schleife. */
+(function a11yIconButtons(){
+  const MAP={"×":"Schließen","✕":"Entfernen","🗑":"Löschen","🗑️":"Löschen","‹":"Zurück","◀":"Zurück","⟨":"Zurück","›":"Weiter","▶":"Weiter","⟩":"Weiter"};
+  const hasName=b=>b.getAttribute("aria-label")||b.getAttribute("title")||b.getAttribute("aria-labelledby");
+  function label(b){ if(hasName(b))return; const l=MAP[(b.textContent||"").trim()]; if(l)b.setAttribute("aria-label",l); }
+  function scan(n){ if(!n||n.nodeType!==1)return; if(n.tagName==="BUTTON"){label(n);return;} n.querySelectorAll&&n.querySelectorAll("button").forEach(label); }
+  function start(){
+    scan(document.body);
+    try{ new MutationObserver(ms=>{ for(const m of ms) m.addedNodes&&m.addedNodes.forEach(scan); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start); else start();
+})();

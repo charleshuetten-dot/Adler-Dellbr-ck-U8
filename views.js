@@ -1095,7 +1095,7 @@ function renderProfil(){
   if(cardBtn)cardBtn.style.display=name?"inline-flex":"none";
   document.getElementById("profil-content").innerHTML=`
     <div class="player-card">
-      <div class="av ${isTw?"tw":""}">${name.slice(0,2).toUpperCase()}</div>
+      <div class="av ${isTw?"tw":""}">${esc(name.slice(0,2).toUpperCase())}</div>
       <div style="flex:1">
         <div style="font-weight:700;font-size:15px">${esc(name)}${isTw?" 🥅":""}</div>
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:4px">
