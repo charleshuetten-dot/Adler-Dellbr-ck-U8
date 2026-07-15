@@ -601,6 +601,8 @@ h1.print-header{display:none}
 .kab-st.kab-leg .stfoil{mix-blend-mode:screen;
   background:linear-gradient(115deg,transparent 12%,rgba(240,171,252,.5) 28%,rgba(103,232,249,.5) 40%,rgba(253,224,71,.5) 50%,rgba(134,239,172,.5) 60%,transparent 74%);
   background-size:250% 250%}
+@keyframes kabPulse{0%,100%{box-shadow:0 0 16px rgba(250,204,21,.5)}50%{box-shadow:0 0 32px rgba(250,204,21,.9)}}
+.kab-pulse{animation:kabPulse 2.4s ease-in-out infinite}
 .zert-page{page-break-after:always} /* Urkunden-Studio: je Kind eine A4-Seite */
 @media print{
   body.printing-zert>*{display:none!important}

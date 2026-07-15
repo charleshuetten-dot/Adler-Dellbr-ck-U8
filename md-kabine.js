@@ -96,20 +96,55 @@ async function _albumRoster(){
    mit Foil-Schimmer) und LEGENDÄR-Sticker (Gold + Regenbogen-Holo, sehr selten).
    w = Ziehungs-Gewicht pro Sticker – Legendär fällt im Schnitt 1× in ~25 Ziehungen. */
 const KAB_RAR={
-  kind:     {lbl:"",         own:"linear-gradient(135deg,#f59e0b,#ec4899)", shadow:"0 4px 14px rgba(236,72,153,.4)",  dash:"", w:100},
-  selten:   {lbl:"SELTEN",   own:"linear-gradient(135deg,#60a5fa,#1d4ed8)", shadow:"0 4px 14px rgba(59,130,246,.45)", dash:"rgba(96,165,250,.5)", w:30},
-  episch:   {lbl:"EPISCH",   own:"linear-gradient(135deg,#c084fc,#7c3aed)", shadow:"0 4px 16px rgba(168,85,247,.5)",  dash:"rgba(192,132,252,.5)", w:12, foil:true},
-  legendaer:{lbl:"LEGENDÄR", own:"linear-gradient(135deg,#fde047,#f59e0b)", shadow:"0 4px 18px rgba(250,204,21,.55)", dash:"rgba(253,224,71,.55)", w:4,  foil:true, leg:true}
+  kind:     {lbl:"",         gem:"",   own:"linear-gradient(135deg,#f59e0b,#ec4899)", shadow:"0 4px 14px rgba(236,72,153,.4)",  dash:"", w:100},
+  selten:   {lbl:"SELTEN",   gem:"⭐", own:"linear-gradient(135deg,#60a5fa,#1d4ed8)", shadow:"0 4px 14px rgba(59,130,246,.45)", dash:"rgba(96,165,250,.5)", w:30},
+  matchday: {lbl:"MATCHDAY", gem:"🔥", own:"linear-gradient(135deg,#fb923c,#dc2626)", shadow:"0 4px 16px rgba(249,115,22,.5)",  dash:"rgba(251,146,60,.55)", w:8, foil:true},
+  episch:   {lbl:"EPISCH",   gem:"💎", own:"linear-gradient(135deg,#c084fc,#7c3aed)", shadow:"0 4px 16px rgba(168,85,247,.5)",  dash:"rgba(192,132,252,.5)", w:12, foil:true},
+  legendaer:{lbl:"LEGENDÄR", gem:"👑", own:"linear-gradient(135deg,#fde047,#f59e0b)", shadow:"0 4px 18px rgba(250,204,21,.55)", dash:"rgba(253,224,71,.55)", w:4,  foil:true, leg:true}
 };
+// Spieltage der Saison (für die rollierenden MATCHDAY-Karten), 5-Min-Cache
+async function _spieltageSaison(){
+  if(window._kabSpieltage&&Date.now()-window._kabSpieltage.at<300000)return window._kabSpieltage.rows;
+  const d=new Date(), y=d.getFullYear();
+  const saisonAb=`${d.getMonth()>=6?y:y-1}-07-01`;
+  const heute=new Date().toISOString().slice(0,10);
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,datum&typ=in.(spiel,turnier)&datum=gte.${saisonAb}&datum=lte.${heute}&order=datum.asc,id.asc`,{headers:sbAuthHeaders()});
+    if(r.ok)rows=(await r.json())||[];}catch(e){}
+  window._kabSpieltage={at:Date.now(),rows};
+  return rows;
+}
 async function _albumPool(){
   const kids=await _albumRoster();
   const pool=kids.map(k=>({key:k.name,label:k.name,sub:k.nr!=null?"#"+k.nr:"",emo:"🦅",rar:"kind"}));
   ((typeof TRAINER!=="undefined"&&TRAINER)||[]).forEach(t=>pool.push({key:"tr_"+t,label:t,sub:"Trainer",emo:"🧢",rar:"selten"}));
+  // Verein & Kultur (SELTEN)
+  pool.push({key:"sp_ball",label:"Der Spielball",sub:"Immer mittendrin",emo:"⚽",rar:"selten"});
+  pool.push({key:"sp_kaefig",label:"Der Käfig",sub:"Wo alles anfängt",emo:"🥅",rar:"selten"});
+  pool.push({key:"sp_buedchen",label:"Das Büdchen",sub:"Halbzeit-Held",emo:"🍿",rar:"selten"});
+  // Verein (EPISCH)
   pool.push({key:"sp_wappen",label:"Vereins-Wappen",sub:"SV Adler Dellbrück",img:"logo.png",rar:"episch"});
   pool.push({key:"sp_platz",label:"Thurner Kamp",sub:"Unser Platz",emo:"🏟️",rar:"episch"});
   pool.push({key:"sp_trikot",label:"Adler-Trikot",sub:"Unsere Farben",emo:"👕",rar:"episch"});
+  pool.push({key:"sp_adler",label:"Der Adler",sub:"Unser Wappentier",emo:"🦅",rar:"episch"});
+  pool.push({key:"sp_kurve",label:"Die Eltern-Kurve",sub:"Unsere Fans",emo:"📣",rar:"episch"});
+  pool.push({key:"sp_nest",label:"Der Adlerhorst",sub:"Unser Nest",emo:"🪺",rar:"episch"});
+  // LEGENDÄR
   pool.push({key:"sp_pokal",label:"Der Pokal",sub:"Für große Träume",emo:"🏆",rar:"legendaer"});
   pool.push({key:"sp_horst",label:"Horst der Adler",sub:"Unser Maskottchen",emo:"🦅",rar:"legendaer"});
+  pool.push({key:"sp_feder",label:"Die Goldene Feder",sub:"1000× verdient",emo:"🪶",rar:"legendaer"});
+  // 🔥 MATCHDAY: nach jedem Spieltag der Saison eine Team-Karte EINES Kindes –
+  // rollierend durch den Kader (Spieltag-Index % Kadergröße, Reihenfolge nach Kader-ID,
+  // damit die Rotation stabil bleibt, auch wenn Namen sich alphabetisch verschieben).
+  try{
+    const st=await _spieltageSaison();
+    const rr=kids.slice().sort((a,b)=>a.id-b.id);
+    if(rr.length)st.forEach((t,i)=>{
+      const kid=rr[i%rr.length];
+      const d=new Date(t.datum+"T00:00:00");
+      pool.push({key:"md_"+t.id,label:kid.name,sub:"Spieltag "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"}),emo:"🔥",rar:"matchday",kidName:kid.name});
+    });
+  }catch(e){}
   pool.forEach((p,i)=>p.num=i+1); // Album-Nummern wie im echten Panini-Heft
   return pool;
 }
@@ -129,19 +164,19 @@ function _albumDraw(pool,n){
    Duplikat-Zähler, Raritäts-Schriftzug, Avatar-Medaillon (Foto bei Freigabe, sonst
    Emoji) mit weißem Ring auf Glanz-Verlauf, dunkles Namensband unten. Grid und
    Tüten-Aufdeckung teilen sich die Optik. */
-function _albumStickerHtml(g,n){
+function _albumStickerHtml(g,n,tap){
   const R=KAB_RAR[g.rar]||KAB_RAR.kind;
   const dunkel=g.rar==="legendaer";
   if(!n)return `<div style="border-radius:14px;aspect-ratio:3/4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.45);${R.dash?`border:1.5px dashed ${R.dash}`:"border:1.5px dashed rgba(255,255,255,.18)"}">
       <span style="font-size:9px;font-weight:800;opacity:.65">Nr. ${g.num||"?"}</span>
       <span style="font-size:26px;opacity:.7">❓</span>
-      ${R.lbl?`<span style="font-size:8.5px;font-weight:900;letter-spacing:.5px;opacity:.8">${R.lbl}</span>`:""}
+      ${R.lbl?`<span style="font-size:8.5px;font-weight:900;letter-spacing:.5px;opacity:.8">${R.gem?R.gem+" ":""}${R.lbl}</span>`:""}
     </div>`;
-  return `<div class="${R.foil?"kab-st"+(R.leg?" kab-leg":""):""}" style="border-radius:14px;aspect-ratio:3/4;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;background:radial-gradient(130% 80% at 50% -10%,rgba(255,255,255,.35),transparent 55%),${R.own};border:2px solid rgba(255,255,255,.6);box-shadow:${R.shadow};color:${dunkel?"#78350f":"#fff"}">
+  return `<div class="${(R.foil?"kab-st":"")+(R.leg?" kab-leg kab-pulse":"")}" ${tap?`onclick="kabineStickerZoom('${jsq(g.key)}')"`:""} style="border-radius:14px;aspect-ratio:3/4;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;background:radial-gradient(130% 80% at 50% -10%,rgba(255,255,255,.35),transparent 55%),${R.own};border:2px solid rgba(255,255,255,.6);box-shadow:${R.shadow};color:${dunkel?"#78350f":"#fff"};${tap?"cursor:pointer":""}">
       <div style="display:flex;justify-content:space-between;align-items:center;width:100%;padding:5px 7px 0;font-size:8.5px;font-weight:900;letter-spacing:.4px;box-sizing:border-box">
         <span>Nr. ${g.num||"?"}</span>${n>1?`<span style="background:rgba(0,0,0,.3);color:#fff;border-radius:8px;padding:0 6px">${n}×</span>`:"<span></span>"}
       </div>
-      ${R.lbl?`<div style="font-size:7.5px;font-weight:900;letter-spacing:1.2px;margin-top:1px">${R.lbl}</div>`:""}
+      ${R.lbl?`<div style="font-size:7.5px;font-weight:900;letter-spacing:1.2px;margin-top:1px">${R.gem?R.gem+" ":""}${R.lbl}</div>`:""}
       <div data-st-ava="${esc(g.key)}" style="flex:1;display:flex;align-items:center;justify-content:center;width:100%;min-height:0">
         <div style="width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.25);border:2px solid rgba(255,255,255,.75);display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.25)">${g.img?`<img src="${g.img}" alt="" style="width:72%;height:72%;object-fit:contain">`:`<span style="font-size:24px">${g.emo}</span>`}</div>
       </div>
@@ -152,13 +187,28 @@ function _albumStickerHtml(g,n){
       ${R.foil?'<div class="stfoil"></div>':""}
     </div>`;
 }
+// Sticker groß ansehen (Tipp aufs Grid) – Overlay innerhalb der Kabine, Tipp schließt
+function kabineStickerZoom(key){
+  const pool=window._albPoolCache||[]; const g=pool.find(x=>x.key===key); if(!g)return;
+  const n=((_albRow&&_albRow.sticker)||{})[key]||0; if(!n)return;
+  document.getElementById("kab-zoom")?.remove();
+  const z=document.createElement("div"); z.id="kab-zoom";
+  z.style.cssText="position:absolute;inset:0;z-index:5;background:rgba(0,0,0,.65);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px";
+  z.onclick=()=>z.remove();
+  z.innerHTML=`<div style="width:160px;transform:scale(1.55);transform-origin:center">${_albumStickerHtml(g,n)}</div>
+    <div style="font-size:11.5px;color:#fff;opacity:.85;margin-top:34px">Tippen zum Schließen</div>`;
+  const host=document.getElementById("kabine"); if(host)host.appendChild(z);
+  try{navigator.vibrate&&navigator.vibrate(15);}catch(e){}
+  // Foto auch in der Zoom-Ansicht nachladen
+  _albumFotosLaden([g],(_albRow&&_albRow.sticker)||{});
+}
 // Fotos progressiv nachladen (nur Kinder MIT Freigabe – team_gallery liefert foto_path
 // bereits consent-gefiltert). Emoji bleibt Platzhalter, das Foto ersetzt es sanft.
 function _albumFotosLaden(pool,col){
   if(typeof fotoLoadImage!=="function")return;
   const gal=(typeof kabineGalleryData!=="undefined"&&kabineGalleryData)||[];
-  pool.filter(g=>g.rar==="kind"&&col[g.key]).forEach(g=>{
-    const gd=gal.find(x=>x.name===g.key); if(!gd||!gd.foto_path)return;
+  pool.filter(g=>(g.rar==="kind"||g.rar==="matchday")&&col[g.key]).forEach(g=>{
+    const gd=gal.find(x=>x.name===(g.kidName||g.key)); if(!gd||!gd.foto_path)return;
     fotoLoadImage(gd.foto_path).then(img=>{ if(!img)return;
       document.querySelectorAll(`[data-st-ava="${CSS.escape(g.key)}"]>div`).forEach(av=>{
         av.innerHTML=""; const im=document.createElement("img"); im.src=img.src; im.alt="";
@@ -181,7 +231,14 @@ async function kabineAlbumFor(sid,name){
   const pool=await _albumPool();
   const row=await _albumRow(sid);
   _albKid=sid;_albName=name||"";_albRow=row;
+  window._albPoolCache=pool;
   const col=row.sticker||{};
+  // 🔥 Eigene MATCHDAY-Karten werden geschenkt: der Star des Spieltags bekommt seine Karte direkt
+  const meineMd=pool.filter(g=>g.rar==="matchday"&&g.kidName===name&&!(col[g.key]||0));
+  if(meineMd.length){
+    meineMd.forEach(g=>col[g.key]=1); row.sticker=col; await _albumSave(row);
+    toast(meineMd.length>1?`🔥 ${meineMd.length} Spieltags-Karten von DIR – geschenkt ins Album!`:"🔥 Die Spieltags-Karte von DIR – geschenkt ins Album!");
+  }
   const got=pool.filter(g=>col[g.key]).length;
   const voll=pool.length>0&&got===pool.length;
   const t=row.tueten||0;
@@ -194,7 +251,11 @@ async function kabineAlbumFor(sid,name){
         if(r.ok){const d=await r.json();if(d>0)toast(`📖 ${voll?"Album voll":"Halbes Album geschafft"} – ${XP_ICON} +${d} ${XP_LABEL}!`);}}catch(e){}
     }
   }
-  const cards=pool.map(g=>_albumStickerHtml(g,col[g.key]||0)).join("");
+  const albSec=t=>`<div style="grid-column:1/-1;font-size:10.5px;font-weight:900;text-transform:uppercase;letter-spacing:.8px;opacity:.65;margin:6px 2px -2px">${t}</div>`;
+  const albTeil=f=>pool.filter(f).map(g=>_albumStickerHtml(g,col[g.key]||0,!!col[g.key])).join("");
+  const cards=albSec("⚽ Unsere Adler")+albTeil(g=>g.rar==="kind")
+    +albSec("🧢 Trainer, Verein & Legenden")+albTeil(g=>g.rar==="selten"||g.rar==="episch"||g.rar==="legendaer")
+    +(pool.some(g=>g.rar==="matchday")?albSec("🔥 Spieltags-Karten – nach jedem Spiel eine neue")+albTeil(g=>g.rar==="matchday"):"");
   b.innerHTML=`<div id="kab-album-view" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;position:relative">
     <div style="display:flex;align-items:center;gap:10px;padding:14px 16px">
       <button onclick="kabineHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
@@ -260,7 +321,7 @@ function kabineAlbumFlip(i){
   el.style.background=c.neu?R.own:"linear-gradient(135deg,#64748b,#475569)";
   if(c.neu&&R.foil){el.classList.add("kab-st");if(R.leg)el.classList.add("kab-leg");}
   el.style.boxShadow=c.neu?R.shadow:el.style.boxShadow;
-  el.innerHTML=`<span style="font-size:9px;font-weight:900;letter-spacing:.4px;${c.neu?(dunkel?"color:#78350f":"color:#fff"):"opacity:.8"}">${c.neu?(R.lbl?"✨ "+R.lbl+"!":"✨ NEU!"):"schon "+c.count+"×"}</span>
+  el.innerHTML=`<span style="font-size:9px;font-weight:900;letter-spacing:.4px;${c.neu?(dunkel?"color:#78350f":"color:#fff"):"opacity:.8"}">${c.neu?(R.lbl?"✨ "+(R.gem?R.gem+" ":"")+R.lbl+"!":"✨ NEU!"):"schon "+c.count+"×"}</span>
     ${c.img?`<img src="${c.img}" alt="" style="width:30px;height:30px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.3))">`:`<span style="font-size:26px">${c.emo}</span>`}
     <span style="font-size:11px;font-weight:800;line-height:1.1;${c.neu&&dunkel?"color:#78350f":""}">${esc(c.label)}</span>
     ${c.sub?`<span style="font-size:9px;${c.neu&&dunkel?"color:#78350f":"opacity:.9"}">${esc(c.sub)}</span>`:""}
