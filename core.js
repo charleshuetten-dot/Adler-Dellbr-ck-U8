@@ -837,3 +837,31 @@ function mdlHead(modalId,emoji,title,sub,col){
     <button onclick="document.getElementById('${modalId}')?.remove()" aria-label="Schließen" style="border:none;background:transparent;font-size:24px;color:var(--text2);cursor:pointer;line-height:1;padding:4px;flex:none">×</button>
   </div>`;
 }
+
+/* ── Android-Zurück schließt das oberste Fenster statt der App (PWA-Back-Falle, PO-Feedback).
+   Jedes direkt am body geöffnete Fenster (id endet auf -modal/-ov/-overlay) bekommt beim
+   Öffnen einen History-Eintrag; die Zurück-Taste schließt es dann. Schließen per ×
+   verbraucht den Eintrag still. BEWUSST ausgenommen: #kabine (Zurück würde sonst den
+   Kabinen-Code umgehen) und #el-cat-overlay (display-basiert; eigenes Wiring). ── */
+window._mdlSuppress=0;
+(function(){
+  const RX=/(-modal|-ov|-overlay)$/;
+  const stack=[];
+  const isM=n=>n&&n.nodeType===1&&RX.test(n.id||"")&&n.id!=="el-cat-overlay";
+  function start(){
+    new MutationObserver(ms=>{
+      for(const m of ms){
+        m.addedNodes&&m.addedNodes.forEach(n=>{ if(isM(n)){ stack.push(n.id); try{history.pushState({adlerMdl:n.id},"");}catch(e){} } });
+        m.removedNodes&&m.removedNodes.forEach(n=>{ if(isM(n)){ const i=stack.lastIndexOf(n.id); if(i>=0){ stack.splice(i,1); window._mdlSuppress++; try{history.back();}catch(e){window._mdlSuppress--;} } } });
+      }
+    }).observe(document.body,{childList:true});
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
+  window.addEventListener("popstate",()=>{
+    if(window._mdlSuppress>0){window._mdlSuppress--;return;}
+    // Eltern-Kategorie-Fenster (wird nur versteckt, nicht entfernt) zuerst schließen
+    try{ const ov=document.getElementById("el-cat-overlay"); if(ov&&ov.style.display==="block"&&typeof elternCatClose==="function"){ elternCatClose(true); return; } }catch(e){}
+    const id=stack.pop();
+    if(id){ const el=document.getElementById(id); if(el)el.remove(); }
+  });
+})();

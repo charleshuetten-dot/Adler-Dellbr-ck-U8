@@ -353,8 +353,10 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .aw-star.on{color:#f59e0b}
 
 /* TRAININGSPLANUNG */
-.tp-check{display:flex;align-items:center;gap:5px;padding:6px 10px;background:var(--surface);border:var(--border-s);border-radius:var(--r);font-size:12px;cursor:pointer}
+.tp-check{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;background:var(--surface);border:var(--border-s);border-radius:999px;font-size:12.5px;font-weight:700;color:var(--text2);cursor:pointer;transition:all .15s}
 .tp-check input{accent-color:var(--blue)}
+.tp-check:has(input:checked){background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border-color:transparent;box-shadow:0 2px 8px rgba(37,99,235,.3)}
+.tp-check:has(input:checked) input{accent-color:#fff}
 .tp-slot{background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:10px 12px;margin-bottom:8px}
 .tp-slot-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px}
 .tp-slot-label{font-weight:700;color:var(--text)}

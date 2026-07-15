@@ -165,7 +165,7 @@ function bewRundeStop(){ if(confirm("Bewertungsrunde beenden?")){ BEW_RUNDE={act
 function bewRundeBarRender(){
   const bar=document.getElementById("bew-runde-bar"); if(!bar)return;
   if(!BEW_RUNDE.active){
-    bar.innerHTML=`<button class="btn btn-sm" onclick="bewRundeStart()" style="width:100%;border-color:var(--club-accent);color:var(--club-accent)"><i class="ti ti-clipboard-list"></i>📋 Bewertungsrunde starten (alle nacheinander)</button>`;
+    bar.innerHTML=`<button onclick="bewRundeStart()" style="width:100%;min-height:48px;border:none;border-radius:12px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.28)"><i class="ti ti-clipboard-list"></i> Bewertungsrunde starten (alle nacheinander)</button>`;
     return;
   }
   const pos=BEW_RUNDE.idx+1, tot=BEW_RUNDE.queue.length, name=BEW_RUNDE.queue[BEW_RUNDE.idx];
@@ -930,7 +930,13 @@ function renderKader(){
   });
   if(!filtered.length){wrap.innerHTML='<div class="empty"><i class="ti ti-filter"></i>Kein Spieler für diesen Filter</div>';renderRauteMap(names);return;}
   const dimCols=["#1a56db","#7c3aed","#d97706","#059669","#0e7490"];
-  let html=`<div style="display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-bottom:8px"><button class="btn btn-sm" onclick="pausenOpen()" title="Kinder pausieren (fließt in Prognose/Nominierung/Buddy)">⏸ Pausen</button><button class="btn btn-sm" onclick="setupTrainerOpen()" title="Wer hat Foto-Freigabe & Notfallkarte schon eingerichtet?">🚀 Eltern-Setup</button><button class="btn btn-sm" onclick="notfallTrainerOpen()" title="Notfall-/Gesundheitskarten der Kinder – schreibgeschützt, für den Platz auch offline">🚑 Notfallkarten</button></div><table class="kader-t"><thead><tr><th>Spieler</th><th>Rolle</th><th>Grp</th><th>Tech.</th><th>Wahr.</th><th>Phys.</th><th>Ges.</th><th>Pot.</th><th>Von</th><th></th></tr></thead><tbody>`;
+  // Kader-Werkzeuge als einheitliche Kachel-Reihe (Design-Sprache), nicht mehr rechtsbündig verstreut.
+  const kTool=(label,fn,title)=>`<button onclick="${fn}" title="${title}" style="flex:1 1 calc(33.3% - 6px);min-width:120px;min-height:46px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text);background:var(--surface);padding:0 10px">${label}</button>`;
+  let html=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      ${kTool("⏸ Pausen","pausenOpen()","Kinder pausieren (fließt in Prognose/Nominierung/Buddy)")}
+      ${kTool("🚀 Eltern-Setup","setupTrainerOpen()","Wer hat Foto-Freigabe & Notfallkarte schon eingerichtet?")}
+      ${kTool("🚑 Notfallkarten","notfallTrainerOpen()","Notfall-/Gesundheitskarten der Kinder – schreibgeschützt, für den Platz auch offline")}
+    </div><table class="kader-t"><thead><tr><th>Spieler</th><th>Rolle</th><th>Grp</th><th>Tech.</th><th>Wahr.</th><th>Phys.</th><th>Ges.</th><th>Pot.</th><th>Von</th><th></th></tr></thead><tbody>`;
   filtered.forEach(name=>{
     const lat=DB[name][DB[name].length-1];
     const sc=safeParse(lat.scores,[0,0,0,0,0]);

@@ -262,10 +262,16 @@ function elternCatOpen(id){
   const panel=document.getElementById("cat-"+id); if(panel)panel.style.display="block";
   const ttl=document.getElementById("el-cat-title"); if(ttl)ttl.textContent=T[id]||(panel&&panel.dataset&&panel.dataset.catTitle)||""; // Kind-Panels tragen ihren Titel selbst
   ov.style.display="block"; ov.scrollTop=0;
+  try{history.pushState({elCat:id},"");}catch(e){} // Zurück-Taste schließt das Fenster (Back-Handler in core.js)
   if(id==="news"&&typeof elternNewsMarkSeen==="function")elternNewsMarkSeen(); // Öffnen = gelesen
   if(typeof elternDarkActive==="function"&&elternDarkActive()&&typeof elternThemeSweep==="function")elternThemeSweep(ov);
 }
-function elternCatClose(){ const ov=document.getElementById("el-cat-overlay"); if(ov)ov.style.display="none"; }
+function elternCatClose(fromPop){
+  const ov=document.getElementById("el-cat-overlay"); if(ov)ov.style.display="none";
+  // Beim Schließen per ←-Button den History-Eintrag still verbrauchen (fromPop=true kommt
+  // von der Zurück-Taste selbst – dann ist der Eintrag schon weg).
+  if(!fromPop){ window._mdlSuppress=(window._mdlSuppress||0)+1; try{history.back();}catch(e){window._mdlSuppress--;} }
+}
 /* „Zu erledigen"-Button aus-/einblenden + Zähler: nur zeigen, wenn mind. ein Slot gefüllt ist. */
 function elternTodoSync(){
   const btn=document.getElementById("eltern-todo-btn"); if(!btn)return;

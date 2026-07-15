@@ -175,11 +175,7 @@
 <!-- KADER -->
 <div id="view-kader" class="view">
   <div class="sl nt"><i class="ti ti-users"></i>Bewertungs-Übersicht – U9 I SV Adler Dellbrück</div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-    <button onclick="kaderEditOpen()" style="display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;border:none;border-radius:12px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.28)"><i class="ti ti-users"></i>Spieler verwalten</button>
-    <button class="print-btn" style="margin-bottom:0" onclick="printView('kader')"><i class="ti ti-printer"></i>Drucken / PDF</button>
-    <button class="print-btn" style="margin-bottom:0" onclick="backupExport()"><i class="ti ti-download"></i>Saison-Backup</button>
-  </div>
+  <button onclick="kaderEditOpen()" style="display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;margin-bottom:8px;border:none;border-radius:12px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.28)"><i class="ti ti-users"></i>Spieler verwalten</button>
   <div class="frow">
     <button class="ftag active" onclick="setF('all',this)">Alle</button>
     <button class="ftag" onclick="setF('tw',this)">🥅 TW-Option</button>
@@ -193,6 +189,11 @@
   <div id="kader-content"><div class="empty"><i class="ti ti-users"></i>Noch keine Spieler bewertet</div></div>
   <div class="sl"><i class="ti ti-topology-star-3"></i>Rauten-Besetzung</div>
   <div id="raute-map"></div>
+  <!-- Selten genutzt: bewusst ans Seitenende (PO-Feedback) -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+    <button class="print-btn" style="margin-bottom:0" onclick="printView('kader')"><i class="ti ti-printer"></i>Drucken / PDF</button>
+    <button class="print-btn" style="margin-bottom:0" onclick="backupExport()"><i class="ti ti-download"></i>Saison-Backup</button>
+  </div>
 </div>
 
 <!-- VERLAUF -->
