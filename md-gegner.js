@@ -489,11 +489,7 @@ async function handoverOpen(id){
   const d=new Date(t.datum+"T00:00:00"), wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
   const datumStr=wtag+" "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"long"});
   c.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div style="font-weight:800;font-size:16px">🧑‍🏫 Vertretungs-Paket</div>
-      <button onclick="document.getElementById('handover-modal').remove()" style="border:none;background:none;font-size:22px;color:var(--text2);cursor:pointer">×</button>
-    </div>
-    <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px">${m.icon} ${esc(t.titel||m.label)} · ${datumStr}</div>
+    ${mdlHead("handover-modal","🧑‍🏫","Vertretungs-Paket",`${m.icon} ${esc(t.titel||m.label)} · ${datumStr}`,"#64748b")}
     <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Erzeugt einen <b>Read-Only-Link</b> für eine Ersatz-Betreuung. Zusagen, ${t.typ==="training"?"Trainingsplan":"Spielinfos"} und deine Notiz stecken direkt im Link – kein Login, nichts wird gespeichert.</div>
     <label style="font-size:12px;font-weight:700">Kurz-Notiz für die Vertretung</label>
     <textarea id="handover-notiz" rows="3" placeholder="z. B. Torwart heute Max · Ball-Beutel im Vereinsheim · Abschluss 4+1 …" style="width:100%;margin-top:4px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;resize:vertical;box-sizing:border-box"></textarea>

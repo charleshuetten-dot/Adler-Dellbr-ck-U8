@@ -623,8 +623,7 @@ async function wochenChallengeOpen(){
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const card=document.createElement("div");
   card.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  card.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🏆 Wochen-Challenge</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Heim-Aufgabe der Woche für die Kids. Geschafft = 🪶 20 Federn (im Quiz abhakbar).</div>
+  card.innerHTML=`${mdlHead("wc-modal","🏆","Wochen-Challenge","Heim-Aufgabe der Woche · geschafft = 🪶 20 Federn","#d97706")}
     <textarea id="wc-input" rows="3" placeholder="z. B. „Diese Woche: 50 Ballkontakte im Garten – jeden Tag ein bisschen!&quot;" style="width:100%;padding:9px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box;resize:vertical">${esc(cur)}</textarea>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
       <button class="btn btn-p" onclick="wochenChallengeSave()"><i class="ti ti-trophy"></i>Challenge aktiv setzen</button>
@@ -2108,8 +2107,7 @@ async function tpollRender(){
       ${slotHtml||'<div style="font-size:11px;color:var(--text3)">Keine Termine.</div>'}
     </div>`;
   }).join("");
-  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🗓️ Trainer-Meetings</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Nur Trainer sehen das. Terminvorschläge, abstimmen, festlegen.</div>
+  c.innerHTML=`${mdlHead("tm-meet-modal","🗓️","Trainer-Meetings","Nur Trainer · vorschlagen, abstimmen, festlegen","#334155")}
     ${pollHtml||'<div style="font-size:12px;color:var(--text3);margin-bottom:10px">Noch kein Meeting geplant.</div>'}
     <div style="border-top:var(--border);padding-top:12px">
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">Neues Meeting</div>
@@ -2205,8 +2203,7 @@ async function epollTrainerRender(prefillSpieler){
   }).join("");
   const kinder=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
   const kidOpts=kinder.map(k=>`<option value="${k._id!=null?k._id:k.id}"${(prefillSpieler&&(k._id===prefillSpieler||k.id===prefillSpieler))?" selected":""}>${esc(k.name)}</option>`).join("");
-  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🗓️ Elterngespräch-Termine</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Einer Familie Termine vorschlagen. Die Eltern antworten in ihrem Bereich, du legst fest.</div>
+  c.innerHTML=`${mdlHead("ep-poll-modal","🗣️","Elterngespräch-Termine","Einer Familie Termine vorschlagen · Eltern antworten, du legst fest","#475569")}
     ${pollHtml||'<div style="font-size:12px;color:var(--text3);margin-bottom:10px">Noch keine Terminfindung.</div>'}
     <div style="border-top:var(--border);padding-top:12px">
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">Neuer Terminvorschlag</div>
@@ -2718,8 +2715,7 @@ async function adlerWeltOpen(){
     <button class="btn btn-sm" onclick="adlerCardOpen('${(k.name||'').replace(/'/g,'')}')" title="FUT-Karte ansehen">🃏</button>
     <button class="btn btn-sm" onclick="abzeichenOpen(${k.id},'${(k.name||'').replace(/'/g,'')}')" title="Technik-Abzeichen">🎖️</button>
   </div>`).join("");
-  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🪶 Adler-Welt</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Federn, Karten, Abzeichen & Challenge – ansehen und verwalten.</div>
+  c.innerHTML=`${mdlHead("aw-modal","🪶","Adler-Welt","Federn, Karten, Abzeichen & Challenge – ansehen und verwalten","#7c3aed")}
     <div id="aw-team-level" style="margin-bottom:12px"></div>
     <button class="btn btn-p btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();wochenChallengeOpen()"><i class="ti ti-trophy"></i>Wochen-Challenge setzen / bearbeiten</button>
     <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('aw-modal').remove();skillWocheOpen()"><i class="ti ti-video"></i>🎬 Skill der Woche setzen</button>

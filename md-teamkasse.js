@@ -40,8 +40,7 @@ async function mitbringTrainerRender(){
       ${liste}
     </div>`;
   }).join(""):'<div style="font-size:13px;color:var(--text3);margin-bottom:10px">Kein kommender Event-Termin. Lege im Kalender einen Termin vom Typ „🎉 Event" an – dann tragen die Eltern hier ein, was sie mitbringen.</div>';
-  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🎉 Event-Mitbringliste</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Wer bringt was mit? Die Eltern tragen es in ihrem Bereich ein – hier siehst du den Überblick. Kein Geld.</div>
+  c.innerHTML=`${mdlHead("mitbring-modal","🎉","Event-Mitbringliste","Wer bringt was mit? Die Eltern tragen ein, du siehst den Überblick","#f59e0b")}
     ${body}
     <div style="display:flex;margin-top:8px"><button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('mitbring-modal').remove()">Schließen</button></div>`;
 }
@@ -62,10 +61,7 @@ async function kasseOpen(){
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:460px;width:100%;margin:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-weight:800;font-size:16px">💰 Teamkasse</div>
-      <button onclick="document.getElementById('kasse-modal').remove()" style="border:none;background:none;font-size:22px;color:var(--text2);cursor:pointer">×</button>
-    </div>
+    ${mdlHead("kasse-modal","💰","Teamkasse","Kassenstand & Umlagen · Zahlungen extern über PayPal","#1e3a8a")}
     <div id="kasse-body"><div style="text-align:center;padding:24px;color:var(--text3)">Lade…</div></div>
   </div>`;
   document.body.appendChild(m);

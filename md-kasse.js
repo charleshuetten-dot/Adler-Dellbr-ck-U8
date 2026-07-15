@@ -134,8 +134,7 @@ async function boerseRender(){
       </div>
     </div>`;
   }).join("");
-  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🛍️ Adler-Börse</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:12px">Zu klein geworden? Hier findet es ein neues Adler-Kind. Preis frei (z. B. „Zu verschenken").</div>
+  c.innerHTML=`${mdlHead("boerse-modal","🛍️","Adler-Börse","Zu klein geworden? Hier findet es ein neues Adler-Kind","#2563eb")}
     ${liste||'<div style="font-size:12px;color:#94a3b8;padding:6px 0">Noch nichts drin. Stell das Erste ein!</div>'}
     <div style="border-top:1px solid #e2e8f0;margin-top:12px;padding-top:12px">
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin-bottom:6px">Etwas anbieten</div>
@@ -219,8 +218,7 @@ async function skillWocheOpen(){
   const fld="width:100%;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:440px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🎬 Skill der Woche</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Kurze Heim-Challenge mit Video-Link. Schafft es das Kind, geben die Eltern 50 Federn frei.</div>
+  c.innerHTML=`${mdlHead("skw-modal","🎬","Skill der Woche","Heim-Challenge mit Video · Eltern geben 50 Federn frei","#ea580c")}
     ${cur?`<div style="font-size:11px;color:var(--text2);background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:10px">Aktuell: <b>${esc(cur.titel)}</b></div>`:""}
     <label style="font-size:11px;color:var(--text2)">Titel<input id="skw-titel" value="${esc(cur?.titel||"")}" placeholder="z. B. 10× Ball hochhalten" style="${fld}"></label>
     <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Video-Link (YouTube o. ä.)<input id="skw-url" value="${esc(cur?.video_url||"")}" placeholder="https://…" style="${fld}"></label>
@@ -763,8 +761,7 @@ async function fairplayEditOpen(){
 function fairplayEditRender(){
   const c=document.getElementById("fpe-card"); if(!c)return;
   const fld="padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
-  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🤝 Fairplay-Codex bearbeiten</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Diese Regeln sehen die Eltern im Codex-Overlay. Reihenfolge mit den Pfeilen.</div>
+  c.innerHTML=`${mdlHead("fpe-modal","🤝","Fairplay-Codex bearbeiten","Diese Regeln sehen die Eltern · Reihenfolge mit den Pfeilen","#16a34a")}
     ${FP_EDIT.map((r,i)=>`<div style="border:var(--border-s);border-radius:10px;padding:10px;margin-bottom:8px">
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
         <input value="${esc(r.emo)}" oninput="FP_EDIT[${i}].emo=this.value" maxlength="4" style="width:52px;text-align:center;font-size:18px;${fld}">
@@ -874,8 +871,7 @@ async function leitfadenEditOpen(){
 function leitfadenEditRender(){
   const c=document.getElementById("lfe-card"); if(!c)return;
   const fld="padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
-  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">📖 ${esc(LEITFADEN_NAME)} bearbeiten</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Diese Punkte sehen die Eltern in ihrem Bereich. Reihenfolge mit den Pfeilen.</div>
+  c.innerHTML=`${mdlHead("lfe-modal","📖",esc(LEITFADEN_NAME)+" bearbeiten","Diese Punkte sehen die Eltern · Reihenfolge mit den Pfeilen","#059669")}
     ${LF_EDIT.map((r,i)=>`<div style="border:var(--border-s);border-radius:10px;padding:10px;margin-bottom:8px">
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
         <input value="${esc(r.emo)}" oninput="LF_EDIT[${i}].emo=this.value" maxlength="4" style="width:52px;text-align:center;font-size:18px;${fld}">
