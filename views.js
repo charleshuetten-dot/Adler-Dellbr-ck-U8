@@ -2988,6 +2988,7 @@ async function renderHome(){
     if(!slot)return; // Nutzer hat den Tab schon verlassen
     if(!r.ok){slot.innerHTML=card('<div style="font-size:12px;color:var(--text3)">Termine offline nicht verfügbar.</div>');return;}
     const rows=await r.json();
+    if(typeof TM_TERMINE!=="undefined")TM_TERMINE=rows; // Detail-/Karussell-Klick auf der Startseite findet den Termin (sonst Fallback auf go('termine'))
     // Karussell der nächsten Termine (Klick springt zur Detailkarte in der Terminliste)
     const carSlot=document.getElementById("home-carousel");
     if(carSlot&&rows.length>1&&typeof tmCarouselHtml==="function") carSlot.innerHTML=tmCarouselHtml(rows);
@@ -3002,8 +3003,8 @@ async function renderHome(){
     const istSpiel=t.typ==="spiel"||t.typ==="turnier";
     slot.innerHTML=card(`
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <div>
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">Nächster Termin · ${wann}</div>
+        <div onclick="tmDetailOpen(${t.id})" style="cursor:pointer;flex:1;min-width:0" title="Termin-Details öffnen">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">Nächster Termin · ${wann} · ansehen ›</div>
           <div style="font-size:15px;font-weight:800;margin-top:2px">${m.icon} ${esc(t.titel||t.gegner||m.label)}${t.spielform?` <span style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;background:${m.col}22;color:${m.col}">${esc(t.spielform)}</span>`:""}</div>
           <div style="font-size:11.5px;color:var(--text2);margin-top:2px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""}${t.ort?" · "+mapsAnchor(t.ort):""}${t.platz?" · 🏟️ "+esc(t.platz):""}</div>
         </div>

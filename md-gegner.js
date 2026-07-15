@@ -405,14 +405,14 @@ function tmCard(t){
   // Schnell-Aktionen je Typ
   let actions="";
   if(t.typ==="training"){
-    actions=`<button class="btn btn-sm" onclick="tmJump('planung','${t.datum}')"><i class="ti ti-clipboard-list"></i>Plan</button>
+    actions=`<button class="btn btn-p btn-sm" onclick="tmJump('planung','${t.datum}')"><i class="ti ti-clipboard-list"></i>Plan</button>
       <button class="btn btn-sm" onclick="mdOpen('${t.datum}','training')"><i class="ti ti-users"></i>Eltern-Info</button>`;
   }else if(istSpiel){
-    actions=`<button class="btn btn-sm" onclick="tmJump('aufstellung','${t.datum}','${t.spielform||''}')"><i class="ti ti-users-group"></i>Aufstellung</button>
+    actions=`<button class="btn btn-p btn-sm" onclick="tmJump('aufstellung','${t.datum}','${t.spielform||''}')"><i class="ti ti-users-group"></i>Aufstellung</button>
       <button class="btn btn-sm" onclick="tmJump('blitz','${t.datum}','${t.spielform||''}')"><i class="ti ti-bolt"></i>Auswertung</button>
       <button class="btn btn-sm" onclick="mdOpen('${t.datum}','${t.typ}')"><i class="ti ti-users"></i>Eltern-Info</button>`;
   }else{ // Event (Grillfest & Co.) – keine Trainingsplanung/Aufstellung, sondern die Mitbringliste
-    actions=`<button class="btn btn-sm" onclick="mitbringTrainerOpen()"><i class="ti ti-basket"></i>Mitbringliste</button>
+    actions=`<button class="btn btn-p btn-sm" onclick="mitbringTrainerOpen()"><i class="ti ti-basket"></i>Mitbringliste</button>
       <button class="btn btn-sm" onclick="mdOpen('${t.datum}','${t.typ}')"><i class="ti ti-users"></i>Eltern-Info</button>`;
   }
   actions+=`<button class="btn btn-sm" onclick="tmEdit(${Number(t.id)})" title="Termin bearbeiten"><i class="ti ti-edit"></i>Bearbeiten</button>`;
@@ -430,11 +430,15 @@ function tmCard(t){
     const waText=`🦅 SV Adler U9 – bitte kurz rückmelden fürs nächste ${m.label}:\n${t.titel||m.label} am ${datumStr}${zeitStr?" um "+zeitStr+" Uhr":""}${t.ort?" ("+t.ort+")":""}\n👉 Zu-/absagen: ${deepLink}`;
     remindBtn=`<a class="btn btn-sm" href="https://wa.me/?text=${encodeURIComponent(waText)}" target="_blank" rel="noopener noreferrer"><i class="ti ti-bell"></i>Erinnerung</a>`;
   }
-  return `<div id="tm-card-${t.id}" style="background:var(--surface);border:var(--border-s);border-left:3px solid ${m.col};border-radius:var(--rl);padding:10px 12px;margin-bottom:8px;scroll-margin-top:60px">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
-      <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;flex-wrap:wrap">${m.icon} ${esc(t.titel||m.label)}${hBadge}${sfBadge}</div>
-      <div style="font-size:11px;color:var(--text2);white-space:nowrap">${datumStr}${zeitStr?" · "+zeitStr:""}</div>
+  return `<div id="tm-card-${t.id}" style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);overflow:hidden;margin-bottom:10px;box-shadow:0 1px 3px rgba(15,23,42,.05);scroll-margin-top:60px">
+    <div style="display:flex;align-items:center;gap:11px;padding:11px 13px;background:linear-gradient(90deg,${m.col}14,transparent);border-left:4px solid ${m.col}">
+      <div style="width:40px;height:40px;flex:none;border-radius:12px;background:${m.col};display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 2px 6px ${m.col}55">${m.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14.5px;font-weight:800;display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.25">${esc(t.titel||m.label)}${hBadge}${sfBadge}</div>
+        <div style="font-size:11.5px;color:var(--text2);margin-top:2px">${datumStr}${zeitStr?" · "+zeitStr+" Uhr":""}</div>
+      </div>
     </div>
+    <div style="padding:10px 13px 12px">
     ${t.ort?`<div style="font-size:11px;color:var(--text2)"><i class="ti ti-map-pin" style="font-size:11px"></i> ${mapsAnchor(t.ort)}</div>`:""}
     ${t.platz?`<div style="font-size:11px;color:var(--text2)">🏟️ Platz: ${esc(t.platz)}</div>`:""}
     ${t.datum>=new Date().toISOString().slice(0,10)?platzAmpelTrainer(t):""}
@@ -453,6 +457,7 @@ function tmCard(t){
       ${t.datum>=new Date().toISOString().slice(0,10)?`<button class="btn btn-sm" onclick="handoverOpen(${Number(t.id)})" title="Read-Only-Paket für eine Vertretung"><i class="ti ti-user-share"></i>Vertretung</button>`:""}
       <button class="btn btn-sm" onclick="galerieOpen(${Number(t.id)},'${(t.titel||m.label).replace(/'/g,'')}')"><i class="ti ti-photo"></i>Fotos</button>
       <button class="btn btn-sm btn-d" style="margin-left:auto" onclick="tmDelete(${Number(t.id)})"><i class="ti ti-trash"></i></button>
+    </div>
     </div>
   </div>`;
 }
