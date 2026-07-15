@@ -76,17 +76,30 @@ function tmInit(){
   tmSetTyp("training"); // Standard-Typ + Vorbelegung (Zeit 16:45, Platz „vorne links", Vereinsadresse, nächstes Mo/Fr)
   tmLoad();
 }
+/* Endzeit-Vorschlag: Spiel +2 h, Turnier +4 h – frei änderbar. Nach der Endzeit
+   verschwindet der Termin aus den aktiven Listen (terminVorbei in core.js). */
+function tmEndeVorschlag(){
+  const z=document.getElementById("tm-zeit")?.value, e=document.getElementById("tm-ende");
+  if(!z||!e||e.value)return;
+  if(typeof tmTyp!=="undefined"&&(tmTyp==="spiel"||tmTyp==="turnier")){
+    const [h,m]=z.split(":").map(Number);
+    e.value=String(Math.min(23,h+(tmTyp==="turnier"?4:2))).padStart(2,"0")+":"+String(m).padStart(2,"0");
+  }
+}
 async function tmAdd(){
   const datum=document.getElementById("tm-datum")?.value;
   if(!datum){toast("Bitte Datum wählen","err");return;}
   const zeit=document.getElementById("tm-zeit")?.value||"";
+  const ende=document.getElementById("tm-ende")?.value||"";
   const titel=(document.getElementById("tm-titel")?.value||"").trim();
   const ort=(document.getElementById("tm-ort")?.value||"").trim();
   const istSpiel=(tmTyp==="spiel"||tmTyp==="turnier");
+  if(istSpiel&&!ende){toast("Bitte eine Endzeit eintragen – danach wandert der Termin ins Archiv","err");return;}
   const body={
     typ:tmTyp, datum, titel, ort,
     platz: (document.getElementById("tm-platz")?.value||"").trim()||null,
     uhrzeit: zeit||null,
+    uhrzeit_ende: ende||null,
     saison: saisonForDate(datum),
     spielform: istSpiel?tmSpielform:null,
     gegner: istSpiel?(titel||null):null,

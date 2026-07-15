@@ -54,7 +54,7 @@ const LEITFADEN_SEKTIONEN=[
   {t:"📣 Am Spielfeldrand & im Training", p:["Verhalten beim Training – etwas Abstand","Verhalten am Spielfeldrand","Wenig reinrufen – der Verband bittet darum","Vorbild auch abseits des Balls","Geschwister, Hunde & Zuschauer hinter der Bande"]},
   {t:"⚽ Aufstellung, Einsatz & Trainer-Entscheidungen", p:["Aufstellung & Einsatz – wir vertrauen dem Trainerteam","Wenn ein Kind mal auf die Bank muss","Behandlung & Auswechslung entscheidet das Trainerteam","Jede Position gehört dazu","Dabei sein lohnt sich","Eine Linie zeigen","Erziehung bleibt bei euch, Orientierung geben wir am Platz"]},
   {t:"🌱 Werte & Umgang mit den Kindern", p:["Entwicklung vor Ergebnis","Zu Hause der sichere Hafen","Gleiche Maßstäbe für alle","Neue & schüchterne Kinder aufnehmen","Ausgeruht & gut versorgt zum Spieltag","Kleine Konflikte erst mal den Kindern lassen","Sorgen? Sprecht uns direkt an"]},
-  {t:"🤝 Gemeinschaft & Verein", p:["Büdchen- & Helferdienste","Gemeinschaft & Feiern","Rituale & Wir-Gefühl mittragen","Sauberkeit & Sorgfalt","Ehrenamt wertschätzen"]}
+  {t:"🤝 Gemeinschaft & Verein", p:["Büdchen- & Helferdienste","Betreuung bei Spielen & Turnieren","Gemeinschaft & Feiern","Rituale & Wir-Gefühl mittragen","Sauberkeit & Sorgfalt","Ehrenamt wertschätzen"]}
 ];
 const ELTERN_LEITFADEN=[
   {emo:"🕒", t:"Pünktlichkeit", d:"Bitte seid rund 10 Minuten vor Beginn da – bei Training und Spielen. Dann kommen die Kinder in Ruhe an, ziehen sich um und starten gemeinsam ins Aufwärmen. Wer zu spät kommt, verpasst genau das – und Aufwärmen schützt vor Verletzungen."},
@@ -63,6 +63,7 @@ const ELTERN_LEITFADEN=[
   {emo:"🙋", t:"Verhalten beim Training – etwas Abstand", d:"Setzt euch beim Training bitte etwas abseits und lasst die Kinder mit den Trainern arbeiten. Kinder, die ständig zu Mama oder Papa schauen, sind abgelenkt. Kein Reinrufen, kein Mitcoachen vom Rand – das ist Aufgabe der Trainer."},
   {emo:"📣", t:"Verhalten am Spielfeldrand", d:"Bei Spielen bleibt bitte hinter der Linie oder Bande und feuert an, statt anzuweisen. Wie wir uns am Spielfeldrand verhalten, steht kompakt in unseren goldenen Regeln – dem Fairplay-Codex. Bitte lest ihn einmal in Ruhe und tragt ihn mit; ihr findet ihn in der App direkt neben diesem Leitfaden."},
   {emo:"🧃", t:"Büdchen- & Helferdienste", d:"Bei Heimspielen versorgen zwei Familien im Wechsel das Büdchen (Kuchen, Getränke, Kasse). Die Einteilung seht ihr in der App und könnt sie bei Verhinderung weitergeben. Und generell gilt: mit anpacken – Auf- und Abbau, Fahrten, Aufräumen. Das Team lebt davon, dass viele helfen, nicht immer dieselben."},
+  {emo:"👀", t:"Betreuung bei Spielen & Turnieren", d:"Bei Spielen und Turnieren suchen wir immer Eltern, die unsere Jungs in den Pausen betreuen und auf sie aufpassen – damit das Trainerteam das nächste Spiel in Ruhe vorbereiten und besprechen kann. Trag dich dafür gern direkt beim Termin unter „Wer hilft mit?“ ein. Schon eine Halbzeit hilft enorm."},
   {emo:"📱", t:"Die Adler-App nutzen – zu- & absagen", d:"Bitte meldet euer Kind für JEDEN Termin rechtzeitig zu oder ab, am besten bis zum Vortag. Nur so können die Trainer planen und Teams einteilen. Die App ist unser zentraler Draht: Termine, Infos, Aufstellung, Liveticker und Mitbringlisten laufen darüber."},
   {emo:"🤒", t:"Krank oder verletzt?", d:"Meldet euer Kind bei Krankheit oder Verletzung ab und schickt es erst wieder, wenn es wirklich fit ist. Fieber, Magen-Darm & Co. bleiben zu Hause – auch dem Team zuliebe. Bei längeren Verletzungen sprecht kurz mit den Trainern."},
   {emo:"🎒", t:"Die richtige Ausrüstung", d:"Immer dabei: Schienbeinschoner (Pflicht!), Stutzen, passende Schuhe fürs Feld oder die Halle, eine gefüllte Trinkflasche und wettergerechte Kleidung. Bitte alles mit Namen beschriften – so findet jedes Teil zurück."},
@@ -349,6 +350,10 @@ async function elternMitbringLoad(kids){
   if(!events.length){ slot.innerHTML=""; return; }
   let itemsMap={}; try{itemsMap=await mitbringItems(events.map(e=>e.id));}catch(e){}
   let uid=""; try{uid=sbUserId()||"";}catch(e){}
+  // PO: Sobald die Familie etwas eingetragen hat, ist das To-Do erledigt und verschwindet
+  // hier – einsehen & ändern geht jederzeit über das Termin-Detail (tdMitbringLoad).
+  events=events.filter(ev=>!((itemsMap[ev.id]||[]).some(it=>uid&&it.created_by===uid)));
+  if(!events.length){ slot.innerHTML=""; return; }
   const fmtD=d=>new Date(d+"T00:00:00").toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"});
   const kidOpts=(kids||[]).map(k=>`<option value="${k.spieler_id}">${esc((k.kader&&k.kader.name)||"Kind")}</option>`).join("");
   slot.innerHTML=events.map(ev=>{
@@ -389,6 +394,8 @@ async function mitbringAdd(terminId){
   if(inp)inp.value="";
   toast("Eingetragen – danke! 🎉");
   elternMitbringLoad(kids);
+  // Termin-Detail offen? Dann auch die Inline-Liste dort aktualisieren
+  if(document.getElementById("td-mitbring")&&window._tdTermin&&typeof tdMitbringLoad==="function")tdMitbringLoad(window._tdTermin);
 }
 async function mitbringDelete(id){
   if(!confirm("Deinen Eintrag entfernen?"))return;
@@ -398,6 +405,7 @@ async function mitbringDelete(id){
     if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht löschen"),"err");return;}
   }catch(e){toast("Netzwerkfehler","err");return;}
   elternMitbringLoad(window._elternKids||[]);
+  if(document.getElementById("td-mitbring")&&window._tdTermin&&typeof tdMitbringLoad==="function")tdMitbringLoad(window._tdTermin);
 }
 
 /* Büdchen bei Heimspielen: 2 Familien pro Heimspiel, faire Rotation server-seitig

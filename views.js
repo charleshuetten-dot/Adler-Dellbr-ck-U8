@@ -3153,6 +3153,7 @@ async function adlerWeltOpen(){
     <button class="btn btn-p btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();wochenChallengeOpen()"><i class="ti ti-trophy"></i>Wochen-Challenge setzen / bearbeiten</button>
     <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('aw-modal').remove();skillWocheOpen()"><i class="ti ti-video"></i>🎬 Skill der Woche setzen</button>
     <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('aw-modal').remove();wahlTrainerOpen()"><i class="ti ti-chart-bar"></i>🗳️ Kabinen-Wahl (Kinder stimmen ab)</button>
+    <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('aw-modal').remove();albumFotosOpen()"><i class="ti ti-photo"></i>🃏 Album-Karten-Fotos (Trainer &amp; Verein)</button>
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🎵 Kabinen-Playlist</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Spotify-Link zur U9-Playlist. Die Kinder hören sie in der Kabine.</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -3185,6 +3186,56 @@ async function adlerWeltOpen(){
   active.forEach(k=>{xpTotal(k.id).then(t=>{const el=document.getElementById("aw-fed-"+k.id);if(el){const b=xpBadge(t);el.textContent=`${XP_ICON} ${t} · ${b.emo} ${b.t}`;}}).catch(()=>{});});
   // aktuelle Spotify-Playlist vorbefüllen
   fetch(`${SB_URL}/rest/v1/team_config?id=eq.1&select=spotify_playlist`,{headers:sbAuthHeaders()}).then(r=>r.ok?r.json():[]).then(rows=>{const el=document.getElementById("aw-spotify");if(el&&rows[0]&&rows[0].spotify_playlist)el.value=rows[0].spotify_playlist;}).catch(()=>{});
+}
+/* ── Album-Karten-Fotos: der Trainer hinterlegt Bilder für Trainer- und Vereins-Sticker.
+   (Kinder-Sticker nutzen automatisch das Eltern-Profilfoto, sofern freigegeben.)
+   Dateien liegen im spielerfotos-Bucket unter album_<key>; Zuordnung in album_fotos. ── */
+function _albumFotoSlots(){
+  const s=[]; ((typeof TRAINER!=="undefined"&&TRAINER)||[]).forEach(t=>s.push({key:"tr_"+t,label:"🧢 "+t+" (Trainer)"}));
+  [["sp_ball","⚽ Der Spielball"],["sp_kaefig","🥅 Der Käfig"],["sp_buedchen","🍿 Das Büdchen"],["sp_platz","🏟️ Thurner Kamp"],["sp_trikot","👕 Adler-Trikot"],["sp_adler","🦅 Der Adler"],["sp_kurve","📣 Die Eltern-Kurve"],["sp_nest","🪺 Der Adlerhorst"],["sp_pokal","🏆 Der Pokal"],["sp_horst","🦅 Horst der Adler"],["sp_feder","🪶 Die Goldene Feder"]].forEach(([k,l])=>s.push({key:k,label:l}));
+  return s;
+}
+async function albumFotosOpen(){
+  let map={};
+  try{const r=await fetch(`${SB_URL}/rest/v1/album_fotos?select=key,path`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(x=>map[x.key]=x.path);}catch(e){}
+  document.getElementById("albfoto-modal")?.remove();
+  const m=document.createElement("div");m.id="albfoto-modal";
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Album-Karten-Fotos");
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
+    ${mdlHead("albfoto-modal","🃏","Album-Karten-Fotos","Bilder für Trainer- und Vereins-Sticker – die Kinder sehen sie im Sammelalbum","#b45309")}
+    <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Kinder-Sticker nutzen automatisch das Profilfoto (mit Eltern-Freigabe). Hier pflegst du die restlichen Karten – Querformat wird rund zugeschnitten, max. 3 MB.</div>
+    ${_albumFotoSlots().map(s=>`<div style="display:flex;align-items:center;gap:8px;border:var(--border-s);border-radius:12px;padding:8px 12px;margin-bottom:6px">
+      <span style="flex:1;min-width:0;font-size:13px;font-weight:700">${s.label}</span>
+      <span style="font-size:11px;color:${map[s.key]?"#059669":"var(--text3)"}">${map[s.key]?"✅ Foto da":"– kein Foto"}</span>
+      <label class="btn btn-sm" style="cursor:pointer;margin:0">📷<input type="file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="albumFotoUpload('${s.key}',this)"></label>
+      ${map[s.key]?`<button class="btn btn-sm" style="color:#dc2626" onclick="albumFotoDelete('${s.key}')" title="Foto entfernen"><i class="ti ti-trash"></i></button>`:""}
+    </div>`).join("")}
+  </div>`;
+  document.body.appendChild(m);
+}
+async function albumFotoUpload(key,inp){
+  const f=inp.files&&inp.files[0]; if(!f)return;
+  if(f.size>3*1024*1024){toast("Bitte max. 3 MB","err");return;}
+  const ext=((f.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,""))||"jpg";
+  const path=`album_${key}.${ext}`;
+  try{
+    const up=await fetch(`${SB_URL}/storage/v1/object/spielerfotos/${path}`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':f.type||"image/jpeg",'x-upsert':'true'},body:f});
+    if(!up.ok){toast("Upload fehlgeschlagen ("+up.status+")","err");return;}
+    const r=await fetch(`${SB_URL}/rest/v1/album_fotos?on_conflict=key`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({key,path,updated_at:new Date().toISOString()})});
+    if(!r.ok&&r.status!==201){toast("Konnte Zuordnung nicht speichern","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  window._albFotos=null; // Kabinen-Cache invalidieren
+  toast("🃏 Karten-Foto gespeichert ✓");
+  albumFotosOpen();
+}
+async function albumFotoDelete(key){
+  if(!confirm("Foto für diese Karte wirklich entfernen?"))return;
+  try{await fetch(`${SB_URL}/rest/v1/album_fotos?key=eq.${encodeURIComponent(key)}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}
+  window._albFotos=null;
+  toast("Foto entfernt");
+  albumFotosOpen();
 }
 async function spotifySave(btn){
   const url=(document.getElementById("aw-spotify")?.value||"").trim();
@@ -3412,7 +3463,7 @@ async function renderHome(){
     const slot=document.getElementById("home-next");
     if(!slot)return; // Nutzer hat den Tab schon verlassen
     if(!r.ok){slot.innerHTML=card('<div style="font-size:12px;color:var(--text3)">Termine offline nicht verfügbar.</div>');return;}
-    const rows=await r.json();
+    const rows=(await r.json()).filter(t=>!(typeof terminVorbei==="function"&&terminVorbei(t)));
     if(typeof TM_TERMINE!=="undefined")TM_TERMINE=rows; // Detail-/Karussell-Klick auf der Startseite findet den Termin (sonst Fallback auf go('termine'))
     // Karussell der nächsten Termine (Klick springt zur Detailkarte in der Terminliste)
     const carSlot=document.getElementById("home-carousel");

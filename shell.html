@@ -368,7 +368,8 @@
       </div>
       <div class="mgrid" style="grid-template-columns:1fr 1fr;gap:8px">
         <div class="mg"><label>Datum</label><input type="date" id="tm-datum" onchange="ferienDatumHint(this,'tm-ferien-hint')"><div id="tm-ferien-hint"></div></div>
-        <div class="mg"><label>Uhrzeit (optional)</label><input type="time" id="tm-zeit"></div>
+        <div class="mg"><label>Uhrzeit (optional)</label><input type="time" id="tm-zeit" onchange="tmEndeVorschlag()"></div>
+        <div class="mg"><label id="tm-ende-lbl">Ende (bei Spiel/Turnier Pflicht)</label><input type="time" id="tm-ende"></div>
       </div>
       <div class="mg" id="tm-spielform-row" style="margin-top:8px;display:none"><label>Spielform</label>
         <div class="seg-ctrl" id="tm-spielform-seg">

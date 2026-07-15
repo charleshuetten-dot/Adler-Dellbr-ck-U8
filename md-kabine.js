@@ -145,6 +145,16 @@ async function _albumPool(){
       pool.push({key:"md_"+t.id,label:kid.name,sub:"Spieltag "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"}),emo:"🔥",rar:"matchday",kidName:kid.name});
     });
   }catch(e){}
+  // Vom Trainer hinterlegte Karten-Fotos (album_fotos, Adler-Welt) anheften – 5-Min-Cache
+  try{
+    if(!window._albFotos||Date.now()-window._albFotos.at>300000){
+      const r=await fetch(`${SB_URL}/rest/v1/album_fotos?select=key,path`,{headers:sbAuthHeaders()});
+      const map={}; if(r.ok)((await r.json())||[]).forEach(x=>map[x.key]=x.path);
+      window._albFotos={at:Date.now(),map};
+    }
+    const fm=(window._albFotos&&window._albFotos.map)||{};
+    pool.forEach(p=>{ if(fm[p.key])p.alPath=fm[p.key]; });
+  }catch(e){}
   pool.forEach((p,i)=>p.num=i+1); // Album-Nummern wie im echten Panini-Heft
   return pool;
 }
@@ -207,14 +217,18 @@ function kabineStickerZoom(key){
 function _albumFotosLaden(pool,col){
   if(typeof fotoLoadImage!=="function")return;
   const gal=(typeof kabineGalleryData!=="undefined"&&kabineGalleryData)||[];
-  pool.filter(g=>(g.rar==="kind"||g.rar==="matchday")&&col[g.key]).forEach(g=>{
-    const gd=gal.find(x=>x.name===(g.kidName||g.key)); if(!gd||!gd.foto_path)return;
-    fotoLoadImage(gd.foto_path).then(img=>{ if(!img)return;
-      document.querySelectorAll(`[data-st-ava="${CSS.escape(g.key)}"]>div`).forEach(av=>{
-        av.innerHTML=""; const im=document.createElement("img"); im.src=img.src; im.alt="";
-        im.style.cssText="width:100%;height:100%;object-fit:cover"; av.appendChild(im);
-      });
-    }).catch(()=>{});
+  const setAva=(key,src)=>document.querySelectorAll(`[data-st-ava="${CSS.escape(key)}"]>div`).forEach(av=>{
+    av.innerHTML=""; const im=document.createElement("img"); im.src=src; im.alt="";
+    im.style.cssText="width:100%;height:100%;object-fit:cover"; av.appendChild(im);
+  });
+  pool.filter(g=>col[g.key]).forEach(g=>{
+    // Kinder & Matchday: Profilfoto mit Freigabe; Trainer/Verein: vom Trainer gepflegtes Karten-Foto
+    let path=null;
+    if(g.rar==="kind"||g.rar==="matchday"){
+      const gd=gal.find(x=>x.name===(g.kidName||g.key)); path=gd&&gd.foto_path;
+    }else if(g.alPath)path=g.alPath;
+    if(!path)return;
+    fotoLoadImage(path).then(img=>{ if(img)setAva(g.key,img.src); }).catch(()=>{});
   });
 }
 let _albKid=null,_albName="",_albRow=null;

@@ -506,6 +506,16 @@ async function pauseLoad(force){
   PAUSE_MAP=m; _pauseAt=Date.now(); return PAUSE_MAP;
 }
 function pauseClear(){ _pauseAt=0; }
+/* Termin vorbei? Mit Endzeit (uhrzeit_ende) verschwindet ein Spiel/Turnier noch am selben
+   Tag aus den aktiven Listen; ohne Endzeit gilt wie bisher der ganze Tag. */
+function terminVorbei(t){
+  if(!t||!t.datum)return false;
+  const heute=new Date().toISOString().slice(0,10);
+  if(t.datum<heute)return true;
+  if(t.datum>heute)return false;
+  if(!t.uhrzeit_ende)return false;
+  return String(t.uhrzeit_ende).slice(0,5)<new Date().toTimeString().slice(0,5);
+}
 function istPaused(name){ return !!PAUSE_MAP[name]; }
 function pauseBis(name){ return PAUSE_MAP[name]?PAUSE_MAP[name].bis:null; }
 function pauseBisLabel(name){ const b=pauseBis(name); if(!b)return ""; const d=new Date(b+"T00:00:00"); return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.`; }

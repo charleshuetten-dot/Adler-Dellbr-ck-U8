@@ -16,7 +16,8 @@ async function fotoConsentLoad(force){
   FOTO_CONSENT=map; return map;
 }
 function fotoConsentFor(k){
-  const r=(FOTO_CONSENT&&FOTO_CONSENT[k.id])||{};
+  // KADER-Einträge tragen die Spieler-ID je nach Kontext als id ODER _id (Boot-Mapper)
+  const r=(FOTO_CONSENT&&(FOTO_CONSENT[k.id!=null?k.id:k._id]))||{};
   return {intern:(r.intern!=null?r.intern:!!k.foto_stadionheft_ok), video:!!r.video, public_ok:!!r.public_ok, updated_at:r.updated_at, updated_by:r.updated_by};
 }
 function fotoConsentBannerHtml(){
@@ -70,13 +71,18 @@ async function fotoConsentTextSave(){
 async function galerieOpen(terminId,titel){
   if(!sbToken()){toast("Bitte zuerst anmelden","err");return;}
   await fotoConsentLoad();
+  // Die Freigabe-Übersicht (Zähler + Ampel) ist ein TRAINER-Werkzeug vor dem Posten.
+  // Eltern bekommen stattdessen einen kurzen Hinweis in ihrer Sprache (PO-Feedback).
+  const istTrainerKtx=(typeof authRole==="function")?((await authRole())==="trainer"):false;
+  const consentBlock=istTrainerKtx?fotoConsentBannerHtml()
+    :`<div style="padding:10px;border-radius:10px;margin-bottom:12px;background:#f8fafc;border:1px solid #cbd5e1;font-size:11.5px;color:#475569;line-height:1.5">📸 Hier gelten die Foto-Freigaben aller Familien. Deine eigene stellst du unter <b>🔒 Datenschutz &amp; Freigaben</b> ein – sie gilt für die ganze App (Galerie, Karten, Kabine, Adler Nest).</div>`;
   document.getElementById("gal-modal")?.remove();
   const m=document.createElement("div");m.id="gal-modal";m.dataset.termin=terminId;
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:520px;width:100%;margin:auto">
     ${mdlHead("gal-modal","📸",`Fotos${titel?" · "+esc(titel):""}`,"Team-Galerie zum Termin – für alle Team-Eltern","#7c3aed")}
-    ${fotoConsentBannerHtml()}
+    ${consentBlock}
     <div style="padding:10px;border:1.5px dashed var(--text3);border-radius:10px;margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">Foto hinzufügen</div>
       <input id="gal-foto" type="file" accept="image/jpeg, image/png, image/webp" capture="environment" style="width:100%;font-size:12px;margin-bottom:8px">

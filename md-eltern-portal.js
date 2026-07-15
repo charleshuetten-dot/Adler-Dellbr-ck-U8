@@ -401,7 +401,7 @@ async function elternDashLoad(){
   if(!kids.length){ body.innerHTML=card('<div style="color:#475569;font-size:13px;line-height:1.6">Dein Trainer hat diese E-Mail noch <b>keinem Kind</b> zugeordnet.<br>Bitte gib ihm die E-Mail-Adresse, mit der du dich hier angemeldet hast.</div>'); return; }
   window._elternKids=kids;   // fürs Fairplay-Quiz (Federn fürs eigene Kind)
   let termineListe=[]; // UX 6: Timeline – die nächsten Termine, nicht nur der eine
-  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc,uhrzeit.asc.nullslast&limit=15`,{headers:sbAuthHeaders()});if(r.ok){termineListe=await r.json();termin=termineListe[0]||null;}}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc,uhrzeit.asc.nullslast&limit=15`,{headers:sbAuthHeaders()});if(r.ok){termineListe=(await r.json()).filter(t=>!(typeof terminVorbei==="function"&&terminVorbei(t)));termin=termineListe[0]||null;}}catch(e){}
   ELTERN_TERMINE=termineListe; // für den „Alle Termine"-Dialog + Kalender-Export
   let rsvp={};
   if(termin){
@@ -761,20 +761,43 @@ async function terminDetailOpen(id){
     <div id="td-betreuung"></div>
     <div id="td-buedchen"></div>
     <div id="td-helfer"></div>
-    <div id="td-puls"></div>
-    ${t.typ==="event"?`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
-      <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🎉 Mitbringliste</div>
-      <div style="font-size:11.5px;color:#64748b;margin-bottom:8px">Wer bringt was mit? (Salat, Kuchen, Getränke, Pavillon …)</div>
-      <button onclick="tdMitbringGoto()" style="width:100%;min-height:48px;padding:12px;border:1.5px solid #16a34a;border-radius:10px;background:#f0fdf4;color:#15803d;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">🎉 Mitbringliste öffnen</button>
-    </div>`:""}
+    ${t.typ==="event"?'<div id="td-mitbring"></div>':""}
     <button onclick="document.getElementById('td-modal').remove()" style="width:100%;margin-top:14px;padding:11px;border:none;border-radius:10px;background:#f1f5f9;color:#334155;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Schließen</button>`;
   modal.appendChild(c);document.body.appendChild(modal);
+  window._tdTermin=t; // fürs Nachladen der Mitbringliste nach dem Eintragen
   if(t.datum)wetterInto("td-wetter",t.datum,t.ort,t.uhrzeit);
   tdNomLoad(t,kids);
   if(t.typ==="training")tdBetreuungLoad(t,kids);
   if(istSpiel&&t.heim===true)tdBuedchenLoad(t,kids);
   tdHelferLoad(t); // G4: Elternhelfer-Board (nur kommende Termine)
-  tdPulsLoad(t); // F4: Eltern-Puls (nur bei vergangenem Training/Spiel)
+  // „Wie war's" (Puls) lebt jetzt NUR im Zu-erledigen-Fenster (PO: der Termin wandert
+  // nach der Endzeit ins Archiv, dort würde die Smiley-Frage niemand mehr finden).
+  if(t.typ==="event")tdMitbringLoad(t); // Mitbringliste direkt im Termin ansehen & ändern
+}
+/* Mitbringliste im Termin-Detail: gleiche Liste wie im Zu-erledigen-Fenster, aber IMMER
+   einsehbar und änderbar – auch nachdem die Familie schon etwas eingetragen hat. */
+async function tdMitbringLoad(t){
+  const box=document.getElementById("td-mitbring"); if(!box)return;
+  const kids=window._elternKids||[];
+  let items=[]; try{const map=await mitbringItems([t.id]);items=map[t.id]||[];}catch(e){}
+  let uid=""; try{uid=sbUserId()||"";}catch(e){}
+  const kidOpts=kids.map(k=>`<option value="${k.spieler_id}">${esc((k.kader&&k.kader.name)||"Kind")}</option>`).join("");
+  const liste=items.length
+    ? items.map(it=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 0;border-top:1px solid #f1f5f9">
+        <span style="flex:1">🍽️ <b>${esc(it.was)}</b>${it.wer?` <span style="color:#94a3b8">· ${esc(it.wer)}</span>`:""}</span>
+        ${(uid&&it.created_by===uid)?`<button onclick="mitbringDelete(${it.id})" aria-label="Eintrag löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;min-width:32px;min-height:32px;font-size:15px">✕</button>`:""}
+      </div>`).join("")
+    : '<div style="font-size:12px;color:#94a3b8;padding:4px 0">Noch nichts eingetragen – mach den Anfang! 🎉</div>';
+  box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
+    <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🎉 Mitbringliste</div>
+    <div style="font-size:11.5px;color:#64748b;margin-bottom:6px">Wer bringt was mit? (Salat, Kuchen, Getränke, Pavillon …)</div>
+    ${liste}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+      <input id="mb-was-${t.id}" placeholder="Was bringst du mit?" style="flex:1;min-width:140px;min-height:44px;padding:9px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:13px" onkeydown="if(event.key==='Enter')mitbringAdd(${t.id})">
+      ${kids.length>1?`<select id="mb-kid-${t.id}" style="min-height:44px;padding:9px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:13px;background:#fff">${kidOpts}</select>`:""}
+      <button onclick="mitbringAdd(${t.id})" style="min-height:44px;padding:9px 16px;border:none;border-radius:10px;background:#16a34a;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Eintragen</button>
+    </div>
+  </div>`;
 }
 /* F4: Eltern-Puls – anonyme 1-Tap-Stimmung nach Training/Spiel. Der Trainer sieht nur das
    Aggregat (puls_aggregate, keine user_ids). Ein Datensatz pro Elternteil/Termin (upsert). */
@@ -807,6 +830,12 @@ async function tdPulsSave(terminId,mood){
     if(!r.ok){toast("Konnte nicht speichern","err");return;}
     tdPulsRender(terminId,{mood,kommentar:txt});
     try{navigator.vibrate&&navigator.vibrate(40);}catch(e){}
+    // Abgestimmt im Zu-erledigen-Fenster? Dann verschwindet das To-Do nach kurzem „Danke ✓"
+    // (elternTodoSync zieht den Zähler über den MutationObserver automatisch nach).
+    const nud=document.getElementById("puls-nudge-slot");
+    if(nud&&nud.contains(document.getElementById("td-puls"))){
+      setTimeout(()=>{const n2=document.getElementById("puls-nudge-slot");if(n2){n2.innerHTML="";pulsNudgeLoad();}},1400);
+    }
   }catch(e){toast("Netzwerkfehler","err");}
 }
 async function tdPulsSaveText(terminId){
@@ -876,7 +905,9 @@ async function pulsNudgeLoad(){
 }
 /* G4: Elternhelfer-Board – pro kommendem Termin tragen sich Eltern für Aufgaben ein
    (Fahren, Aufbau, Fotografieren …). Alle eingeloggten sehen die Liste (Koordination). */
-const HELFER_TASKS=["🚗 Fahren","🛠️ Aufbau","📸 Fotografieren","🥤 Getränke","👀 Betreuung","🧺 Wäsche"];
+/* PO-Feinschliff: Fahren raus (dafür gibt's die Fahrgemeinschaft), Getränke/Wäsche raus
+   (organisiert jede Familie selbst). NEU: Live-Ticker – wer tippt während des Spiels? */
+const HELFER_TASKS=["🛠️ Aufbau","📸 Fotografieren","📻 Live-Ticker","👀 Betreuung"];
 function _sbUid(){ try{const t=sbToken();return t?JSON.parse(atob(t.split(".")[1])).sub:null;}catch(e){return null;} }
 function _helferName(){ const kids=window._elternKids||[]; const n=(kids[0]&&kids[0].kader&&kids[0].kader.name)?kids[0].kader.name:"Unsere"; return n+" Familie"; }
 async function tdHelferLoad(t){

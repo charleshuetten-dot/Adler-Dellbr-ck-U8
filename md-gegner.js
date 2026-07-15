@@ -164,8 +164,10 @@ async function tmLoad(){
     const rows=await r.json();
     TM_TERMINE=rows;
     const heute=new Date().toISOString().slice(0,10);
-    const kommend=rows.filter(t=>t.datum>=heute);
-    const vergangen=rows.filter(t=>t.datum<heute).reverse();
+    // Mit Endzeit wandert ein Termin noch am selben Tag ins Archiv (terminVorbei, core.js)
+    const vorbei=(typeof terminVorbei==="function")?terminVorbei:(t=>t.datum<heute);
+    const kommend=rows.filter(t=>!vorbei(t));
+    const vergangen=rows.filter(t=>vorbei(t)).reverse();
     // Nur der NÄCHSTE Termin als volle Karte (Wetter/Büdchen inline); alle weiteren kompakt
     // hinter einem Button, damit die Liste bei einer ganzen Saison nicht endlos wird.
     const FULL=1;
@@ -589,6 +591,7 @@ function tmEdit(id){
       <label style="font-size:11px;color:var(--text2)">Datum<input type="date" id="te-datum" value="${t.datum}" style="${fld}" onchange="ferienDatumHint(this,'te-ferien-hint')"></label>
       <label style="font-size:11px;color:var(--text2)">Uhrzeit<input type="time" id="te-zeit" value="${t.uhrzeit?String(t.uhrzeit).slice(0,5):''}" style="${fld}"></label>
     </div>
+    <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Ende${isSpiel?" (Pflicht – danach wandert der Termin ins Archiv)":" (optional)"}<input type="time" id="te-ende" value="${t.uhrzeit_ende?String(t.uhrzeit_ende).slice(0,5):''}" style="${fld}"></label>
     <div id="te-ferien-hint"></div>
     ${!isTraining?`<label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Gegner / Titel<input id="te-titel" value="${esc(t.titel||'')}" style="${fld}"></label>`:''}
     <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Ort / Adresse<input id="te-ort" value="${esc(t.ort||'')}" style="${fld}"></label>
@@ -613,7 +616,8 @@ async function tmEditSave(id){
   const g=i=>document.getElementById(i);
   const datum=g("te-datum")?.value;
   if(!datum){toast("Bitte Datum wählen","err");return;}
-  const body={datum, uhrzeit:(g("te-zeit")?.value||"")||null, ort:(g("te-ort")?.value||"").trim()||null};
+  if(isSpiel&&!(g("te-ende")?.value)){toast("Bitte eine Endzeit eintragen – danach wandert der Termin ins Archiv","err");return;}
+  const body={datum, uhrzeit:(g("te-zeit")?.value||"")||null, uhrzeit_ende:(g("te-ende")?.value||"")||null, ort:(g("te-ort")?.value||"").trim()||null};
   if(g("te-titel")){const tt=(g("te-titel").value||"").trim()||null; body.titel=tt; body.gegner=isSpiel?tt:null;}
   if(g("te-platz"))body.platz=(g("te-platz").value||"").trim()||null;
   if(g("te-sf"))body.spielform=g("te-sf").value||null;
