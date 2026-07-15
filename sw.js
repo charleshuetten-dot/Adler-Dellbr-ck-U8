@@ -106,6 +106,7 @@ self.addEventListener("fetch",e=>{
   if(url.includes("supabase.co"))return;
   if(url.includes("open-meteo.com"))return; // Wetter: nie cachen (ignoreSearch würde die Datums-Query zerstören)
   if(url.includes("openstreetmap.org"))return; // Geocoding/Adress-Suche: nie cachen (Query-Sicherheit)
+  if(url.includes("openholidaysapi.org"))return; // Ferien-Radar: nie cachen (ignoreSearch würde die Datums-Query zerstören)
   if(e.request.method!=="GET")return;
 
   /* NETWORK-FIRST fuer die Seite selbst und die Manifeste.

@@ -1295,14 +1295,14 @@ function adlerWrappedRender(){
 function adlerWrappedNext(){ if(!document.getElementById("adler-wrapped"))return; if(awrapIdx>=awrapSlides.length-1){adlerWrappedClose();return;} awrapIdx++; adlerWrappedRender(); }
 function adlerWrappedPrev(){ if(!document.getElementById("adler-wrapped"))return; if(awrapIdx<=0){adlerWrappedRender();return;} awrapIdx--; adlerWrappedRender(); }
 function adlerWrappedClose(){ clearTimeout(awrapTimer); awrapFotoUrls.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}}); awrapFotoUrls=[]; document.getElementById("adler-wrapped")?.remove(); }
-function printZertifikat(){
-  const name=document.getElementById("psel-profil")?.value;
-  if(!name){toast("Erst einen Spieler wählen","err");return;}
-  const snaps=DB[name]||[];if(!snaps.length){toast("Keine Bewertung vorhanden","err");return;}
-  const lat=snaps[snaps.length-1];
+/* Eine Zertifikat-Karte als HTML (aus printZertifikat extrahiert, damit das
+   Urkunden-Studio ALLE Kinder in einem Druckauftrag stapeln kann). */
+function _zertCardHtml(name,extra){
+  extra=extra||{};
+  const snaps=DB[name]||[];
+  const lat=snaps.length?snaps[snaps.length-1]:{};
   const isTw=lat.tw===true||getKader(name)?.tw;
   const prim=lat.prim_rolle||"Allrounder";
-  // Stärken aus dem Fazit ("  + …")
   const st=[];
   (lat.fazit||"").split("\n").forEach(line=>{ if(line.startsWith("  + "))st.push(line.slice(4).split("–")[0].trim()); });
   const top=st.slice(0,3);
@@ -1310,39 +1310,97 @@ function printZertifikat(){
     ? top.map(s=>`<div class="zt-i"><b>✔</b><span>${esc(s)}</span></div>`).join("")
     : `<div class="zt-i"><b>✔</b><span>Mit vollem Einsatz dabei – Woche für Woche</span></div>`;
   const tot=lat.total_score||0,pot=lat.pot_score||0;
-  const text=`Für eine großartige Saison bei der U9 I des SV Adler Dellbrück. `+
+  const text=extra.text||(`Für eine großartige Saison bei der U9 I des SV Adler Dellbrück. `+
     `Du hast dich als ${esc(prim)}${isTw?" und im Tor":""} weiterentwickelt, im Training angepackt `+
-    `und Teil unserer Raute-Familie geworden. Weiter so – wir sind stolz auf dich!`;
-
-  document.getElementById("zert-print").innerHTML=`
-    <div class="zert-card">
+    `und bist Teil unserer Raute-Familie geworden. Weiter so – wir sind stolz auf dich!`);
+  return `<div class="zert-card">
       <div class="zert-crest"><img src="logo.png" alt="SV Adler Dellbrück"></div>
       <div class="zert-club">SV Adler Dellbrück e.V. · U9 I</div>
-      <div class="zert-title">Saison-Zertifikat</div>
-      <div class="zert-season">Saison ${saisonLabel()}</div>
+      <div class="zert-title">${esc(extra.titel||"Saison-Zertifikat")}</div>
+      <div class="zert-season">${extra.anlass?esc(extra.anlass):"Saison "+saisonLabel()}</div>
       <div class="zert-for">verliehen an</div>
       <div class="zert-name">${esc(name)}${isTw?" 🥅":""}</div>
-      <div class="zert-role">Rolle in der Raute: ${esc(prim)}</div>
+      ${extra.frei?"":`<div class="zert-role">Rolle in der Raute: ${esc(prim)}</div>`}
       <div class="zert-text">${text}</div>
-      <div class="zert-staerken">
+      ${extra.frei?"":`<div class="zert-staerken">
         <div class="zt-h">Deine Stärken in dieser Saison</div>
         ${staerkenHtml}
       </div>
       <div class="zert-badges">
-        <div class="zb">Entwicklungsstand<b>${tot}%</b></div>
-        <div class="zb">Potenzial<b>~${pot}%</b></div>
-      </div>
+        ${snaps.length?`<div class="zb">Entwicklungsstand<b>${tot}%</b></div>
+        <div class="zb">Potenzial<b>~${pot}%</b></div>`:""}
+        ${extra.federn!=null?`<div class="zb">Federn gesammelt<b>🪶 ${extra.federn}</b></div>`:""}
+      </div>`}
       <div class="zert-sign">
         <div>Trainerteam<br>${(typeof TRAINER!=="undefined"?TRAINER:["Sandy","Charles","Finn","Kenneth","Peter"]).join(" · ")}</div>
         <div>Dellbrück, ${new Date().toLocaleDateString("de-DE",{day:"2-digit",month:"long",year:"numeric"})}</div>
       </div>
     </div>`;
-
+}
+function _zertPrint(html){
+  document.getElementById("zert-print").innerHTML=html;
   document.body.classList.add("printing-zert");
   const cleanup=()=>{document.body.classList.remove("printing-zert");window.removeEventListener("afterprint",cleanup);};
   window.addEventListener("afterprint",cleanup);
   setTimeout(cleanup,3000); // Fallback, falls afterprint nicht feuert
   window.print();
+}
+/* ── I-B: Urkunden-Studio – Saison-Urkunden für ALLE Kinder in einem Druckauftrag
+   (Saisonabschluss-Klassiker) + freie Anlass-Urkunde (Turnier, Meilenstein …).
+   Nutzt die vorhandene zert-print-Infrastruktur; je Karte eine A4-Seite. ── */
+async function urkundenOpen(){
+  const active=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
+  document.getElementById("urk-modal")?.remove();
+  const m=document.createElement("div");m.id="urk-modal";
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Urkunden-Studio");
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  const fld="width:100%;box-sizing:border-box;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13.5px;background:var(--surface2);color:var(--text);margin-top:6px";
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
+    ${mdlHead("urk-modal","🏅","Urkunden-Studio","Saison-Urkunden für alle – oder eine Urkunde zum Anlass","#b45309")}
+    <div style="font-weight:800;font-size:13px;margin-bottom:4px">Saison-Urkunden (alle Kinder)</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Je Kind eine A4-Seite: Stärken aus der Bewertung, Rolle, Federn und Unterschriften-Zeile – fertig fürs Saisonabschluss-Fest.</div>
+    <button class="btn btn-p" style="width:100%" onclick="urkundenAlle(this)"><i class="ti ti-printer"></i>Alle ${active.length} Urkunden drucken</button>
+    <div style="font-weight:800;font-size:13px;margin:18px 0 4px">Urkunde zum Anlass</div>
+    <div style="font-size:12px;color:var(--text2)">Turnier, Team-Meilenstein, besondere Leistung – Titel und Text frei.</div>
+    <select id="urk-kind" style="${fld}"><option value="*">Alle Kinder</option>${active.map(k=>`<option value="${esc(k.name)}">${esc(k.name)}</option>`).join("")}</select>
+    <input id="urk-titel" placeholder="Titel, z. B. Turnier-Urkunde" value="Turnier-Urkunde" style="${fld}">
+    <input id="urk-anlass" placeholder="Anlass/Untertitel, z. B. Sommer-Cup 2026" style="${fld}">
+    <textarea id="urk-text" rows="3" style="${fld}" placeholder="Text auf der Urkunde">Für großartigen Einsatz, Teamgeist und Fairplay. Das ganze Adler-Team ist stolz auf dich!</textarea>
+    <button class="btn btn-p" style="width:100%;margin-top:10px" onclick="urkundeFrei(this)"><i class="ti ti-printer"></i>Anlass-Urkunde drucken</button>
+    <div style="font-size:10.5px;color:var(--text3);margin-top:10px">Tipp: Im Druckdialog „Als PDF speichern" wählen, um die Urkunden digital zu verschicken.</div>
+  </div>`;
+  document.body.appendChild(m);
+}
+async function urkundenAlle(btn){
+  const active=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
+  if(!active.length){toast("Kein Kader geladen","err");return;}
+  if(btn)btn.disabled=true;
+  // Federn je Kind (ein RPC-Aufruf pro Kind, parallel; bei Fehler ohne Federn drucken)
+  const federn={};
+  await Promise.all(active.map(async k=>{ try{federn[k.name]=await xpTotal(k._id||k.id);}catch(e){} }));
+  if(btn)btn.disabled=false;
+  const html=active.map(k=>`<div class="zert-page">${_zertCardHtml(k.name,{federn:federn[k.name]})}</div>`).join("");
+  document.getElementById("urk-modal")?.remove();
+  _zertPrint(html);
+}
+function urkundeFrei(btn){
+  const wer=document.getElementById("urk-kind")?.value||"*";
+  const titel=(document.getElementById("urk-titel")?.value||"").trim()||"Urkunde";
+  const anlass=(document.getElementById("urk-anlass")?.value||"").trim();
+  const text=esc((document.getElementById("urk-text")?.value||"").trim()||"Für großartigen Einsatz und Teamgeist!");
+  const active=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
+  const namen=wer==="*"?active.map(k=>k.name):[wer];
+  if(!namen.length){toast("Kein Kind gewählt","err");return;}
+  const html=namen.map(n=>`<div class="zert-page">${_zertCardHtml(n,{frei:true,titel,anlass,text})}</div>`).join("");
+  document.getElementById("urk-modal")?.remove();
+  _zertPrint(html);
+}
+function printZertifikat(){
+  const name=document.getElementById("psel-profil")?.value;
+  if(!name){toast("Erst einen Spieler wählen","err");return;}
+  const snaps=DB[name]||[];if(!snaps.length){toast("Keine Bewertung vorhanden","err");return;}
+  _zertPrint(_zertCardHtml(name)); // Karte + Druck laufen über die Studio-Helper (I-B)
 }
 // Entwicklungs-Report (druckbar) fürs Elterngespräch – nutzt vorhandene Daten + den
 // generischen Druck-Container (#zert-print / printing-zert). Trend, Dimensionen, Stärken,
@@ -2532,6 +2590,54 @@ function elternInvitePaket(){
 }
 // Saison-Cockpit: ein Blick auf die Saison – Kennzahlen, Top-Torschützen, Anwesenheit,
 // Sprung zur Einsatz-Fairness. Führt vorhandene Datenquellen zusammen (keine neue Persistenz).
+/* ── I-B: Ferien-Radar – NRW-Schulferien über die OpenHolidays API (offene Daten,
+   kein Scraping; gleiche Machart wie Wetter). 7-Tage-Cache in localStorage. Bewusst
+   KEINE eigene Tür: Warnzeile im Termin-Formular, 🏖️-Badge auf Terminkarten und ein
+   dezenter Dashboard-Hinweis, wenn Ferien nahen. ── */
+async function ferienLoad(){
+  try{const c=JSON.parse(localStorage.getItem("adler_ferien")||"null");
+    if(c&&c.rows&&Date.now()-c.at<7*864e5){window._ferien=c.rows;return c.rows;}}catch(e){}
+  let rows=[];
+  try{
+    const von=new Date().toISOString().slice(0,10);
+    const bis=new Date(Date.now()+400*864e5).toISOString().slice(0,10);
+    const r=await fetch(`https://openholidaysapi.org/SchoolHolidays?countryIsoCode=DE&subdivisionCode=DE-NW&languageIsoCode=DE&validFrom=${von}&validTo=${bis}`);
+    if(r.ok){const data=await r.json();
+      rows=(Array.isArray(data)?data:[]).map(h=>({von:h.startDate,bis:h.endDate,name:((h.name&&h.name[0]&&h.name[0].text)||"Ferien").replace(/\s*Nordrhein-Westfalen\s*/i,"").trim()||"Ferien"}));}
+  }catch(e){}
+  if(rows.length){window._ferien=rows;try{localStorage.setItem("adler_ferien",JSON.stringify({at:Date.now(),rows}));}catch(e){}}
+  return window._ferien||[];
+}
+function ferienFuer(datum){ return (window._ferien||[]).find(f=>datum>=f.von&&datum<=f.bis)||null; }
+function ferienBadge(datum){
+  const f=ferienFuer(datum);
+  return f?`<span title="Schulferien NRW" style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;background:#e0f2fe;color:#0369a1;white-space:nowrap">🏖️ ${esc(f.name)}</span>`:"";
+}
+// Warnzeile unter einem Datumsfeld (Termin anlegen/bearbeiten)
+async function ferienDatumHint(input,slotId){
+  const slot=document.getElementById(slotId); if(!slot||!input||!input.value)return;
+  await ferienLoad();
+  const f=ferienFuer(input.value);
+  slot.innerHTML=f?`<div style="font-size:11.5px;color:#0369a1;background:#e0f2fe;border-radius:8px;padding:6px 10px;margin-top:4px">🏖️ Achtung: Das Datum liegt in den <b>${esc(f.name)}</b> (${new Date(f.von+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}–${new Date(f.bis+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}) – mit dünner Beteiligung rechnen.</div>`:"";
+}
+// Dashboard: Hinweis nur, wenn Ferien laufen oder in <21 Tagen beginnen
+async function homeFerien(){
+  const el=document.getElementById("home-ferien"); if(!el)return;
+  const rows=await ferienLoad();
+  const slot=document.getElementById("home-ferien"); if(!slot)return;
+  const heute=new Date().toISOString().slice(0,10);
+  const grenze=new Date(Date.now()+21*864e5).toISOString().slice(0,10);
+  const jetzt=rows.find(f=>heute>=f.von&&heute<=f.bis);
+  const bald=rows.filter(f=>f.von>heute&&f.von<=grenze).sort((a,b)=>a.von<b.von?-1:1)[0];
+  const f=jetzt||bald;
+  if(!f){slot.innerHTML="";return;}
+  const dLabel=d=>new Date(d+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+  const tage=Math.round((new Date(f.von+"T00:00:00")-new Date(heute+"T00:00:00"))/864e5);
+  slot.innerHTML=`<div class="card" style="padding:10px 14px;margin-bottom:8px;border-left:3px solid #0ea5e9;display:flex;align-items:center;gap:10px">
+    <span style="font-size:20px">🏖️</span>
+    <div style="font-size:12.5px;color:var(--text2)"><b style="color:var(--text)">${esc(f.name)} NRW</b> ${jetzt?`laufen gerade (bis ${dLabel(f.bis)})`:`starten in ${tage} Tag${tage===1?"":"en"} (${dLabel(f.von)}–${dLabel(f.bis)})`} – Termine ggf. anpassen, Rückmeldungen früh einholen.</div>
+  </div>`;
+}
 /* ── I-A: Kabinen-Wahl (Trainer) – Wahl anlegen, Ergebnis sehen, beenden. Die Kinder
    stimmen in der Kabine ab; Ergebnis kommt anonym aggregiert (RPC wahl_ergebnis). ── */
 async function wahlTrainerOpen(){
@@ -3211,6 +3317,7 @@ async function renderHome(){
     <div id="home-rsvp"></div>
     <div id="home-antifrust"></div>
     <div id="home-milestone"></div>
+    <div id="home-ferien"></div>
     <div id="eg-trainer"></div>
     <div class="sl nt" style="margin-top:18px"><i class="ti ti-tools"></i>Werkzeuge</div>
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:2px 2px 6px">Auswerten</div>
@@ -3248,6 +3355,7 @@ async function renderHome(){
     <div style="display:flex;flex-wrap:wrap;gap:8px">
       ${homeTool("📰 Adler Nest","stadionheftOpen()")}
       ${homeTool("🪶 Adler-Welt","adlerWeltOpen()")}
+      ${homeTool("🏅 Urkunden-Studio","urkundenOpen()")}
     </div>
     <div id="home-birthday" style="margin-top:12px"></div>
     ${gebHtml}
@@ -3261,6 +3369,7 @@ async function renderHome(){
   homeRsvpNudge(); // "wer hat noch nicht geantwortet" für den nächsten Termin
   homeAntiFrust(); // Anti-Frust-Radar: wer braucht heute eine Bühne
   homeMilestone(); // H7: frisch erreichte Team-Meilensteine kurz feiern
+  homeFerien();    // I-B: Ferien-Radar (nur sichtbar, wenn Ferien laufen/nahen)
   trainerTodoLoad(); // persönliche To-Dos des eingeloggten Trainers (Zusagen/Einheit/Sprachlob)
   // Team-Level ("Küken-Schwarm") lebt jetzt in der Adler-Welt, nicht mehr auf der Startseite
   homeBirthday(); // C4: Geburtstags-Automatik

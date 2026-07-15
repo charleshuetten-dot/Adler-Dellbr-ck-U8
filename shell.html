@@ -359,7 +359,7 @@
         <button type="button" class="seg-btn" data-val="event" onclick="tmSetTyp('event',this)">🎉 Event</button>
       </div>
       <div class="mgrid" style="grid-template-columns:1fr 1fr;gap:8px">
-        <div class="mg"><label>Datum</label><input type="date" id="tm-datum"></div>
+        <div class="mg"><label>Datum</label><input type="date" id="tm-datum" onchange="ferienDatumHint(this,'tm-ferien-hint')"><div id="tm-ferien-hint"></div></div>
         <div class="mg"><label>Uhrzeit (optional)</label><input type="time" id="tm-zeit"></div>
       </div>
       <div class="mg" id="tm-spielform-row" style="margin-top:8px;display:none"><label>Spielform</label>

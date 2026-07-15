@@ -432,7 +432,7 @@ function tmCard(t){
     <div style="display:flex;align-items:center;gap:11px;padding:11px 13px;background:linear-gradient(90deg,${m.col}14,transparent);border-left:4px solid ${m.col}">
       <div style="width:40px;height:40px;flex:none;border-radius:12px;background:${m.col};display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 2px 6px ${m.col}55">${m.icon}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:14.5px;font-weight:800;display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.25">${esc(t.titel||m.label)}${hBadge}${sfBadge}</div>
+        <div style="font-size:14.5px;font-weight:800;display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.25">${esc(t.titel||m.label)}${hBadge}${sfBadge}${(typeof ferienBadge==="function")?ferienBadge(t.datum):""}</div>
         <div style="font-size:11.5px;color:var(--text2);margin-top:2px">${datumStr}${zeitStr?" · "+zeitStr+" Uhr":""}</div>
       </div>
     </div>
@@ -586,9 +586,10 @@ function tmEdit(id){
   c.style.cssText="background:var(--surface);color:var(--text);max-width:440px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   c.innerHTML=`${mdlHead("tm-edit-modal","✏️",`${m.icon} Termin bearbeiten`,"","#475569")}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <label style="font-size:11px;color:var(--text2)">Datum<input type="date" id="te-datum" value="${t.datum}" style="${fld}"></label>
+      <label style="font-size:11px;color:var(--text2)">Datum<input type="date" id="te-datum" value="${t.datum}" style="${fld}" onchange="ferienDatumHint(this,'te-ferien-hint')"></label>
       <label style="font-size:11px;color:var(--text2)">Uhrzeit<input type="time" id="te-zeit" value="${t.uhrzeit?String(t.uhrzeit).slice(0,5):''}" style="${fld}"></label>
     </div>
+    <div id="te-ferien-hint"></div>
     ${!isTraining?`<label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Gegner / Titel<input id="te-titel" value="${esc(t.titel||'')}" style="${fld}"></label>`:''}
     <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Ort / Adresse<input id="te-ort" value="${esc(t.ort||'')}" style="${fld}"></label>
     ${(isTraining||isSpiel)?`<label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">${isSpiel?"Spielfeld-Aufteilung":"Platz"}<select id="te-platz" style="${fld}">${platzOpts}</select></label>`:''}
@@ -603,6 +604,8 @@ function tmEdit(id){
       <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('tm-edit-modal').remove()">Abbrechen</button>
     </div>`;
   modal.appendChild(c);document.body.appendChild(modal);
+  // I-B: liegt der Termin schon jetzt in den Ferien? Hinweis direkt beim Öffnen zeigen
+  if(typeof ferienDatumHint==="function")ferienDatumHint(document.getElementById("te-datum"),"te-ferien-hint");
 }
 async function tmEditSave(id){
   const t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(id))||{};
