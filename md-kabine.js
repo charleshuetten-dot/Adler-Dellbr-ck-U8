@@ -198,6 +198,8 @@ function kabineHome(){
     <div id="kab-countdown"></div>
     <div id="kab-reveal"></div>
     <div id="kab-pack"></div>
+    <div id="kab-post"></div>
+    <div id="kab-wahl"></div>
     <div id="kab-stimmung"></div>
     <div id="kab-milestone"></div>
     <div id="kab-arena" style="padding:0 16px 4px"></div>
@@ -219,9 +221,10 @@ function kabineHome(){
       ${tile("kabineShowQuests()","🏆","Missionen","rgba(245,158,11,.52)","rgba(217,119,6,.32)")}
       ${tile("kabineSkillWoche()","🎬","Skill der Woche","rgba(251,146,60,.48)","rgba(234,88,12,.30)")}
       ${lbl("Team & Spaß")}
+      ${tile("kabineKudos()","👏","Kompliment schenken","rgba(16,185,129,.52)","rgba(5,150,105,.32)")}
       ${tile("kabineShowGallery()","🖼️","Team-Galerie","rgba(16,185,129,.48)","rgba(5,150,105,.30)")}
       ${tile("kabineHype()","🎵","Kabinen-Hype","rgba(45,212,191,.44)","rgba(13,148,136,.30)")}
-      ${tile("kabineAlbum()","📖","Sammelalbum","rgba(52,211,153,.46)","rgba(4,120,87,.30)",true)}
+      ${tile("kabineAlbum()","📖","Sammelalbum","rgba(52,211,153,.46)","rgba(4,120,87,.30)")}
     </div>`;})()}
     </div>
     <button onclick="kabineExit()" style="margin:0 16px 18px;padding:12px;border:none;border-radius:14px;background:rgba(0,0,0,.25);color:#fff;font-family:inherit;font-size:14px;cursor:pointer">🔒 Für Erwachsene: Kabine verlassen</button>`;
@@ -230,6 +233,8 @@ function kabineHome(){
   kabineCountdownLoad();                                        // G6: Countdown bis zum nächsten Spiel
   kabineRevealLoad();                                           // H4: Rollen-Reveal am Spieltag
   kabinePackLoad();                                             // H3: Spieltag-Packliste
+  kabinePostLoad();                                             // I-A: 📬 Adler-Post (Kudos + Genesungsgrüße)
+  kabineWahlLoad();                                             // I-A: 🗳️ Kabinen-Wahl
   kabineStimmungLoad();                                         // H2: Kinder-Stimmungs-Check
   kabineMilestoneLoad();                                        // H7: frische Team-Meilensteine feiern
 }
@@ -408,6 +413,166 @@ async function kabineMilestoneLoad(){
     <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;opacity:.85">🎉 Team-Meilenstein</div>
     <div style="font-size:15px;font-weight:900;margin-top:2px">${esc(m.label)}</div>
   </div>`).join("");
+}
+/* I-A – Adler-Post: Kind→Kind-Komplimente (Kudos) & Genesungsgrüße in EINER Tabelle
+   (kabine_post). Vordefinierte Texte (text_key) statt Freitext → keine Moderationslast.
+   Anti-Spam: 1 Post je Absender→Empfänger & Tag (DB-Unique). Der Empfangs-Slot bündelt
+   alles Persönliche in EINEM Briefkasten, damit die Kabine oben nicht zustaut. */
+const KUDOS_TEXTE=["⚽ Starker Pass!","🔥 Super gekämpft!","👏 Du hast mich angefeuert!","🤝 Du bist mega fair!","😄 Mit dir macht's am meisten Spaß!","🛡️ Starke Abwehr!","🎯 Tolles Tor!","💪 Du gibst nie auf!"];
+const GENESUNG_TEXTE=["💌 Gute Besserung!","🦅 Wir vermissen dich!","💪 Komm bald wieder!","⚽ Der Platz wartet auf dich!"];
+function kabinePostText(typ,key){ const L=typ==="genesung"?GENESUNG_TEXTE:KUDOS_TEXTE; return L[key]||L[0]; }
+async function kabinePostLoad(){
+  const el=document.getElementById("kab-post"); if(!el)return;
+  const kids=window._elternKids||[]; if(!kids.length){el.innerHTML="";return;}
+  let neu=0;
+  try{const ids=kids.map(k=>k.spieler_id).join(",");
+    const r=await fetch(`${SB_URL}/rest/v1/kabine_post?an_spieler=in.(${ids})&gesehen=eq.false&select=id`,{headers:sbAuthHeaders()});
+    if(r.ok)neu=((await r.json())||[]).length;}catch(e){}
+  if(!neu){el.innerHTML="";return;}
+  el.innerHTML=`<button onclick="kabinePostOpen()" style="display:flex;align-items:center;gap:10px;margin:2px 16px 8px;width:calc(100% - 32px);border:1px solid rgba(255,255,255,.2);border-radius:16px;background:linear-gradient(135deg,rgba(236,72,153,.55),rgba(190,24,93,.35));color:#fff;font-family:inherit;cursor:pointer;padding:14px;text-align:left">
+    <span style="font-size:26px">📬</span>
+    <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:900">Deine Adler-Post ist da!</span>
+    <span style="display:block;font-size:11.5px;opacity:.9">${neu} neue Nachricht${neu===1?"":"en"} – tippe zum Öffnen 💌</span></span>
+  </button>`;
+}
+async function kabinePostOpen(){
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  const kids=window._elternKids||[];
+  b.innerHTML=`<div style="text-align:center;padding:60px 16px;opacity:.85;color:#fff">Lade …</div>`;
+  const ab=new Date(Date.now()-14*864e5).toISOString();
+  let rows=[];
+  try{const ids=kids.map(k=>k.spieler_id).join(",");
+    const r=await fetch(`${SB_URL}/rest/v1/kabine_post?an_spieler=in.(${ids})&created_at=gte.${ab}&select=*&order=created_at.desc`,{headers:sbAuthHeaders()});
+    if(r.ok)rows=(await r.json())||[];}catch(e){}
+  // Absender-Namen (Kader ist für Eltern lesbar: id, name, nr)
+  const nameById={};
+  try{const von=[...new Set(rows.map(x=>x.von_spieler))].join(",");
+    if(von){const r=await fetch(`${SB_URL}/rest/v1/kader?id=in.(${von})&select=id,name`,{headers:sbAuthHeaders()});
+      if(r.ok)(await r.json()).forEach(k=>nameById[k.id]=k.name);}}catch(e){}
+  const kidName=sid=>{const k=kids.find(x=>x.spieler_id===sid);return (k&&k.kader&&k.kader.name)||"";};
+  const neuIds=rows.filter(x=>!x.gesehen).map(x=>x.id);
+  b.innerHTML=`<div id="kab-post-view" style="flex:1;overflow-y:auto;position:relative">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px">
+      <button onclick="kabineHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
+      <div style="flex:1;font-size:18px;font-weight:800;color:#fff">📬 Adler-Post</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;padding:0 16px 16px">
+      ${rows.length?rows.map(x=>`<div style="border-radius:16px;padding:14px;color:#fff;background:${x.typ==="genesung"?"linear-gradient(135deg,rgba(244,63,94,.5),rgba(190,18,60,.32))":"linear-gradient(135deg,rgba(236,72,153,.5),rgba(147,51,234,.32))"};${x.gesehen?"opacity:.75":""}">
+        <div style="font-size:11px;opacity:.85">${x.gesehen?"":"🆕 "}von <b>${esc(nameById[x.von_spieler]||"einem Adler")}</b>${kids.length>1?` · für ${esc(kidName(x.an_spieler))}`:""}</div>
+        <div style="font-size:17px;font-weight:900;margin-top:4px">${esc(kabinePostText(x.typ,x.text_key))}</div>
+      </div>`).join(""):'<div style="text-align:center;color:#fff;opacity:.8;padding:30px 16px">Noch keine Post – schenk doch selbst ein Kompliment! 👏</div>'}
+    </div>
+  </div>`;
+  if(neuIds.length){
+    try{await fetch(`${SB_URL}/rest/v1/kabine_post?id=in.(${neuIds.join(",")})`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({gesehen:true})});}catch(e){}
+    try{navigator.vibrate&&navigator.vibrate([30,50,30]);}catch(e){}
+    const cont=document.getElementById("kab-post-view");
+    if(cont&&typeof confetti==="function")confetti(cont);
+    const slot=document.getElementById("kab-post"); if(slot)slot.innerHTML="";
+  }
+}
+/* Kompliment schenken: Mitspieler-Grid; pausierte Kinder mit Genesungs-Freigabe erscheinen
+   im selben Flow mit 💌-Grüßen statt Komplimenten (ein Flow, zwei Kartentypen). */
+function kabineKudos(){
+  const kids=window._elternKids||[];
+  if(!kids.length)return;
+  if(kids.length===1){ kabineKudosFor(kids[0].spieler_id,(kids[0].kader&&kids[0].kader.name)||""); return; }
+  kabinePickKid("👏 Wer verschenkt?","kabineKudosFor");
+}
+async function kabineKudosFor(vonSid,vonName){
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  b.innerHTML=`<div style="text-align:center;padding:60px 16px;opacity:.85;color:#fff">Lade …</div>`;
+  const heute=new Date().toISOString().slice(0,10);
+  let team=[],pausen={};
+  try{const r=await fetch(`${SB_URL}/rest/v1/kader?select=id,name&aktiv=not.is.false&order=name.asc`,{headers:sbAuthHeaders()});if(r.ok)team=(await r.json())||[];}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_pause?select=spieler_id,gruesse_ok&bis=gte.${heute}`,{headers:sbAuthHeaders()});
+    if(r.ok)(await r.json()).forEach(p=>{if(p.gruesse_ok)pausen[p.spieler_id]=1;});}catch(e){}
+  const andere=team.filter(k=>k.id!==vonSid);
+  b.innerHTML=`<div style="flex:1;overflow-y:auto">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px">
+      <button onclick="kabineHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
+      <div style="flex:1;font-size:18px;font-weight:800;color:#fff">👏 Wem willst du eine Freude machen?</div>
+    </div>
+    <div style="font-size:12px;opacity:.85;padding:0 16px 10px;text-align:center;color:#fff">Such dir einen Mitspieler aus – ${esc(vonName)} schenkt ein Kompliment!</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px 16px">
+      ${andere.map(k=>`<button onclick="kabineKudosPick(${vonSid},'${jsq(vonName)}',${k.id},'${jsq(k.name)}',${pausen[k.id]?1:0})" style="border:none;border-radius:18px;min-height:92px;background:${pausen[k.id]?"linear-gradient(135deg,rgba(244,63,94,.5),rgba(190,18,60,.3))":"rgba(255,255,255,.12)"};color:#fff;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:15px;font-weight:800">
+        <span style="font-size:30px">${pausen[k.id]?"💌":"⚽"}</span>${esc(k.name)}
+        ${pausen[k.id]?'<span style="font-size:10px;font-weight:700;opacity:.9">fehlt gerade – schick einen Gruß!</span>':""}
+      </button>`).join("")||'<div style="grid-column:1/-1;text-align:center;color:#fff;opacity:.8;padding:20px">Kein Mitspieler gefunden.</div>'}
+    </div>
+  </div>`;
+}
+function kabineKudosPick(vonSid,vonName,anSid,anName,pausiert){
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  const typ=pausiert?"genesung":"kudos";
+  const texte=pausiert?GENESUNG_TEXTE:KUDOS_TEXTE;
+  b.innerHTML=`<div style="flex:1;overflow-y:auto">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px">
+      <button onclick="kabineKudosFor(${vonSid},'${jsq(vonName)}')" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
+      <div style="flex:1;font-size:18px;font-weight:800;color:#fff">${pausiert?"💌 Gruß":"👏 Kompliment"} für ${esc(anName)}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;padding:0 16px 16px">
+      ${texte.map((t,i)=>`<button onclick="kabineKudosSend(${vonSid},${anSid},'${typ}',${i},this)" style="border:none;border-radius:16px;padding:16px;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer;text-align:left;background:rgba(255,255,255,.12);color:#fff">${esc(t)}</button>`).join("")}
+    </div>
+  </div>`;
+}
+async function kabineKudosSend(vonSid,anSid,typ,key,btn){
+  if(btn)btn.disabled=true;
+  const heute=new Date().toISOString().slice(0,10);
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kabine_post`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({typ,von_spieler:vonSid,an_spieler:anSid,text_key:key,datum:heute})});
+    if(r.status===409){toast("Du hast heute schon etwas geschickt 🙂","err");kabineHome();return;}
+    if(!r.ok&&r.status!==201){toast("Konnte nicht senden","err");if(btn)btn.disabled=false;return;}
+  }catch(e){toast("Netzwerkfehler","err");if(btn)btn.disabled=false;return;}
+  try{navigator.vibrate&&navigator.vibrate([30,50,80]);}catch(e){}
+  toast(typ==="genesung"?"💌 Gruß ist unterwegs!":"👏 Kompliment verschenkt – stark von dir!");
+  kabineHome();
+}
+/* I-A – Kabinen-Wahl: die Kinder stimmen ab (Song/Motto/Spielform). Der Trainer legt die
+   Wahl in der Adler-Welt an; Ergebnis kommt anonym aggregiert (RPC wahl_ergebnis). */
+async function kabineWahlLoad(){
+  const el=document.getElementById("kab-wahl"); if(!el)return;
+  const kids=window._elternKids||[]; if(!kids.length){el.innerHTML="";return;}
+  let wahl=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/kabinen_wahl?aktiv=eq.true&select=*&order=created_at.desc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)wahl=((await r.json())||[])[0]||null;}catch(e){}
+  if(!wahl||!Array.isArray(wahl.optionen)||wahl.optionen.length<2){el.innerHTML="";return;}
+  let meine={};
+  try{const ids=kids.map(k=>k.spieler_id).join(",");
+    const r=await fetch(`${SB_URL}/rest/v1/kabinen_wahl_stimmen?wahl_id=eq.${wahl.id}&spieler_id=in.(${ids})&select=spieler_id,wahl`,{headers:sbAuthHeaders()});
+    if(r.ok)(await r.json()).forEach(s=>meine[s.spieler_id]=s.wahl);}catch(e){}
+  const offen=kids.filter(k=>meine[k.spieler_id]==null);
+  if(offen.length){
+    const k=offen[0];
+    el.innerHTML=`<div style="margin:2px 16px 8px;background:linear-gradient(135deg,rgba(56,189,248,.45),rgba(2,132,199,.3));border-radius:16px;padding:12px 14px;color:#fff">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;opacity:.85">🗳️ Deine Stimme zählt${kids.length>1?" – "+esc((k.kader&&k.kader.name)||""):""}</div>
+      <div style="font-size:15px;font-weight:900;margin:4px 0 8px">${esc(wahl.frage)}</div>
+      ${wahl.optionen.map((o,i)=>`<button onclick="kabineWahlVote(${wahl.id},${k.spieler_id},${i})" style="display:block;width:100%;border:none;border-radius:12px;padding:12px;margin-top:6px;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;background:rgba(255,255,255,.16);color:#fff;text-align:left">${esc(String(o))}</button>`).join("")}
+    </div>`;
+    return;
+  }
+  // alle Kinder haben gewählt → Live-Balken zeigen (solange die Wahl aktiv ist)
+  let erg=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/wahl_ergebnis`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_wahl:wahl.id})});if(r.ok)erg=(await r.json())||[];}catch(e){}
+  const counts=wahl.optionen.map((_,i)=>{const e2=erg.find(x=>x.wahl===i);return e2?e2.n:0;});
+  const total=counts.reduce((s,n)=>s+n,0)||1;
+  el.innerHTML=`<div style="margin:2px 16px 8px;background:rgba(255,255,255,.12);border-radius:16px;padding:12px 14px;color:#fff">
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;opacity:.8">🗳️ ${esc(wahl.frage)}</div>
+    ${wahl.optionen.map((o,i)=>{const pct=Math.round(counts[i]/total*100);const mine=kids.some(k=>meine[k.spieler_id]===i);
+      return `<div style="margin-top:8px">
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700"><span>${mine?"✅ ":""}${esc(String(o))}</span><span style="opacity:.85">${counts[i]}</span></div>
+        <div style="height:8px;background:rgba(255,255,255,.15);border-radius:5px;overflow:hidden;margin-top:3px"><div style="height:100%;width:${pct}%;background:#38bdf8;border-radius:5px;transition:width .5s"></div></div>
+      </div>`;}).join("")}
+    <div style="font-size:10.5px;opacity:.75;margin-top:8px">Danke fürs Abstimmen – das Ergebnis wächst, wenn mehr Adler wählen!</div>
+  </div>`;
+}
+async function kabineWahlVote(wahlId,sid,idx){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kabinen_wahl_stimmen?on_conflict=wahl_id,spieler_id`,{method:"POST",headers:sbAuthHeaders({'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify({wahl_id:wahlId,spieler_id:sid,wahl:idx})});
+    if(!r.ok&&r.status!==201){toast("Konnte nicht abstimmen","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  try{navigator.vibrate&&navigator.vibrate([30,40,60]);}catch(e){}
+  toast("🗳️ Stimme gezählt!");
+  kabineWahlLoad();
 }
 /* Kabinen-DJ (Phase 23.2): die Spotify-Playlist der U9 in der App. Wandelt einen
    Spotify-Link in die Embed-URL um; akzeptiert Playlist/Album/Track. */

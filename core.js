@@ -497,10 +497,10 @@ async function pauseLoad(force){
   if(!force && PAUSE_MAP && Date.now()-_pauseAt<30000) return PAUSE_MAP;
   const heute=new Date().toISOString().slice(0,10); const m={};
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/kind_pause?select=spieler_id,bis,grund&bis=gte.${heute}`,{headers:sbAuthHeaders()});
+    const r=await fetch(`${SB_URL}/rest/v1/kind_pause?select=spieler_id,bis,grund,gruesse_ok&bis=gte.${heute}`,{headers:sbAuthHeaders()});
     if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(x=>{
       const k=(typeof KADER!=="undefined"?KADER:[]).find(kk=>kk._id===x.spieler_id||kk.id===x.spieler_id);
-      if(k)m[k.name]={bis:x.bis,grund:x.grund,id:x.spieler_id};
+      if(k)m[k.name]={bis:x.bis,grund:x.grund,id:x.spieler_id,gruesse_ok:!!x.gruesse_ok};
     });
   }catch(e){}
   PAUSE_MAP=m; _pauseAt=Date.now(); return PAUSE_MAP;

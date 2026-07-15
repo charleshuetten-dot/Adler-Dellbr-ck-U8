@@ -867,13 +867,14 @@ async function pausenOpen(){
   c.innerHTML=`
     ${mdlHead("pause-modal","⏸","Pausen & Wiedereinstieg","","#d97706")}
     <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Pausierte Kinder sind bei Prognose, Nominierung und Buddy-Auslosung automatisch raus – bis zum Datum. Grund optional, keine Diagnosen.</div>
-    ${paused.length?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin:4px 0 2px">Aktuell pausiert</div>${paused.map(k=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:var(--border)"><span style="flex:1;font-size:13px">${esc(k.name)} <span style="color:#b45309;font-weight:700">· bis ${pauseBisLabel(k.name)}</span>${PAUSE_MAP[k.name].grund?`<span style="color:var(--text3);font-size:11px"> · ${esc(PAUSE_MAP[k.name].grund)}</span>`:""}</span><button class="btn btn-sm" onclick="pauseEnd(${k._id})">Beenden</button></div>`).join("")}`:'<div style="font-size:12.5px;color:var(--text3);padding:4px 0">Aktuell pausiert niemand.</div>'}
+    ${paused.length?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin:4px 0 2px">Aktuell pausiert</div>${paused.map(k=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:var(--border)"><span style="flex:1;font-size:13px">${esc(k.name)} <span style="color:#b45309;font-weight:700">· bis ${pauseBisLabel(k.name)}</span>${PAUSE_MAP[k.name].grund?`<span style="color:var(--text3);font-size:11px"> · ${esc(PAUSE_MAP[k.name].grund)}</span>`:""}</span><button class="btn btn-sm" title="Genesungsgrüße vom Team erlauben/stoppen (Familie vorher fragen)" onclick="pauseGruesse(${k._id},${PAUSE_MAP[k.name].gruesse_ok?"false":"true"})">${PAUSE_MAP[k.name].gruesse_ok?"💌 an":"💌 aus"}</button><button class="btn btn-sm" onclick="pauseEnd(${k._id})">Beenden</button></div>`).join("")}`:'<div style="font-size:12.5px;color:var(--text3);padding:4px 0">Aktuell pausiert niemand.</div>'}
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin:14px 0 4px">Kind pausieren</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <select id="pause-kid" style="flex:1;min-width:120px;min-height:40px;padding:6px 8px;border:var(--border-s);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">${frei.map(k=>`<option value="${k._id}">${esc(k.name)}</option>`).join("")}</select>
       <input type="date" id="pause-bis" value="${defBis}" style="min-height:40px;padding:6px 8px;border:var(--border-s);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">
     </div>
     <input type="text" id="pause-grund" maxlength="80" placeholder="Grund (optional, keine Diagnosen)" style="width:100%;margin-top:6px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:12.5px;background:var(--surface);color:var(--text);box-sizing:border-box">
+    <label style="display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--text2);margin-top:8px;cursor:pointer"><input type="checkbox" id="pause-gruesse" style="margin-top:2px">💌 Team darf Genesungsgrüße schicken <span style="color:var(--text3)">(bitte vorher die Familie fragen – sichtbar wird nur „fehlt gerade", nie der Grund)</span></label>
     <button class="btn btn-p btn-sm" style="width:100%;margin-top:8px" onclick="pauseSetFromPicker()">⏸ Pausieren</button>
     ${reco.length?`<div style="font-size:11.5px;color:#9a3412;background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:7px 10px;margin-top:12px">🩹 Zuletzt krank gemeldet (letzte 14 T.): <b>${reco.map(esc).join(", ")}</b> – bei Bedarf hier als Pause setzen.</div>`:""}
     <button class="btn btn-sm" style="width:100%;margin-top:10px" onclick="document.getElementById('pause-modal').remove()">Schließen</button>`;
@@ -883,9 +884,16 @@ async function pauseSetFromPicker(){
   const id=Number(document.getElementById("pause-kid")?.value);
   const bis=document.getElementById("pause-bis")?.value;
   const grund=(document.getElementById("pause-grund")?.value||"").trim()||null;
+  const gruesse_ok=!!document.getElementById("pause-gruesse")?.checked;
   if(!id||!bis){toast("Kind und Datum wählen","err");return;}
-  try{const r=await fetch(`${SB_URL}/rest/v1/kind_pause?on_conflict=spieler_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({spieler_id:id,bis,grund,updated_at:new Date().toISOString()})});if(!r.ok){toast((typeof sbDeniedMsg==="function")?sbDeniedMsg(r):"Konnte nicht speichern","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_pause?on_conflict=spieler_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({spieler_id:id,bis,grund,gruesse_ok,updated_at:new Date().toISOString()})});if(!r.ok){toast((typeof sbDeniedMsg==="function")?sbDeniedMsg(r):"Konnte nicht speichern","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
   toast("Pause gesetzt ⏸"); if(typeof pauseClear==="function")pauseClear(); pausenOpen();
+}
+// I-A: Genesungsgrüße pro Pause an/aus (DSGVO: erst nach Rücksprache mit der Familie)
+async function pauseGruesse(id,val){
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_pause?spieler_id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({gruesse_ok:val})});if(!r.ok&&r.status!==204){toast("Konnte nicht ändern","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  toast(val?"💌 Team darf jetzt Grüße schicken":"Grüße gestoppt");
+  if(typeof pauseClear==="function")pauseClear(); pausenOpen();
 }
 async function pauseEnd(id){
   try{const r=await fetch(`${SB_URL}/rest/v1/kind_pause?spieler_id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(!r.ok){toast("Konnte nicht beenden","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
@@ -2524,6 +2532,77 @@ function elternInvitePaket(){
 }
 // Saison-Cockpit: ein Blick auf die Saison – Kennzahlen, Top-Torschützen, Anwesenheit,
 // Sprung zur Einsatz-Fairness. Führt vorhandene Datenquellen zusammen (keine neue Persistenz).
+/* ── I-A: Kabinen-Wahl (Trainer) – Wahl anlegen, Ergebnis sehen, beenden. Die Kinder
+   stimmen in der Kabine ab; Ergebnis kommt anonym aggregiert (RPC wahl_ergebnis). ── */
+async function wahlTrainerOpen(){
+  document.getElementById("wahl-modal")?.remove();
+  const m=document.createElement("div");m.id="wahl-modal";
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Kabinen-Wahl");
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  const fld="width:100%;box-sizing:border-box;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13.5px;background:var(--surface2);color:var(--text);margin-top:6px";
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
+    ${mdlHead("wahl-modal","🗳️","Kabinen-Wahl","Die Kinder stimmen in der Kabine ab – Song, Motto, Wunsch-Spielform","#0284c7")}
+    <input id="wahl-frage" placeholder="Frage, z. B. Welcher Einlauf-Song im August?" style="${fld}">
+    <input id="wahl-opt1" placeholder="Option 1" style="${fld}">
+    <input id="wahl-opt2" placeholder="Option 2" style="${fld}">
+    <input id="wahl-opt3" placeholder="Option 3 (optional)" style="${fld}">
+    <input id="wahl-opt4" placeholder="Option 4 (optional)" style="${fld}">
+    <button class="btn btn-p" style="width:100%;margin-top:10px" onclick="wahlAnlegen(this)"><i class="ti ti-plus"></i>Wahl starten</button>
+    <div style="font-weight:800;font-size:13px;margin:16px 0 6px">Bisherige Wahlen</div>
+    <div id="wahl-liste"><div style="font-size:12px;color:var(--text3)">Lade…</div></div>
+  </div>`;
+  document.body.appendChild(m);
+  wahlListeLoad();
+}
+async function wahlListeLoad(){
+  const el=document.getElementById("wahl-liste"); if(!el)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/kabinen_wahl?select=*&order=created_at.desc&limit=6`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)rows=(await r.json())||[];}catch(e){}
+  if(!rows.length){el.innerHTML='<div style="font-size:12px;color:var(--text3)">Noch keine Wahl gestartet.</div>';return;}
+  const ergAlle={};
+  await Promise.all(rows.map(async w=>{
+    try{const r=await fetch(`${SB_URL}/rest/v1/rpc/wahl_ergebnis`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_wahl:w.id})});if(r.ok)ergAlle[w.id]=(await r.json())||[];}catch(e){}
+  }));
+  el.innerHTML=rows.map(w=>{
+    const erg=ergAlle[w.id]||[];
+    const counts=(w.optionen||[]).map((_,i)=>{const e2=erg.find(x=>x.wahl===i);return e2?e2.n:0;});
+    const total=counts.reduce((s,n)=>s+n,0);
+    return `<div style="border:var(--border-s);border-left:4px solid ${w.aktiv?"#0284c7":"#cbd5e1"};border-radius:12px;padding:10px 12px;margin-bottom:8px;${w.aktiv?"":"opacity:.65"}">
+      <div style="font-size:13px;font-weight:800">${esc(w.frage)} <span style="font-weight:400;color:var(--text3);font-size:11px">· ${total} Stimme${total===1?"":"n"}</span></div>
+      ${(w.optionen||[]).map((o,i)=>{const pct=total?Math.round(counts[i]/total*100):0;
+        return `<div style="display:flex;align-items:center;gap:8px;margin-top:5px;font-size:12px"><span style="flex:1;min-width:0">${esc(String(o))}</span><span style="color:var(--text2)">${counts[i]}</span><span style="width:70px;height:6px;background:var(--surface2);border-radius:4px;overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:#0284c7"></span></span></div>`;}).join("")}
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-sm" onclick="wahlToggle(${w.id},${w.aktiv?"false":"true"})">${w.aktiv?"Beenden":"Reaktivieren"}</button>
+        <button class="btn btn-sm" style="margin-left:auto;color:#dc2626" onclick="wahlDelete(${w.id})"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`;}).join("");
+}
+async function wahlAnlegen(btn){
+  const frage=(document.getElementById("wahl-frage")?.value||"").trim();
+  const optionen=[1,2,3,4].map(i=>(document.getElementById("wahl-opt"+i)?.value||"").trim()).filter(Boolean);
+  if(!frage||optionen.length<2){toast("Frage + mindestens 2 Optionen","err");return;}
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kabinen_wahl`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({frage,optionen})});
+    if(sbCheck401(r))return;
+    if(!r.ok&&r.status!==201){toast(sbDeniedMsg(r,"Konnte nicht anlegen"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  [["wahl-frage"],["wahl-opt1"],["wahl-opt2"],["wahl-opt3"],["wahl-opt4"]].forEach(([id])=>{const e2=document.getElementById(id);if(e2)e2.value="";});
+  toast("🗳️ Wahl gestartet – die Kinder sehen sie in der Kabine");
+  wahlListeLoad();
+}
+async function wahlToggle(id,aktiv){
+  try{const r=await fetch(`${SB_URL}/rest/v1/kabinen_wahl?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({aktiv})});if(!r.ok&&r.status!==204){toast("Konnte nicht ändern","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  wahlListeLoad();
+}
+async function wahlDelete(id){
+  if(!confirm("Diese Wahl samt Stimmen wirklich löschen?"))return;
+  try{const r=await fetch(`${SB_URL}/rest/v1/kabinen_wahl?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(!r.ok&&r.status!==204){toast("Konnte nicht löschen","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Gelöscht ✓");
+  wahlListeLoad();
+}
 /* ── H7: frisch erreichte Team-Meilensteine (7 Tage) auch dem Trainer auf der Startseite ── */
 async function homeMilestone(){
   const el=document.getElementById("home-milestone"); if(!el)return;
@@ -2743,6 +2822,22 @@ async function saisonCockpitOpen(){
       }
     }
   }catch(e){}
+  // I-A: Adler-Post-Fairness – wer bekommt keine Komplimente? (Kudos-Blick, 60 Tage)
+  let postHtml="";
+  try{
+    const ab60=new Date(Date.now()-60*864e5).toISOString();
+    const r=await fetch(`${SB_URL}/rest/v1/kabine_post?select=an_spieler&created_at=gte.${ab60}`,{headers:sbAuthHeaders()});
+    if(!sbCheck401(r)&&r.ok){
+      const rows=await r.json();
+      if(rows.length){
+        const per={}; rows.forEach(x=>per[x.an_spieler]=(per[x.an_spieler]||0)+1);
+        const ohne=active.filter(k=>!per[k.id]).map(k=>k.name);
+        postHtml=`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">📬 Adler-Post <span style="font-weight:400;color:var(--text2);font-size:11px">(${rows.length} Nachrichten · 60 Tage)</span></div>`
+          +(ohne.length?`<div style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px">Noch ohne Post: <b>${ohne.map(esc).join(", ")}</b> – vielleicht mal ein Kompliment anstoßen (oder Sprachlob!).</div>`
+                       :'<div style="font-size:12.5px;color:#16a34a">Jedes Kind hat schon Post bekommen 👍</div>');
+      }
+    }
+  }catch(e){}
   // A-Etappe 2: Rollen-Erfahrung auch im Cockpit (Kurzform + Button zur vollen Matrix)
   let rollenHtml="";
   try{ if(typeof rollenExpFetch==="function"){ const re=await rollenExpFetch(); if(re&&re.games){ const nie=(typeof _neverTW==="function")?_neverTW(re.byKid):[];
@@ -2777,6 +2872,7 @@ async function saisonCockpitOpen(){
     ${wenig.length?`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">⚖️ Faire Einsätze – wer war seltener dabei</div>${wenig.map(x=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0"><span style="flex:1">${esc(x.name)}</span><span style="font-size:11px;color:var(--text3)">${x.e} Einsätze</span></div>`).join("")}`:""}
     ${(toreTeam[2]||toreTeam[3])?`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🏆 Tore je Team</div><div style="display:flex;gap:8px;flex-wrap:wrap">${[1,2,3].filter(t=>toreTeam[t]>0||t===1).map(t=>`<div style="flex:1;min-width:70px;text-align:center;background:var(--surface2);border-radius:10px;padding:8px"><div style="font-size:11px;color:var(--text2)">Adler ${t}</div><div style="font-size:18px;font-weight:900;color:#059669">⚽ ${toreTeam[t]||0}</div></div>`).join("")}</div>`:""}
     ${stimmungHtml}
+    ${postHtml}
     ${rollenHtml}
     ${pulsHtml}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
@@ -2918,6 +3014,7 @@ async function adlerWeltOpen(){
     <div id="aw-team-level" style="margin-bottom:12px"></div>
     <button class="btn btn-p btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();wochenChallengeOpen()"><i class="ti ti-trophy"></i>Wochen-Challenge setzen / bearbeiten</button>
     <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('aw-modal').remove();skillWocheOpen()"><i class="ti ti-video"></i>🎬 Skill der Woche setzen</button>
+    <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('aw-modal').remove();wahlTrainerOpen()"><i class="ti ti-chart-bar"></i>🗳️ Kabinen-Wahl (Kinder stimmen ab)</button>
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🎵 Kabinen-Playlist</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Spotify-Link zur U9-Playlist. Die Kinder hören sie in der Kabine.</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">

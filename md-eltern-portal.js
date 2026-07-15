@@ -296,6 +296,10 @@ async function elternNewsLoad(kids){
   let ms=[];
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/team_meilensteine`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)ms=(await r.json())||[];}catch(e){}
   cur.ms=(ms[0]&&ms[0].erreicht_am)||"";
+  // I-A: Adler-Post – neueste ungelesene Nachricht an die eigenen Kinder als News-Quelle
+  try{const ids=(kids||[]).map(k=>k.spieler_id).join(",");
+    if(ids){const r=await fetch(`${SB_URL}/rest/v1/kabine_post?an_spieler=in.(${ids})&select=created_at&order=created_at.desc&limit=1`,{headers:sbAuthHeaders()});
+      if(r.ok){const p=((await r.json())||[])[0];cur.kpost=(p&&p.created_at)||"";}}}catch(e){}
   window._elternNewsCur=cur;
   let seen=null; try{seen=JSON.parse(localStorage.getItem("adler_news_seen")||"null");}catch(e){}
   if(!seen){ try{localStorage.setItem("adler_news_seen",JSON.stringify(cur));}catch(e){} seen=cur; } // Erstbesuch = Baseline
@@ -308,6 +312,7 @@ async function elternNewsLoad(kids){
   (data.lob||[]).forEach(l=>{ if(l.at>(seen["lob_"+l.sid]||"")) items.push({emo:"🎧",txt:`Neues Sprachlob für ${esc(kidName(l.sid))}.`,act:`elternCatClose();lobPlay(${l.sid})`}); });
   (kids||[]).forEach(k=>{ const lv=cur["level_"+k.spieler_id]; const sv=seen["level_"+k.spieler_id]; if(lv&&sv!=null&&lv!==sv) items.push({emo:"🎉",txt:`${esc(kidName(k.spieler_id))} hat ein neues Level erreicht: ${esc(lv)}!`,act:`elternCatClose();elternCardOpen(${k.spieler_id})`}); });
   if(cur.ms&&cur.ms>(seen.ms||"")) ms.filter(m=>m.erreicht_am>(seen.ms||"")).slice(0,3).forEach(m=>items.push({emo:"🏆",txt:`Team-Meilenstein: ${esc(m.label)}`,act:"elternCatClose()"})); // H7
+  if(cur.kpost&&cur.kpost>(seen.kpost||"")) items.push({emo:"📬",txt:"Neue Adler-Post für dein Kind – Kompliment oder Gruß in der Kabine!",act:"elternCatClose();kabineOpen()"}); // I-A
   const badge=document.getElementById("eltern-news-badge");
   if(badge){ badge.textContent=items.length?String(items.length):"0"; badge.style.display=items.length?"inline-block":"none"; }
   panel.innerHTML = items.length
@@ -336,6 +341,42 @@ async function elternAnsagenLoad(){
       <div style="font-size:14px;font-weight:600;line-height:1.5;margin-top:6px;white-space:pre-wrap">${esc(a.text)}</div>
       <button onclick="elternAnsageAck(${a.id},this)" style="width:100%;min-height:44px;margin-top:10px;border:none;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">✓ Gelesen &amp; verstanden</button>
     </div>`;}).join("");
+}
+/* I-A – Genesungsgrüße: pausierte Teamkinder mit Trainer-Freigabe (kind_pause.gruesse_ok,
+   RLS zeigt Eltern NUR freigegebene Pausen, nie den Grund). 1 Tap schickt einen vordefinierten
+   Gruß im Namen des eigenen Kindes (kabine_post typ=genesung, max 1/Tag per DB-Unique). */
+async function elternGenesungLoad(kids){
+  const el=document.getElementById("genesung-slot"); if(!el||!kids||!kids.length)return;
+  const heute=new Date().toISOString().slice(0,10);
+  const eigene=kids.map(k=>k.spieler_id);
+  let pausen=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/kind_pause?select=spieler_id&bis=gte.${heute}`,{headers:sbAuthHeaders()});if(r.ok)pausen=((await r.json())||[]).map(x=>x.spieler_id).filter(id=>!eigene.includes(id));}catch(e){}
+  if(!pausen.length){el.innerHTML="";return;}
+  let namen={};
+  try{const r=await fetch(`${SB_URL}/rest/v1/kader?id=in.(${pausen.join(",")})&select=id,name`,{headers:sbAuthHeaders()});if(r.ok)(await r.json()).forEach(k=>namen[k.id]=k.name);}catch(e){}
+  // heute schon gegrüßt? (vom ersten eigenen Kind aus)
+  let schon=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/kabine_post?von_spieler=eq.${eigene[0]}&datum=eq.${heute}&an_spieler=in.(${pausen.join(",")})&select=an_spieler`,{headers:sbAuthHeaders()});if(r.ok)schon=((await r.json())||[]).map(x=>x.an_spieler);}catch(e){}
+  const offen=pausen.filter(id=>!schon.includes(id)&&namen[id]);
+  if(!offen.length){el.innerHTML="";return;}
+  const G=(typeof GENESUNG_TEXTE!=="undefined")?GENESUNG_TEXTE:["💌 Gute Besserung!","🦅 Wir vermissen dich!","💪 Komm bald wieder!","⚽ Der Platz wartet auf dich!"];
+  el.innerHTML=offen.map(id=>`<div id="gen-${id}" style="background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;border-left:4px solid #f43f5e;box-shadow:0 2px 10px rgba(0,0,0,.05)">
+    <div style="font-weight:800;font-size:13.5px;color:#0f172a">💌 ${esc(namen[id])} fällt gerade aus</div>
+    <div style="font-size:11.5px;color:#64748b;margin-top:1px">Schick einen Gruß vom Team – im Namen deines Kindes. ${esc(namen[id])} sieht ihn in der Kabine.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+      ${G.map((t,i)=>`<button onclick="elternGenesungSend(${eigene[0]},${id},${i},this)" style="flex:1 1 45%;min-height:44px;padding:8px;border:1.5px solid #fda4af;border-radius:10px;background:#fff1f2;color:#9f1239;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">${esc(t)}</button>`).join("")}
+    </div>
+  </div>`).join("");
+}
+async function elternGenesungSend(vonSid,anSid,key,btn){
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kabine_post`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({typ:"genesung",von_spieler:vonSid,an_spieler:anSid,text_key:key,datum:new Date().toISOString().slice(0,10)})});
+    if(r.status===409){document.getElementById("gen-"+anSid)?.remove();toast("Heute schon gegrüßt 🙂");return;}
+    if(!r.ok&&r.status!==201){toast("Konnte nicht senden","err");if(btn)btn.disabled=false;return;}
+  }catch(e){toast("Netzwerkfehler","err");if(btn)btn.disabled=false;return;}
+  document.getElementById("gen-"+anSid)?.remove();
+  toast("💌 Gruß ist unterwegs!");
 }
 async function elternAnsageAck(id,btn){
   if(btn)btn.disabled=true;
@@ -378,6 +419,7 @@ async function elternDashLoad(){
   if(termin&&termin.platz_status)html+=elternPlatzAmpelBanner(termin);   // ganz oben: findet statt / Ausweich / fällt aus
   if(termin&&(termin.typ==="spiel"||termin.typ==="turnier"))html+='<div id="pause-card"></div>';  // ganz oben, noch vor dem Termin
   html+='<div id="ansage-slot"></div>'; // H1: ungelesene Trainer-Ansagen als Banner ganz oben
+  html+='<div id="genesung-slot"></div>'; // I-A: „X fehlt gerade" – 1-Tap-Genesungsgruß (nur mit Trainer-Freigabe)
   // ── 📌 ZU ERLEDIGEN: alle offenen Punkte gebündelt, ganz oben. Die Loader füllen die Slots;
   //    ist alles leer, blendet elternTodoSync() die ganze Sektion aus. ──
   // 📌 To-Do's als Kategorie-Button (optisch wie die Kategorien unten); Inhalt öffnet sich im
@@ -553,6 +595,7 @@ async function elternDashLoad(){
   kabineCodeHash().catch(()=>{});   // Hash vorladen, damit die Kabine auch offline wieder aufgeht
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(!el)return;el.innerHTML=adlerkasseCardHtml(l)+(l?akShareBtnHtml():"");if(l)window._akLink=l;}).catch(()=>{});
   elternAnsagenLoad();                         // H1: Trainer-Ansagen mit Gelesen-Status
+  elternGenesungLoad(kids);                    // I-A: Genesungsgrüße für pausierte Teamkinder
   elternMitbringLoad(kids);                    // Event-Mitbringliste: wer bringt was mit
   elternBuedchenLoad(termineListe,kids);       // Büdchen-Einteilung bei Heimspielen
   elternGespraechStatus();                     // laufende Elterngespräch-Anfrage anzeigen
