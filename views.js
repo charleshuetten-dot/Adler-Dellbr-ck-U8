@@ -3080,7 +3080,7 @@ async function trainerTodoLoad(){
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,datum,trainer_status&datum=gte.${heute}&datum=lte.${in14}&order=datum.asc`,{headers:sbAuthHeaders()});
     if(r.ok){const offen=((await r.json())||[]).filter(t=>!(t.trainer_status||{})[me]);
-      if(offen.length)todos.push({emo:"🗓️",txt:`„Bist du dabei?" – ${offen.length} Termin${offen.length===1?"":"e"} ohne deine Antwort`,act:"go('termine')"});}
+      if(offen.length)todos.push({emo:"🗓️",txt:`„Bist du dabei?" – ${offen.length} Termin${offen.length===1?"":"e"} ohne deine Antwort`,act:"trainerRsvpQuickOpen()"});}
   }catch(e){}
   // b) Einheit nachbereiten, wenn du laut Trainingsplan eingeteilt warst
   try{
@@ -3111,6 +3111,57 @@ async function trainerTodoLoad(){
     <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#b45309;margin-bottom:8px">📌 Deine To-Dos, ${esc(me)}</div>
     ${todos.map(t=>`<button onclick="${t.act}" style="display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:var(--surface);border:var(--border-s);border-radius:10px;padding:10px 12px;margin-bottom:6px;font-family:inherit;cursor:pointer;color:var(--text)"><span style="font-size:17px;line-height:1">${t.emo}</span><span style="flex:1;font-size:12.5px;font-weight:600;line-height:1.4">${t.txt}</span><span style="color:var(--text3)">›</span></button>`).join("")}
   </div>`;
+}
+/* Schnell-Antwort „Bist du dabei?": kleines Fenster mit den nächsten Terminen, je ein Tap
+   (✅/🤔/❌) speichert sofort – nochmal tippen nimmt die Antwort zurück. Öffnet aus der
+   Trainer-To-Do; ohne Umweg über den Termine-Reiter. */
+let _trsvpRows=[];
+function _trsvpRowHtml(t,me){
+  const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"#1e3a8a"};
+  const st=(t.trainer_status||{})[me];
+  const d=new Date(t.datum+"T00:00:00"), wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+  const zeit=t.uhrzeit?String(t.uhrzeit).slice(0,5)+" Uhr":"";
+  const btn=(val,emo,lbl,col)=>`<button onclick="trainerRsvpSet(${Number(t.id)},'${val}')" style="flex:1;min-height:44px;border-radius:10px;border:1.5px solid ${st===val?col:"#e2e8f0"};background:${st===val?col:"var(--surface)"};color:${st===val?"#fff":"var(--text2)"};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">${emo} ${lbl}</button>`;
+  return `<div id="trsvp-${t.id}" style="border:var(--border-s);border-left:3px solid ${m.col};border-radius:12px;padding:10px 12px;margin-bottom:8px;background:var(--surface)">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div style="font-size:13px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.icon} ${esc(t.titel||t.gegner||m.label)}</div>
+      <div style="font-size:11px;color:var(--text2);white-space:nowrap">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""}</div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px">${btn("ja","✅","Dabei","#16a34a")}${btn("unsicher","🤔","Unsicher","#ca8a04")}${btn("nein","❌","Nicht","#dc2626")}</div>
+  </div>`;
+}
+async function trainerRsvpQuickOpen(){
+  const me=await trainerMe(); if(!me){toast("Kein Trainer-Konto erkannt","err");return;}
+  const heute=new Date().toISOString().slice(0,10);
+  const in21=new Date(Date.now()+21*864e5).toISOString().slice(0,10);
+  _trsvpRows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,datum,uhrzeit,typ,titel,gegner,trainer_status&datum=gte.${heute}&datum=lte.${in21}&order=datum.asc,uhrzeit.asc.nullslast`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)_trsvpRows=await r.json();}catch(e){}
+  document.getElementById("trsvp-modal")?.remove();
+  const modal=document.createElement("div"); modal.id="trsvp-modal";
+  modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Bist du dabei?");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10050;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.innerHTML=`${mdlHead("trsvp-modal","🗓️","Bist du dabei?",`Ein Tap je Termin, ${esc(me)} – nochmal tippen nimmt zurück`,"#d97706")}
+    <div id="trsvp-list">${_trsvpRows.length?_trsvpRows.map(t=>_trsvpRowHtml(t,me)).join(""):'<div style="font-size:12.5px;color:var(--text3);padding:14px;text-align:center">Keine kommenden Termine in den nächsten 3 Wochen.</div>'}</div>`;
+  modal.appendChild(c); document.body.appendChild(modal);
+}
+async function trainerRsvpSet(id,val){
+  const me=await trainerMe(); if(!me)return;
+  const t=_trsvpRows.find(x=>Number(x.id)===Number(id)); if(!t)return;
+  const st=Object.assign({},t.trainer_status||{});
+  st[me]=st[me]===val?undefined:val;           // nochmal tippen = Antwort zurücknehmen
+  if(st[me]===undefined)delete st[me];
+  t.trainer_status=st;
+  const row=document.getElementById("trsvp-"+id); if(row)row.outerHTML=_trsvpRowHtml(t,me); // sofort sichtbar
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({trainer_status:st})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  try{navigator.vibrate&&navigator.vibrate(15);}catch(e){}
+  clearTimeout(window._trsvpTodoT); window._trsvpTodoT=setTimeout(()=>trainerTodoLoad(),600); // To-Do-Zähler nachziehen
 }
 // Startseiten-Nudge: wer hat für den nächsten Termin (Training/Spiel/Turnier) noch nicht
 // geantwortet? Ein Tap öffnet die Rückmeldungs-Übersicht mit WhatsApp-Erinnerung.
