@@ -167,9 +167,9 @@ async function tmLoad(){
     const heute=new Date().toISOString().slice(0,10);
     const kommend=rows.filter(t=>t.datum>=heute);
     const vergangen=rows.filter(t=>t.datum<heute).reverse();
-    // Nur die nächsten Termine als volle Karten (Wetter/Büdchen inline); der Rest kompakt hinter
-    // einem Button, damit die Liste bei einer ganzen Saison nicht endlos wird.
-    const FULL=4;
+    // Nur der NÄCHSTE Termin als volle Karte (Wetter/Büdchen inline); alle weiteren kompakt
+    // hinter einem Button, damit die Liste bei einer ganzen Saison nicht endlos wird.
+    const FULL=1;
     const kFull=kommend.slice(0,FULL), kRest=kommend.slice(FULL);
     up.innerHTML=kommend.length
       ? kFull.map(tmCard).join("")+(kRest.length?`<button id="tm-more-btn" class="btn btn-sm" style="width:100%;margin:2px 0 8px" onclick="tmToggleMore()"><i class="ti ti-chevron-down"></i>Weitere ${kRest.length} Termine anzeigen</button><div id="tm-more" style="display:none">${kRest.map(tmRow).join("")}</div>`:"")
