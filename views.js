@@ -2962,13 +2962,12 @@ async function renderHome(){
       ${homeTool("👕 Team-Ausrüstung","ausruestungGrid()")}
       ${homeTool("🧦 Fundbüro","fundbueroOpen()")}
     </div>
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:12px 2px 6px">Inhalte</div>
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:12px 2px 6px">Für Eltern &amp; Kinder</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
       ${homeTool("📰 Adler Nest","stadionheftOpen()")}
       ${homeTool("🪶 Adler-Welt","adlerWeltOpen()")}
     </div>
-    <div class="sl nt" style="margin-top:18px"><i class="ti ti-clipboard-heart"></i>Team-Status</div>
-    <div id="home-birthday"></div>
+    <div id="home-birthday" style="margin-top:12px"></div>
     ${gebHtml}
     <div class="sl nt" style="margin-top:18px"><i class="ti ti-settings"></i>Einstellungen</div>
     <div id="push-slot-trainer" style="margin-bottom:10px"></div>
