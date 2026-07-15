@@ -344,10 +344,10 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .aw-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:var(--border);font-size:13px}
 .aw-row:last-child{border-bottom:none}
 .aw-name{flex:1;font-weight:600;color:var(--text)}
-.aw-toggle{width:40px;height:22px;border-radius:11px;background:#cbd5e1;border:none;cursor:pointer;position:relative;transition:background .2s}
-.aw-toggle.on{background:#16a34a}
-.aw-toggle::after{content:'';position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-.aw-toggle.on::after{left:20px}
+.aw-toggle{width:52px;height:28px;border-radius:14px;background:#cbd5e1;border:none;cursor:pointer;position:relative;transition:background .2s}
+.aw-toggle.on{background:linear-gradient(135deg,#16a34a,#059669);box-shadow:0 1px 6px rgba(22,163,74,.35)}
+.aw-toggle::after{content:'';position:absolute;width:24px;height:24px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.aw-toggle.on::after{left:26px}
 .aw-qual{display:flex;gap:2px}
 .aw-star{width:24px;height:24px;border:none;background:none;cursor:pointer;font-size:16px;color:#cbd5e1;transition:color .15s}
 .aw-star.on{color:#f59e0b}
