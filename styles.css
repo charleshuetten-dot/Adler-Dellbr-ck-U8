@@ -592,6 +592,15 @@ h1.print-header{display:none}
 .zert-badges .zb b{display:block;font-size:20px;color:#1a56db;font-weight:800}
 .zert-sign{display:flex;justify-content:space-between;margin-top:28px;padding-top:6px;gap:20px}
 .zert-sign>div{flex:1;border-top:1px solid #334155;padding-top:5px;font-size:11px;color:#64748b}
+/* ── Sammelalbum: Raritäten-Sticker mit Foil-Schimmer (Optik an FUT-2.0-Holo angelehnt) ── */
+@keyframes kabFoil{0%{background-position:130% 0}100%{background-position:-40% 0}}
+.kab-st{position:relative;overflow:hidden}
+.kab-st .stfoil{position:absolute;inset:0;pointer-events:none;mix-blend-mode:overlay;
+  background:linear-gradient(115deg,transparent 22%,rgba(255,255,255,.55) 38%,rgba(255,255,255,.12) 47%,transparent 62%);
+  background-size:250% 250%;animation:kabFoil 3.2s linear infinite}
+.kab-st.kab-leg .stfoil{mix-blend-mode:screen;
+  background:linear-gradient(115deg,transparent 12%,rgba(240,171,252,.5) 28%,rgba(103,232,249,.5) 40%,rgba(253,224,71,.5) 50%,rgba(134,239,172,.5) 60%,transparent 74%);
+  background-size:250% 250%}
 .zert-page{page-break-after:always} /* Urkunden-Studio: je Kind eine A4-Seite */
 @media print{
   body.printing-zert>*{display:none!important}

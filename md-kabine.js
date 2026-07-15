@@ -65,47 +65,87 @@ async function _albumRoster(){
   if(rows.length)window._kabRoster=rows;
   return rows;
 }
+/* Raritäten (PO-Wunsch): neben den Kindern gibt es Trainer- (SELTEN), Vereins- (EPISCH,
+   mit Foil-Schimmer) und LEGENDÄR-Sticker (Gold + Regenbogen-Holo, sehr selten).
+   w = Ziehungs-Gewicht pro Sticker – Legendär fällt im Schnitt 1× in ~25 Ziehungen. */
+const KAB_RAR={
+  kind:     {lbl:"",         own:"linear-gradient(135deg,#f59e0b,#ec4899)", shadow:"0 4px 14px rgba(236,72,153,.4)",  dash:"", w:100},
+  selten:   {lbl:"SELTEN",   own:"linear-gradient(135deg,#60a5fa,#1d4ed8)", shadow:"0 4px 14px rgba(59,130,246,.45)", dash:"rgba(96,165,250,.5)", w:30},
+  episch:   {lbl:"EPISCH",   own:"linear-gradient(135deg,#c084fc,#7c3aed)", shadow:"0 4px 16px rgba(168,85,247,.5)",  dash:"rgba(192,132,252,.5)", w:12, foil:true},
+  legendaer:{lbl:"LEGENDÄR", own:"linear-gradient(135deg,#fde047,#f59e0b)", shadow:"0 4px 18px rgba(250,204,21,.55)", dash:"rgba(253,224,71,.55)", w:4,  foil:true, leg:true}
+};
+async function _albumPool(){
+  const kids=await _albumRoster();
+  const pool=kids.map(k=>({key:k.name,label:k.name,sub:k.nr!=null?"#"+k.nr:"",emo:"🦅",rar:"kind"}));
+  ((typeof TRAINER!=="undefined"&&TRAINER)||[]).forEach(t=>pool.push({key:"tr_"+t,label:t,sub:"Trainer",emo:"🧢",rar:"selten"}));
+  pool.push({key:"sp_wappen",label:"Vereins-Wappen",sub:"SV Adler Dellbrück",img:"logo.png",rar:"episch"});
+  pool.push({key:"sp_platz",label:"Thurner Kamp",sub:"Unser Platz",emo:"🏟️",rar:"episch"});
+  pool.push({key:"sp_trikot",label:"Adler-Trikot",sub:"Unsere Farben",emo:"👕",rar:"episch"});
+  pool.push({key:"sp_pokal",label:"Der Pokal",sub:"Für große Träume",emo:"🏆",rar:"legendaer"});
+  pool.push({key:"sp_horst",label:"Horst der Adler",sub:"Unser Maskottchen",emo:"🦅",rar:"legendaer"});
+  return pool;
+}
+// n verschiedene Sticker gewichtet ziehen (seltene Raritäten fallen entsprechend seltener)
+function _albumDraw(pool,n){
+  const bag=pool.slice(), out=[];
+  while(out.length<Math.min(n,bag.length)){
+    const total=bag.reduce((s,x)=>s+KAB_RAR[x.rar].w,0);
+    let r=Math.random()*total, idx=bag.length-1;
+    for(let i=0;i<bag.length;i++){ r-=KAB_RAR[bag[i].rar].w; if(r<=0){idx=i;break;} }
+    out.push(bag.splice(idx,1)[0]);
+  }
+  return out;
+}
+// Eine Sticker-Kachel (Album-Grid und Tüten-Aufdeckung teilen sich die Optik)
+function _albumStickerHtml(g,n){
+  const R=KAB_RAR[g.rar]||KAB_RAR.kind;
+  const dunkel=g.rar==="legendaer";
+  if(!n)return `<div style="border-radius:14px;aspect-ratio:3/4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);${R.dash?`border:1.5px dashed ${R.dash}`:""}">
+      <span style="font-size:30px">❓</span>
+      <span style="font-size:8.5px;font-weight:900;letter-spacing:.5px;opacity:.75">${R.lbl||"?"}</span>
+    </div>`;
+  return `<div class="${R.foil?"kab-st"+(R.leg?" kab-leg":""):""}" style="border-radius:14px;aspect-ratio:3/4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;position:relative;background:${R.own};color:${dunkel?"#78350f":"#fff"};box-shadow:${R.shadow}">
+      ${n>1?`<span style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.35);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:800;z-index:1;color:#fff">${n}×</span>`:""}
+      ${R.lbl?`<span style="font-size:8px;font-weight:900;letter-spacing:.6px;${dunkel?"":"opacity:.9"}">${R.lbl}</span>`:""}
+      ${g.img?`<img src="${g.img}" alt="" style="width:34px;height:34px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.3))">`:`<span style="font-size:28px">${g.emo}</span>`}
+      <span style="font-size:11px;font-weight:800;line-height:1.1;padding:0 4px;text-align:center">${esc(g.label)}</span>
+      ${g.sub?`<span style="font-size:9px;${dunkel?"":"opacity:.9"}">${esc(g.sub)}</span>`:""}
+      ${R.foil?'<div class="stfoil"></div>':""}
+    </div>`;
+}
 async function kabineAlbum(){
   const b=document.getElementById("kabine-body"); if(!b)return;
   b.innerHTML=`<div style="text-align:center;padding:60px 16px;opacity:.85;color:#fff">Lade …</div>`;
-  const data=await _albumRoster();
+  const pool=await _albumPool();
   const col=_albumGet();
-  const got=data.filter(g=>col[g.name]).length;
-  const voll=data.length>0&&got===data.length;
+  const got=pool.filter(g=>col[g.key]).length;
+  const voll=pool.length>0&&got===pool.length;
   const t=kabineTueten();
-  const cards=data.map(g=>{
-    const n=col[g.name]||0;
-    return `<div style="border-radius:14px;aspect-ratio:3/4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;position:relative;${n?"background:linear-gradient(135deg,#f59e0b,#ec4899);color:#fff;box-shadow:0 4px 14px rgba(236,72,153,.4)":"background:rgba(255,255,255,.08);color:rgba(255,255,255,.45)"}">
-      ${n>1?`<span style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.35);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:800">${n}×</span>`:""}
-      <span style="font-size:30px">${n?"🦅":"❓"}</span>
-      <span style="font-size:12px;font-weight:800">${n?esc(g.name):"?"}</span>
-      ${n&&g.nr!=null?`<span style="font-size:10px;opacity:.9">#${g.nr}</span>`:""}
-    </div>`;
-  }).join("");
+  const cards=pool.map(g=>_albumStickerHtml(g,col[g.key]||0)).join("");
   b.innerHTML=`<div id="kab-album-view" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;position:relative">
     <div style="display:flex;align-items:center;gap:10px;padding:14px 16px">
       <button onclick="kabineHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
       <div style="flex:1;font-size:18px;font-weight:800">📖 Sammelalbum</div>
-      <div style="font-size:13px;font-weight:800;opacity:.9">${got}/${data.length}</div>
+      <div style="font-size:13px;font-weight:800;opacity:.9">${got}/${pool.length}</div>
     </div>
     <div style="margin:0 16px 10px;background:rgba(255,255,255,.12);border-radius:16px;padding:12px 14px;text-align:center">
       <div style="font-size:14px;font-weight:900">🎁 Sticker-Tüten: ${t}</div>
-      <button onclick="kabineAlbumPack()" ${t<1||!data.length?"disabled":""} style="width:100%;margin-top:8px;border:none;border-radius:14px;padding:14px;font-family:inherit;font-size:16px;font-weight:900;cursor:${t<1?"default":"pointer"};${t<1?"background:rgba(255,255,255,.10);color:rgba(255,255,255,.5)":"background:linear-gradient(135deg,#f59e0b,#ec4899);color:#fff;box-shadow:0 4px 14px rgba(236,72,153,.4)"}">${t<1?"Keine Tüte übrig":"Tüte aufreißen! ✂️"}</button>
+      <button onclick="kabineAlbumPack()" ${t<1||!pool.length?"disabled":""} style="width:100%;margin-top:8px;border:none;border-radius:14px;padding:14px;font-family:inherit;font-size:16px;font-weight:900;cursor:${t<1?"default":"pointer"};${t<1?"background:rgba(255,255,255,.10);color:rgba(255,255,255,.5)":"background:linear-gradient(135deg,#f59e0b,#ec4899);color:#fff;box-shadow:0 4px 14px rgba(236,72,153,.4)"}">${t<1?"Keine Tüte übrig":"Tüte aufreißen! ✂️"}</button>
       <div style="font-size:10.5px;opacity:.8;margin-top:6px">Neue Tüten gibt's für: jeden Kabinen-Tag · Stimmung abgeben · Tasche packen · Kompliment schenken</div>
     </div>
-    ${voll?'<div style="text-align:center;font-size:14px;font-weight:900;padding:0 16px 8px">🎉 ALBUM VOLL – das ganze Team gesammelt!</div>':""}
+    ${voll?'<div style="text-align:center;font-size:14px;font-weight:900;padding:0 16px 8px">🎉 ALBUM VOLL – alles gesammelt, Wahnsinn!</div>':""}
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 16px 16px">${cards||'<div style="opacity:.7;grid-column:1/-1;text-align:center;padding:20px">Noch keine Karten im Team.</div>'}</div>
   </div>`;
   if(voll){const cont=document.getElementById("kab-album-view");if(cont&&typeof confetti==="function")confetti(cont);}
 }
 async function kabineAlbumPack(){
   if(kabineTueten()<1)return;
-  const data=await _albumRoster(); if(!data.length)return;
+  const pool=await _albumPool(); if(!pool.length)return;
   kabineTuetenAdd(-1);
-  // 3 verschiedene Sticker ziehen (bei Mini-Kadern entsprechend weniger)
-  const pool=data.slice().sort(()=>Math.random()-.5).slice(0,Math.min(3,data.length));
+  // 3 verschiedene Sticker gewichtet ziehen (Raritäten fallen selten – wie am Kiosk)
+  const picks=_albumDraw(pool,3);
   const col=_albumGet();
-  window._packCards=pool.map(p=>{const had=col[p.name]||0;col[p.name]=had+1;return {name:p.name,nr:p.nr,neu:!had,count:had+1,open:false};});
+  window._packCards=picks.map(p=>{const had=col[p.key]||0;col[p.key]=had+1;return Object.assign({},p,{neu:!had,count:had+1,open:false});});
   _albumSet(col);
   const b=document.getElementById("kabine-body"); if(!b)return;
   b.innerHTML=`<div id="kab-pack-open" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;color:#fff;position:relative;overflow:hidden">
@@ -121,12 +161,19 @@ function kabineAlbumFlip(i){
   const c=(window._packCards||[])[i]; if(!c||c.open)return;
   c.open=true;
   const el=document.getElementById("pk-"+i); if(!el)return;
-  try{navigator.vibrate&&navigator.vibrate(c.neu?[40,60,90]:30);}catch(e){}
-  el.style.background=c.neu?"linear-gradient(135deg,#f59e0b,#ec4899)":"linear-gradient(135deg,#64748b,#475569)";
-  el.innerHTML=`<span style="font-size:10px;font-weight:900;${c.neu?"color:#fff":"opacity:.8"}">${c.neu?"✨ NEU!":"schon "+c.count+"×"}</span>
-    <span style="font-size:28px">🦅</span>
-    <span style="font-size:11.5px;font-weight:800;line-height:1.1">${esc(c.name)}</span>
-    ${c.nr!=null?`<span style="font-size:9.5px;opacity:.9">#${c.nr}</span>`:""}`;
+  const R=KAB_RAR[c.rar]||KAB_RAR.kind;
+  const dunkel=c.rar==="legendaer";
+  try{navigator.vibrate&&navigator.vibrate(R.leg?[60,80,60,80,160]:c.neu?[40,60,90]:30);}catch(e){}
+  el.style.background=c.neu?R.own:"linear-gradient(135deg,#64748b,#475569)";
+  if(c.neu&&R.foil){el.classList.add("kab-st");if(R.leg)el.classList.add("kab-leg");}
+  el.style.boxShadow=c.neu?R.shadow:el.style.boxShadow;
+  el.innerHTML=`<span style="font-size:9px;font-weight:900;letter-spacing:.4px;${c.neu?(dunkel?"color:#78350f":"color:#fff"):"opacity:.8"}">${c.neu?(R.lbl?"✨ "+R.lbl+"!":"✨ NEU!"):"schon "+c.count+"×"}</span>
+    ${c.img?`<img src="${c.img}" alt="" style="width:30px;height:30px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.3))">`:`<span style="font-size:26px">${c.emo}</span>`}
+    <span style="font-size:11px;font-weight:800;line-height:1.1;${c.neu&&dunkel?"color:#78350f":""}">${esc(c.label)}</span>
+    ${c.sub?`<span style="font-size:9px;${c.neu&&dunkel?"color:#78350f":"opacity:.9"}">${esc(c.sub)}</span>`:""}
+    ${c.neu&&R.foil?'<div class="stfoil"></div>':""}`;
+  // Legendär aufgedeckt = sofort feiern, egal ob Duplikat
+  if(R.leg){const cont=document.getElementById("kab-pack-open");if(cont&&typeof confetti==="function")confetti(cont);}
   if(window._packCards.every(x=>x.open)){
     const done=document.getElementById("pk-done"); if(done)done.style.display="inline-block";
     if(window._packCards.some(x=>x.neu)){const cont=document.getElementById("kab-pack-open");if(cont&&typeof confetti==="function")confetti(cont);}
