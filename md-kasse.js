@@ -422,6 +422,7 @@ async function elternBuedchenLoad(termine,kids){
     const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
     const zeit=t.uhrzeit?String(t.uhrzeit).slice(0,5)+" Uhr":"";
     const meine=(fam||[]).find(f=>meineIds.includes(f.spieler_id));
+    if(!meine)continue; // Büdchen ist ein To-Do NUR für die eingeteilten Familien – andere sehen es hier nicht
     const namen=(fam&&fam.length)?fam.map(f=>esc(f.name)+"s Familie").join(" & "):"– wird eingeteilt –";
     cards.push(`<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05);${meine?"border:2px solid #16a34a":""}">
       <div style="font-weight:700;margin-bottom:2px">🍿 Büdchen · Heimspiel${(t.gegner||t.titel)?" gegen "+esc(t.gegner||t.titel):""}</div>
