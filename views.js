@@ -2904,6 +2904,7 @@ async function renderHome(){
   box.innerHTML=`
     <div class="sl nt"><i class="ti ti-home"></i>Trainer-Dashboard</div>
     ${onboardHtml}
+    <div id="trainer-todo-slot"></div>
     <div id="home-next">${card('<div style="font-size:12px;color:var(--text3)">Lade nächsten Termin...</div>')}</div>
     <div id="home-carousel"></div>
     <div style="display:flex;gap:8px;margin-bottom:2px">
@@ -2964,6 +2965,7 @@ async function renderHome(){
   elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche
   homeRsvpNudge(); // "wer hat noch nicht geantwortet" für den nächsten Termin
   homeAntiFrust(); // Anti-Frust-Radar: wer braucht heute eine Bühne
+  trainerTodoLoad(); // persönliche To-Dos des eingeloggten Trainers (Zusagen/Einheit/Sprachlob)
   // Team-Level ("Küken-Schwarm") lebt jetzt in der Adler-Welt, nicht mehr auf der Startseite
   homeBirthday(); // C4: Geburtstags-Automatik
   if(typeof pushRenderInto==="function")pushRenderInto("push-slot-trainer","trainer"); // Push-An/Aus
@@ -3050,6 +3052,66 @@ function toggleTeamCheck(){
   if(auf&&!window._radarLoaded){ window._radarLoaded=true; if(typeof homeRadarLoad==="function")homeRadarLoad(); }
 }
 
+/* ── Trainer-To-Dos (PO-Wunsch, Muster wie die Eltern-To-Dos): persönliche offene Punkte
+   des EINGELOGGTEN Trainers ganz oben auf der Startseite. Quellen: offene „Trainer dabei?"-
+   Antworten, Einheit-Nachbewertung (wenn laut Trainingsplan eingeteilt), rollierendes
+   Sprachlob nach Spielen (deterministisch: termin.id % Trainerzahl). ── */
+const TRAINER_MAILS={"charleshuetten@gmail.com":"Charles","sandy.m.dahm@gmail.com":"Sandy","kenneth@ktevents.de":"Kenneth","peterlemm@gmx.de":"Peter","zassfinn18@gmail.com":"Finn"};
+let _meTrainer=null;
+async function trainerMe(){
+  if(_meTrainer!==null)return _meTrainer;
+  try{
+    const r=await fetch(`${SB_URL}/auth/v1/user`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+sbToken()}});
+    if(r.ok){const u=await r.json();_meTrainer=TRAINER_MAILS[String(u.email||"").toLowerCase()]||"";}
+  }catch(e){}
+  if(_meTrainer===null)_meTrainer="";
+  return _meTrainer;
+}
+async function trainerTodoLoad(){
+  const slot=document.getElementById("trainer-todo-slot"); if(!slot)return;
+  if(!sbToken()){slot.innerHTML="";return;}
+  const me=await trainerMe(); if(!me){slot.innerHTML="";return;}
+  const heute=new Date().toISOString().slice(0,10);
+  const in14=new Date(Date.now()+14*864e5).toISOString().slice(0,10);
+  const vor14=new Date(Date.now()-14*864e5).toISOString().slice(0,10);
+  const vor7=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
+  const todos=[];
+  // a) Offene „Trainer dabei?"-Antworten für kommende Termine
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,datum,trainer_status&datum=gte.${heute}&datum=lte.${in14}&order=datum.asc`,{headers:sbAuthHeaders()});
+    if(r.ok){const offen=((await r.json())||[]).filter(t=>!(t.trainer_status||{})[me]);
+      if(offen.length)todos.push({emo:"🗓️",txt:`„Bist du dabei?" – ${offen.length} Termin${offen.length===1?"":"e"} ohne deine Antwort`,act:"go('termine')"});}
+  }catch(e){}
+  // b) Einheit nachbereiten, wenn du laut Trainingsplan eingeteilt warst
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/trainingsplan?select=datum,plan&datum=gte.${vor14}&datum=lt.${heute}`,{headers:sbAuthHeaders()});
+    const r2=await fetch(`${SB_URL}/rest/v1/einheit_bewertung?select=datum&datum=gte.${vor14}`,{headers:sbAuthHeaders()});
+    if(r.ok){
+      const done=new Set(r2.ok?((await r2.json())||[]).map(x=>x.datum):[]);
+      const meine=((await r.json())||[]).filter(row=>!done.has(row.datum)&&JSON.stringify(row.plan||"").includes(`"${me}"`));
+      meine.slice(0,2).forEach(row=>{const d=new Date(row.datum+"T00:00:00");
+        todos.push({emo:"⭐",txt:`Einheit vom ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})} nachbereiten – du warst eingeteilt`,act:"einheitBewertenOpen()"});});
+    }
+  }catch(e){}
+  // c) Sprachlob rollierend nach dem letzten Spiel/Turnier
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,datum,titel,gegner&typ=in.(spiel,turnier)&datum=gte.${vor7}&datum=lt.${heute}&order=datum.desc&limit=1`,{headers:sbAuthHeaders()});
+    if(r.ok){const t=((await r.json())||[])[0];
+      if(t&&typeof TRAINER!=="undefined"&&TRAINER.length){
+        const dran=TRAINER[Number(t.id)%TRAINER.length];
+        if(dran===me){
+          let done=false;
+          try{const l=await fetch(`${SB_URL}/rest/v1/kabine_lob?select=id&created_at=gte.${t.datum}&limit=1`,{headers:sbAuthHeaders()});if(l.ok)done=((await l.json())||[]).length>0;}catch(e){}
+          if(!done)todos.push({emo:"🎤",txt:`Du bist dran: Sprachlob für die Kabine (nach ${esc(t.titel||t.gegner||"dem Spiel")})`,act:"kaderEditOpen()"});
+        }
+      }}
+  }catch(e){}
+  if(!todos.length){slot.innerHTML="";return;}
+  slot.innerHTML=`<div class="card" style="border-left:4px solid #d97706;padding:12px 14px;margin-bottom:10px">
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#b45309;margin-bottom:8px">📌 Deine To-Dos, ${esc(me)}</div>
+    ${todos.map(t=>`<button onclick="${t.act}" style="display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:var(--surface);border:var(--border-s);border-radius:10px;padding:10px 12px;margin-bottom:6px;font-family:inherit;cursor:pointer;color:var(--text)"><span style="font-size:17px;line-height:1">${t.emo}</span><span style="flex:1;font-size:12.5px;font-weight:600;line-height:1.4">${t.txt}</span><span style="color:var(--text3)">›</span></button>`).join("")}
+  </div>`;
+}
 // Startseiten-Nudge: wer hat für den nächsten Termin (Training/Spiel/Turnier) noch nicht
 // geantwortet? Ein Tap öffnet die Rückmeldungs-Übersicht mit WhatsApp-Erinnerung.
 async function homeRsvpNudge(){

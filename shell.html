@@ -282,16 +282,13 @@
   <div class="sl nt"><i class="ti ti-run"></i>Trainingsformen-Datenbank</div>
   <div id="period-banner" style="background:var(--blue-bg);border:1px solid #93c5fd;border-radius:var(--rl);padding:12px;margin-bottom:1rem;font-size:12px;color:#1e40af;line-height:1.6"><strong>Schwerpunkt jetzt: Grundordnung &amp; Raute aufbauen.</strong> 50 Spielformen auf Basis des 4-Phasen-Modells.</div>
   <div id="autoplan-box" style="margin-bottom:1rem"></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;align-items:center">
-    <div style="flex:1;min-width:180px">
-      <input type="text" id="training-search" placeholder="Suchen..." oninput="clearTimeout(window._tfDebounce);window._tfDebounce=setTimeout(renderTraining,200)"
-        style="width:100%;padding:8px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;background:var(--surface);font-family:inherit;outline:none">
-    </div>
-    <button class="btn btn-sm" onclick="autoPlanBuild()" title="Kompletten Trainings-Ablauf vorschlagen"><i class="ti ti-wand"></i>Auto-Plan</button>
-    <button class="btn btn-p btn-sm" onclick="openAddTraining()"><i class="ti ti-plus"></i>Eigene Form</button>
+  <input type="text" id="training-search" placeholder="🔍 Übung suchen (z. B. Passspiel, Funino) …" oninput="clearTimeout(window._tfDebounce);window._tfDebounce=setTimeout(renderTraining,200)"
+    style="width:100%;box-sizing:border-box;padding:10px 14px;border:var(--border-s);border-radius:12px;font-size:13.5px;background:var(--surface);font-family:inherit;outline:none;margin-bottom:8px">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    <button class="btn btn-sm" onclick="autoPlanBuild()" title="Kompletten Trainings-Ablauf vorschlagen"><i class="ti ti-wand"></i>Auto-Plan vorschlagen</button>
+    <button class="btn btn-sm" onclick="openAddTraining()"><i class="ti ti-plus"></i>Eigene Form anlegen</button>
   </div>
   <div class="frow" id="training-filter-row">
-    <button class="ftag active" onclick="setTF('alle',this)">Alle</button>
     <button class="ftag" onclick="setTF('aufwaermen',this)">Aufwärmen</button>
     <button class="ftag" onclick="setTF('raute',this)">* Raute</button>
     <button class="ftag" onclick="setTF('passspiel',this)">Passspiel</button>
@@ -303,6 +300,7 @@
     <button class="ftag" onclick="setTF('individual',this)">Individual</button>
     <button class="ftag" onclick="setTF('mindset',this)">Mindset</button>
     <button class="ftag" onclick="setTF('custom',this)">Eigene</button>
+    <button class="ftag" onclick="setTF('alle',this)">Alle anzeigen</button>
   </div>
   <div id="training-content"><p style="padding:1rem;color:#64748b;font-size:13px">Lade...</p></div>
   <div id="training-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;overflow-y:auto;padding:16px">
@@ -437,8 +435,10 @@
     </div>
     <div id="tp-diagnose"></div>
     <div id="tp-timeline"></div>
-    <button class="btn btn-sm" style="margin-top:10px" onclick="tpAddSlot()"><i class="ti ti-plus"></i>Phase hinzufügen</button>
-    <button class="btn btn-sm" style="margin-top:10px" onclick="tpGenerate()"><i class="ti ti-wand"></i>Auto-Plan</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="btn btn-sm" onclick="tpAddSlot()"><i class="ti ti-plus"></i>Phase hinzufügen</button>
+      <button class="btn btn-sm" onclick="tpGenerate()"><i class="ti ti-wand"></i>Auto-Plan vorschlagen</button>
+    </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
       <button onclick="tpPlanSave()" style="flex:1;min-width:150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:none;border-radius:12px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.28)"><i class="ti ti-device-floppy"></i>Plan speichern</button>
       <button class="btn" onclick="tpPlanLoad()"><i class="ti ti-cloud-download"></i>Laden</button>
@@ -456,23 +456,21 @@
     <div id="aw-list"></div>
     <div class="brow" style="margin-top:12px">
       <button onclick="awSave()" style="flex:1;min-width:150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:none;border-radius:12px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.28)"><i class="ti ti-device-floppy"></i>Speichern</button>
-      <button class="btn btn-sm" onclick="awLoad()"><i class="ti ti-refresh"></i>Laden</button>
       <button class="btn btn-sm" onclick="buddyShuffle()" title="Anwesende Kinder in Zweier-Paare mischen">🎲 Buddy-Paare</button>
     </div>
     <div id="buddy-result"></div>
-    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:16px 0 6px">Übersicht Spieler</div>
-    <div id="aw-stats"></div>
-    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:16px 0 6px">Übersicht Trainer</div>
-    <div id="aw-trainer-stats"></div>
+    <!-- Saison-Übersichten: einklappbar (Standard zu), damit die Tages-Liste im Fokus bleibt -->
+    <details class="el-sect" style="margin-top:16px"><summary>📊 Übersicht Spieler (Saison)</summary><div id="aw-stats"></div></details>
+    <details class="el-sect"><summary>🧑‍🏫 Übersicht Trainer (Saison)</summary><div id="aw-trainer-stats"></div></details>
   </div><!-- /train-sub-anwesenheit -->
 
   <!-- SUB: Quiz-Ergebnisse -->
   <div id="train-sub-quizresults" class="train-sub">
     <div class="sl nt"><i class="ti ti-brain"></i>Quiz-Ergebnisse der Spieler</div>
+    <!-- „Quiz teilen" entfernt (PO): die Kinder erreichen die Quizze über ihre Kabine -->
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-      <button onclick="tqShareQuiz()" style="flex:1;min-width:150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:none;border-radius:12px;background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(168,85,247,.28)"><i class="ti ti-share"></i>Quiz an die Kinder teilen</button>
       <button class="btn btn-sm" onclick="tqLoadProgressFromSupabase().then(()=>tqRenderTrainerView())"><i class="ti ti-refresh"></i>Aktualisieren</button>
-      <button class="btn btn-sm" style="background:#fef2f2;color:#dc2626;border-color:#fca5a5" onclick="tqResetProgress()"><i class="ti ti-trash"></i>Zurücksetzen</button>
+      <button class="btn btn-sm" style="background:#fef2f2;color:#dc2626;border-color:#fca5a5" onclick="tqResetProgress()"><i class="ti ti-trash"></i>Ergebnisse zurücksetzen</button>
     </div>
     <div id="tq-trainer-view"></div>
   </div><!-- /train-sub-quizresults -->

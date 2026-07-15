@@ -13,7 +13,7 @@
 
 
 let CUSTOM_FORMS=[];
-let activeTF='alle';
+let activeTF=null; // bewusst KEINE Vorbelegung: 100+ Übungen aufgeklappt erschlagen – erst Kategorie wählen oder suchen
 // FEAT AC-Folge: EINE gemeinsame Formenliste (Bibliothek + eigene/KI-Übungen).
 // Die Planung ist index-basiert – deshalb MUSS ueberall dieselbe Liste (gleicher
 // Index-Raum) genutzt werden, sonst zeigt ein Slot die falsche Uebung.
@@ -150,10 +150,15 @@ function renderTraining(){
   var catLabels={aufwaermen:'Aufwärmen & Aktivierung',raute:'Raute & Grundordnung',passspiel:'Passspiel & Freilaufen',wahrnehmung:'Wahrnehmung & IQ',technik:'Technik & Ball',pressing:'Pressing & Umschalten',spass:'Spass & Wettbewerb',torwart:'Torwart-Training',individual:'Individual-Training',mindset:'Mindset & Selbstvertrauen',custom:'Eigene Formen'};
   var catCls={aufwaermen:'tf-cat-aufwaermen',raute:'tf-cat-raute',passspiel:'tf-cat-passspiel',wahrnehmung:'tf-cat-wahrnehmung',technik:'tf-cat-technik',pressing:'tf-cat-pressing',spass:'tf-cat-spass',torwart:'tf-cat-torwart',individual:'tf-cat-individual',mindset:'tf-cat-mindset',custom:'tf-cat-custom'};
   var diffLbl={1:'Einfach',2:'Mittel',3:'Anspruchsvoll'};
+  // Ohne gewählte Kategorie UND ohne Suchbegriff: Hinweis statt 100+ aufgeklappter Übungen
+  if(!activeTF&&!search){
+    wrap.innerHTML='<div style="text-align:center;padding:2.2rem 1rem;color:var(--text2)"><div style="font-size:34px;margin-bottom:8px">🏃</div><div style="font-size:13.5px;font-weight:700;color:var(--text)">Kategorie wählen oder suchen</div><div style="font-size:12px;margin-top:4px">Tippe oben auf eine Kategorie – oder nutze die Suche. „Alle" zeigt die komplette Datenbank.</div></div>';
+    return;
+  }
   var all=TRAININGSFORMEN.concat((CUSTOM_FORMS||[]).map(function(f){return Object.assign({},f,{kat:f.kat||'custom'});}));
   var filtered=all.filter(function(tf){
     var kat=tf.custom?'custom':tf.kat;
-    var matchKat=(activeTF==='alle'||activeTF===kat);
+    var matchKat=(!activeTF||activeTF==='alle'||activeTF===kat); // null = keine Kategorie gewählt -> Suche läuft über alle
     var matchSearch=!search||(tf.name||'').toLowerCase().indexOf(search)>=0||(tf.kurz||'').toLowerCase().indexOf(search)>=0;
     return matchKat&&matchSearch;
   });
@@ -164,7 +169,7 @@ function renderTraining(){
   var html='';
   order.forEach(function(kat){
     var items=groups[kat];if(!items||!items.length)return;
-    if(activeTF==='alle'){
+    if(!activeTF||activeTF==='alle'){ // auch bei kategorieloser Suche nach Kategorien gruppieren
       html+='<div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin:1.2rem 0 .5rem;padding-top:.8rem;border-top:1px solid #e2e8f0">'+(catLabels[kat]||kat)+'</div>';
     }
     var sorted=items.filter(function(t){return t.focus;}).concat(items.filter(function(t){return !t.focus;}));
@@ -648,7 +653,7 @@ function awRenderStats(){
   });
   let html='<div class="card" style="overflow:hidden;font-size:12px">';
   html+='<div style="display:grid;grid-template-columns:1fr 60px 60px 70px;padding:6px 10px;background:var(--surface2);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">';
-  html+='<div>Spieler</div><div>Quote</div><div>Qualität</div><div>Einheiten</div></div>';
+  html+='<div>Spieler</div><div>Quote</div><div title="Durchschnitt der Sterne-Bewertung aus „Einheit bewerten" (nur Tage, an denen das Kind da war)">Ø ★</div><div>Einheiten</div></div>';
   KADER.forEach(k=>{
     const s=stats[k.name];
     const pct=s.total?Math.round(s.da/s.total*100):0;
@@ -664,6 +669,7 @@ function awRenderStats(){
     </div>`;
   });
   html+='</div>';
+  html+='<div style="font-size:10px;color:var(--text3);margin-top:6px">Ø ★ = durchschnittliche Trainings-Bewertung des Kindes aus „Einheit bewerten" (an Anwesenheits-Tagen).</div>';
   wrap.innerHTML=html;
 }
 
@@ -1264,7 +1270,7 @@ function addEvalSection(){
   sec.innerHTML=`
     <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:10px 0 6px">Nachbewertung der Einheit</div>
     <div id="tp-eval-list"></div>
-    <button class="btn btn-p btn-sm" style="margin-top:8px" onclick="evalSave()"><i class="ti ti-device-floppy"></i>Bewertung speichern</button>
+    <button class="btn btn-sm" style="margin-top:8px" onclick="evalSave()"><i class="ti ti-device-floppy"></i>Nachbewertung speichern</button>
     <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:16px 0 6px">Bisherige Bewertungen</div>
     <div id="tp-eval-history"></div>
   `;
