@@ -257,7 +257,7 @@ function elternThemeOnToggle(){
    Async-Loader ihre Slots füllen); der Button zeigt nur das gewählte Panel im Vollbild-Overlay. */
 function elternCatOpen(id){
   const ov=document.getElementById("el-cat-overlay"); if(!ov)return;
-  const T={mehr:"📰 Mehr vom Team",regeln:"📋 Regeln & Vereinbarungen",datenschutz:"🔒 Datenschutz & Freigaben",kontakt:"⚙️ Kontakt & Benachrichtigungen"};
+  const T={todo:"📌 Zu erledigen",mehr:"📰 Mehr vom Team",regeln:"📋 Regeln & Vereinbarungen",datenschutz:"🔒 Datenschutz & Freigaben",kontakt:"⚙️ Kontakt & Benachrichtigungen"};
   ov.querySelectorAll(".el-cat-panel").forEach(p=>p.style.display="none");
   const panel=document.getElementById("cat-"+id); if(panel)panel.style.display="block";
   const ttl=document.getElementById("el-cat-title"); if(ttl)ttl.textContent=T[id]||"";
@@ -265,11 +265,12 @@ function elternCatOpen(id){
   if(typeof elternDarkActive==="function"&&elternDarkActive()&&typeof elternThemeSweep==="function")elternThemeSweep(ov);
 }
 function elternCatClose(){ const ov=document.getElementById("el-cat-overlay"); if(ov)ov.style.display="none"; }
-/* „Zu erledigen"-Sektion aus-/einblenden: nur zeigen, wenn mind. ein Slot gefüllt ist. */
+/* „Zu erledigen"-Button aus-/einblenden + Zähler: nur zeigen, wenn mind. ein Slot gefüllt ist. */
 function elternTodoSync(){
-  const box=document.getElementById("eltern-todo-box"); if(!box)return;
-  const any=["eltern-checklist-slot","mitbring-slot","buedchen-slot","puls-nudge-slot"].some(id=>{const el=document.getElementById(id);return el&&el.innerHTML.trim().length>0;});
-  box.style.display=any?"block":"none";
+  const btn=document.getElementById("eltern-todo-btn"); if(!btn)return;
+  const n=["eltern-checklist-slot","mitbring-slot","buedchen-slot","puls-nudge-slot"].filter(id=>{const el=document.getElementById(id);return el&&el.innerHTML.trim().length>0;}).length;
+  btn.style.display=n?"flex":"none";
+  const b=document.getElementById("eltern-todo-badge"); if(b)b.textContent=n?String(n):"";
 }
 async function elternDashLoad(){
   const body=document.getElementById("ep-dash-body");
@@ -303,13 +304,14 @@ async function elternDashLoad(){
   if(termin&&(termin.typ==="spiel"||termin.typ==="turnier"))html+='<div id="pause-card"></div>';  // ganz oben, noch vor dem Termin
   // ── 📌 ZU ERLEDIGEN: alle offenen Punkte gebündelt, ganz oben. Die Loader füllen die Slots;
   //    ist alles leer, blendet elternTodoSync() die ganze Sektion aus. ──
-  html+=`<div id="eltern-todo-box" style="display:none;margin-bottom:4px">
-    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#b45309;margin:6px 4px 8px">📌 Zu erledigen</div>
-    <div id="eltern-checklist-slot"></div>
-    <div id="mitbring-slot"></div>
-    <div id="buedchen-slot"></div>
-    <div id="puls-nudge-slot"></div>
-  </div>`;
+  // 📌 To-Do's als Kategorie-Button (optisch wie die Kategorien unten); Inhalt öffnet sich im
+  //    Overlay-Panel #cat-todo. Sichtbar nur, wenn offene Punkte da sind (elternTodoSync nach den Loadern).
+  html+=`<button id="eltern-todo-btn" onclick="elternCatOpen('todo')" style="display:none;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:10px;border:none;border-radius:14px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(217,119,6,.25)">
+    <span style="font-size:22px;line-height:1">📌</span>
+    <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:800">Zu erledigen</span><span style="display:block;font-size:11.5px;opacity:.92;margin-top:1px">Rückmeldungen, Mitbringen, Büdchen, „Wie war's"</span></span>
+    <span id="eltern-todo-badge" style="background:#fff;color:#d97706;font-weight:800;font-size:12px;border-radius:12px;padding:2px 9px"></span>
+    <span style="font-size:18px;opacity:.85">›</span>
+  </button>`;
   html+=`<div id="match-gruss-slot"></div>`;  // A1: persönlicher Nach-dem-Spiel-Gruß (positiv, kein To-Do)
   if(!termin){
     html+=card('<div style="font-weight:700;margin-bottom:2px">📅 Nächster Termin</div><div style="color:#64748b;font-size:13px">Aktuell ist kein Termin geplant.</div>');
@@ -402,6 +404,12 @@ async function elternDashLoad(){
       <button onclick="elternCatClose()" aria-label="Zurück" style="border:none;background:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;color:#334155;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);flex:none">←</button>
       <div id="el-cat-title" style="font-size:17px;font-weight:800"></div>
     </div>
+    <div id="cat-todo" class="el-cat-panel" style="display:none">
+      <div id="eltern-checklist-slot"></div>
+      <div id="mitbring-slot"></div>
+      <div id="buedchen-slot"></div>
+      <div id="puls-nudge-slot"></div>
+    </div>
     <div id="cat-mehr" class="el-cat-panel" style="display:none">`;
   html+=card(`<div style="font-weight:700;margin-bottom:6px">📰 Adler Nest (Stadionheft)</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Das digitale Stadionheft mit Neuigkeiten, Ergebnissen und Geburtstagen.</div>
@@ -460,7 +468,7 @@ async function elternDashLoad(){
   html+=`</div>`; // /cat-kontakt
   html+=`</div></div>`; // /el-cat-overlay
   body.innerHTML=html;
-  try{ const tb=document.getElementById("eltern-todo-box"); if(tb){ new MutationObserver(elternTodoSync).observe(tb,{childList:true,subtree:true}); elternTodoSync(); } }catch(e){}
+  try{ const tb=document.getElementById("cat-todo"); if(tb){ new MutationObserver(elternTodoSync).observe(tb,{childList:true,subtree:true}); elternTodoSync(); } }catch(e){}
   elternThemeInit();          // Observer für Modals/Slots (einmalig)
   elternThemeSweep(body);     // Dashboard bei Dark-Theme einfärben
   if(termin&&termin.datum)wetterInto("wetter-eltern",termin.datum,termin.ort,termin.uhrzeit); // Wetter am Termin-Ort + Uhrzeit
