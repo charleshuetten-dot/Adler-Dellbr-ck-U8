@@ -79,7 +79,8 @@ const ELTERN_LEITFADEN=[
   {emo:"🧑‍🤝‍🧑", t:"Neue & schüchterne Kinder aufnehmen", d:"Ermutigt euer Kind, neue und stillere Kinder aktiv mit hereinzuholen – niemand steht, wartet oder spielt allein. Diese Willkommenskultur macht aus vielen Einzelnen erst ein echtes Team."},
   {emo:"🍎", t:"Ausgeruht & gut versorgt zum Spieltag", d:"Ein Kind, das ausgeschlafen ist, gefrühstückt hat und eine gefüllte Trinkflasche dabei hat, ist mit Freude und Energie dabei – besser als mit Süßkram kurz vorher. Kleine Sache, große Wirkung."},
   {emo:"🚭", t:"Vorbild auch abseits des Balls", d:"Am Kinderspielfeldrand kein Rauchen und kein Alkohol, und ein respektvoller Ton – auch im Eltern-Chat. Ergebnis- oder Aufstellungs-Debatten gehören nicht in die große WhatsApp-Runde, sondern ins direkte Gespräch mit uns. Die Kinder schauen sich alles ab."},
-  {emo:"🗓️", t:"Zusage ist Zusage – besonders bei Turnieren", d:"Für Turniere und Auswärtsspiele teilen wir die Teams vorab ein. Eine kurzfristige Absage reißt dann eine echte Lücke. Bitte sagt nur zu, wenn es wirklich passt, und meldet euch früh, wenn sich etwas ändert."}
+  {emo:"🗓️", t:"Zusage ist Zusage – besonders bei Turnieren", d:"Für Turniere und Auswärtsspiele teilen wir die Teams vorab ein. Eine kurzfristige Absage reißt dann eine echte Lücke. Bitte sagt nur zu, wenn es wirklich passt, und meldet euch früh, wenn sich etwas ändert."},
+  {emo:"💍", t:"Schmuck ab vor dem Spielen", d:"Ohrringe, Ketten, Armbänder, Uhren und Ringe kommen vor Training und Spiel ab – sie sind eine Verletzungsgefahr und meist auch nicht erlaubt. Wertsachen bleiben am besten gleich zu Hause; dafür können wir am Platz keine Verantwortung übernehmen."}
 ];
 /* Adler-Börse (Phase 23.1): interner Flohmarkt. Preise sind Freitext ("Zu verschenken").
    Fotos im vorhandenen fundbuero-Bucket (privat, nur Angemeldete), Prefix "boerse/". */
