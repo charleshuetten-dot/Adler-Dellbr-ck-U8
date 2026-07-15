@@ -253,6 +253,24 @@ function elternThemeOnToggle(){
   if(elternDarkActive())elternThemeSweep(document.body);   // dunkel: direkt einfärben
   else { elternThemeRestore(document.body); if(typeof elternDashLoad==="function")elternDashLoad(); } // hell: Inline-Farben überall zurücksetzen (auch Kopfzeile) + Dashboard neu
 }
+/* Kategorie-Fenster: die Panels liegen (versteckt) im #el-cat-overlay im DOM (damit die
+   Async-Loader ihre Slots füllen); der Button zeigt nur das gewählte Panel im Vollbild-Overlay. */
+function elternCatOpen(id){
+  const ov=document.getElementById("el-cat-overlay"); if(!ov)return;
+  const T={mehr:"📰 Mehr vom Team",regeln:"📋 Regeln & Vereinbarungen",datenschutz:"🔒 Datenschutz & Freigaben",kontakt:"⚙️ Kontakt & Benachrichtigungen"};
+  ov.querySelectorAll(".el-cat-panel").forEach(p=>p.style.display="none");
+  const panel=document.getElementById("cat-"+id); if(panel)panel.style.display="block";
+  const ttl=document.getElementById("el-cat-title"); if(ttl)ttl.textContent=T[id]||"";
+  ov.style.display="block"; ov.scrollTop=0;
+  if(typeof elternDarkActive==="function"&&elternDarkActive()&&typeof elternThemeSweep==="function")elternThemeSweep(ov);
+}
+function elternCatClose(){ const ov=document.getElementById("el-cat-overlay"); if(ov)ov.style.display="none"; }
+/* „Zu erledigen"-Sektion aus-/einblenden: nur zeigen, wenn mind. ein Slot gefüllt ist. */
+function elternTodoSync(){
+  const box=document.getElementById("eltern-todo-box"); if(!box)return;
+  const any=["eltern-checklist-slot","mitbring-slot","buedchen-slot","puls-nudge-slot"].some(id=>{const el=document.getElementById(id);return el&&el.innerHTML.trim().length>0;});
+  box.style.display=any?"block":"none";
+}
 async function elternDashLoad(){
   const body=document.getElementById("ep-dash-body");
   if(!body)return;
@@ -283,6 +301,16 @@ async function elternDashLoad(){
   let html="";
   if(termin&&termin.platz_status)html+=elternPlatzAmpelBanner(termin);   // ganz oben: findet statt / Ausweich / fällt aus
   if(termin&&(termin.typ==="spiel"||termin.typ==="turnier"))html+='<div id="pause-card"></div>';  // ganz oben, noch vor dem Termin
+  // ── 📌 ZU ERLEDIGEN: alle offenen Punkte gebündelt, ganz oben. Die Loader füllen die Slots;
+  //    ist alles leer, blendet elternTodoSync() die ganze Sektion aus. ──
+  html+=`<div id="eltern-todo-box" style="display:none;margin-bottom:4px">
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#b45309;margin:6px 4px 8px">📌 Zu erledigen</div>
+    <div id="eltern-checklist-slot"></div>
+    <div id="mitbring-slot"></div>
+    <div id="buedchen-slot"></div>
+    <div id="puls-nudge-slot"></div>
+  </div>`;
+  html+=`<div id="match-gruss-slot"></div>`;  // A1: persönlicher Nach-dem-Spiel-Gruß (positiv, kein To-Do)
   if(!termin){
     html+=card('<div style="font-weight:700;margin-bottom:2px">📅 Nächster Termin</div><div style="color:#64748b;font-size:13px">Aktuell ist kein Termin geplant.</div>');
   }else{
@@ -325,7 +353,7 @@ async function elternDashLoad(){
       <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Aktiven Status nochmal tippen = Rückmeldung entfernen. Deine Rückmeldung ist ein Hinweis – die endgültige Aufstellung entscheidet der Trainer.</div>
       ${termin.typ==="training"?'<div id="betreuung-card"></div>':""}
       ${termin.typ==="turnier"?'<div id="turnierplan-card"></div>':""}
-      ${elternTickerHtml(termin)}
+      ${(termin.datum===heute&&(termin.typ==="spiel"||termin.typ==="turnier"))?elternTickerHtml(termin):""}
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
         <button onclick="galerieOpen(${termin.id},'${(termin.titel||termin.gegner||m.label).replace(/'/g,'')}')" style="flex:1;min-width:130px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 Event-Fotos</button>
         <button onclick="elternTermineOpen()" style="flex:1;min-width:130px;padding:9px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📅 Alle Termine</button>
@@ -333,13 +361,7 @@ async function elternDashLoad(){
     </div>`;
   }
   const sec=(t)=>`<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#94a3b8;margin:18px 4px 8px">${t}</div>`;
-  // ── AKTUELL & TO-DOS: direkt unter dem nächsten Termin, damit Handlungsbedarf sofort auffällt ──
-  html+=`<div id="eltern-checklist-slot"></div>`; // „Erste Schritte"-Checkliste (Adoption)
-  html+=`<div id="mitbring-slot"></div>`;     // Event-Mitbringliste (async, nur bei kommenden Events)
-  html+=`<div id="buedchen-slot"></div>`;     // Büdchen-Einteilung bei Heimspielen (async)
-  html+=`<div id="puls-nudge-slot"></div>`;   // Puls-Erinnerung: jüngstes Event ohne eigenes Feedback
-  html+=`<div id="match-gruss-slot"></div>`;  // A1: persönlicher Nach-dem-Spiel-Gruß pro Kind
-  // ── TERMINE ──
+  // ── TERMINE ── (Karussell + Kalender-Abo)
   html+=sec("📅 Termine");
   html+=elternTermineCarouselHtml(termineListe,kids,rsvpAll); // Schnell-Zu-/Absage für alle Termine (deckt „kommende Termine × Kinder" ab)
   html+=card(`<button onclick="elternTermineOpen()" style="width:100%;min-height:46px;padding:12px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">📅 Alle Termine &amp; Kalender-Abo</button>`);
@@ -357,20 +379,30 @@ async function elternDashLoad(){
     return card(`<div style="font-weight:700;font-size:15px;margin-bottom:2px">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="color:#94a3b8;font-weight:600">#${kd.nr}</span>`:""}</div>
       <div id="xp-chip-${k.spieler_id}" style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:8px"></div>
       <button onclick="elternCardOpen(${k.spieler_id})" style="width:100%;min-height:44px;padding:11px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">🃏 Adler-Karte ansehen</button>
-      <button onclick="elternFotoConsentOpen(${k.spieler_id},'${nn}')" style="width:100%;min-height:44px;margin-top:8px;padding:11px;border:1.5px solid #7c3aed;border-radius:10px;background:#faf5ff;color:#6d28d9;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 Foto- &amp; Video-Freigabe</button>
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
         ${gBtn("🎖️ Abzeichen",`abzeichenOpen(${k.spieler_id},'${nn}')`,"#f59e0b","#fffbeb","#b45309")}
         ${gBtn("🎧 Sprachlob",`lobPlay(${k.spieler_id})`,"#db2777","#fdf2f8","#be185d")}
         ${gBtn("✏️ Fan-Fakten",`elternFanfactsOpen(${k.spieler_id},'${nn}')`,"#64748b","#fff","#475569")}
-        ${gBtn("🎬 Saison-Rückblick",`childWrappedShare(${k.spieler_id})`,"#7c3aed","#fff","#7c3aed")}
-        ${gBtn("🚑 Notfallkarte",`notfallOpen(${k.spieler_id},'${nn}')`,"#dc2626","#fef2f2","#b91c1c")}
-      </div>
-      <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Unter „Foto- &amp; Video-Freigabe" entscheidest du getrennt, wo Bilder deines Kindes gezeigt werden dürfen – jederzeit widerrufbar.</div>`);
+        ${gBtn("📊 Saison-Statistik",`childWrappedShare(${k.spieler_id})`,"#7c3aed","#fff","#7c3aed")}
+      </div>`);
   }).join("");
   // ── MEHR VOM TEAM (einklappbar – Referenz/Selteneres, weniger Scrollen) ──
   let kasse=null;
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kasse_summary`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)kasse=await r.json();}catch(e){}
-  html+=`<details class="el-sect"><summary>📰 Mehr vom Team</summary><div>`;
+  // ── Kategorie-Buttons: öffnen je ein fokussiertes Fenster (statt Inline-Akkordeon). Die
+  //    Inhalte liegen (versteckt) im Overlay, damit die Async-Loader ihre Slots weiter füllen. ──
+  const catBtn=(id,emoji,title,desc,grad)=>`<button onclick="elternCatOpen('${id}')" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:8px;border:none;border-radius:14px;background:${grad};color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.08)"><span style="font-size:22px;line-height:1">${emoji}</span><span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:800">${title}</span><span style="display:block;font-size:11.5px;opacity:.92;margin-top:1px">${desc}</span></span><span style="font-size:18px;opacity:.85">›</span></button>`;
+  html+=sec("Mehr");
+  html+=catBtn('mehr','📰','Mehr vom Team','Adler Nest, Börse, Fundbüro, Kasse','linear-gradient(135deg,#1e3a8a,#2563eb)');
+  html+=catBtn('regeln','📋','Regeln &amp; Vereinbarungen','Fairplay-Codex &amp; Eltern-Leitfaden','linear-gradient(135deg,#16a34a,#059669)');
+  html+=catBtn('datenschutz','🔒','Datenschutz &amp; Freigaben','Foto/Video, Notfallkarte, Datenexport','linear-gradient(135deg,#7c3aed,#6d28d9)');
+  html+=catBtn('kontakt','⚙️','Kontakt &amp; Benachrichtigungen','Elterngespräch, Push, Einstellungen','linear-gradient(135deg,#475569,#334155)');
+  html+=`<div id="el-cat-overlay" style="display:none;position:fixed;inset:0;z-index:10000;background:var(--bg,#f1f5f9);overflow-y:auto"><div style="max-width:560px;margin:0 auto;padding:12px 16px 40px">
+    <div style="display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg,#f1f5f9);padding:8px 0 10px;z-index:1">
+      <button onclick="elternCatClose()" aria-label="Zurück" style="border:none;background:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;color:#334155;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);flex:none">←</button>
+      <div id="el-cat-title" style="font-size:17px;font-weight:800"></div>
+    </div>
+    <div id="cat-mehr" class="el-cat-panel" style="display:none">`;
   html+=card(`<div style="font-weight:700;margin-bottom:6px">📰 Adler Nest (Stadionheft)</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Das digitale Stadionheft mit Neuigkeiten, Ergebnissen und Geburtstagen.</div>
     <a href="${location.pathname}?heft" style="display:block;text-align:center;padding:11px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;text-decoration:none">📰 Adler Nest öffnen</a>`);
@@ -393,9 +425,8 @@ async function elternDashLoad(){
       <div style="font-size:10px;color:#94a3b8;margin-top:8px">Informativ. Zahlungen laufen extern über PayPal.</div>`);
   }
   html+=`<div id="ak-slot"></div>`; // FEAT Z: Adler-Kasse (async, nur wenn Link gesetzt)
-  html+=`</div></details>`; // /Mehr vom Team
-  // ── REGELN & VEREINBARUNGEN (einklappbar) ──
-  html+=`<details class="el-sect"><summary>📋 Regeln &amp; Vereinbarungen</summary><div>`;
+  html+=`</div>`; // /cat-mehr
+  html+=`<div id="cat-regeln" class="el-cat-panel" style="display:none">`;
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🤝 Unser Fairplay-Codex</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Die Regeln, damit der Spielfeldrand ein guter Ort für die Kinder bleibt.</div>
     <button onclick="fairplayOpen()" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">Codex ansehen</button>
@@ -404,9 +435,20 @@ async function elternDashLoad(){
   html+=card(`<div style="font-weight:700;margin-bottom:6px">📖 ${esc(LEITFADEN_NAME)}</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Unsere ausformulierten Vereinbarungen: Pünktlichkeit, Aufsicht, Büdchen, Verhalten am Platz, App-Nutzung und mehr – jederzeit zum Nachlesen.</div>
     <button onclick="leitfadenOpen()" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">${esc(LEITFADEN_NAME)} öffnen</button>`);
-  html+=`</div></details>`; // /Regeln
-  // ── KONTAKT & EINSTELLUNGEN (einklappbar) ──
-  html+=`<details class="el-sect"><summary>⚙️ Kontakt &amp; Einstellungen</summary><div>`;
+  html+=`</div>`; // /cat-regeln
+  // ── DATENSCHUTZ & FREIGABEN (NEU): Foto/Video + Notfallkarte pro Kind + Datenexport ──
+  html+=`<div id="cat-datenschutz" class="el-cat-panel" style="display:none">`;
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">📸 Foto- &amp; Video-Freigabe</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Entscheide pro Kind getrennt, wo Bilder und Videos gezeigt werden dürfen (app-intern / Trainingsvideos / öffentlich) – jederzeit widerrufbar.</div>
+    ${kids.map(k=>{const nn=((k.kader&&k.kader.name)||"").replace(/'/g,"");return `<button onclick="elternFotoConsentOpen(${k.spieler_id},'${nn}')" style="display:block;width:100%;min-height:44px;margin-bottom:6px;padding:10px;border:1.5px solid #7c3aed;border-radius:10px;background:#faf5ff;color:#6d28d9;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 ${esc((k.kader&&k.kader.name)||"Kind")}: Freigabe verwalten</button>`;}).join("")}`);
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">🚑 Notfallkarte</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Allergien, Medikamente und ein Notfallkontakt pro Kind – sieht ausschließlich das Trainerteam.</div>
+    ${kids.map(k=>{const nn=((k.kader&&k.kader.name)||"").replace(/'/g,"");return `<button onclick="notfallOpen(${k.spieler_id},'${nn}')" style="display:block;width:100%;min-height:44px;margin-bottom:6px;padding:10px;border:1.5px solid #dc2626;border-radius:10px;background:#fef2f2;color:#b91c1c;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🚑 ${esc((k.kader&&k.kader.name)||"Kind")}: Notfallkarte</button>`;}).join("")}`);
+  html+=card(`<div style="font-weight:700;margin-bottom:6px">🔒 Meine Daten</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Lade alle bei uns gespeicherten Daten deines Kindes als Datei herunter (Rückmeldungen, Federn, Metadaten).</div>
+    <button onclick="elternDataExport(this)" style="width:100%;min-height:44px;padding:11px;border:1.5px solid #64748b;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Daten herunterladen (JSON)</button>`);
+  html+=`</div>`; // /cat-datenschutz
+  html+=`<div id="cat-kontakt" class="el-cat-panel" style="display:none">`;
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🗣️ Elterngespräch</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Du möchtest mit dem Trainer über dein Kind sprechen? Sag kurz Bescheid – der Trainer meldet sich zur Terminabstimmung.</div>
     <div id="eg-slot"></div>
@@ -415,11 +457,10 @@ async function elternDashLoad(){
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🔔 Benachrichtigungen</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Erinnerungen an Termine, offene Rückmeldungen und Neuigkeiten direkt aufs Handy.</div>
     <div id="push-slot-eltern"></div>`);
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">🔒 Meine Daten (Datenschutz)</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Lade alle bei uns gespeicherten Daten deines Kindes als Datei herunter (Rückmeldungen, Federn, Metadaten).</div>
-    <button onclick="elternDataExport(this)" style="width:100%;min-height:44px;padding:11px;border:1.5px solid #64748b;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Daten herunterladen (JSON)</button>`);
-  html+=`</div></details>`; // /Kontakt & Einstellungen
+  html+=`</div>`; // /cat-kontakt
+  html+=`</div></div>`; // /el-cat-overlay
   body.innerHTML=html;
+  try{ const tb=document.getElementById("eltern-todo-box"); if(tb){ new MutationObserver(elternTodoSync).observe(tb,{childList:true,subtree:true}); elternTodoSync(); } }catch(e){}
   elternThemeInit();          // Observer für Modals/Slots (einmalig)
   elternThemeSweep(body);     // Dashboard bei Dark-Theme einfärben
   if(termin&&termin.datum)wetterInto("wetter-eltern",termin.datum,termin.ort,termin.uhrzeit); // Wetter am Termin-Ort + Uhrzeit
