@@ -260,7 +260,7 @@ function elternCatOpen(id){
   const T={todo:"📌 Zu erledigen",news:"📣 Adler News",mehr:"📰 Mehr vom Team",regeln:"📋 Regeln & Vereinbarungen",datenschutz:"🔒 Datenschutz & Freigaben",kontakt:"⚙️ Kontakt & Benachrichtigungen"};
   ov.querySelectorAll(".el-cat-panel").forEach(p=>p.style.display="none");
   const panel=document.getElementById("cat-"+id); if(panel)panel.style.display="block";
-  const ttl=document.getElementById("el-cat-title"); if(ttl)ttl.textContent=T[id]||"";
+  const ttl=document.getElementById("el-cat-title"); if(ttl)ttl.textContent=T[id]||(panel&&panel.dataset&&panel.dataset.catTitle)||""; // Kind-Panels tragen ihren Titel selbst
   ov.style.display="block"; ov.scrollTop=0;
   if(id==="news"&&typeof elternNewsMarkSeen==="function")elternNewsMarkSeen(); // Öffnen = gelesen
   if(typeof elternDarkActive==="function"&&elternDarkActive()&&typeof elternThemeSweep==="function")elternThemeSweep(ov);
@@ -409,27 +409,22 @@ async function elternDashLoad(){
   html+=sec("📅 Termine");
   html+=elternTermineCarouselHtml(termineListe,kids,rsvpAll); // Schnell-Zu-/Absage für alle Termine (deckt „kommende Termine × Kinder" ab)
   html+=card(`<button onclick="elternTermineOpen()" style="width:100%;min-height:46px;padding:12px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">📅 Alle Termine &amp; Kalender-Abo</button>`);
-  // ── FÜR DIE KINDER ──
+  // ── FÜR DIE KINDER ── (gleiche Button-Optik wie die Kategorien unten: Kabine = Direktstart,
+  //    je Kind ein Button, der ein Kind-Fenster im Overlay öffnet)
   html+=sec("🎮 Für die Kinder");
-  html+=card(`<div style="font-weight:700;margin-bottom:6px">🎮 Die Kabine (Kinder-Modus)</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:8px">Team-Galerie, Missionen und das Fußball-Quiz (${XP_ICON} Federn sammeln).</div>
-    <button onclick="kabineOpen()" style="display:block;width:100%;min-height:48px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-weight:800;font-size:14px;font-family:inherit;cursor:pointer">🎮 Kabine öffnen</button>`);
-  html+=`<div id="eltern-level-slot" style="margin-bottom:12px"></div>`;  // C1: kollektives Team-Level
-  html+=`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin:2px 2px 6px">Dein Kind</div>`;
+  html+=`<button onclick="kabineOpen()" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:8px;border:none;border-radius:14px;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(124,58,237,.25)">
+    <span style="font-size:22px;line-height:1">🎮</span>
+    <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:800">Die Kabine</span><span style="display:block;font-size:11.5px;opacity:.92;margin-top:1px">Kinder-Modus: Galerie, Missionen &amp; Quiz (${XP_ICON} Federn)</span></span>
+    <span style="font-size:18px;opacity:.85">›</span>
+  </button>`;
   html+=kids.map(k=>{const kd=k.kader||{};
-    const nn=(kd.name||"").replace(/'/g,"");
-    // Sekundär-Aktionen als kompaktes 2-Spalten-Raster (halbiert die Höhe pro Kind).
-    const gBtn=(label,onclick,border,bg,color)=>`<button onclick="${onclick}" style="flex:1 1 calc(50% - 4px);min-width:130px;min-height:44px;padding:8px;border:1.5px solid ${border};border-radius:10px;background:${bg};color:${color};font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">${label}</button>`;
-    return card(`<div style="font-weight:700;font-size:15px;margin-bottom:2px">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="color:#94a3b8;font-weight:600">#${kd.nr}</span>`:""}</div>
-      <div id="xp-chip-${k.spieler_id}" style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:8px"></div>
-      <button onclick="elternCardOpen(${k.spieler_id})" style="width:100%;min-height:44px;padding:11px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">🃏 Adler-Karte ansehen</button>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
-        ${gBtn("🎖️ Abzeichen",`abzeichenOpen(${k.spieler_id},'${nn}')`,"#f59e0b","#fffbeb","#b45309")}
-        ${gBtn("🎧 Sprachlob",`lobPlay(${k.spieler_id})`,"#db2777","#fdf2f8","#be185d")}
-        ${gBtn("✏️ Fan-Fakten",`elternFanfactsOpen(${k.spieler_id},'${nn}')`,"#64748b","#fff","#475569")}
-        ${gBtn("📊 Saison-Statistik",`childWrappedShare(${k.spieler_id})`,"#7c3aed","#fff","#7c3aed")}
-      </div>`);
+    return `<button onclick="elternCatOpen('kind-${k.spieler_id}')" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:8px;border:none;border-radius:14px;background:linear-gradient(135deg,#1e3a8a,#3b5bd0);color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(30,58,138,.22)">
+      <span style="font-size:22px;line-height:1">🃏</span>
+      <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:800">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="font-weight:600;opacity:.8">#${kd.nr}</span>`:""}</span><span id="xp-chip-${k.spieler_id}" style="display:block;font-size:11.5px;opacity:.92;margin-top:1px">Karte, Abzeichen, Sprachlob &amp; Statistik</span></span>
+      <span style="font-size:18px;opacity:.85">›</span>
+    </button>`;
   }).join("");
+  html+=`<div id="eltern-level-slot" style="margin:4px 0 12px"></div>`;  // C1: kollektives Team-Level
   // ── MEHR VOM TEAM (einklappbar – Referenz/Selteneres, weniger Scrollen) ──
   let kasse=null;
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kasse_summary`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)kasse=await r.json();}catch(e){}
@@ -453,6 +448,15 @@ async function elternDashLoad(){
       <div id="puls-nudge-slot"></div>
     </div>
     <div id="cat-news" class="el-cat-panel" style="display:none"></div>
+    ${kids.map(k=>{const kd=k.kader||{};const nn=(kd.name||"").replace(/'/g,"");
+      const act=(emo,label,d,onclick,col)=>`<button onclick="elternCatClose();${onclick}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1px solid #e2e8f0;border-left:4px solid ${col};border-radius:12px;padding:13px;margin-bottom:8px;font-family:inherit;cursor:pointer"><span style="font-size:20px;line-height:1">${emo}</span><span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:700;color:#0f172a">${label}</span><span style="display:block;font-size:11.5px;color:#64748b;margin-top:1px">${d}</span></span><span style="font-size:14px;color:#94a3b8">›</span></button>`;
+      return `<div id="cat-kind-${k.spieler_id}" class="el-cat-panel" data-cat-title="🃏 ${esc(kd.name||"Kind")}" style="display:none">
+        ${act("🃏","Adler-Karte ansehen","Die FUT-Karte mit den aktuellen Werten",`elternCardOpen(${k.spieler_id})`,"#1e3a8a")}
+        ${act("🎖️","Technik-Abzeichen","Übungen zu Hause abhaken – Federn sammeln",`abzeichenOpen(${k.spieler_id},'${nn}')`,"#f59e0b")}
+        ${act("🎧","Sprachlob anhören","Persönliches Lob vom Trainerteam",`lobPlay(${k.spieler_id})`,"#db2777")}
+        ${act("✏️","Fan-Fakten &amp; Foto","Lieblingsverein, Spitzname &amp; Kartenfoto pflegen",`elternFanfactsOpen(${k.spieler_id},'${nn}')`,"#475569")}
+        ${act("📊","Saison-Statistik","Spiele, Einsätze &amp; Highlights – jederzeit aktuell",`childWrappedShare(${k.spieler_id})`,"#7c3aed")}
+      </div>`;}).join("")}
     <div id="cat-mehr" class="el-cat-panel" style="display:none">`;
   html+=card(`<div style="font-weight:700;margin-bottom:6px">📰 Adler Nest (Stadionheft)</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Das digitale Stadionheft mit Neuigkeiten, Ergebnissen und Geburtstagen.</div>
