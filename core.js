@@ -822,3 +822,18 @@ async function terminIdForDatum(datum){
   }catch(e){}
   return null;
 }
+
+/* ── Einheitlicher Modal-Kopf im App-Look (Design-Sprache v293+): farbige Icon-Kachel +
+   Titel + Untertitel + Schließen-×. Band mit Links-Akzent, funktioniert bei jedem
+   Card-Padding (keine negativen Margins). col = Familien-Farbe der Kategorie. ── */
+function mdlHead(modalId,emoji,title,sub,col){
+  col=col||"#1e3a8a";
+  return `<div style="display:flex;align-items:center;gap:11px;margin-bottom:12px;padding:10px 12px;background:linear-gradient(90deg,${col}18,${col}05);border-left:4px solid ${col};border-radius:12px">
+    <div style="width:38px;height:38px;flex:none;border-radius:11px;background:${col};display:flex;align-items:center;justify-content:center;font-size:19px;box-shadow:0 2px 6px ${col}55">${emoji}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:15.5px;font-weight:800;line-height:1.2;color:var(--text)">${title}</div>
+      ${sub?`<div style="font-size:11px;color:var(--text2);margin-top:1px">${sub}</div>`:""}
+    </div>
+    <button onclick="document.getElementById('${modalId}')?.remove()" aria-label="Schließen" style="border:none;background:transparent;font-size:24px;color:var(--text2);cursor:pointer;line-height:1;padding:4px;flex:none">×</button>
+  </div>`;
+}

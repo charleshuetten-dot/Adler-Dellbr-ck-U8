@@ -838,10 +838,7 @@ async function setupTrainerOpen(){
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   c.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <div style="font-weight:800;font-size:16px">🚀 Eltern-Setup</div>
-      <button onclick="document.getElementById('setup-modal').remove()" style="border:none;background:none;font-size:24px;color:var(--text2);cursor:pointer;line-height:1">×</button>
-    </div>
+    ${mdlHead("setup-modal","🚀","Eltern-Setup","Foto-Freigaben & Notfallkarten je Kind","#0d9488")}
     <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Offen: 📸 ${missIntern} ohne interne Foto-Freigabe · 🚑 ${missNf} ohne Notfallkarte. Foto-Spalten: 🖼️ intern · 🎥 Video · 🌍 öffentlich.</div>
     <div style="display:grid;grid-template-columns:1fr 34px 34px 34px 34px;gap:2px;font-size:10px;font-weight:700;color:var(--text2);padding:0 4px 4px"><div>Kind</div><div style="text-align:center" title="app-intern">🖼️</div><div style="text-align:center" title="Trainingsvideo">🎥</div><div style="text-align:center" title="öffentlich">🌍</div><div style="text-align:center" title="Notfallkarte">🚑</div></div>
     ${rows.map(r=>`<div style="display:grid;grid-template-columns:1fr 34px 34px 34px 34px;gap:2px;align-items:center;padding:5px 4px;border-top:var(--border);font-size:13px"><div>${esc(r.name)}</div><div style="text-align:center">${cell(r.intern)}</div><div style="text-align:center">${cell(r.video)}</div><div style="text-align:center">${cell(r.pub)}</div><div style="text-align:center">${cell(r.nf)}</div></div>`).join("")}
@@ -870,10 +867,7 @@ async function pausenOpen(){
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   c.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <div style="font-weight:800;font-size:16px">⏸ Pausen & Wiedereinstieg</div>
-      <button onclick="document.getElementById('pause-modal').remove()" style="border:none;background:none;font-size:24px;color:var(--text2);cursor:pointer;line-height:1">×</button>
-    </div>
+    ${mdlHead("pause-modal","⏸","Pausen & Wiedereinstieg","","#d97706")}
     <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Pausierte Kinder sind bei Prognose, Nominierung und Buddy-Auslosung automatisch raus – bis zum Datum. Grund optional, keine Diagnosen.</div>
     ${paused.length?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin:4px 0 2px">Aktuell pausiert</div>${paused.map(k=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:var(--border)"><span style="flex:1;font-size:13px">${esc(k.name)} <span style="color:#b45309;font-weight:700">· bis ${pauseBisLabel(k.name)}</span>${PAUSE_MAP[k.name].grund?`<span style="color:var(--text3);font-size:11px"> · ${esc(PAUSE_MAP[k.name].grund)}</span>`:""}</span><button class="btn btn-sm" onclick="pauseEnd(${k._id})">Beenden</button></div>`).join("")}`:'<div style="font-size:12.5px;color:var(--text3);padding:4px 0">Aktuell pausiert niemand.</div>'}
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin:14px 0 4px">Kind pausieren</div>
@@ -2359,8 +2353,7 @@ function einheitListRender(){
       <div style="font-size:18px;color:var(--text3)">›</div>
     </div>`;
   }).join("");
-  c.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">⭐ Einheit bewerten</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Wähle die Trainingseinheit, die du nachbereiten willst.</div>
+  c.innerHTML=`${mdlHead("eb-modal","⭐","Einheit bewerten","Wähle die Trainingseinheit, die du nachbereiten willst","#2563eb")}
     ${EB_TERMINE.length?rows:'<div style="font-size:12.5px;color:var(--text3);padding:10px 0">Es sind noch keine Trainings-Termine vergangen. Lege sie unter „Termine“ an.</div>'}
     <div style="display:flex;margin-top:10px"><button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('eb-modal').remove()">Schließen</button></div>`;
 }
@@ -2508,8 +2501,7 @@ async function anwesenheitOpen(){
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const cardEl=document.createElement("div");
   cardEl.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  cardEl.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">📊 Anwesenheits-Quote</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Training aus der Anwesenheitsliste, Spiele/Turniere aus den Nominierungen („dabei"). Nur Info – keine Wertung.</div>
+  cardEl.innerHTML=`${mdlHead("aq-modal","📊","Anwesenheits-Quote","Training aus der Liste, Spiele aus den Nominierungen · nur Info","#3b82f6")}
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">
       <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)"><td style="padding:4px 8px">Spieler</td><td style="padding:4px 8px;text-align:right">🏃 Training</td><td style="padding:4px 8px;text-align:right">⚽ Spiele</td></tr>
       ${rows||'<tr><td style="padding:8px;color:var(--text3)">Noch keine Daten.</td></tr>'}
@@ -2583,8 +2575,7 @@ async function saisonCockpitOpen(){
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  c.innerHTML=`<div style="font-weight:800;font-size:17px;margin-bottom:2px">📈 Saison-Cockpit</div>
-    <div style="font-size:11.5px;color:var(--text2);margin-bottom:12px">Saison seit ${new Date(ab+"T00:00:00").toLocaleDateString("de-DE",{month:"long",year:"numeric"})} · alles auf einen Blick.</div>
+  c.innerHTML=`${mdlHead("sc-modal","📈","Saison-Cockpit",`Saison seit ${new Date(ab+"T00:00:00").toLocaleDateString("de-DE",{month:"long",year:"numeric"})} · alles auf einen Blick`,"#1e3a8a")}
     <div style="display:flex;gap:8px;margin-bottom:14px">${kpi(spiele,"Spiele","var(--blue)")}${kpi("⚽ "+toreGesamt,"Tore","#059669")}${kpi(trainings,"Trainings","#7c3aed")}</div>
     <div style="font-weight:800;font-size:13.5px;margin-bottom:4px">🥇 Top-Torschützen</div>
     ${scorers.length?scorers.map(([n,c],i)=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0"><span style="width:22px">${medal(i)}</span><span style="flex:1">${esc(n)}</span><span style="font-weight:800;color:#059669">${c}</span></div>`).join(""):'<div style="font-size:12px;color:var(--text3)">Noch keine Tore erfasst.</div>'}
