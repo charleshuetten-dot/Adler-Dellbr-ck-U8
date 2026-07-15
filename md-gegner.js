@@ -334,8 +334,7 @@ async function rsvpOverviewOpen(terminId){
   const sec=(title,arr,col,emo)=>arr.length?`<div style="margin-top:8px"><div style="font-size:11px;font-weight:800;color:${col}">${emo} ${title} (${arr.length})</div><div style="font-size:12px;color:var(--text2);line-height:1.5">${arr.map(esc).join(", ")}</div></div>`:"";
   const card=document.createElement("div");
   card.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  card.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">📋 Rückmeldungen</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${m.icon} ${esc(t.titel||m.label)} · ${datumStr}${zeitStr?" · "+zeitStr:""}</div>
+  card.innerHTML=`${mdlHead("rsvp-ov-modal","📋","Rückmeldungen",`${m.icon} ${esc(t.titel||m.label)} · ${datumStr}${zeitStr?" · "+zeitStr:""}`,"#d97706")}
     <div style="font-size:13px;font-weight:800;color:${groups.offen.length?"#b45309":"#16a34a"}">${groups.offen.length?groups.offen.length+" noch offen":"Alle haben geantwortet 🎉"}</div>
     ${sec("Offen",groups.offen,"#b45309","❓")}
     ${sec("Zusagen",groups.zugesagt,"#059669","👍")}
@@ -701,8 +700,7 @@ async function turnierOpen(){
   const p=(spieltagRawDate()||"").split("-"); const ds=p.length===3?`${p[2]}.${p[1]}.${p[0]}`:spieltagRawDate();
   const card=document.createElement("div");
   card.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  card.innerHTML=`<div style="font-weight:800;font-size:16px;margin-bottom:2px">🏆 Turnier-Modus</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${esc(ds)}${spieltagTeam>1?" · Adler "+spieltagTeam:""} · Kurzspiele erfassen. Einsatzzeiten laufen über den Rotations-Timer weiter.</div>
+  card.innerHTML=`${mdlHead("turnier-modal","🏆","Turnier-Modus",`${esc(ds)}${spieltagTeam>1?" · Adler "+spieltagTeam:""} · Kurzspiele erfassen`,"#d97706")}
     <div id="turnier-tally" style="margin-bottom:10px"></div>
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:4px 0 6px">📅 Spielplan</div>
     <div id="turnier-plan" style="margin-bottom:14px"><div style="color:var(--text3);font-size:12px">Lade…</div></div>

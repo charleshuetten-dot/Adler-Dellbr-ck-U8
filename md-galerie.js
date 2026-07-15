@@ -48,11 +48,7 @@ async function fotoAmpelOpen(){
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:520px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   c.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <div style="font-weight:800;font-size:16px">🚦 Foto-/Video-Ampel</div>
-      <button onclick="document.getElementById('fa-modal').remove()" style="border:none;background:none;font-size:24px;color:var(--text2);cursor:pointer;line-height:1">×</button>
-    </div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Die Freigaben setzen die <b>Eltern selbst</b> im Eltern-Bereich (freiwillig, widerrufbar). Hier siehst du nur den Stand – vor dem Posten prüfen.</div>
+    ${mdlHead("fa-modal","🚦","Foto-/Video-Ampel","Eltern setzen die Freigaben selbst · vor dem Posten prüfen","#0d9488")}
     <div style="display:grid;grid-template-columns:1fr 40px 40px 40px;gap:2px;font-size:10px;font-weight:700;color:var(--text2);padding:0 4px 4px"><div>Kind</div><div style="text-align:center" title="app-intern">🖼️</div><div style="text-align:center" title="Trainingsvideo">🎥</div><div style="text-align:center" title="öffentlich">🌍</div></div>
     ${kids.map(k=>{const x=fotoConsentFor(k);return `<div style="display:grid;grid-template-columns:1fr 40px 40px 40px;gap:2px;align-items:center;padding:5px 4px;border-top:var(--border);font-size:13px"><div>${esc(k.name)}</div><div style="text-align:center">${cell(x.intern)}</div><div style="text-align:center">${cell(x.video)}</div><div style="text-align:center">${cell(x.public_ok)}</div></div>`;}).join("")}
     <div style="font-weight:700;font-size:12px;margin:16px 0 4px">✏️ Einwilligungstext (sehen die Eltern)</div>

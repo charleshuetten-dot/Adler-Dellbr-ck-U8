@@ -912,11 +912,7 @@ async function notfallTrainerOpen(){
   c.style.cssText="background:var(--surface);color:var(--text);max-width:520px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   const tel=v=>{const num=String(v).replace(/[^\d+]/g,"");return num?`<a href="tel:${num}" style="color:#dc2626;font-weight:700;text-decoration:none">${esc(v)}</a>`:esc(v);};
   c.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <div style="font-weight:800;font-size:16px">🚑 Notfallkarten</div>
-      <button onclick="document.getElementById('nf-tr-modal').remove()" style="border:none;background:none;font-size:24px;color:var(--text2);cursor:pointer;line-height:1">×</button>
-    </div>
-    <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Von den Eltern gepflegt · schreibgeschützt${offline?' · <b style="color:#b45309">📴 Offline-Stand</b>':""}. Bitte vertraulich behandeln.</div>
+    ${mdlHead("nf-tr-modal","🚑","Notfallkarten",`Von den Eltern gepflegt · schreibgeschützt${offline?' · <b style="color:#b45309">📴 Offline-Stand</b>':""} · vertraulich`,"#dc2626")}
     ${cards.length?cards.map(x=>`<div style="border:var(--border-s);border-left:3px solid #dc2626;border-radius:10px;padding:10px 12px;margin-bottom:8px">
         <div style="font-weight:800;font-size:14px;margin-bottom:4px">${esc(nameById[x.spieler_id]||("Kind #"+x.spieler_id))}</div>
         ${flds.filter(f=>x[f[0]]).map(f=>`<div style="font-size:12.5px;padding:2px 0"><span style="color:var(--text2)">${f[1]}:</span> ${f[0]==="notfall_tel"?tel(x[f[0]]):esc(x[f[0]])}</div>`).join("")}

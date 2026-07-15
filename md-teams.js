@@ -296,11 +296,7 @@ async function rollenMatrixOpen(){
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   c.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
-      <div style="font-weight:800;font-size:16px">🎽 Rollen-Erfahrung</div>
-      <button onclick="document.getElementById('rollen-modal').remove()" style="border:none;background:none;font-size:24px;color:var(--text2);cursor:pointer;line-height:1">×</button>
-    </div>
-    <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Wie oft stand jedes Kind in welcher Start-Rolle? (aus ${games} gespeicherten Aufstellungen, nur 4+1). Rot = noch nie.</div>
+    ${mdlHead("rollen-modal","🎽","Rollen-Erfahrung",`aus ${games} gespeicherten Aufstellungen (4+1) · Rot = noch nie`,"#2563eb")}
     ${games?head+rows:'<div style="font-size:13px;color:var(--text3);padding:16px;text-align:center">Noch keine Aufstellungen gespeichert.<br>Speichere im Spieltag unter „Aufstellung" eine Startelf – dann füllt sich die Matrix.</div>'}
     ${games&&nie.length?`<div style="font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;margin-top:12px">🥅 <b>Noch nie im Tor:</b> ${nie.map(esc).join(", ")} – vor dem E-Jugend-Wechsel (fester TW) mal ranlassen.</div>`:""}
     <button class="btn btn-sm" style="width:100%;margin-top:12px" onclick="document.getElementById('rollen-modal').remove()">Schließen</button>`;
