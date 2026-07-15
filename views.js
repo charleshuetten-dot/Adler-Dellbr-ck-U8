@@ -1947,7 +1947,7 @@ const TABS={
     {key:"quizresults", label:"Quiz",        icon:"ti-brain"},
   ]},
   spieltag:{sections:[
-    {key:"spieltag", label:"Match",       icon:"ti-whistle"},
+    {key:"spieltag", label:"Match",       icon:"ti-ball-football"},
     {key:"kombi",    label:"Aufstellung", icon:"ti-users-group"},
     {key:"analyse",  label:"Analyse",     icon:"ti-chart-dots"},
   ]},
@@ -2911,7 +2911,7 @@ async function renderHome(){
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn" style="justify-content:flex-start" onclick="go('kader')"><i class="ti ti-users"></i>1️⃣ Kader anlegen / prüfen</button>
       <button class="btn" style="justify-content:flex-start" onclick="go('termine')"><i class="ti ti-calendar-plus"></i>2️⃣ Ersten Termin eintragen</button>
-      <button class="btn" style="justify-content:flex-start" onclick="openTab('spieltag')"><i class="ti ti-whistle"></i>3️⃣ Am Spieltag loslegen</button>
+      <button class="btn" style="justify-content:flex-start" onclick="openTab('spieltag')"><i class="ti ti-ball-football"></i>3️⃣ Am Spieltag loslegen</button>
     </div>
     <button onclick="onboardingDismiss()" style="margin-top:10px;background:transparent;border:none;color:var(--text3);font-family:inherit;font-size:11.5px;cursor:pointer;text-decoration:underline">Alles klar, ausblenden</button>
   </div>`; }catch(e){}
@@ -2922,7 +2922,7 @@ async function renderHome(){
     <div id="home-carousel"></div>
     <div style="display:flex;gap:8px;margin-bottom:2px">
       <button onclick="openTab('spieltag')" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-height:72px;padding:12px 6px;border:none;border-radius:var(--rl);cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;box-shadow:0 2px 10px rgba(37,99,235,.28)">
-        <i class="ti ti-whistle" style="font-size:24px"></i><span style="font-size:12.5px;font-weight:800">Spieltag</span></button>
+        <i class="ti ti-ball-football" style="font-size:24px"></i><span style="font-size:12.5px;font-weight:800">Spieltag</span></button>
       <button onclick="go('anwesenheit')" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-height:72px;padding:12px 6px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;background:var(--surface);color:var(--text)">
         <i class="ti ti-checkbox" style="font-size:24px;color:#2563eb"></i><span style="font-size:12.5px;font-weight:800">Anwesenheit</span></button>
       <button onclick="go('termine')" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-height:72px;padding:12px 6px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;background:var(--surface);color:var(--text)">
@@ -2938,23 +2938,20 @@ async function renderHome(){
       ${homeTool("📈 Saison-Cockpit","saisonCockpitOpen()")}
       ${homeTool("⭐ Einheit bewerten","einheitBewertenOpen()")}
       ${homeTool("📊 Anwesenheits-Quote","anwesenheitOpen()")}
-    </div>
-    <!-- Team-Check (Kader/bewertet/überfällig/Radar) – jetzt bei den Werkzeugen -->
-    <div class="card" style="padding:0;margin:8px 0 10px;overflow:hidden">
-      <button onclick="toggleTeamCheck()" style="width:100%;display:flex;align-items:center;gap:8px;padding:13px 14px;min-height:48px;border:none;background:transparent;font-family:inherit;cursor:pointer;color:var(--text)">
-        <span style="font-size:16px">🩺</span>
-        <span style="flex:1;text-align:left;font-size:13px;font-weight:700">Team-Check</span>
-        <span style="font-size:11px;color:var(--text2)">${KADER.length} im Kader · ${bewertet} bewertet${stale>0?` · <span style="color:#dc2626">${stale} überfällig</span>`:""}</span>
-        <span id="tc-caret" style="font-size:12px;color:var(--text3)">▾</span>
+      <button onclick="toggleTeamCheck()" style="flex:1 1 calc(50% - 4px);min-width:140px;min-height:46px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text);background:var(--surface);text-align:left;padding:0 12px;display:flex;align-items:center;gap:6px">
+        <span>🩺 Team-Check</span>
+        ${stale>0?`<span style="background:#fee2e2;color:#dc2626;border-radius:8px;padding:1px 7px;font-size:10.5px;font-weight:800">${stale}</span>`:""}
+        <span id="tc-caret" style="margin-left:auto;font-size:11px;color:var(--text3)">▾</span>
       </button>
-      <div id="team-check-body" style="display:none;padding:0 14px 14px">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          ${statTile(KADER.length,"Kader","var(--blue)","go('kader')")}
-          ${statTile(bewertet+"/"+KADER.length,"bewertet","#059669","go('bew')")}
-          ${statTile(stale,"überfällig >6 Wo","#dc2626","go('bew')")}
-        </div>
-        <div id="home-radar"></div>
+    </div>
+    <!-- Team-Check-Inhalt (Kader/bewertet/überfällig/Radar): volle Breite unter den Kacheln -->
+    <div id="team-check-body" class="card" style="display:none;padding:12px 14px;margin:8px 0 10px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        ${statTile(KADER.length,"Kader","var(--blue)","go('kader')")}
+        ${statTile(bewertet+"/"+KADER.length,"bewertet","#059669","go('bew')")}
+        ${statTile(stale,"überfällig >6 Wo","#dc2626","go('bew')")}
       </div>
+      <div id="home-radar"></div>
     </div>
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:12px 2px 6px">Organisieren</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
@@ -3011,7 +3008,7 @@ async function renderHome(){
           <div style="font-size:15px;font-weight:800;margin-top:2px">${m.icon} ${esc(t.titel||t.gegner||m.label)}${t.spielform?` <span style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;background:${m.col}22;color:${m.col}">${esc(t.spielform)}</span>`:""}</div>
           <div style="font-size:11.5px;color:var(--text2);margin-top:2px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""}${t.ort?" · "+mapsAnchor(t.ort):""}${t.platz?" · 🏟️ "+esc(t.platz):""}</div>
         </div>
-        ${istSpiel?`<button class="btn btn-p btn-sm" onclick="tmJump('blitz','${t.datum}','${t.spielform||''}')" style="white-space:nowrap"><i class="ti ti-whistle"></i>Matchday</button>`
+        ${istSpiel?`<button class="btn btn-p btn-sm" onclick="tmJump('blitz','${t.datum}','${t.spielform||''}')" style="white-space:nowrap"><i class="ti ti-ball-football"></i>Matchday</button>`
                   :t.typ==="event"?`<button class="btn btn-sm" onclick="mitbringTrainerOpen()" style="white-space:nowrap"><i class="ti ti-basket"></i>Mitbringliste</button>`
                   :`<button class="btn btn-sm" onclick="tmJump('planung','${t.datum}')" style="white-space:nowrap"><i class="ti ti-clipboard-list"></i>Plan</button>`}
       </div>
