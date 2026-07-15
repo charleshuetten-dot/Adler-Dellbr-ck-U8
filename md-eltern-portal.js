@@ -292,6 +292,10 @@ async function elternNewsLoad(kids){
   const federn={};
   await Promise.all((kids||[]).map(async k=>{ try{federn[k.spieler_id]=await xpTotal(k.spieler_id);}catch(e){federn[k.spieler_id]=0;} }));
   (kids||[]).forEach(k=>{ try{cur["level_"+k.spieler_id]=(xpBadge(federn[k.spieler_id]||0)||{}).t||"";}catch(e){} });
+  // H7: Team-Meilensteine (RPC berechnet & persistiert; neuester Stand als Quelle "ms")
+  let ms=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/team_meilensteine`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)ms=(await r.json())||[];}catch(e){}
+  cur.ms=(ms[0]&&ms[0].erreicht_am)||"";
   window._elternNewsCur=cur;
   let seen=null; try{seen=JSON.parse(localStorage.getItem("adler_news_seen")||"null");}catch(e){}
   if(!seen){ try{localStorage.setItem("adler_news_seen",JSON.stringify(cur));}catch(e){} seen=cur; } // Erstbesuch = Baseline
@@ -303,6 +307,7 @@ async function elternNewsLoad(kids){
   if(cur.skill&&cur.skill.slice(0,4)!=="1970"&&cur.skill>(seen.skill||"")) items.push({emo:"🏅",txt:"Neuer Skill der Woche / neue Challenge.",act:"elternCatOpen('mehr')"});
   (data.lob||[]).forEach(l=>{ if(l.at>(seen["lob_"+l.sid]||"")) items.push({emo:"🎧",txt:`Neues Sprachlob für ${esc(kidName(l.sid))}.`,act:`elternCatClose();lobPlay(${l.sid})`}); });
   (kids||[]).forEach(k=>{ const lv=cur["level_"+k.spieler_id]; const sv=seen["level_"+k.spieler_id]; if(lv&&sv!=null&&lv!==sv) items.push({emo:"🎉",txt:`${esc(kidName(k.spieler_id))} hat ein neues Level erreicht: ${esc(lv)}!`,act:`elternCatClose();elternCardOpen(${k.spieler_id})`}); });
+  if(cur.ms&&cur.ms>(seen.ms||"")) ms.filter(m=>m.erreicht_am>(seen.ms||"")).slice(0,3).forEach(m=>items.push({emo:"🏆",txt:`Team-Meilenstein: ${esc(m.label)}`,act:"elternCatClose()"})); // H7
   const badge=document.getElementById("eltern-news-badge");
   if(badge){ badge.textContent=items.length?String(items.length):"0"; badge.style.display=items.length?"inline-block":"none"; }
   panel.innerHTML = items.length
@@ -312,6 +317,35 @@ async function elternNewsLoad(kids){
 function elternNewsMarkSeen(){
   try{ if(window._elternNewsCur)localStorage.setItem("adler_news_seen",JSON.stringify(window._elternNewsCur)); }catch(e){}
   const b=document.getElementById("eltern-news-badge"); if(b){ b.textContent="0"; b.style.display="none"; }
+}
+/* H1 – Team-Ansagen: aktive Ansagen der letzten 14 Tage als Banner ganz oben. „Gelesen &
+   verstanden" schreibt eine Zeile in ansagen_gelesen (user_id = auth.uid per Default);
+   der Trainer sieht daraus die Quote „X/Y Familien". Gelesene Banner verschwinden. */
+async function elternAnsagenLoad(){
+  const el=document.getElementById("ansage-slot"); if(!el)return;
+  const ab=new Date(Date.now()-14*864e5).toISOString();
+  let rows=[],gelesen=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/ansagen?aktiv=eq.true&created_at=gte.${ab}&select=id,text,created_at&order=created_at.desc`,{headers:sbAuthHeaders()});if(r.ok)rows=await r.json();}catch(e){}
+  if(!rows.length){el.innerHTML="";return;}
+  try{const r=await fetch(`${SB_URL}/rest/v1/ansagen_gelesen?select=ansage_id&ansage_id=in.(${rows.map(a=>a.id).join(",")})`,{headers:sbAuthHeaders()});if(r.ok)gelesen=(await r.json()).map(x=>x.ansage_id);}catch(e){}
+  const offen=rows.filter(a=>!gelesen.includes(a.id));
+  if(!offen.length){el.innerHTML="";return;}
+  el.innerHTML=offen.map(a=>{const d=new Date(a.created_at);
+    return `<div id="ansage-${a.id}" style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 2px 10px rgba(30,58,138,.25)">
+      <div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.85"><span style="font-size:16px">📣</span> Ansage vom Trainerteam · ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}</div>
+      <div style="font-size:14px;font-weight:600;line-height:1.5;margin-top:6px;white-space:pre-wrap">${esc(a.text)}</div>
+      <button onclick="elternAnsageAck(${a.id},this)" style="width:100%;min-height:44px;margin-top:10px;border:none;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">✓ Gelesen &amp; verstanden</button>
+    </div>`;}).join("");
+}
+async function elternAnsageAck(id,btn){
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/ansagen_gelesen`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({ansage_id:id})});
+    // 409 = schon bestätigt (Doppel-Tap) – dann ebenfalls einfach ausblenden
+    if(!r.ok&&r.status!==201&&r.status!==409){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");if(btn)btn.disabled=false;return;}
+  }catch(e){toast("Netzwerkfehler","err");if(btn)btn.disabled=false;return;}
+  document.getElementById("ansage-"+id)?.remove();
+  toast("Danke! ✓");
 }
 async function elternDashLoad(){
   const body=document.getElementById("ep-dash-body");
@@ -343,6 +377,7 @@ async function elternDashLoad(){
   let html="";
   if(termin&&termin.platz_status)html+=elternPlatzAmpelBanner(termin);   // ganz oben: findet statt / Ausweich / fällt aus
   if(termin&&(termin.typ==="spiel"||termin.typ==="turnier"))html+='<div id="pause-card"></div>';  // ganz oben, noch vor dem Termin
+  html+='<div id="ansage-slot"></div>'; // H1: ungelesene Trainer-Ansagen als Banner ganz oben
   // ── 📌 ZU ERLEDIGEN: alle offenen Punkte gebündelt, ganz oben. Die Loader füllen die Slots;
   //    ist alles leer, blendet elternTodoSync() die ganze Sektion aus. ──
   // 📌 To-Do's als Kategorie-Button (optisch wie die Kategorien unten); Inhalt öffnet sich im
@@ -517,6 +552,7 @@ async function elternDashLoad(){
   if(!window._eTourChecked){window._eTourChecked=true;setTimeout(elternTourMaybe,700);} // Eltern-Tour einmalig
   kabineCodeHash().catch(()=>{});   // Hash vorladen, damit die Kabine auch offline wieder aufgeht
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(!el)return;el.innerHTML=adlerkasseCardHtml(l)+(l?akShareBtnHtml():"");if(l)window._akLink=l;}).catch(()=>{});
+  elternAnsagenLoad();                         // H1: Trainer-Ansagen mit Gelesen-Status
   elternMitbringLoad(kids);                    // Event-Mitbringliste: wer bringt was mit
   elternBuedchenLoad(termineListe,kids);       // Büdchen-Einteilung bei Heimspielen
   elternGespraechStatus();                     // laufende Elterngespräch-Anfrage anzeigen

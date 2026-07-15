@@ -196,6 +196,10 @@ function kabineHome(){
     </div>
     <div id="kab-level" style="padding:2px 16px 6px"></div>
     <div id="kab-countdown"></div>
+    <div id="kab-reveal"></div>
+    <div id="kab-pack"></div>
+    <div id="kab-stimmung"></div>
+    <div id="kab-milestone"></div>
     <div id="kab-arena" style="padding:0 16px 4px"></div>
     ${(function(){
       // Kacheln in 4 Farbfamilien (wie im Eltern-Bereich: Farbtöne je Kategorie). Getönte,
@@ -224,6 +228,10 @@ function kabineHome(){
   teamLevelLoad("kab-level");                                  // C1: Team-Level
   if(typeof arenaKabineLoad==="function")arenaKabineLoad("kab-arena"); // C3: Einlauf-Song/Schlachtruf
   kabineCountdownLoad();                                        // G6: Countdown bis zum nächsten Spiel
+  kabineRevealLoad();                                           // H4: Rollen-Reveal am Spieltag
+  kabinePackLoad();                                             // H3: Spieltag-Packliste
+  kabineStimmungLoad();                                         // H2: Kinder-Stimmungs-Check
+  kabineMilestoneLoad();                                        // H7: frische Team-Meilensteine feiern
 }
 // G6: „Noch X× schlafen bis zum nächsten Spiel!" – Motivation im Kinder-Modus.
 async function kabineCountdownLoad(){
@@ -239,6 +247,167 @@ async function kabineCountdownLoad(){
     <div style="font-size:15px;font-weight:900">⚽ ${label}</div>
     <div style="font-size:12px;opacity:.85;margin-top:2px">${t.typ==="turnier"?"🏆 Turnier":"gegen "+esc(t.gegner||t.titel||"?")} · ${["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()]}, ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}</div>
   </div>`;
+}
+/* H4 – Rollen-Reveal: hat der Trainer für HEUTE eine Aufstellung gespeichert, darf das Kind
+   seine Rolle in der Kabine „aufdecken" (RPC kind_rolle_heute, weil aufstellungen trainer-only ist). */
+const KAB_ROLLEN={tw:["🥅","TORWART"],auf:["🛡️","AUFPASSER"],fll:["⚡","FLITZER LINKS"],flr:["⚡","FLITZER RECHTS"],jaeg:["🎯","JÄGER"]};
+async function kabineRevealLoad(){
+  const el=document.getElementById("kab-reveal"); if(!el)return;
+  const kids=window._elternKids||[]; if(!kids.length){el.innerHTML="";return;}
+  const heute=new Date().toISOString().slice(0,10);
+  let hatSpiel=false;
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=id&typ=in.(spiel,turnier)&datum=eq.${heute}&limit=1`,{headers:sbAuthHeaders()});if(r.ok)hatSpiel=!!(await r.json()).length;}catch(e){}
+  if(!hatSpiel){el.innerHTML="";return;}
+  const rollen=[];
+  await Promise.all(kids.map(async k=>{
+    try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kind_rolle_heute`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler:k.spieler_id})});
+      if(r.ok){const d=await r.json();if(d&&d.ok&&d.rolle&&KAB_ROLLEN[d.rolle])rollen.push({sid:k.spieler_id,name:(k.kader&&k.kader.name)||"",rolle:d.rolle});}}catch(e){}
+  }));
+  if(!rollen.length){el.innerHTML="";return;}
+  el.innerHTML=rollen.map(x=>{
+    let seen=null; try{seen=localStorage.getItem(`adler_reveal_${x.sid}_${heute}`);}catch(e){}
+    if(seen){const R=KAB_ROLLEN[x.rolle];
+      return `<div style="margin:2px 16px 8px;background:linear-gradient(135deg,rgba(168,85,247,.5),rgba(124,58,237,.32));border-radius:16px;padding:12px;text-align:center;color:#fff">
+        <div style="font-size:12px;opacity:.85">${esc(x.name)} – deine Rolle heute:</div>
+        <div style="font-size:20px;font-weight:900;margin-top:2px">${R[0]} ${R[1]}</div></div>`;}
+    return `<button onclick="kabineRevealShow(${x.sid},'${x.rolle}','${jsq(x.name)}')" style="display:flex;align-items:center;gap:10px;margin:2px 16px 8px;width:calc(100% - 32px);border:1px solid rgba(255,255,255,.2);border-radius:16px;background:linear-gradient(135deg,rgba(168,85,247,.6),rgba(124,58,237,.4));color:#fff;font-family:inherit;cursor:pointer;padding:14px;text-align:left">
+      <span style="font-size:26px">🎁</span>
+      <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:900">${esc(x.name)} – deine Rolle für heute ist da!</span>
+      <span style="display:block;font-size:11.5px;opacity:.9">Tippe zum Aufdecken 🤫</span></span>
+    </button>`;
+  }).join("");
+}
+function kabineRevealShow(sid,rolle,name){
+  const heute=new Date().toISOString().slice(0,10);
+  try{localStorage.setItem(`adler_reveal_${sid}_${heute}`,"1");}catch(e){}
+  const R=KAB_ROLLEN[rolle]||["⚽","ADLER"];
+  const b=document.getElementById("kabine-body"); if(!b)return;
+  b.innerHTML=`<div id="kab-reveal-view" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;position:relative;overflow:hidden;padding:24px;text-align:center;color:#fff">
+    <div style="font-size:14px;opacity:.85">${esc(name)}, heute bist du…</div>
+    <div style="font-size:78px;line-height:1">${R[0]}</div>
+    <div style="font-size:30px;font-weight:900;letter-spacing:1px">${R[1]}</div>
+    <div style="font-size:13px;opacity:.9;max-width:320px">Gib alles für dein Team – und hab Spaß dabei! 🦅</div>
+    <button onclick="kabineHome()" style="margin-top:14px;border:none;border-radius:14px;background:rgba(255,255,255,.16);color:#fff;font-family:inherit;font-size:14px;font-weight:800;padding:12px 22px;cursor:pointer">Zurück zur Kabine</button>
+  </div>`;
+  try{navigator.vibrate&&navigator.vibrate([60,80,60,80,160]);}catch(e){}
+  const cont=document.getElementById("kab-reveal-view");
+  if(cont&&typeof confetti==="function")confetti(cont);
+}
+/* H3 – Spieltag-Packliste: ab dem Vorabend packt das Kind seine Tasche virtuell. Haken lokal
+   (localStorage je Kind+Datum); alles gepackt → Konfetti + 5 Federn (xp_award_event 'packliste',
+   idempotent über quelle_id – die Federn gibt es je Spieltag genau einmal). */
+const KAB_PACK_ITEMS=["👟 Fußballschuhe","🦵 Schienbeinschoner","🧦 Stutzen","👕 Adler-Trikot","🥤 Trinkflasche","🧥 Jacke für danach","😄 Gute Laune"];
+let _kabPackTermin=null;
+function _kabPackGet(sid,datum){ try{return JSON.parse(localStorage.getItem(`adler_pack_${sid}_${datum}`)||"{}");}catch(e){return {};} }
+async function kabinePackLoad(){
+  const el=document.getElementById("kab-pack"); if(!el)return;
+  const kids=window._elternKids||[]; if(!kids.length){el.innerHTML="";return;}
+  const heute=new Date().toISOString().slice(0,10);
+  let t=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=datum,typ,gegner,titel&typ=in.(spiel,turnier)&datum=gte.${heute}&order=datum.asc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)t=(await r.json())[0]||null;}catch(e){}
+  _kabPackTermin=t;
+  if(!t){el.innerHTML="";return;}
+  const days=Math.round((new Date(t.datum+"T00:00:00")-new Date(heute+"T00:00:00"))/864e5);
+  if(days>1){el.innerHTML="";return;} // erst ab dem Vorabend
+  const fertig=kids.every(k=>{const st=_kabPackGet(k.spieler_id,t.datum);return KAB_PACK_ITEMS.every((_,i)=>st[i]);});
+  el.innerHTML=`<button onclick="kabinePack()" style="display:flex;align-items:center;gap:10px;margin:2px 16px 8px;width:calc(100% - 32px);border:1px solid rgba(255,255,255,.18);border-radius:16px;background:${fertig?"rgba(34,197,94,.28)":"linear-gradient(135deg,rgba(245,158,11,.55),rgba(217,119,6,.35))"};color:#fff;font-family:inherit;cursor:pointer;padding:12px 14px;text-align:left">
+    <span style="font-size:26px">🎒</span>
+    <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:900">${fertig?"Tasche gepackt – stark! ✅":"Tasche packen fürs "+(t.typ==="turnier"?"Turnier":"Spiel")}</span>
+    <span style="display:block;font-size:11.5px;opacity:.85">${days<=0?"Heute":"Morgen"} ist ${t.typ==="turnier"?"Turnier":"Spieltag"} – hast du alles dabei?</span></span>
+    <span style="font-size:18px;opacity:.85">›</span>
+  </button>`;
+}
+function kabinePack(){
+  const kids=window._elternKids||[];
+  if(!_kabPackTermin||!kids.length)return;
+  if(kids.length===1){ kabinePackFor(kids[0].spieler_id,(kids[0].kader&&kids[0].kader.name)||""); return; }
+  kabinePickKid("🎒 Wessen Tasche?","kabinePackFor");
+}
+function kabinePackFor(sid,name){
+  const b=document.getElementById("kabine-body"); if(!b||!_kabPackTermin)return;
+  const t=_kabPackTermin, st=_kabPackGet(sid,t.datum);
+  const alle=KAB_PACK_ITEMS.every((_,i)=>st[i]);
+  b.innerHTML=`<div id="kab-pack-view" style="flex:1;overflow-y:auto;position:relative">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px">
+      <button onclick="kabineHome()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer">←</button>
+      <div style="flex:1;font-size:18px;font-weight:800">🎒 ${esc(name||"Meine")} Tasche</div>
+    </div>
+    <div style="font-size:12px;opacity:.85;padding:0 16px 10px;text-align:center;color:#fff">Pack deine Tasche fürs ${t.typ==="turnier"?"Turnier":"Spiel"} – Haken für alles, was drin ist!</div>
+    <div style="display:flex;flex-direction:column;gap:10px;padding:0 16px 16px">
+      ${KAB_PACK_ITEMS.map((it,i)=>`<button onclick="kabinePackTap(${sid},${i},'${jsq(name)}')" style="display:flex;align-items:center;gap:12px;border:none;border-radius:16px;padding:14px;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer;text-align:left;${st[i]?"background:linear-gradient(135deg,rgba(34,197,94,.55),rgba(5,150,105,.35));color:#fff":"background:rgba(255,255,255,.10);color:rgba(255,255,255,.92)"}">
+        <span style="font-size:22px">${st[i]?"✅":"⬜"}</span><span style="flex:1">${it}</span>
+      </button>`).join("")}
+    </div>
+    ${alle?`<div style="text-align:center;padding:0 16px 20px;font-size:15px;font-weight:900;color:#fff">Alles drin – du bist startklar! 🦅</div>`:""}
+  </div>`;
+}
+async function kabinePackTap(sid,idx,name){
+  if(!_kabPackTermin)return;
+  const t=_kabPackTermin, st=_kabPackGet(sid,t.datum);
+  st[idx]=st[idx]?0:1;
+  try{localStorage.setItem(`adler_pack_${sid}_${t.datum}`,JSON.stringify(st));}catch(e){}
+  try{navigator.vibrate&&navigator.vibrate(20);}catch(e){}
+  const alle=KAB_PACK_ITEMS.every((_,i)=>st[i]);
+  kabinePackFor(sid,name);
+  if(alle){
+    const cont=document.getElementById("kab-pack-view");
+    if(cont&&typeof confetti==="function")confetti(cont);
+    try{navigator.vibrate&&navigator.vibrate([40,60,40,60,120]);}catch(e){}
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/rpc/xp_award_event`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler_id:sid,p_quelle:"packliste",p_quelle_id:"pack"+t.datum})});
+      if(r.ok){const d=await r.json();if(d>0)toast(`🎒 Tasche gepackt – ${XP_ICON} +${d} ${XP_LABEL}!`);}
+    }catch(e){}
+  }
+}
+/* H2 – Kinder-Stimmungs-Check: am Tag eines Termins fragt die Kabine das Kind selbst
+   („Wie war's heute?", 3 Smileys). Ein Eintrag pro Kind & Tag (kind_stimmung); die
+   Eltern-Session darf per RLS nur die eigenen Kinder schreiben. Der Trainer sieht die
+   Stimmungslage gebündelt im Saison-Cockpit. */
+const KAB_MOODS=[[1,"😞"],[2,"😐"],[3,"😄"]];
+async function kabineStimmungLoad(){
+  const el=document.getElementById("kab-stimmung"); if(!el)return;
+  const kids=window._elternKids||[]; if(!kids.length){el.innerHTML="";return;}
+  const heute=new Date().toISOString().slice(0,10);
+  let t=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=typ&datum=eq.${heute}&limit=1`,{headers:sbAuthHeaders()});if(r.ok)t=(await r.json())[0]||null;}catch(e){}
+  if(!t){el.innerHTML="";return;}
+  let done=[];
+  try{const ids=kids.map(k=>k.spieler_id).join(",");
+    const r=await fetch(`${SB_URL}/rest/v1/kind_stimmung?spieler_id=in.(${ids})&datum=eq.${heute}&select=spieler_id`,{headers:sbAuthHeaders()});
+    if(r.ok)done=(await r.json()).map(x=>x.spieler_id);}catch(e){}
+  const offen=kids.filter(k=>!done.includes(k.spieler_id));
+  if(!offen.length){el.innerHTML="";return;}
+  const was=t.typ==="training"?"Training":"Spieltag";
+  el.innerHTML=`<div style="margin:2px 16px 8px;background:rgba(255,255,255,.14);border-radius:16px;padding:12px 14px;color:#fff">
+    <div style="font-size:14px;font-weight:900;text-align:center">Wie war dein ${was} heute?</div>
+    ${offen.map(k=>`<div style="display:flex;align-items:center;gap:8px;margin-top:8px;justify-content:center">
+      ${kids.length>1?`<span style="flex:1;font-size:13px;font-weight:700">${esc((k.kader&&k.kader.name)||"")}</span>`:""}
+      ${KAB_MOODS.map(m=>`<button onclick="kabineStimmungSet(${k.spieler_id},${m[0]})" style="border:none;background:rgba(255,255,255,.12);border-radius:14px;width:60px;height:54px;font-size:28px;cursor:pointer">${m[1]}</button>`).join("")}
+    </div>`).join("")}
+  </div>`;
+}
+async function kabineStimmungSet(sid,mood){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kind_stimmung?on_conflict=spieler_id,datum`,{method:"POST",headers:sbAuthHeaders({'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify({spieler_id:sid,datum:new Date().toISOString().slice(0,10),mood})});
+    if(!r.ok&&r.status!==201){toast("Konnte nicht speichern","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  try{navigator.vibrate&&navigator.vibrate([30,40,60]);}catch(e){}
+  toast(mood===3?"Super! 😄":mood===2?"Danke dir! 🙂":"Danke, dass du ehrlich bist – dein Trainer ist für dich da! 💙");
+  kabineStimmungLoad();
+}
+/* H7 – Team-Meilensteine: die RPC berechnet & persistiert Team-Marken (Tore/Spiele/Federn/
+   „jeder hat getroffen"); frisch Erreichtes (14 Tage) wird in der Kabine gefeiert. */
+async function kabineMilestoneLoad(){
+  const el=document.getElementById("kab-milestone"); if(!el)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/team_meilensteine`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)rows=(await r.json())||[];}catch(e){}
+  const grenze=new Date(Date.now()-14*864e5).toISOString().slice(0,10);
+  const frisch=(rows||[]).filter(m=>m.erreicht_am>=grenze).slice(0,2);
+  if(!frisch.length){el.innerHTML="";return;}
+  el.innerHTML=frisch.map(m=>`<div style="margin:2px 16px 8px;background:linear-gradient(135deg,rgba(251,191,36,.5),rgba(245,158,11,.3));border-radius:16px;padding:12px;text-align:center;color:#fff">
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;opacity:.85">🎉 Team-Meilenstein</div>
+    <div style="font-size:15px;font-weight:900;margin-top:2px">${esc(m.label)}</div>
+  </div>`).join("");
 }
 /* Kabinen-DJ (Phase 23.2): die Spotify-Playlist der U9 in der App. Wandelt einen
    Spotify-Link in die Embed-URL um; akzeptiert Playlist/Album/Track. */

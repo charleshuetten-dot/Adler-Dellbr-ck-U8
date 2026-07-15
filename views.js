@@ -2524,6 +2524,180 @@ function elternInvitePaket(){
 }
 // Saison-Cockpit: ein Blick auf die Saison – Kennzahlen, Top-Torschützen, Anwesenheit,
 // Sprung zur Einsatz-Fairness. Führt vorhandene Datenquellen zusammen (keine neue Persistenz).
+/* ── H7: frisch erreichte Team-Meilensteine (7 Tage) auch dem Trainer auf der Startseite ── */
+async function homeMilestone(){
+  const el=document.getElementById("home-milestone"); if(!el)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/team_meilensteine`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)rows=(await r.json())||[];}catch(e){}
+  const grenze=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
+  const frisch=(rows||[]).filter(m=>m.erreicht_am>=grenze).slice(0,2);
+  const slot=document.getElementById("home-milestone"); if(!slot)return;
+  if(!frisch.length){slot.innerHTML="";return;}
+  slot.innerHTML=frisch.map(m=>`<div class="card" style="padding:10px 14px;margin-bottom:8px;border-left:3px solid #f59e0b;display:flex;align-items:center;gap:10px">
+    <span style="font-size:20px">🎉</span>
+    <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">Team-Meilenstein</div>
+    <div style="font-size:13.5px;font-weight:800">${esc(m.label)}</div></div>
+  </div>`).join("");
+}
+/* ── H1: Team-Ansagen (Trainer) – senden, Gelesen-Quote je Familie sehen, beenden.
+   Eltern bestätigen im Portal mit „Gelesen & verstanden" (ansagen_gelesen); die RPC
+   ansagen_status zählt bestätigte Familien (distinct E-Mail aus eltern_kinder). ── */
+async function ansageTrainerOpen(){
+  document.getElementById("ansage-modal")?.remove();
+  const m=document.createElement("div");m.id="ansage-modal";
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Team-Ansage");
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
+    ${mdlHead("ansage-modal","📣","Team-Ansage","Wichtige Info an alle Eltern – mit Gelesen-Status","#1e3a8a")}
+    <textarea id="ansage-text" rows="3" placeholder="z. B. Sonntag Treffpunkt schon 9:15 am Käfig – bitte pünktlich!" style="width:100%;box-sizing:border-box;padding:10px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text);resize:vertical"></textarea>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);margin-top:8px;cursor:pointer"><input type="checkbox" id="ansage-push" checked>Eltern per Push benachrichtigen</label>
+    <button class="btn btn-p" style="width:100%;margin-top:10px" onclick="ansageSend(this)"><i class="ti ti-send"></i>Ansage senden</button>
+    <div style="font-weight:800;font-size:13px;margin:16px 0 6px">Bisherige Ansagen</div>
+    <div id="ansage-liste"><div style="font-size:12px;color:var(--text3)">Lade…</div></div>
+  </div>`;
+  document.body.appendChild(m);
+  ansageListeLoad();
+}
+async function ansageListeLoad(){
+  const el=document.getElementById("ansage-liste"); if(!el)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/ansagen_status`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(!sbCheck401(r)&&r.ok)rows=(await r.json())||[];}catch(e){}
+  if(!rows.length){el.innerHTML='<div style="font-size:12px;color:var(--text3)">Noch keine Ansagen.</div>';return;}
+  el.innerHTML=rows.map(a=>{const d=new Date(a.created_at);const pct=a.familien?Math.round(a.gelesen/a.familien*100):0;
+    return `<div style="border:var(--border-s);border-left:4px solid ${a.aktiv?"#1e3a8a":"#cbd5e1"};border-radius:12px;padding:10px 12px;margin-bottom:8px;${a.aktiv?"":"opacity:.6"}">
+      <div style="font-size:13px;line-height:1.45;white-space:pre-wrap">${esc(a.text)}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11.5px;color:var(--text2)">
+        <span>${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}</span>
+        <span style="font-weight:800;color:${a.gelesen>=a.familien?"#059669":"#b45309"}">👁 Gelesen: ${a.gelesen}/${a.familien} Familien</span>
+        <button onclick="ansageToggle(${a.id},${a.aktiv?"false":"true"})" style="margin-left:auto;min-height:32px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;cursor:pointer;text-decoration:underline">${a.aktiv?"Beenden":"Reaktivieren"}</button>
+      </div>
+      <div style="height:6px;background:var(--surface2);border-radius:4px;overflow:hidden;margin-top:6px"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#1e3a8a,#2563eb)"></div></div>
+      ${a.aktiv&&Array.isArray(a.fehlt)&&a.fehlt.length&&a.gelesen<a.familien?`<details style="margin-top:6px"><summary style="font-size:11px;color:var(--text3);cursor:pointer">Wer fehlt noch?</summary><div style="font-size:11.5px;color:var(--text2);margin-top:4px">Familien von: ${a.fehlt.map(esc).join(", ")}</div></details>`:""}
+    </div>`;}).join("");
+}
+async function ansageSend(btn){
+  const txt=(document.getElementById("ansage-text")?.value||"").trim();
+  if(!txt){toast("Bitte erst einen Text eingeben","err");return;}
+  const push=!!document.getElementById("ansage-push")?.checked;
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/ansagen`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({text:txt})});
+    if(sbCheck401(r))return;
+    if(!r.ok&&r.status!==201){toast(sbDeniedMsg(r,"Konnte nicht senden"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  const t=document.getElementById("ansage-text"); if(t)t.value="";
+  toast("📣 Ansage veröffentlicht ✓");
+  try{navigator.vibrate&&navigator.vibrate(40);}catch(e){}
+  if(push&&typeof pushSendToParents==="function"){
+    try{await pushSendToParents("📣 Neue Ansage vom Trainerteam",txt.slice(0,140),appRoot()+"?portal");}catch(e){}
+  }
+  ansageListeLoad();
+}
+async function ansageToggle(id,aktiv){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/ansagen?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({aktiv})});
+    if(!r.ok&&r.status!==204){toast("Konnte nicht ändern","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  ansageListeLoad();
+}
+/* ── H5: Probetraining – Schnupperkinder BEWUSST getrennt vom Kader (DSGVO-Datensparsamkeit).
+   Trainer-only Tabelle probekinder; Entschiedenes („aufnehmen"/„abgesagt") wird 30 Tage nach
+   der Entscheidung beim Öffnen automatisch gelöscht – kein Cron nötig. ── */
+async function probeOpen(){
+  document.getElementById("probe-modal")?.remove();
+  try{ // DSGVO-Aufräumen zuerst
+    const alt=new Date(Date.now()-30*864e5).toISOString().slice(0,10);
+    await fetch(`${SB_URL}/rest/v1/probekinder?status=neq.schnuppert&entschieden_am=lt.${alt}`,{method:"DELETE",headers:sbAuthHeaders()});
+  }catch(e){}
+  const m=document.createElement("div");m.id="probe-modal";
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Probetraining");
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  const fld="box-sizing:border-box;padding:10px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text)";
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
+    ${mdlHead("probe-modal","🆕","Probetraining","Schnupperkinder – getrennt vom Kader, Auto-Löschung nach Entscheidung","#0891b2")}
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <input id="probe-name" placeholder="Name des Kindes" style="${fld}">
+      <div style="display:flex;gap:8px">
+        <input id="probe-kontakt" placeholder="Eltern-Kontakt (Telefon/Mail)" style="${fld};flex:1;min-width:0">
+        <button class="btn btn-p btn-sm" onclick="probeAdd(this)"><i class="ti ti-plus"></i>Anlegen</button>
+      </div>
+    </div>
+    <div id="probe-liste" style="margin-top:14px"><div style="font-size:12px;color:var(--text3)">Lade…</div></div>
+    <div style="font-size:10.5px;color:var(--text3);margin-top:10px">Datenschutz: Probekinder stehen bewusst NICHT im Kader. Nach „Aufnehmen“/„Absagen“ wird der Eintrag 30 Tage später automatisch gelöscht – Aufgenommene vorher unter Kader → „Spieler verwalten“ anlegen.</div>
+  </div>`;
+  document.body.appendChild(m);
+  probeListeLoad();
+}
+const PROBE_STATUS={schnuppert:["🟡","schnuppert","#b45309"],aufnehmen:["✅","aufnehmen","#059669"],abgesagt:["❌","abgesagt","#dc2626"]};
+async function probeListeLoad(){
+  const el=document.getElementById("probe-liste"); if(!el)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/probekinder?select=*&order=created_at.desc`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)rows=(await r.json())||[];}catch(e){}
+  if(!rows.length){el.innerHTML='<div style="font-size:12px;color:var(--text3)">Aktuell keine Probekinder.</div>';return;}
+  el.innerHTML=rows.map(p=>{
+    const st=PROBE_STATUS[p.status]||PROBE_STATUS.schnuppert;
+    const tel=/^[+\d][\d\s\/-]{5,}$/.test((p.kontakt||"").trim());
+    return `<div style="border:var(--border-s);border-left:4px solid ${st[2]};border-radius:12px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-weight:800;font-size:14px;flex:1;min-width:0">${esc(p.name)}</span>
+        <span style="font-size:11px;font-weight:800;color:${st[2]}">${st[0]} ${st[1]}${p.entschieden_am?" · "+new Date(p.entschieden_am+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"}):""}</span>
+      </div>
+      ${p.kontakt?`<div style="font-size:12px;color:var(--text2);margin-top:2px">📞 ${tel?`<a href="tel:${esc(p.kontakt.replace(/[\s\/-]/g,""))}" style="color:var(--blue)">${esc(p.kontakt)}</a>`:esc(p.kontakt)}</div>`:""}
+      <div style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <span style="font-size:11.5px;color:var(--text2)">🏃 ${p.trainings} Training${p.trainings===1?"":"s"}</span>
+        ${p.status==="schnuppert"?`
+          <button class="btn btn-sm" onclick="probeTraining(${p.id},${p.trainings})">+1 heute</button>
+          <button class="btn btn-sm" style="margin-left:auto;color:#059669" onclick="probeStatus(${p.id},'aufnehmen')">✅ Aufnehmen</button>
+          <button class="btn btn-sm" style="color:#dc2626" onclick="probeStatus(${p.id},'abgesagt')">❌ Absagen</button>`
+        :`<button class="btn btn-sm" style="margin-left:auto" onclick="probeDelete(${p.id},'${(p.name||"").replace(/'/g,"")}')"><i class="ti ti-trash"></i>Jetzt löschen</button>`}
+      </div>
+    </div>`;}).join("");
+}
+async function probeAdd(btn){
+  const name=(document.getElementById("probe-name")?.value||"").trim();
+  const kontakt=(document.getElementById("probe-kontakt")?.value||"").trim()||null;
+  if(!name){toast("Bitte den Namen eingeben","err");return;}
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/probekinder`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({name,kontakt})});
+    if(sbCheck401(r))return;
+    if(!r.ok&&r.status!==201){toast(sbDeniedMsg(r,"Konnte nicht anlegen"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  finally{if(btn)btn.disabled=false;}
+  const n=document.getElementById("probe-name"); if(n)n.value="";
+  const k=document.getElementById("probe-kontakt"); if(k)k.value="";
+  toast("Probekind angelegt ✓");
+  probeListeLoad();
+}
+async function probeTraining(id,n){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/probekinder?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({trainings:(n||0)+1})});
+    if(!r.ok&&r.status!==204){toast("Konnte nicht zählen","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
+  probeListeLoad();
+}
+async function probeStatus(id,status){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/probekinder?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({status,entschieden_am:new Date().toISOString().slice(0,10)})});
+    if(!r.ok&&r.status!==204){toast("Konnte nicht speichern","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  if(status==="aufnehmen")toast("🎉 Willkommen im Team! Jetzt unter Kader → „Spieler verwalten“ anlegen.");
+  else toast("Gespeichert – der Eintrag löscht sich in 30 Tagen selbst.");
+  probeListeLoad();
+}
+async function probeDelete(id,name){
+  if(!confirm(`${name} wirklich endgültig löschen?`))return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/probekinder?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(!r.ok&&r.status!==204){toast("Konnte nicht löschen","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Gelöscht ✓");
+  probeListeLoad();
+}
 async function saisonCockpitOpen(){
   const active=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
   const ab=(typeof saisonStart==="function")?saisonStart():"2000-01-01";
@@ -2549,6 +2723,26 @@ async function saisonCockpitOpen(){
     pulsHtml=`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🌡️ Eltern-Puls <span style="font-weight:400;color:var(--text2);font-size:11px">(anonym · ${puls.overall_n} Rückmeldungen · Ø ${puls.overall_avg} ${moodEmo(puls.overall_avg)})</span></div>`
       +(weeks.length?`<div style="display:flex;align-items:flex-end;gap:4px;height:74px;padding:4px 0">${bars}</div>`:'<div style="font-size:12px;color:var(--text3)">Sammelt sich, sobald Eltern nach Events abstimmen.</div>');
   }
+  // H2: Kinder-Stimmung (aus der Kabine, letzte 30 Tage) – Ø-Lage + Frühwarnung bei 😞
+  let stimmungHtml="";
+  try{
+    const ab30=new Date(Date.now()-30*864e5).toISOString().slice(0,10);
+    const r=await fetch(`${SB_URL}/rest/v1/kind_stimmung?select=spieler_id,datum,mood&datum=gte.${ab30}&order=datum.desc`,{headers:sbAuthHeaders()});
+    if(!sbCheck401(r)&&r.ok){
+      const rows=await r.json();
+      if(rows.length){
+        const avg=(rows.reduce((s,x)=>s+x.mood,0)/rows.length).toFixed(1);
+        const nameById={}; active.forEach(k=>nameById[k.id]=k.name);
+        // Frühwarnung: Kinder mit 😞 in den letzten 14 Tagen (Name nur trainer-sichtbar)
+        const ab14=new Date(Date.now()-14*864e5).toISOString().slice(0,10);
+        const traurig={}; rows.filter(x=>x.mood===1&&x.datum>=ab14).forEach(x=>{const n=nameById[x.spieler_id];if(n)traurig[n]=(traurig[n]||0)+1;});
+        const tArr=Object.entries(traurig).sort((a,b)=>b[1]-a[1]);
+        stimmungHtml=`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🧒 Kinder-Stimmung <span style="font-weight:400;color:var(--text2);font-size:11px">(Kabine · ${rows.length} Antworten · Ø ${avg} ${moodEmo(Number(avg))})</span></div>`
+          +(tArr.length?`<div style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px">😞 Zuletzt unzufrieden: <b>${tArr.map(([n,c])=>esc(n)+(c>1?` (${c}×)`:"")).join(", ")}</b> – vielleicht kurz das Gespräch suchen.</div>`
+                     :'<div style="font-size:12.5px;color:#16a34a">Kein Kind hat zuletzt 😞 gedrückt 👍</div>');
+      }
+    }
+  }catch(e){}
   // A-Etappe 2: Rollen-Erfahrung auch im Cockpit (Kurzform + Button zur vollen Matrix)
   let rollenHtml="";
   try{ if(typeof rollenExpFetch==="function"){ const re=await rollenExpFetch(); if(re&&re.games){ const nie=(typeof _neverTW==="function")?_neverTW(re.byKid):[];
@@ -2582,6 +2776,7 @@ async function saisonCockpitOpen(){
     ${lowAtt.length?`<div style="font-weight:800;font-size:12.5px;margin:12px 0 2px;color:#b45309">Zuletzt oft gefehlt – dranbleiben</div>${lowAtt.map(attRow).join("")}`:""}
     ${wenig.length?`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">⚖️ Faire Einsätze – wer war seltener dabei</div>${wenig.map(x=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0"><span style="flex:1">${esc(x.name)}</span><span style="font-size:11px;color:var(--text3)">${x.e} Einsätze</span></div>`).join("")}`:""}
     ${(toreTeam[2]||toreTeam[3])?`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🏆 Tore je Team</div><div style="display:flex;gap:8px;flex-wrap:wrap">${[1,2,3].filter(t=>toreTeam[t]>0||t===1).map(t=>`<div style="flex:1;min-width:70px;text-align:center;background:var(--surface2);border-radius:10px;padding:8px"><div style="font-size:11px;color:var(--text2)">Adler ${t}</div><div style="font-size:18px;font-weight:900;color:#059669">⚽ ${toreTeam[t]||0}</div></div>`).join("")}</div>`:""}
+    ${stimmungHtml}
     ${rollenHtml}
     ${pulsHtml}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
@@ -2918,6 +3113,7 @@ async function renderHome(){
     <!-- Aufmerksamkeit/To-dos: direkt unter den Hauptaktionen, ohne Überschrift (leer = unsichtbar) -->
     <div id="home-rsvp"></div>
     <div id="home-antifrust"></div>
+    <div id="home-milestone"></div>
     <div id="eg-trainer"></div>
     <div class="sl nt" style="margin-top:18px"><i class="ti ti-tools"></i>Werkzeuge</div>
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:2px 2px 6px">Auswerten</div>
@@ -2942,6 +3138,8 @@ async function renderHome(){
     </div>
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:12px 2px 6px">Organisieren</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${homeTool("📣 Team-Ansage","ansageTrainerOpen()")}
+      ${homeTool("🆕 Probetraining","probeOpen()")}
       ${homeTool("🗓️ Trainer-Meeting","trainerMeetingOpen()")}
       ${homeTool("🗣️ Elterngespräch","epollTrainerOpen()")}
       ${homeTool("🎉 Event-Mitbringliste","mitbringTrainerOpen()")}
@@ -2965,6 +3163,7 @@ async function renderHome(){
   elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche
   homeRsvpNudge(); // "wer hat noch nicht geantwortet" für den nächsten Termin
   homeAntiFrust(); // Anti-Frust-Radar: wer braucht heute eine Bühne
+  homeMilestone(); // H7: frisch erreichte Team-Meilensteine kurz feiern
   trainerTodoLoad(); // persönliche To-Dos des eingeloggten Trainers (Zusagen/Einheit/Sprachlob)
   // Team-Level ("Küken-Schwarm") lebt jetzt in der Adler-Welt, nicht mehr auf der Startseite
   homeBirthday(); // C4: Geburtstags-Automatik
