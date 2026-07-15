@@ -46,6 +46,17 @@ const FAIRPLAY_REGELN=[
 // Ausformulierter Eltern-Leitfaden (breiter als der Fairplay-Codex). Default = Offline-Fallback,
 // im Normalfall aus der Tabelle eltern_leitfaden geladen (trainer-pflegbar). Name frei änderbar.
 const LEITFADEN_NAME="Eltern-Leitfaden";
+/* Thematische Gliederung NUR fuer die Ansicht (leitfadenOpen). Zuordnung ueber den exakten
+   Titel; der Trainer-Editor bleibt eine flache Liste. Punkte ohne Treffer landen unter
+   „Weiteres", damit nie etwas verschwindet, wenn ein Titel umbenannt/ergaenzt wird. */
+const LEITFADEN_SEKTIONEN=[
+  {t:"🕒 Rund ums Kommen & Gehen", p:["Pünktlichkeit","Immer ein Elternteil vor Ort","Bringen & Abholen","Rücksichtsvoll parken & Kinder im Blick","Die Adler-App nutzen – zu- & absagen","Zusage ist Zusage – besonders bei Turnieren","Krank oder verletzt?","Kontaktdaten aktuell & am Spieltag erreichbar"]},
+  {t:"🎒 Ausrüstung & Sicherheit", p:["Die richtige Ausrüstung","Training in kompletter Adler-Ausstattung","Schmuck ab vor dem Spielen","Bei (fast) jedem Wetter","Notfallkarte & Allergien aktuell halten","Fotos & Datenschutz"]},
+  {t:"📣 Am Spielfeldrand & im Training", p:["Verhalten beim Training – etwas Abstand","Verhalten am Spielfeldrand","Wenig reinrufen – der Verband bittet darum","Vorbild bei Frust am Rand","Vorbild auch abseits des Balls","Geschwister, Hunde & Zuschauer hinter der Bande"]},
+  {t:"⚽ Aufstellung, Einsatz & Trainer-Entscheidungen", p:["Aufstellung & Einsatz – wir vertrauen dem Trainerteam","Wenn ein Kind mal auf die Bank muss","Behandlung & Auswechslung entscheidet das Trainerteam","Jede Position gehört dazu","Dabei sein lohnt sich","Eine Linie zeigen","Erziehung bleibt bei euch, Orientierung geben wir am Platz"]},
+  {t:"🌱 Werte & Umgang mit den Kindern", p:["Entwicklung vor Ergebnis","Zu Hause der sichere Hafen","Gleiche Maßstäbe für alle","Gemeinsam gewinnen, gemeinsam verlieren","Neue & schüchterne Kinder aufnehmen","Ausgeruht & gut versorgt zum Spieltag","Kleine Konflikte erst mal den Kindern lassen","Sorgen? Sprecht uns direkt an"]},
+  {t:"🤝 Gemeinschaft & Verein", p:["Büdchen- & Helferdienste","Gemeinschaft & Feiern","Rituale & Wir-Gefühl mittragen","Sauberkeit & Sorgfalt","Ehrenamt wertschätzen"]}
+];
 const ELTERN_LEITFADEN=[
   {emo:"🕒", t:"Pünktlichkeit", d:"Bitte seid rund 10 Minuten vor Beginn da – bei Training und Spielen. Dann kommen die Kinder in Ruhe an, ziehen sich um und starten gemeinsam ins Aufwärmen. Wer zu spät kommt, verpasst genau das – und Aufwärmen schützt vor Verletzungen."},
   {emo:"👨‍👩‍👧", t:"Immer ein Elternteil vor Ort", d:"Bei jedem Training bleibt mindestens ein Elternteil (oder eine feste Vertretung) auf dem Gelände. Die Trainer sind fürs Fußballspielen da, nicht für die Aufsicht bei Toilettengang, Schürfwunde oder Heimweh. So ist immer jemand ansprechbar, wenn ein Kind etwas braucht."},
@@ -545,7 +556,22 @@ const FAIRPLAY_QUIZ=[
    fun:"Bei der U9 zählt das Gefühl, nicht das Ergebnis."},
   {q:"Ein Mitspieler deines Kindes weint nach einem Fehler. Was ist stark?",
    opts:["Ihn aufmuntern – Kopf hoch!","Ihm sagen, er soll sich zusammenreißen","Weggucken"],correct:0,
-   fun:"Ein Team hält zusammen – auch am Spielfeldrand."}
+   fun:"Ein Team hält zusammen – auch am Spielfeldrand."},
+  {q:"Dein Kind wird am Spieltag weniger aufgestellt als sonst. Wie hilfst du am meisten?",
+   opts:["Die Trainer-Entscheidung mittragen und mein Kind bestärken","Am Rand eine andere Aufstellung fordern","Dem Kind sagen, der Trainer sei ungerecht"],correct:0,
+   fun:"Das Trainerteam entscheidet nach vielen Faktoren – euer Rückhalt gibt dem Kind Sicherheit."},
+  {q:"Ein Kind muss im Spiel kurz auf die Bank, weil es sich unfair verhalten hat. Was ist richtig?",
+   opts:["Mittragen; Gründe später in Ruhe mit dem Trainerteam klären","Sofort laut auf dem Platz diskutieren","Vor allen anderen Eltern Partei ergreifen"],correct:0,
+   fun:"Gründe besprechen wir unter vier Augen – nicht in großer Runde und nicht vor dem Kind."},
+  {q:"Dein Kind spielt heute in der Abwehr statt im Sturm. Deine Reaktion?",
+   opts:["Klasse – so lernt es das ganze Spiel kennen","Beim Trainer auf die Lieblingsposition drängen","Dem Kind sagen, Abwehr sei die schlechtere Rolle"],correct:0,
+   fun:"Im Kinderfußball probieren alle jede Position – das macht vielseitig."},
+  {q:"Warum ruft das Trainerteam während des Spiels bewusst wenig ins Feld?",
+   opts:["Damit die Kinder selbst Lösungen finden – der Verband empfiehlt das","Weil die Trainer keine Lust haben","Das stimmt nicht, sie sollen viel rufen"],correct:0,
+   fun:"Weniger Rufe = mehr Eigenständigkeit. Deshalb halten auch wir Eltern uns zurück."},
+  {q:"Dein Kind will mit Kette und Ohrringen aufs Feld. Was gilt?",
+   opts:["Schmuck kommt vorher ab – Verletzungsgefahr","Kein Problem, kann anbleiben","Nur bei wichtigen Spielen abnehmen"],correct:0,
+   fun:"Ohrringe, Ketten und Uhren runter vor dem Spielen – Sicherheit geht vor."}
 ];
 let FQ_IDX=0, FQ_RICHTIG=0, FQ_KIDS=[];
 function fairplayQuizStart(kids){
@@ -798,17 +824,30 @@ async function leitfadenOpen(){
   document.body.appendChild(ov);
   const teile=await leitfadenLaden();
   if(!document.getElementById("leitfaden-ov"))return;
+  // In thematische Abschnitte gruppieren (reine Ansicht). Zuordnung ueber den Titel.
+  const byT={}; teile.forEach(r=>{ if(!(r.t in byT))byT[r.t]=r; });
+  const used=new Set(); let n=0;
+  const itemHtml=r=>`<div style="display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:16px;margin-bottom:12px">
+      <div style="font-size:28px;line-height:1">${esc(r.emo)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:16px;font-weight:800">${++n}. ${esc(r.t)}</div>
+        ${r.d?`<div style="font-size:13.5px;opacity:.95;line-height:1.6;margin-top:4px">${esc(r.d)}</div>`:""}
+      </div>
+    </div>`;
+  const secHtml=t=>`<div style="font-size:12.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;opacity:.85;margin:24px 2px 12px;border-bottom:1px solid rgba(255,255,255,.22);padding-bottom:6px">${esc(t)}</div>`;
+  let body="";
+  LEITFADEN_SEKTIONEN.forEach(sec=>{
+    const items=sec.p.map(t=>byT[t]).filter(Boolean);
+    if(!items.length)return;
+    body+=secHtml(sec.t)+items.map(r=>{used.add(r.t);return itemHtml(r);}).join("");
+  });
+  const rest=teile.filter(r=>!used.has(r.t));
+  if(rest.length)body+=secHtml("Weiteres")+rest.map(itemHtml).join("");
   ov.innerHTML=`<div style="max-width:560px;margin:0 auto;padding:24px 18px 40px">
     <div style="text-align:center;margin-bottom:6px;font-size:40px">📖</div>
     <div style="text-align:center;font-size:22px;font-weight:900;letter-spacing:.3px">${esc(LEITFADEN_NAME)}</div>
     <div style="text-align:center;font-size:13px;opacity:.9;margin:6px 0 20px">SV Adler Dellbrück · U9 – damit unser Miteinander gelingt</div>
-    ${teile.map((r,i)=>`<div style="display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:16px;margin-bottom:12px">
-      <div style="font-size:28px;line-height:1">${esc(r.emo)}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:16px;font-weight:800">${i+1}. ${esc(r.t)}</div>
-        ${r.d?`<div style="font-size:13.5px;opacity:.95;line-height:1.6;margin-top:4px">${esc(r.d)}</div>`:""}
-      </div>
-    </div>`).join("")}
+    ${body}
     <div style="text-align:center;font-size:13px;opacity:.9;margin:16px 0 20px">Danke, dass ihr das mittragt. 💙</div>
     <button onclick="document.getElementById('leitfaden-ov').remove()" style="width:100%;min-height:52px;border:none;border-radius:14px;background:#fff;color:#0c4a6e;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer">Verstanden 👍</button>
   </div>`;
