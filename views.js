@@ -3375,16 +3375,18 @@ async function renderStadionheftView(){
     <div><div style="font-size:10.5px;font-weight:800;color:#a16207;text-transform:uppercase;letter-spacing:.5px">⭐ Spieler im Fokus</div>
       <div style="font-size:16px;font-weight:900;color:#1e293b">${elternEsc(fk.name)}${fk.nr!=null?" · #"+elternEsc(fk.nr):""}</div>
       ${fk.text?`<div style="font-size:12px;color:#475569;margin-top:2px;line-height:1.4">${elternEsc(fk.text).replace(/\n/g,"<br>")}</div>`:""}</div></div>`:"";
+  const nestLbl=t=>`<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#94a3b8;margin:16px 4px 8px">${t}</div>`;
   root.innerHTML=`<div class="elt-fade">
-    <div style="text-align:center;margin:8px 0 14px">
-      <img src="logo.png" style="width:56px;height:56px" alt="SV Adler Dellbrück">
-      <div style="font-size:12px;color:#64748b;font-weight:600;letter-spacing:.5px">SV ADLER DELLBRÜCK e.V.</div>
-      <div style="font-size:22px;font-weight:900;color:#1a56db;margin:2px 0">${elternEsc(h.titel||"Adler Nest")}</div>
-      <div style="font-size:11px;color:#94a3b8">Das Vereinsheft der jungen Adler 🪺</div>
+    <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);border-radius:16px;padding:18px 16px;text-align:center;color:#fff;margin:4px 0 14px;box-shadow:0 2px 12px rgba(30,58,138,.28)">
+      <img src="logo.png" style="width:56px;height:56px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.3))" alt="SV Adler Dellbrück">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.8px;opacity:.85;margin-top:4px">SV ADLER DELLBRÜCK e.V.</div>
+      <div style="font-size:23px;font-weight:900;margin:2px 0">${elternEsc(h.titel||"Adler Nest")}</div>
+      <div style="font-size:11.5px;opacity:.85">Das Vereinsheft der jungen Adler 🪺</div>
     </div>
-    ${h.einleitung?`<div style="background:#fff;border-left:3px solid #1a56db;border-radius:8px;padding:10px 12px;font-size:13px;color:#334155;line-height:1.5;margin-bottom:12px">${elternEsc(h.einleitung).replace(/\n/g,"<br>")}</div>`:""}
+    ${h.einleitung?`<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #2563eb;border-radius:12px;padding:12px 13px;font-size:13px;color:#334155;line-height:1.55;margin-bottom:12px">${elternEsc(h.einleitung).replace(/\n/g,"<br>")}</div>`:""}
     ${fokusHtml}
+    ${nestLbl("🦅 Unser Kader")}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
-    ${h.kommentar?`<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:11px 13px;margin-top:12px;font-size:12.5px;color:#1e3a8a;line-height:1.5"><div style="font-weight:800;margin-bottom:3px">📣 Ein Wort vom Trainerteam</div>${elternEsc(h.kommentar).replace(/\n/g,"<br>")}</div>`:""}
-    <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:16px">Auf geht's, Adler! 🦅 · SV Adler Dellbrück e.V.</div></div>`;
+    ${h.kommentar?`${nestLbl("📣 Vom Trainerteam")}<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #16a34a;border-radius:12px;padding:12px 13px;font-size:12.5px;color:#334155;line-height:1.55">${elternEsc(h.kommentar).replace(/\n/g,"<br>")}</div>`:""}
+    <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:18px">Auf geht's, Adler! 🦅 · SV Adler Dellbrück e.V.</div></div>`;
 }
