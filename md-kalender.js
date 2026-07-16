@@ -76,15 +76,17 @@ function tmInit(){
   tmSetTyp("training"); // Standard-Typ + Vorbelegung (Zeit 16:45, Platz „vorne links", Vereinsadresse, nächstes Mo/Fr)
   tmLoad();
 }
-/* Endzeit-Vorschlag: Spiel +2 h, Turnier +4 h – frei änderbar. Nach der Endzeit
-   verschwindet der Termin aus den aktiven Listen (terminVorbei in core.js). */
+/* Endzeit-Vorschlag nach Vereins-Realität (PO): Spiel +90 min, Turnier +4 h,
+   Training +75 min (16:45 → 18:00) – frei änderbar. Nach der Endzeit verschwindet
+   der Termin aus den aktiven Listen (terminVorbei in core.js). */
 function tmEndeVorschlag(){
   const z=document.getElementById("tm-zeit")?.value, e=document.getElementById("tm-ende");
   if(!z||!e||e.value)return;
-  if(typeof tmTyp!=="undefined"&&(tmTyp==="spiel"||tmTyp==="turnier")){
-    const [h,m]=z.split(":").map(Number);
-    e.value=String(Math.min(23,h+(tmTyp==="turnier"?4:2))).padStart(2,"0")+":"+String(m).padStart(2,"0");
-  }
+  const addMin={spiel:90,turnier:240,training:75}[typeof tmTyp!=="undefined"?tmTyp:""];
+  if(!addMin)return;
+  const [h,m]=z.split(":").map(Number);
+  const t=Math.min(23*60+59,h*60+m+addMin);
+  e.value=String(Math.floor(t/60)).padStart(2,"0")+":"+String(t%60).padStart(2,"0");
 }
 async function tmAdd(){
   const datum=document.getElementById("tm-datum")?.value;
