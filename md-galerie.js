@@ -75,7 +75,7 @@ async function galerieOpen(terminId,titel){
   // Eltern bekommen stattdessen einen kurzen Hinweis in ihrer Sprache (PO-Feedback).
   const istTrainerKtx=(typeof authRole==="function")?((await authRole())==="trainer"):false;
   const consentBlock=istTrainerKtx?fotoConsentBannerHtml()
-    :`<div style="padding:10px;border-radius:10px;margin-bottom:12px;background:#f8fafc;border:1px solid #cbd5e1;font-size:11.5px;color:#475569;line-height:1.5">📸 Hier gelten die Foto-Freigaben aller Familien. Deine eigene stellst du unter <b>🔒 Datenschutz &amp; Freigaben</b> ein – sie gilt für die ganze App (Galerie, Karten, Kabine, Adler Nest).</div>`;
+    :`<div style="padding:10px;border-radius:10px;margin-bottom:12px;background:#f0fdf4;border:1px solid #bbf7d0;font-size:11.5px;color:#166534;line-height:1.5">🔒 <b>Sicherer als die WhatsApp-Gruppe:</b> Diese Fotos sehen nur eingeloggte Team-Eltern, die Freigaben der Familien werden respektiert, das Trainerteam kann moderieren – und Löschen ist hier wirklich Löschen (bei WhatsApp bleibt jedes Bild als Kopie auf allen Handys). Deine eigene Freigabe stellst du unter <b>Datenschutz &amp; Freigaben</b> ein – sie gilt für die ganze App.</div>`;
   document.getElementById("gal-modal")?.remove();
   const m=document.createElement("div");m.id="gal-modal";m.dataset.termin=terminId;
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
@@ -85,9 +85,9 @@ async function galerieOpen(terminId,titel){
     ${consentBlock}
     <div style="padding:10px;border:1.5px dashed var(--text3);border-radius:10px;margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">Foto hinzufügen</div>
-      <input id="gal-foto" type="file" accept="image/jpeg, image/png, image/webp" capture="environment" style="width:100%;font-size:12px;margin-bottom:8px">
+      <input id="gal-foto" type="file" accept="image/jpeg, image/png, image/webp" multiple style="width:100%;font-size:12px;margin-bottom:8px">
       <button class="btn btn-p btn-sm" onclick="galerieUpload(this,${terminId})">📸 Hochladen</button>
-      <div style="font-size:10px;color:var(--text3);margin-top:6px">Nur Bilder, max. 5 MB. Für alle Team-Eltern sichtbar.</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:6px">Mehrere Fotos auf einmal möglich – sie werden automatisch verkleinert. Für alle Team-Eltern sichtbar.</div>
     </div>
     <div id="gal-body"><div style="text-align:center;padding:20px;color:var(--text3)">Lade…</div></div>
   </div>`;
@@ -116,25 +116,37 @@ async function galerieFoto(id,path){
     if(img)img.src=URL.createObjectURL(await r.blob());
   }catch(e){}
 }
+/* K8: Mehrere Fotos auf einmal – jedes wird clientseitig komprimiert (fotoCompress) und
+   nacheinander hochgeladen; der Button zeigt den Fortschritt. So ist der Weg „nach dem
+   Spiel alles in die App statt in die WhatsApp-Gruppe" wirklich bequem. */
 async function galerieUpload(btn,terminId){
   const input=document.getElementById("gal-foto");
-  const file=input&&input.files&&input.files[0];
-  if(!file){toast("Bitte ein Foto wählen","err");return;}
-  if(file.size>5*1024*1024){toast("Foto zu groß (max. 5 MB)","err");return;} // schneller Client-Check; hartes Limit macht der Bucket
+  const files=input&&input.files?[...input.files]:[];
+  if(!files.length){toast("Bitte Fotos wählen","err");return;}
+  if(files.length>20){toast("Bitte max. 20 Fotos auf einmal","err");return;}
   if(btn)btn.disabled=true;
-  try{
-    const blob=await fotoCompress(file,1000); // 1000px: gute Event-Qualität, schont Storage
-    const path=terminId+"/"+((window.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now()))+".jpg";
-    const up=await fetch(`${SB_URL}/storage/v1/object/termin_media/${path}`,{method:"POST",headers:{'Authorization':'Bearer '+sbToken(),'Content-Type':'image/jpeg'},body:blob});
-    if(!up.ok){toast("Foto-Upload fehlgeschlagen","err");return;}
-    const r=await fetch(`${SB_URL}/rest/v1/termin_media`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({termin_id:terminId,foto_path:path})});
-    if(sbCheck401(r))return;
-    if(!r.ok){toast("Speichern fehlgeschlagen","err");return;}
-    toast("Foto hochgeladen ✓");
-    if(input)input.value="";
-    galerieRender(terminId);
-  }catch(e){toast("Foto konnte nicht verarbeitet werden","err");}
-  finally{if(btn)btn.disabled=false;}
+  const btnText=btn?btn.innerHTML:"";
+  let hoch=0, fehler=0;
+  for(let i=0;i<files.length;i++){
+    const file=files[i];
+    if(btn)btn.innerHTML=`⬆️ ${i+1}/${files.length} …`;
+    if(file.size>15*1024*1024){fehler++;continue;} // absurde Größen überspringen (Kompression schafft den Rest)
+    try{
+      const blob=await fotoCompress(file,1000); // 1000px: gute Event-Qualität, schont Storage
+      const path=terminId+"/"+((window.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now())+"-"+i)+".jpg";
+      const up=await fetch(`${SB_URL}/storage/v1/object/termin_media/${path}`,{method:"POST",headers:{'Authorization':'Bearer '+sbToken(),'Content-Type':'image/jpeg'},body:blob});
+      if(!up.ok){fehler++;continue;}
+      const r=await fetch(`${SB_URL}/rest/v1/termin_media`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({termin_id:terminId,foto_path:path})});
+      if(sbCheck401(r)){if(btn){btn.disabled=false;btn.innerHTML=btnText;}return;}
+      if(!r.ok){fehler++;continue;}
+      hoch++;
+    }catch(e){fehler++;}
+  }
+  if(btn){btn.disabled=false;btn.innerHTML=btnText;}
+  if(input)input.value="";
+  if(hoch)toast(`📸 ${hoch} Foto${hoch===1?"":"s"} hochgeladen ✓${fehler?` · ${fehler} fehlgeschlagen`:""}`);
+  else toast("Upload fehlgeschlagen","err");
+  galerieRender(terminId);
 }
 async function galerieDelete(id,path,terminId){
   if(!confirm("Foto wirklich löschen?"))return;

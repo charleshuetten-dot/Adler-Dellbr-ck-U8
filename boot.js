@@ -1328,6 +1328,56 @@ async function tpPlanLoad(datum){
     return (rows[0]&&rows[0].plan)||[];
   }catch(e){return [];}
 }
+/* Weg B (Bucket-List, jetzt gebaut): den gespeicherten Plan beim Öffnen/Terminwechsel
+   wieder in die Übungs-Dropdowns laden. Damit sind Übungen FEST pro Termin vorgemerkt
+   und mehrere Einheiten im Voraus planbar. Zuordnung über das Phasen-Label; bei
+   Form-Index-Drift (gelöschte eigene Übungen) wird der Eintrag lieber ausgelassen. */
+async function tpPlanRestore(datum){
+  datum=datum||document.getElementById("tp-date")?.value; if(!datum)return;
+  const plan=await tpPlanLoad(datum); if(!plan||!plan.length)return;
+  const allForms=tpAllForms();
+  const sels=[...document.querySelectorAll(".tp-form-sel")];
+  if(!sels.length)return;
+  const belegt=new Set();
+  plan.forEach(e=>{
+    if(e.formIdx==null||!allForms[e.formIdx])return;
+    const passend=sels.filter(s=>{
+      if(belegt.has(s.id)||s.value)return false;
+      const m=s.id.match(/tp-form-(\d+)-/); if(!m)return false;
+      const slot=tpSlots[parseInt(m[1])];
+      return slot&&(slot.label||"")===(e.slotLabel||"");
+    });
+    const s=passend[0]||sels.find(x=>!belegt.has(x.id)&&!x.value);
+    if(!s)return;
+    s.value=String(e.formIdx);
+    belegt.add(s.id);
+    if(typeof tpOnSelectChange==="function")tpOnSelectChange(s);
+  });
+}
+/* Vorausplanungs-Leiste: die nächsten Trainings mit Plan-Status (✅ geplant / 📝 offen) –
+   ein Tipp springt zum Termin und lädt den vorgemerkten Plan. */
+async function tpVorplanLoad(){
+  const el=document.getElementById("tp-vorplan"); if(!el)return;
+  const heute=new Date().toISOString().slice(0,10);
+  const rows=(await _termineSelLoad()).filter(t=>t.typ==="training"&&t.datum>=heute)
+    .sort((a,b)=>a.datum<b.datum?-1:1).slice(0,5);
+  if(rows.length<2){el.innerHTML="";return;}
+  let geplant=new Set();
+  try{const r=await fetch(`${SB_URL}/rest/v1/trainingsplan?datum=in.(${rows.map(t=>t.datum).join(",")})&select=datum`,{headers:sbAuthHeaders()});
+    if(r.ok)((await r.json())||[]).forEach(x=>geplant.add(String(x.datum)));}catch(e){}
+  el.innerHTML=`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">🗓️ Vorausplanung – antippen zum Planen</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${rows.map(t=>{
+      const on=geplant.has(t.datum);
+      const d=new Date(t.datum+"T00:00:00");
+      const lbl=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()]+" "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+      return `<button onclick="tpVorplanJump('${t.datum}')" class="btn btn-sm" style="${on?"border-color:#16a34a;color:#15803d":""}">${on?"✅":"📝"} ${lbl}</button>`;
+    }).join("")}</div>`;
+}
+function tpVorplanJump(datum){
+  if(typeof terminSelectEnsure==="function")terminSelectEnsure("tp-date",datum);
+  tpRenderTimeline();
+  tpPlanRestore(datum);
+}
 
 /* ═══════════════════════════════════
    F5: TRAININGS-STATIONSTIMER – die Plan-Stationen (tpSlots) am Platz mit

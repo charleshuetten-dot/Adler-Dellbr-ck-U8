@@ -1,4 +1,4 @@
-const CACHE="u9i-adler-v327";
+const CACHE="u9i-adler-v328";
 const PRECACHE=[
   "./",
   "./index.html",
@@ -107,6 +107,7 @@ self.addEventListener("fetch",e=>{
   if(url.includes("open-meteo.com"))return; // Wetter: nie cachen (ignoreSearch würde die Datums-Query zerstören)
   if(url.includes("openstreetmap.org"))return; // Geocoding/Adress-Suche: nie cachen (Query-Sicherheit)
   if(url.includes("openholidaysapi.org"))return; // Ferien-Radar: nie cachen (ignoreSearch würde die Datums-Query zerstören)
+  if(url.includes("api.qrserver.com"))return; // QR-Aushang: nie cachen (ignoreSearch würde die Daten-Query zerstören)
   if(e.request.method!=="GET")return;
 
   /* NETWORK-FIRST fuer die Seite selbst und die Manifeste.

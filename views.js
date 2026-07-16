@@ -2061,7 +2061,10 @@ const SECS={
   taktik:     {cid:"view-taktik",          init:()=>taktikInit()},
   formen:     {cid:"train-sub-formen",     sub:true, init:()=>renderTraining()},
   termine:    {cid:"train-sub-termine",    sub:true, init:()=>tmInit()},
-  planung:    {cid:"train-sub-planung",    sub:true, init:()=>{const s=document.getElementById("tp-date");if(s&&s.options.length<=1&&typeof terminSelectFill==="function")terminSelectFill("tp-date",{types:["training"],future:true});tpRenderTimeline();addEvalSection();}},
+  planung:    {cid:"train-sub-planung",    sub:true, init:()=>{const s=document.getElementById("tp-date");
+    const go=()=>{tpRenderTimeline();if(typeof tpPlanRestore==="function")tpPlanRestore();};
+    if(s&&s.options.length<=1&&typeof terminSelectFill==="function")terminSelectFill("tp-date",{types:["training"],future:true,onReady:go}); else go();
+    addEvalSection(); if(typeof tpVorplanLoad==="function")tpVorplanLoad();}},
   anwesenheit:{cid:"train-sub-anwesenheit",sub:true, init:()=>awDatesLoad()},
   quizresults:{cid:"train-sub-quizresults",sub:true, init:()=>tqRenderTrainerView()},
   team:       {cid:"train-sub-team",       sub:true, init:()=>{tnLoad();teamStatsRender();tvInit();}},
@@ -3229,12 +3232,38 @@ async function adlerWeltOpen(){
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🔗 Eltern einladen</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Fertige WhatsApp-Nachricht mit Eltern-Link + Kurzanleitung – an die Elternschaft schicken.</div>
     <button class="btn btn-sm btn-p" style="width:100%" onclick="document.getElementById('aw-modal').remove();elternInvitePaket()"><i class="ti ti-brand-whatsapp"></i>Einladung erstellen</button>
+    <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="qrAushangOpen()"><i class="ti ti-qrcode"></i>🖨️ QR-Aushang fürs schwarze Brett drucken</button>
     <button class="btn btn-sm" style="margin-top:12px;width:100%" onclick="document.getElementById('aw-modal').remove()">Schließen</button>`;
   modal.appendChild(c);document.body.appendChild(modal);
   if(typeof teamLevelLoad==="function")teamLevelLoad("aw-team-level"); // Küken-Schwarm (Team-Level) jetzt hier
   active.forEach(k=>{xpTotal(k.id).then(t=>{const el=document.getElementById("aw-fed-"+k.id);if(el){const b=xpBadge(t);el.textContent=`${XP_ICON} ${t} · ${b.emo} ${b.t}`;}}).catch(()=>{});});
   // aktuelle Spotify-Playlist vorbefüllen
   fetch(`${SB_URL}/rest/v1/team_config?id=eq.1&select=spotify_playlist`,{headers:sbAuthHeaders()}).then(r=>r.ok?r.json():[]).then(rows=>{const el=document.getElementById("aw-spotify");if(el&&rows[0]&&rows[0].spotify_playlist)el.value=rows[0].spotify_playlist;}).catch(()=>{});
+}
+/* ── K5: QR-Aushang – druckbares A4-Plakat mit QR-Code zum Eltern-Bereich (schwarzes
+   Brett am Käfig, Probetraining-Eltern). Der QR kommt als Bild von api.qrserver.com und
+   enthält NUR die öffentliche App-Adresse, keine persönlichen Daten. ── */
+function qrAushangOpen(){
+  const link=appRoot()+"?portal";
+  const qr="https://api.qrserver.com/v1/create-qr-code/?size=420x420&data="+encodeURIComponent(link);
+  const html=`<div class="zert-page"><div class="zert-card">
+    <div class="zert-crest"><img src="logo.png" alt=""></div>
+    <div class="zert-club">SV Adler Dellbrück e.V. · U9</div>
+    <div class="zert-title">Unsere Team-App</div>
+    <div class="zert-season">für alle Adler-Eltern &amp; Schnupper-Familien</div>
+    <div class="zert-text" style="text-align:left;max-width:460px">
+      <b>1.</b> QR-Code scannen und mit E-Mail anmelden – der Login-Code kommt per Mail, ganz ohne Passwort.<br>
+      <b>2.</b> Dem Trainerteam kurz die E-Mail-Adresse nennen, damit euer Kind verknüpft wird.<br>
+      <b>3.</b> Fertig: Termine zu-/absagen, Infos &amp; Fotos, Liveticker – und „Die Kabine“ für die Kinder.</div>
+    <img src="${qr}" alt="QR-Code zur Eltern-App" crossorigin="anonymous" style="width:220px;height:220px;margin:14px auto 6px;display:block">
+    <div style="font-size:11px;color:#64748b;word-break:break-all">${esc(link)}</div>
+    <div class="zert-sign"><div>Euer Trainerteam<br>${(typeof TRAINER!=="undefined"?TRAINER:[]).join(" · ")}</div><div>Fragen? Sprecht uns am Platz an!</div></div>
+  </div></div>`;
+  toast("🖨️ QR-Aushang wird vorbereitet …");
+  const probe=new Image(); probe.crossOrigin="anonymous";
+  probe.onload=()=>_zertPrint(html);
+  probe.onerror=()=>toast("QR-Dienst gerade nicht erreichbar – bitte später nochmal","err");
+  probe.src=qr;
 }
 /* ── Album-Karten-Fotos: der Trainer hinterlegt Bilder für Trainer- und Vereins-Sticker.
    (Kinder-Sticker nutzen automatisch das Eltern-Profilfoto, sofern freigegeben.)
@@ -3668,6 +3697,16 @@ async function trainerTodoLoad(){
             todos.push({emo:"🗳️",txt:`Trainer-Meeting „${esc(p.titel)}“: bitte abstimmen`,act:"trainerMeetingOpen()"});
         });
       }
+    }
+  }catch(e){}
+  // e) Ergebnis nachtragen: vergangene Spiele/Turniere ohne Ergebnis (füttert Cockpit,
+  //    Spielbericht, Nach-dem-Spiel-Gruß und Team-Meilensteine – ohne Ergebnis bleibt alles stumm)
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,datum,titel,gegner,spielform,uhrzeit_ende,ergebnis&typ=in.(spiel,turnier)&datum=gte.${vor14}&datum=lte.${heute}&order=datum.desc&limit=5`,{headers:sbAuthHeaders()});
+    if(r.ok){
+      const offen=((await r.json())||[]).filter(t=>(typeof terminVorbei!=="function"||terminVorbei(t))&&!(t.ergebnis||"").trim());
+      offen.slice(0,2).forEach(t=>{const d=new Date(t.datum+"T00:00:00");
+        todos.push({emo:"⚽",txt:`Ergebnis &amp; Bericht für ${esc(t.titel||t.gegner||"das Spiel")} (${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}) nachtragen`,act:`tmJump('blitz','${t.datum}','${t.spielform||""}')`});});
     }
   }catch(e){}
   if(!todos.length){slot.innerHTML="";return;}

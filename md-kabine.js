@@ -18,6 +18,28 @@ async function kabineOpen(){
       const row=await _albumRow(k.spieler_id);
       if(row.tuete_tag!==heute){row.tuete_tag=heute;row.tueten=Math.min(9,(row.tueten||0)+1);_albumSave(row);}
     });}catch(e){}
+  // 🎂 K6: Geburtstags-Post von Horst – hat ein Kind heute Geburtstag, legt die Kabine
+  // einmalig eine goldene Post vom Maskottchen in den Briefkasten (+ Konfetti).
+  (async()=>{try{
+    const kids=window._elternKids||[]; if(!kids.length)return;
+    const heute=new Date().toISOString().slice(0,10), md=heute.slice(5);
+    const ids=kids.map(k=>k.spieler_id).join(",");
+    const r=await fetch(`${SB_URL}/rest/v1/kader?id=in.(${ids})&select=id,geb`,{headers:sbAuthHeaders()});
+    if(!r.ok)return;
+    let neu=false;
+    for(const k of ((await r.json())||[])){
+      if(!k.geb||String(k.geb).slice(5)!==md)continue;
+      const chk=await fetch(`${SB_URL}/rest/v1/kabine_post?an_spieler=eq.${k.id}&typ=eq.horst&datum=eq.${heute}&select=id&limit=1`,{headers:sbAuthHeaders()});
+      if(chk.ok&&((await chk.json())||[]).length)continue;
+      await fetch(`${SB_URL}/rest/v1/kabine_post`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({typ:"horst",an_spieler:k.id,text_key:0,datum:heute})});
+      neu=true;
+    }
+    if(neu){
+      const b2=document.getElementById("kabine-body");
+      if(b2&&typeof confetti==="function")confetti(b2);
+      kabinePostLoad(); // Briefkasten zeigt die Geburtstags-Post sofort
+    }
+  }catch(e){}})();
   kabineHome();
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/team_gallery`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)kabineGalleryData=await r.json();}catch(e){}
   if(typeof loadTeamConfig==="function"){try{await loadTeamConfig();}catch(e){}}
@@ -810,7 +832,8 @@ async function kabineMilestoneLoad(){
    alles Persönliche in EINEM Briefkasten, damit die Kabine oben nicht zustaut. */
 const KUDOS_TEXTE=["⚽ Starker Pass!","🔥 Super gekämpft!","👏 Du hast mich angefeuert!","🤝 Du bist mega fair!","😄 Mit dir macht's am meisten Spaß!","🛡️ Starke Abwehr!","🎯 Tolles Tor!","💪 Du gibst nie auf!"];
 const GENESUNG_TEXTE=["💌 Gute Besserung!","🦅 Wir vermissen dich!","💪 Komm bald wieder!","⚽ Der Platz wartet auf dich!"];
-function kabinePostText(typ,key){ const L=typ==="genesung"?GENESUNG_TEXTE:KUDOS_TEXTE; return L[key]||L[0]; }
+const HORST_TEXTE=["🎂 Alles Gute zum Geburtstag! Das ganze Nest feiert dich heute – dein Horst 🦅"];
+function kabinePostText(typ,key){ const L=typ==="genesung"?GENESUNG_TEXTE:typ==="horst"?HORST_TEXTE:KUDOS_TEXTE; return L[key]||L[0]; }
 async function kabinePostLoad(){
   const el=document.getElementById("kab-post"); if(!el)return;
   const kids=window._elternKids||[]; if(!kids.length){el.innerHTML="";return;}
@@ -846,8 +869,8 @@ async function kabinePostOpen(){
       <div style="flex:1;font-size:18px;font-weight:800;color:#fff">📬 Adler-Post</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;padding:0 16px 16px">
-      ${rows.length?rows.map(x=>`<div style="border-radius:16px;padding:14px;color:#fff;background:${x.typ==="genesung"?"linear-gradient(135deg,rgba(244,63,94,.5),rgba(190,18,60,.32))":"linear-gradient(135deg,rgba(236,72,153,.5),rgba(147,51,234,.32))"};${x.gesehen?"opacity:.75":""}">
-        <div style="font-size:11px;opacity:.85">${x.gesehen?"":"🆕 "}von <b>${esc(nameById[x.von_spieler]||"einem Adler")}</b>${kids.length>1?` · für ${esc(kidName(x.an_spieler))}`:""}</div>
+      ${rows.length?rows.map(x=>`<div style="border-radius:16px;padding:14px;color:${x.typ==="horst"?"#78350f":"#fff"};background:${x.typ==="horst"?"linear-gradient(135deg,rgba(253,224,71,.85),rgba(245,158,11,.6))":x.typ==="genesung"?"linear-gradient(135deg,rgba(244,63,94,.5),rgba(190,18,60,.32))":"linear-gradient(135deg,rgba(236,72,153,.5),rgba(147,51,234,.32))"};${x.gesehen?"opacity:.75":""}">
+        <div style="font-size:11px;opacity:.85">${x.gesehen?"":"🆕 "}von <b>${x.typ==="horst"?"Horst dem Adler 🦅":esc(nameById[x.von_spieler]||"einem Adler")}</b>${kids.length>1?` · für ${esc(kidName(x.an_spieler))}`:""}</div>
         <div style="font-size:17px;font-weight:900;margin-top:4px">${esc(kabinePostText(x.typ,x.text_key))}</div>
       </div>`).join(""):'<div style="text-align:center;color:#fff;opacity:.8;padding:30px 16px">Noch keine Post – schenk doch selbst ein Kompliment! 👏</div>'}
     </div>

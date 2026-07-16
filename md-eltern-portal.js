@@ -412,19 +412,21 @@ async function elternDashLoad(){
   let termineListe=[]; // UX 6: Timeline – die nächsten Termine, nicht nur der eine
   try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc,uhrzeit.asc.nullslast&limit=15`,{headers:sbAuthHeaders()});if(r.ok){termineListe=(await r.json()).filter(t=>!(typeof terminVorbei==="function"&&terminVorbei(t)));termin=termineListe[0]||null;}}catch(e){}
   ELTERN_TERMINE=termineListe; // für den „Alle Termine"-Dialog + Kalender-Export
-  let rsvp={};
-  if(termin){
-    try{const ids=kids.map(k=>k.spieler_id).join(",");const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${termin.id}&spieler_id=in.(${ids})&select=spieler_id,status,kommentar`,{headers:sbAuthHeaders()});if(r.ok){(await r.json()).forEach(x=>rsvp[x.spieler_id]=x);}}catch(e){}
+  // K1: unabhängige Daten PARALLEL laden statt nacheinander (Dashboard-Tempo auf dem Handy):
+  // Rückmeldung zum nächsten Termin, Rückmeldungen fürs Karussell und die Kassen-Zusammenfassung.
+  let rsvp={}, rsvpAll={}, kasse=null;
+  {
+    const kidIds=kids.map(k=>k.spieler_id).join(","), tids=termineListe.map(t=>t.id).join(",");
+    const j=r=>(r&&r.ok)?r.json():null;
+    const [r1,r2,r3]=await Promise.all([
+      termin?fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${termin.id}&spieler_id=in.(${kidIds})&select=spieler_id,status,kommentar`,{headers:sbAuthHeaders()}).then(j).catch(()=>null):Promise.resolve(null),
+      (tids&&kidIds)?fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=in.(${tids})&spieler_id=in.(${kidIds})&select=termin_id,spieler_id,status`,{headers:sbAuthHeaders()}).then(j).catch(()=>null):Promise.resolve(null),
+      fetch(`${SB_URL}/rest/v1/rpc/kasse_summary`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"}).then(j).catch(()=>null)
+    ]);
+    (r1||[]).forEach(x=>rsvp[x.spieler_id]=x);
+    (r2||[]).forEach(x=>{(rsvpAll[x.termin_id]=rsvpAll[x.termin_id]||{})[x.spieler_id]=x.status;});
+    kasse=r3;
   }
-  // Rückmeldungen für ALLE kommenden Termine (fürs Schnell-Karussell)
-  let rsvpAll={};
-  try{
-    const tids=termineListe.map(t=>t.id).join(","), kidIds=kids.map(k=>k.spieler_id).join(",");
-    if(tids&&kidIds){
-      const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=in.(${tids})&spieler_id=in.(${kidIds})&select=termin_id,spieler_id,status`,{headers:sbAuthHeaders()});
-      if(r.ok)(await r.json()).forEach(x=>{(rsvpAll[x.termin_id]=rsvpAll[x.termin_id]||{})[x.spieler_id]=x.status;});
-    }
-  }catch(e){}
   let html="";
   if(termin&&termin.platz_status)html+=elternPlatzAmpelBanner(termin);   // ganz oben: findet statt / Ausweich / fällt aus
   if(termin&&(termin.typ==="spiel"||termin.typ==="turnier"))html+='<div id="pause-card"></div>';  // ganz oben, noch vor dem Termin
@@ -521,9 +523,7 @@ async function elternDashLoad(){
     </button>`;
   }).join("");
   html+=`<div id="eltern-level-slot" style="margin:4px 0 12px"></div>`;  // C1: kollektives Team-Level
-  // ── MEHR VOM TEAM (einklappbar – Referenz/Selteneres, weniger Scrollen) ──
-  let kasse=null;
-  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/kasse_summary`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)kasse=await r.json();}catch(e){}
+  // ── MEHR VOM TEAM (einklappbar – Referenz/Selteneres) · kasse kam schon parallel oben ──
   // ── Kategorie-Buttons: öffnen je ein fokussiertes Fenster (statt Inline-Akkordeon). Die
   //    Inhalte liegen (versteckt) im Overlay, damit die Async-Loader ihre Slots weiter füllen. ──
   // Einheitliche Aktions-Zeile für die Panel-Inhalte (Icon + Titel + Beschreibung + ›, farbiger
@@ -777,7 +777,8 @@ async function terminDetailOpen(id){
     <div id="td-buedchen"></div>
     <div id="td-helfer"></div>
     ${t.typ==="event"?'<div id="td-mitbring"></div>':""}
-    <button onclick="document.getElementById('td-modal').remove()" style="width:100%;margin-top:14px;padding:11px;border:none;border-radius:10px;background:#f1f5f9;color:#334155;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Schließen</button>`;
+    <button onclick="galerieOpen(${Number(t.id)},'${(t.titel||t.gegner||"").replace(/'/g,"")}')" style="width:100%;margin-top:14px;padding:11px;border:1.5px solid #7c3aed;border-radius:10px;background:#faf5ff;color:#6d28d9;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 Event-Fotos ansehen &amp; hochladen</button>
+    <button onclick="document.getElementById('td-modal').remove()" style="width:100%;margin-top:8px;padding:11px;border:none;border-radius:10px;background:#f1f5f9;color:#334155;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Schließen</button>`;
   modal.appendChild(c);document.body.appendChild(modal);
   window._tdTermin=t; // fürs Nachladen der Mitbringliste nach dem Eintragen
   if(t.datum)wetterInto("td-wetter",t.datum,t.ort,t.uhrzeit);
@@ -915,6 +916,7 @@ async function pulsNudgeLoad(){
     <div style="font-weight:700;font-size:14px;margin-bottom:2px">🌡️ Wie war ${m.icon} ${esc(first.titel||first.gegner||m.label)}?</div>
     <div style="font-size:11.5px;color:#64748b">${ds} · anonym, nur fürs Trainerteam – ein Tap genügt.</div>
     <div id="td-puls"></div>
+    <button onclick="elternCatClose();galerieOpen(${first.id},'${(first.titel||first.gegner||"").replace(/'/g,"")}')" style="width:100%;min-height:44px;margin-top:8px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#faf5ff;color:#6d28d9;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 Fotos davon in die Team-Galerie laden</button>
   </div>`;
   tdPulsRender(first.id,null,true);
 }
