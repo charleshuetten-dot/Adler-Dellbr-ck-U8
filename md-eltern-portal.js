@@ -304,6 +304,7 @@ async function elternNewsLoad(kids){
   let rueckblick=[];
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/training_rueckblick`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)rueckblick=(await r.json())||[];}catch(e){}
   cur.tr=(rueckblick[0]&&rueckblick[0].datum)||"";
+  cur.wn=(typeof ELTERN_WHATSNEW!=="undefined"&&ELTERN_WHATSNEW.key)||""; // L2: „Was ist neu"
   window._elternNewsCur=cur;
   let seen=null; try{seen=JSON.parse(localStorage.getItem("adler_news_seen")||"null");}catch(e){}
   if(!seen){ try{localStorage.setItem("adler_news_seen",JSON.stringify(cur));}catch(e){} seen=cur; } // Erstbesuch = Baseline
@@ -322,6 +323,7 @@ async function elternNewsLoad(kids){
     const themen=(rb.themen||[]).slice(0,3).map(esc).join(", ");
     if(themen)items.push({emo:"📖",txt:`${rb.datum===heuteStr?"Heute":"Zuletzt"} im Training geübt: ${themen} – frag dein Kind doch mal danach!`,act:"elternCatClose()"});
   }
+  if(cur.wn&&cur.wn>(seen.wn||"")) items.unshift({emo:"🆕",txt:`${esc(ELTERN_WHATSNEW.titel)} – tippen für die Highlights!`,act:"whatsNewOpen()"}); // L2: ganz oben
   const badge=document.getElementById("eltern-news-badge");
   if(badge){ badge.textContent=items.length?String(items.length):"0"; badge.style.display=items.length?"inline-block":"none"; }
   panel.innerHTML = items.length
@@ -331,6 +333,88 @@ async function elternNewsLoad(kids){
 function elternNewsMarkSeen(){
   try{ if(window._elternNewsCur)localStorage.setItem("adler_news_seen",JSON.stringify(window._elternNewsCur)); }catch(e){}
   const b=document.getElementById("eltern-news-badge"); if(b){ b.textContent="0"; b.style.display="none"; }
+}
+/* L3: Saison-Chronik – das laufende Gedächtnis der Saison als Zeitstrahl: Spiele &
+   Turniere mit Ergebnis, Events und Team-Meilensteine, nach Monaten gruppiert.
+   (Wrapped ist der Jahresrückblick am Ende – die Chronik wächst jede Woche mit.) */
+async function chronikOpen(){
+  document.getElementById("chronik-modal")?.remove();
+  const m=document.createElement("div");m.id="chronik-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10050;display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div id="chronik-card" style="background:#fff;color:#1a1a2e;border-radius:16px;padding:18px;max-width:520px;width:100%;margin:auto">
+    ${mdlHead("chronik-modal","📖","Unsere Saison","Spiele, Feste und Meilensteine – die Chronik der jungen Adler","#1e3a8a")}
+    <div id="chronik-body" style="text-align:center;padding:24px;color:#94a3b8;font-size:13px">Lade die Saison …</div>
+  </div>`;
+  document.body.appendChild(m);
+  const heute=new Date().toISOString().slice(0,10);
+  const d0=new Date(), saisonAb=`${d0.getMonth()>=6?d0.getFullYear():d0.getFullYear()-1}-07-01`;
+  let termine=[],ms=[];
+  try{
+    const [r1,r2]=await Promise.all([
+      fetch(`${SB_URL}/rest/v1/termine?select=id,typ,datum,titel,gegner,ergebnis,heim&typ=in.(spiel,turnier,event)&datum=gte.${saisonAb}&datum=lte.${heute}&order=datum.desc`,{headers:sbAuthHeaders()}),
+      fetch(`${SB_URL}/rest/v1/rpc/team_meilensteine`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"})
+    ]);
+    if(r1.ok)termine=(await r1.json())||[];
+    if(r2.ok)ms=((await r2.json())||[]).filter(x=>x.erreicht_am>=saisonAb);
+  }catch(e){}
+  const box=document.getElementById("chronik-body"); if(!box)return;
+  const eintraege=[
+    ...termine.map(t=>({datum:t.datum,typ:t.typ,t})),
+    ...ms.map(x=>({datum:x.erreicht_am,typ:"meilenstein",x}))
+  ].sort((a,b)=>a.datum<b.datum?1:-1);
+  if(!eintraege.length){box.innerHTML='<div style="padding:10px;color:#94a3b8;font-size:13px">Die Saison geht gerade erst los – bald steht hier das erste Kapitel! 🦅</div>';return;}
+  let html="",monat="";
+  const MON=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+  eintraege.forEach(e=>{
+    const d=new Date(e.datum+"T00:00:00");
+    const mLbl=MON[d.getMonth()]+" "+d.getFullYear();
+    if(mLbl!==monat){monat=mLbl;html+=`<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#94a3b8;margin:16px 4px 8px;text-align:left">${mLbl}</div>`;}
+    const ds=d.toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"});
+    if(e.typ==="meilenstein"){
+      html+=`<div style="display:flex;gap:10px;align-items:center;background:linear-gradient(135deg,#fef9c3,#fef3c7);border:1px solid #fde047;border-radius:12px;padding:10px 13px;margin-bottom:8px;text-align:left">
+        <span style="font-size:18px">🎉</span><span style="flex:1;font-size:12.5px;font-weight:800;color:#78350f">${esc(e.x.label)}</span><span style="font-size:10.5px;color:#a16207">${ds}</span></div>`;
+    }else{
+      const t=e.t, istSpiel=t.typ!=="event";
+      const icon=t.typ==="turnier"?"🏆":t.typ==="event"?"🎉":"⚽";
+      const erg=(t.ergebnis||"").trim();
+      html+=`<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid ${istSpiel?"#1e3a8a":"#f59e0b"};border-radius:12px;padding:10px 13px;margin-bottom:8px;text-align:left">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:17px">${icon}</span>
+          <span style="flex:1;min-width:0;font-size:13px;font-weight:800;color:#0f172a">${esc(t.titel||t.gegner||(istSpiel?"Spiel":"Event"))}${t.heim===true?' <span style="font-size:9.5px;font-weight:800;color:#15803d">HEIM</span>':t.heim===false?' <span style="font-size:9.5px;font-weight:800;color:#b45309">AUSW.</span>':""}</span>
+          <span style="font-size:10.5px;color:#94a3b8">${ds}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          ${istSpiel?`<span style="font-size:12.5px;font-weight:900;color:${erg?"#0f172a":"#94a3b8"}">${erg?esc(erg):"– Ergebnis folgt –"}</span>`:'<span style="font-size:11.5px;color:#64748b">Team-Event</span>'}
+          <button onclick="galerieOpen(${Number(t.id)},'${(t.titel||t.gegner||"").replace(/'/g,"")}')" style="margin-left:auto;border:1px solid #7c3aed;border-radius:8px;background:#faf5ff;color:#6d28d9;font-family:inherit;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;min-height:32px">📸 Fotos</button>
+        </div>
+      </div>`;
+    }
+  });
+  box.style.textAlign="left"; box.style.padding="0"; box.style.color="inherit";
+  box.innerHTML=html;
+}
+/* L2: „Was ist neu" – kuratierte Highlights je App-Stand, erscheint EINMALIG in den
+   Adler News (seen-Baseline). KONVENTION: Bei eltern-sichtbaren neuen Features den key
+   (sortierbares Datum) hochsetzen und die Punkte austauschen – sonst entdecken
+   Bestandsfamilien neue Funktionen nie (die Tour läuft nur beim ersten Login). */
+const ELTERN_WHATSNEW={key:"2026-07-16",titel:"Neu in eurer App",punkte:[
+  "📖 Panini-Sammelalbum mit Sticker-Tüten, Raritäten und Tauschbörse – in der Kabine",
+  "🛡️ „So schützen wir eure Fotos & Daten“ – warum die Galerie sicherer ist als WhatsApp (unter Datenschutz & Freigaben)",
+  "📸 Mehrere Fotos auf einmal hochladen – direkt am Termin oder nach dem Spiel",
+  "📌 To-Dos räumen sich selbst auf – und Abstimmungen (z. B. Elterngespräch) erscheinen dort, bis ihr geantwortet habt"
+]};
+function whatsNewOpen(){
+  document.getElementById("wn-modal")?.remove();
+  const m=document.createElement("div");m.id="wn-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10050;display:flex;align-items:center;justify-content:center;padding:16px";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:#fff;color:#1a1a2e;border-radius:16px;padding:18px;max-width:460px;width:100%">
+    ${mdlHead("wn-modal","🆕",esc(ELTERN_WHATSNEW.titel),"Die wichtigsten Neuigkeiten auf einen Blick","#0284c7")}
+    ${ELTERN_WHATSNEW.punkte.map(p=>`<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid #f1f5f9;font-size:13px;color:#334155;line-height:1.5">${p}</div>`).join("")}
+    <button onclick="document.getElementById('wn-modal').remove()" style="width:100%;margin-top:14px;padding:11px;border:none;border-radius:10px;background:#f1f5f9;color:#334155;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Super, danke!</button>
+  </div>`;
+  document.body.appendChild(m);
 }
 /* 🛡️ Datenschutz-Versprechen: DIE Seite für besorgte Eltern (WhatsApp-Bedenken, „Fotos
    meines Kindes im Netz"). Klare Sprache, ehrlich, ohne Jura-Deutsch – als Modal aus
@@ -587,6 +671,7 @@ async function elternDashLoad(){
       </div>`;}).join("")}
     <div id="cat-mehr" class="el-cat-panel" style="display:none">`;
   html+=elRow("📰","Adler Nest (Stadionheft)","Neuigkeiten, Ergebnisse und Geburtstage",`location.href='${location.pathname}?heft'`,"#1e3a8a");
+  html+=elRow("📖","Unsere Saison (Chronik)","Alle Spiele, Feste &amp; Meilensteine als Zeitstrahl – wächst jede Woche","chronikOpen()","#1d4ed8",true);
   html+=elRow("🛍️","Adler-Börse","Zu kleine Schuhe &amp; Trikots an Adler-Kinder weitergeben","boerseOpen()","#2563eb");
   html+=elRow("🧦","Fundbüro","Verlorenes &amp; Gefundenes – hier sammelt das Team","fundbueroOpen()","#3b82f6");
   html+=`<div id="skill-slot"></div>`;        // Skill der Woche

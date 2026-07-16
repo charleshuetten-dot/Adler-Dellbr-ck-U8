@@ -779,7 +779,7 @@ async function kabinePackTap(sid,idx,name){
    („Wie war's heute?", 3 Smileys). Ein Eintrag pro Kind & Tag (kind_stimmung); die
    Eltern-Session darf per RLS nur die eigenen Kinder schreiben. Der Trainer sieht die
    Stimmungslage gebündelt im Saison-Cockpit. */
-const KAB_MOODS=[[1,"😞"],[2,"😐"],[3,"😄"]];
+const KAB_MOODS=[[1,"😞","war nicht so gut"],[2,"😐","war okay"],[3,"😄","war super"]];
 async function kabineStimmungLoad(){
   const el=document.getElementById("kab-stimmung"); if(!el)return;
   const kids=window._elternKids||[]; if(!kids.length){el.innerHTML="";return;}
@@ -798,7 +798,7 @@ async function kabineStimmungLoad(){
     <div style="font-size:14px;font-weight:900;text-align:center">Wie war dein ${was} heute?</div>
     ${offen.map(k=>`<div style="display:flex;align-items:center;gap:8px;margin-top:8px;justify-content:center">
       ${kids.length>1?`<span style="flex:1;font-size:13px;font-weight:700">${esc((k.kader&&k.kader.name)||"")}</span>`:""}
-      ${KAB_MOODS.map(m=>`<button onclick="kabineStimmungSet(${k.spieler_id},${m[0]})" style="border:none;background:rgba(255,255,255,.12);border-radius:14px;width:60px;height:54px;font-size:28px;cursor:pointer">${m[1]}</button>`).join("")}
+      ${KAB_MOODS.map(m=>`<button onclick="kabineStimmungSet(${k.spieler_id},${m[0]})" aria-label="${m[2]}" style="border:none;background:rgba(255,255,255,.12);border-radius:14px;width:60px;height:54px;font-size:28px;cursor:pointer">${m[1]}</button>`).join("")}
     </div>`).join("")}
   </div>`;
 }

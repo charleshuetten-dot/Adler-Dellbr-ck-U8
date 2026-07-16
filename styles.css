@@ -603,6 +603,13 @@ h1.print-header{display:none}
   background-size:250% 250%}
 @keyframes kabPulse{0%,100%{box-shadow:0 0 16px rgba(250,204,21,.5)}50%{box-shadow:0 0 32px rgba(250,204,21,.9)}}
 .kab-pulse{animation:kabPulse 2.4s ease-in-out infinite}
+/* ── A11y-Pass (L5): sichtbarer Tastatur-Fokus überall (nur bei Tastatur-Navigation,
+   nicht beim Tippen/Klicken) + Daueranimationen respektieren Bewegungs-Reduktion ── */
+:focus-visible{outline:2px solid #2563eb!important;outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){
+  .kab-st .stfoil,.kab-pulse,.card-holo .foil{animation:none!important}
+  *{scroll-behavior:auto!important}
+}
 .zert-page{page-break-after:always} /* Urkunden-Studio: je Kind eine A4-Seite */
 @media print{
   body.printing-zert>*{display:none!important}
