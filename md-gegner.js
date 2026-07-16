@@ -181,6 +181,16 @@ async function tmLoad(){
     kFull.filter(t=>t.heim===true&&(t.typ==="spiel"||t.typ==="turnier")).forEach(buedchenTrainerFill); // Büdchen je Heimspiel
   }catch(e){up.innerHTML='<div style="font-size:11px;color:var(--text3)">Offline</div>';}
 }
+// J6: Ansage zu einem Termin – öffnet das Ansage-Modal mit vorbefülltem Termin-Text.
+function ansageVomTermin(id){
+  const t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(id));
+  if(!t||typeof ansageTrainerOpen!=="function")return;
+  const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ};
+  const d=new Date(t.datum+"T00:00:00");
+  const ds=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()]+", "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+  const zeit=t.uhrzeit?String(t.uhrzeit).slice(0,5)+" Uhr":"";
+  ansageTrainerOpen(`${m.icon} ${t.titel||m.label} am ${ds}${zeit?" um "+zeit:""}${t.ort?" · "+t.ort:""}\nTreffpunkt: `);
+}
 // Karussell der nächsten Termine (Trainer): kompakte, chronologische Karten; Klick springt zur Detailkarte.
 function tmCarouselHtml(rows){
   const up=(rows||[]).slice(0,10);
@@ -424,6 +434,10 @@ function tmCard(t){
   const notizClean=(t.notiz&&!/^Uhrzeit:/.test(t.notiz))?t.notiz:"";
   // UX 3: Trainer-Erinnerung per WhatsApp – Deep-Link (?portal&rsvp=…) fuehrt Eltern direkt zur
   // Rueckmeldung. Fuellt nur die Nachricht vor; Absenden/Empfaenger waehlt der Trainer selbst.
+  // J6: Ansage direkt vom Termin – Text vorbefüllt, Rest tippt der Trainer
+  if(t.datum>=new Date().toISOString().slice(0,10)){
+    actions+=`<button class="btn btn-sm" onclick="ansageVomTermin(${Number(t.id)})" title="Ansage an alle Eltern zu diesem Termin (mit Gelesen-Status)"><i class="ti ti-speakerphone"></i>Ansage</button>`;
+  }
   let remindBtn="";
   if(t.datum>=new Date().toISOString().slice(0,10)){
     const deepLink=appRoot()+"?portal&rsvp="+t.id;

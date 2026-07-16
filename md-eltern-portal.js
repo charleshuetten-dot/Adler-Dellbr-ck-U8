@@ -275,7 +275,7 @@ function elternCatClose(fromPop){
 /* „Zu erledigen"-Button aus-/einblenden + Zähler: nur zeigen, wenn mind. ein Slot gefüllt ist. */
 function elternTodoSync(){
   const btn=document.getElementById("eltern-todo-btn"); if(!btn)return;
-  const n=["eltern-checklist-slot","mitbring-slot","buedchen-slot","puls-nudge-slot"].filter(id=>{const el=document.getElementById(id);return el&&el.innerHTML.trim().length>0;}).length;
+  const n=["eltern-checklist-slot","helfer-todo-slot","mitbring-slot","buedchen-slot","puls-nudge-slot"].filter(id=>{const el=document.getElementById(id);return el&&el.innerHTML.trim().length>0;}).length;
   btn.style.display=n?"flex":"none";
   const b=document.getElementById("eltern-todo-badge"); if(b)b.textContent=n?String(n):"";
 }
@@ -300,6 +300,10 @@ async function elternNewsLoad(kids){
   try{const ids=(kids||[]).map(k=>k.spieler_id).join(",");
     if(ids){const r=await fetch(`${SB_URL}/rest/v1/kabine_post?an_spieler=in.(${ids})&select=created_at&order=created_at.desc&limit=1`,{headers:sbAuthHeaders()});
       if(r.ok){const p=((await r.json())||[])[0];cur.kpost=(p&&p.created_at)||"";}}}catch(e){}
+  // J4: Trainings-Rückblick – was zuletzt geübt wurde (RPC, da trainingsplan trainer-only)
+  let rueckblick=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/rpc/training_rueckblick`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:"{}"});if(r.ok)rueckblick=(await r.json())||[];}catch(e){}
+  cur.tr=(rueckblick[0]&&rueckblick[0].datum)||"";
   window._elternNewsCur=cur;
   let seen=null; try{seen=JSON.parse(localStorage.getItem("adler_news_seen")||"null");}catch(e){}
   if(!seen){ try{localStorage.setItem("adler_news_seen",JSON.stringify(cur));}catch(e){} seen=cur; } // Erstbesuch = Baseline
@@ -313,6 +317,11 @@ async function elternNewsLoad(kids){
   (kids||[]).forEach(k=>{ const lv=cur["level_"+k.spieler_id]; const sv=seen["level_"+k.spieler_id]; if(lv&&sv!=null&&lv!==sv) items.push({emo:"🎉",txt:`${esc(kidName(k.spieler_id))} hat ein neues Level erreicht: ${esc(lv)}!`,act:`elternCatClose();elternCardOpen(${k.spieler_id})`}); });
   if(cur.ms&&cur.ms>(seen.ms||"")) ms.filter(m=>m.erreicht_am>(seen.ms||"")).slice(0,3).forEach(m=>items.push({emo:"🏆",txt:`Team-Meilenstein: ${esc(m.label)}`,act:"elternCatClose()"})); // H7
   if(cur.kpost&&cur.kpost>(seen.kpost||"")) items.push({emo:"📬",txt:"Neue Adler-Post für dein Kind – Kompliment oder Gruß in der Kabine!",act:"elternCatClose();kabineOpen()"}); // I-A
+  if(cur.tr&&cur.tr>(seen.tr||"")){ // J4: Gesprächsfutter für den Abendbrottisch
+    const rb=rueckblick[0], heuteStr=new Date().toISOString().slice(0,10);
+    const themen=(rb.themen||[]).slice(0,3).map(esc).join(", ");
+    if(themen)items.push({emo:"📖",txt:`${rb.datum===heuteStr?"Heute":"Zuletzt"} im Training geübt: ${themen} – frag dein Kind doch mal danach!`,act:"elternCatClose()"});
+  }
   const badge=document.getElementById("eltern-news-badge");
   if(badge){ badge.textContent=items.length?String(items.length):"0"; badge.style.display=items.length?"inline-block":"none"; }
   panel.innerHTML = items.length
@@ -467,10 +476,13 @@ async function elternDashLoad(){
         ${st==="zugesagt"?`<button onclick="elternCarpoolOpen(${k.spieler_id},${termin.id})" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🚗 Fahrgemeinschaft</button>`:""}
       </div>`;
     }).join("");
-    html+=`<div id="termin-card" style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;${offen.length?"border:2px solid #f59e0b;box-shadow:0 4px 16px rgba(245,158,11,.18)":""}">
+    // J5: Rückmelde-Frist – ab dem Vortag wird eine offene Rückmeldung rot & dringlich
+    const morgen=new Date(Date.now()+864e5).toISOString().slice(0,10);
+    const dringend=offen.length>0&&termin.datum<=morgen;
+    html+=`<div id="termin-card" style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;${offen.length?(dringend?"border:2px solid #ef4444;box-shadow:0 4px 16px rgba(239,68,68,.22)":"border:2px solid #f59e0b;box-shadow:0 4px 16px rgba(245,158,11,.18)"):""}">
       <div style="display:flex;align-items:center;gap:8px">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Nächster Termin</div>
-        ${offen.length?`<span style="margin-left:auto;font-size:10px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:20px;padding:2px 8px">❗ Rückmeldung fehlt</span>`:""}
+        ${offen.length?(dringend?`<span style="margin-left:auto;font-size:10px;font-weight:800;color:#b91c1c;background:#fef2f2;border:1px solid #fca5a5;border-radius:20px;padding:2px 8px">⏰ Rückmeldung überfällig – bitte jetzt</span>`:`<span style="margin-left:auto;font-size:10px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:20px;padding:2px 8px">❗ Rückmeldung fehlt</span>`):""}
       </div>
       <div style="font-size:16px;font-weight:800;margin-top:2px">${m.icon} ${esc(termin.titel||termin.gegner||m.label)}${heimLabel(termin)?` <span style="font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;background:${termin.heim?"#dcfce7":"#fef3c7"};color:${termin.heim?"#15803d":"#b45309"};white-space:nowrap">${heimLabel(termin)}</span>`:""}</div>
       <div style="font-size:12.5px;color:#64748b;margin-top:3px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})}${zeit?" · "+zeit:""}${termin.ort?" · "+mapsAnchor(termin.ort):""}${termin.platz?" · 🏟️ "+esc(termin.platz):""}</div>
@@ -530,6 +542,7 @@ async function elternDashLoad(){
     </div>
     <div id="cat-todo" class="el-cat-panel" style="display:none">
       <div id="eltern-checklist-slot"></div>
+      <div id="helfer-todo-slot"></div>
       <div id="mitbring-slot"></div>
       <div id="buedchen-slot"></div>
       <div id="puls-nudge-slot"></div>
@@ -597,6 +610,7 @@ async function elternDashLoad(){
   adlerkasseLinkGet().then(l=>{const el=document.getElementById("ak-slot");if(!el)return;el.innerHTML=adlerkasseCardHtml(l)+(l?akShareBtnHtml():"");if(l)window._akLink=l;}).catch(()=>{});
   elternAnsagenLoad();                         // H1: Trainer-Ansagen mit Gelesen-Status
   elternGenesungLoad(kids);                    // I-A: Genesungsgrüße für pausierte Teamkinder
+  elternHelferTodoLoad();                      // J3: heute als Helfer eingetragen? Erinnerung mit Direktlink
   elternMitbringLoad(kids);                    // Event-Mitbringliste: wer bringt was mit
   elternBuedchenLoad(termineListe,kids);       // Büdchen-Einteilung bei Heimspielen
   elternGespraechStatus();                     // laufende Elterngespräch-Anfrage anzeigen
@@ -902,6 +916,31 @@ async function pulsNudgeLoad(){
     <div id="td-puls"></div>
   </div>`;
   tdPulsRender(first.id,null,true);
+}
+/* J3: Helfer-Erinnerung – hast du dich für HEUTE als Helfer eingetragen (Fotos, Live-Ticker,
+   Aufbau, Betreuung)? Dann erscheint ein To-Do mit Direktlink zur passenden Funktion. */
+async function elternHelferTodoLoad(){
+  const slot=document.getElementById("helfer-todo-slot"); if(!slot)return;
+  const uid=_sbUid(); if(!uid){slot.innerHTML="";return;}
+  const heute=new Date().toISOString().slice(0,10);
+  const heutige=(ELTERN_TERMINE||[]).filter(t=>t.datum===heute);
+  if(!heutige.length){slot.innerHTML="";return;}
+  let rows=[];
+  try{const ids=heutige.map(t=>t.id).join(",");
+    const r=await fetch(`${SB_URL}/rest/v1/event_helfer?user_id=eq.${uid}&termin_id=in.(${ids})&select=termin_id,aufgabe`,{headers:sbAuthHeaders()});
+    if(r.ok)rows=(await r.json())||[];}catch(e){}
+  if(!rows.length){slot.innerHTML="";return;}
+  slot.innerHTML=rows.map(x=>{
+    const t=heutige.find(tt=>tt.id===x.termin_id)||{};
+    const titel=esc(t.titel||t.gegner||"heute");
+    let aktion="";
+    if(x.aufgabe.includes("Ticker"))aktion=`<button onclick="location.href=location.pathname+'?ticker=${t.datum}'" style="width:100%;min-height:44px;margin-top:8px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📻 Zum Liveticker</button>`;
+    else if(x.aufgabe.includes("Foto"))aktion=`<button onclick="elternCatClose();galerieOpen(${t.id},'${(t.titel||t.gegner||"").replace(/'/g,"")}')" style="width:100%;min-height:44px;margin-top:8px;border:none;border-radius:10px;background:#7c3aed;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 Zur Event-Galerie</button>`;
+    return `<div style="background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;border-left:4px solid #0ea5e9;box-shadow:0 2px 10px rgba(0,0,0,.05)">
+      <div style="font-weight:800;font-size:13.5px;color:#0f172a">🙌 Heute bist du dran: ${esc(x.aufgabe)}</div>
+      <div style="font-size:11.5px;color:#64748b;margin-top:2px">Du hast dich bei „${titel}“ eingetragen – danke, dass du hilfst!</div>
+      ${aktion}
+    </div>`;}).join("");
 }
 /* G4: Elternhelfer-Board – pro kommendem Termin tragen sich Eltern für Aufgaben ein
    (Fahren, Aufbau, Fotografieren …). Alle eingeloggten sehen die Liste (Koordination). */

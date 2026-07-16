@@ -88,6 +88,11 @@ function tmEndeVorschlag(){
   const t=Math.min(23*60+59,h*60+m+addMin);
   e.value=String(Math.floor(t/60)).padStart(2,"0")+":"+String(t%60).padStart(2,"0");
 }
+function tmSerieToggle(){
+  const on=(document.getElementById("tm-serie")?.value||"")==="woche";
+  const o=document.getElementById("tm-serie-opts"); if(o)o.style.display=on?"block":"none";
+  if(on&&typeof ferienLoad==="function")ferienLoad(); // Ferien vorladen fürs Auslassen
+}
 async function tmAdd(){
   const datum=document.getElementById("tm-datum")?.value;
   if(!datum){toast("Bitte Datum wählen","err");return;}
@@ -97,6 +102,27 @@ async function tmAdd(){
   const ort=(document.getElementById("tm-ort")?.value||"").trim();
   const istSpiel=(tmTyp==="spiel"||tmTyp==="turnier");
   if(istSpiel&&!ende){toast("Bitte eine Endzeit eintragen – danach wandert der Termin ins Archiv","err");return;}
+  // 🔁 Serien-Termine: wöchentlich bis Enddatum, Ferienwochen optional auslassen (max. 30)
+  const serie=(document.getElementById("tm-serie")?.value||"")==="woche";
+  const serieBis=document.getElementById("tm-serie-bis")?.value||"";
+  const serieFerien=!!document.getElementById("tm-serie-ferien")?.checked;
+  let daten=[datum], ausgelassen=0;
+  if(serie){
+    if(!serieBis||serieBis<datum){toast("Bitte ein „bis“-Datum für die Serie wählen","err");return;}
+    if(serieFerien&&typeof ferienLoad==="function")await ferienLoad();
+    daten=[];
+    // LOKAL formatieren – toISOString würde Berlin-Mitternacht einen Tag zurückschieben
+    const fmtLokal=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`;
+    let d=new Date(datum+"T12:00:00");
+    const bis=new Date(serieBis+"T12:00:00");
+    while(d<=bis&&daten.length<30){
+      const ds=fmtLokal(d);
+      if(serieFerien&&typeof ferienFuer==="function"&&ferienFuer(ds))ausgelassen++;
+      else daten.push(ds);
+      d=new Date(d.getTime()+7*864e5);
+    }
+    if(!daten.length){toast("Alle Termine der Serie liegen in den Ferien 🏖️","err");return;}
+  }
   const body={
     typ:tmTyp, datum, titel, ort,
     platz: (document.getElementById("tm-platz")?.value||"").trim()||null,
@@ -110,9 +136,17 @@ async function tmAdd(){
     halbzeiten: istSpiel?(parseInt(document.getElementById("tm-halbzeiten")?.value)||1):2
   };
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/termine`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify(body)});
+    const payload=daten.length>1?daten.map(ds=>Object.assign({},body,{datum:ds,saison:saisonForDate(ds)})):body;
+    const r=await fetch(`${SB_URL}/rest/v1/termine`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify(payload)});
     if(sbCheck401(r))return;
-    if(r.ok||r.status===201){terminIdCacheClear();toast("Termin angelegt ✓");document.getElementById("tm-titel").value="";const rb=document.getElementById("tm-addr-results");if(rb)rb.innerHTML="";tmSetTyp(tmTyp);tmLoad();}
+    if(r.ok||r.status===201){
+      terminIdCacheClear();
+      toast(daten.length>1?`🔁 ${daten.length} Termine angelegt${ausgelassen?` · ${ausgelassen} Ferienwoche${ausgelassen===1?"":"n"} ausgelassen 🏖️`:""} ✓`:"Termin angelegt ✓");
+      document.getElementById("tm-titel").value="";
+      const sSel=document.getElementById("tm-serie"); if(sSel){sSel.value="";tmSerieToggle();}
+      const sBis=document.getElementById("tm-serie-bis"); if(sBis)sBis.value="";
+      const rb=document.getElementById("tm-addr-results");if(rb)rb.innerHTML="";tmSetTyp(tmTyp);tmLoad();
+    }
     else toast("Fehler beim Anlegen","err");
   }catch(e){toast("Netzwerkfehler","err");}
 }

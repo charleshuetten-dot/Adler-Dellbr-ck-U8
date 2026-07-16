@@ -2670,6 +2670,47 @@ async function homeFerien(){
     <div style="font-size:12.5px;color:var(--text2)"><b style="color:var(--text)">${esc(f.name)} NRW</b> ${jetzt?`laufen gerade (bis ${dLabel(f.bis)})`:`starten in ${tage} Tag${tage===1?"":"en"} (${dLabel(f.von)}–${dLabel(f.bis)})`} – Termine ggf. anpassen, Rückmeldungen früh einholen.</div>
   </div>`;
 }
+/* ── J2: Saisonstart-Assistent – geführter Übergang in die neue Saison. Sechs Schritte
+   mit Abhaken (localStorage je Saison); der Werkzeug-Button erscheint nur Juni–September. ── */
+const SAISONSTART_STEPS=[
+  {k:"wrapped",  emo:"🏆", t:"Adler Wrapped ansehen",       d:"Der Saison-Rückblick fürs Team – Gänsehaut zum Abschluss.", run:"adlerWrappedTeaser()"},
+  {k:"urkunden", emo:"🏅", t:"Saison-Urkunden drucken",     d:"Alle Kinder in einem Druckauftrag – fürs Abschlussfest.", run:"urkundenOpen()"},
+  {k:"kader",    emo:"📋", t:"Kader aufräumen",             d:"Abgänge deaktivieren, Neuzugänge anlegen, Trikotnummern prüfen.", run:"go('kader')"},
+  {k:"serie",    emo:"🔁", t:"Trainings-Serie anlegen",     d:"Beim Termin-Anlegen „jede Woche“ wählen – Ferienwochen werden automatisch ausgelassen.", run:"go('termine')"},
+  {k:"einladung",emo:"🔗", t:"Eltern-Einladung verschicken",d:"Neue Familien per WhatsApp-Paket in die App holen.", run:"elternInvitePaket()"},
+  {k:"ansage",   emo:"📣", t:"Saisonstart-Ansage senden",   d:"Alle Eltern begrüßen – mit Gelesen-Status.", run:"ansageTrainerOpen()"}
+];
+function _saisonStartKey(){ return "adler_saisonstart_"+saisonLabel().replace(/\s/g,""); }
+function saisonStartOpen(){
+  let done={}; try{done=JSON.parse(localStorage.getItem(_saisonStartKey())||"{}");}catch(e){}
+  const n=SAISONSTART_STEPS.filter(s=>done[s.k]).length;
+  document.getElementById("sstart-modal")?.remove();
+  const m=document.createElement("div");m.id="sstart-modal";
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Saisonstart-Check");
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
+    ${mdlHead("sstart-modal","🌅","Saisonstart-Check",`Saison ${saisonLabel()} · ${n}/${SAISONSTART_STEPS.length} erledigt`,"#ea580c")}
+    <div style="height:6px;background:var(--surface2);border-radius:4px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:${Math.round(n/SAISONSTART_STEPS.length*100)}%;background:linear-gradient(90deg,#ea580c,#f59e0b);transition:width .3s"></div></div>
+    ${SAISONSTART_STEPS.map(s=>`<div style="display:flex;align-items:center;gap:10px;border:var(--border-s);border-left:4px solid ${done[s.k]?"#16a34a":"#ea580c"};border-radius:12px;padding:10px 12px;margin-bottom:8px;${done[s.k]?"opacity:.65":""}">
+      <button onclick="saisonStartToggle('${s.k}')" aria-label="abhaken" style="border:none;background:transparent;font-size:20px;cursor:pointer;padding:4px">${done[s.k]?"✅":"⬜"}</button>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13.5px;font-weight:800;${done[s.k]?"text-decoration:line-through":""}">${s.emo} ${s.t}</div>
+        <div style="font-size:11.5px;color:var(--text2)">${s.d}</div>
+      </div>
+      <button class="btn btn-sm" onclick="document.getElementById('sstart-modal').remove();${s.run}">Los</button>
+    </div>`).join("")}
+    ${n===SAISONSTART_STEPS.length?'<div style="text-align:center;font-size:13.5px;font-weight:800;color:#16a34a;padding:6px">Alles erledigt – auf in die neue Saison! 🦅</div>':""}
+  </div>`;
+  document.body.appendChild(m);
+}
+function saisonStartToggle(k){
+  let done={}; try{done=JSON.parse(localStorage.getItem(_saisonStartKey())||"{}");}catch(e){}
+  done[k]=!done[k];
+  try{localStorage.setItem(_saisonStartKey(),JSON.stringify(done));}catch(e){}
+  try{navigator.vibrate&&navigator.vibrate(20);}catch(e){}
+  saisonStartOpen();
+}
 /* ── I-A: Kabinen-Wahl (Trainer) – Wahl anlegen, Ergebnis sehen, beenden. Die Kinder
    stimmen in der Kabine ab; Ergebnis kommt anonym aggregiert (RPC wahl_ergebnis). ── */
 async function wahlTrainerOpen(){
@@ -2759,7 +2800,7 @@ async function homeMilestone(){
 /* ── H1: Team-Ansagen (Trainer) – senden, Gelesen-Quote je Familie sehen, beenden.
    Eltern bestätigen im Portal mit „Gelesen & verstanden" (ansagen_gelesen); die RPC
    ansagen_status zählt bestätigte Familien (distinct E-Mail aus eltern_kinder). ── */
-async function ansageTrainerOpen(){
+async function ansageTrainerOpen(prefill){
   document.getElementById("ansage-modal")?.remove();
   const m=document.createElement("div");m.id="ansage-modal";
   m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Team-Ansage");
@@ -2774,6 +2815,7 @@ async function ansageTrainerOpen(){
     <div id="ansage-liste"><div style="font-size:12px;color:var(--text3)">Lade…</div></div>
   </div>`;
   document.body.appendChild(m);
+  if(prefill&&typeof prefill==="string"){const t=document.getElementById("ansage-text");if(t){t.value=prefill;t.focus();try{t.setSelectionRange(t.value.length,t.value.length);}catch(e){}}}
   ansageListeLoad();
 }
 async function ansageListeLoad(){
@@ -3432,6 +3474,7 @@ async function renderHome(){
     </div>
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:12px 2px 6px">Organisieren</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${(new Date().getMonth()>=5&&new Date().getMonth()<=8)?homeTool("🌅 Saisonstart-Check","saisonStartOpen()"):""}
       ${homeTool("📣 Team-Ansage","ansageTrainerOpen()")}
       ${homeTool("🆕 Probetraining","probeOpen()")}
       ${homeTool("🗓️ Trainer-Meeting","trainerMeetingOpen()")}
