@@ -275,7 +275,7 @@ function elternCatClose(fromPop){
 /* „Zu erledigen"-Button aus-/einblenden + Zähler: nur zeigen, wenn mind. ein Slot gefüllt ist. */
 function elternTodoSync(){
   const btn=document.getElementById("eltern-todo-btn"); if(!btn)return;
-  const n=["eltern-checklist-slot","helfer-todo-slot","mitbring-slot","buedchen-slot","puls-nudge-slot"].filter(id=>{const el=document.getElementById(id);return el&&el.innerHTML.trim().length>0;}).length;
+  const n=["eltern-checklist-slot","helfer-todo-slot","eltern-poll-slot","mitbring-slot","buedchen-slot","puls-nudge-slot"].filter(id=>{const el=document.getElementById(id);return el&&el.innerHTML.trim().length>0;}).length;
   btn.style.display=n?"flex":"none";
   const b=document.getElementById("eltern-todo-badge"); if(b)b.textContent=n?String(n):"";
 }
@@ -543,6 +543,7 @@ async function elternDashLoad(){
     <div id="cat-todo" class="el-cat-panel" style="display:none">
       <div id="eltern-checklist-slot"></div>
       <div id="helfer-todo-slot"></div>
+      <div id="eltern-poll-slot"></div>
       <div id="mitbring-slot"></div>
       <div id="buedchen-slot"></div>
       <div id="puls-nudge-slot"></div>
@@ -591,7 +592,7 @@ async function elternDashLoad(){
   html+=`<div id="cat-kontakt" class="el-cat-panel" style="display:none">`;
   html+=`<div id="eg-slot"></div>`; // Status einer laufenden Elterngespräch-Anfrage
   html+=elRow("🗣️","Elterngespräch anfragen","Kurz Bescheid sagen – der Trainer meldet sich zur Terminabstimmung","elternGespraechOpen()","#334155");
-  html+=`<div id="eltern-poll-slot"></div>`; // Terminvorschläge des Trainers fürs Elterngespräch
+  html+=`<div id="eltern-poll-info-slot"></div>`; // Elterngespräch-Terminfindung: beantwortet/entschieden (offene Abstimmungen leben im To-Do-Fenster)
   html+=card(`<div style="font-weight:700;margin-bottom:6px">🔔 Benachrichtigungen</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">Erinnerungen an Termine, offene Rückmeldungen und Neuigkeiten direkt aufs Handy.</div>
     <div id="push-slot-eltern"></div>`);

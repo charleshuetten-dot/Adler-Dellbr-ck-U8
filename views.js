@@ -3644,6 +3644,32 @@ async function trainerTodoLoad(){
         }
       }}
   }catch(e){}
+  // d) Trainer-Meeting-Umfrage: offene Doodles, in denen MEINE Stimme noch fehlt (PO-Regel:
+  //    bleibt To-Do, bis abgestimmt ist – eine Stimme auf irgendeinem Slot genügt)
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/trainer_poll?status=neq.entschieden&select=id,titel`,{headers:sbAuthHeaders()});
+    if(r.ok){
+      const polls=(await r.json())||[];
+      if(polls.length){
+        const uid=(typeof sbUserId==="function")?sbUserId():null;
+        const pids=polls.map(p=>p.id).join(",");
+        const rs=await fetch(`${SB_URL}/rest/v1/trainer_poll_slot?poll_id=in.(${pids})&select=id,poll_id`,{headers:sbAuthHeaders()});
+        const slots2=rs.ok?((await rs.json())||[]):[];
+        const sids=slots2.map(s=>s.id);
+        const mine=new Set();
+        if(uid&&sids.length){
+          const rv=await fetch(`${SB_URL}/rest/v1/trainer_poll_vote?slot_id=in.(${sids.join(",")})&voter=eq.${uid}&select=slot_id`,{headers:sbAuthHeaders()});
+          if(rv.ok)((await rv.json())||[]).forEach(v=>mine.add(v.slot_id));
+        }
+        const byPoll={}; slots2.forEach(s=>{(byPoll[s.poll_id]=byPoll[s.poll_id]||[]).push(s.id);});
+        polls.forEach(p=>{
+          const ss=byPoll[p.id]||[];
+          if(ss.length&&!ss.some(id=>mine.has(id)))
+            todos.push({emo:"🗳️",txt:`Trainer-Meeting „${esc(p.titel)}“: bitte abstimmen`,act:"trainerMeetingOpen()"});
+        });
+      }
+    }
+  }catch(e){}
   if(!todos.length){slot.innerHTML="";return;}
   slot.innerHTML=`<div class="card" style="border-left:4px solid #d97706;padding:12px 14px;margin-bottom:10px">
     <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#b45309;margin-bottom:8px">📌 Deine To-Dos, ${esc(me)}</div>
