@@ -386,7 +386,7 @@ async function chronikOpen(){
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
           ${istSpiel?`<span style="font-size:12.5px;font-weight:900;color:${erg?"#0f172a":"#94a3b8"}">${erg?esc(erg):"– Ergebnis folgt –"}</span>`:'<span style="font-size:11.5px;color:#64748b">Team-Event</span>'}
-          <button onclick="galerieOpen(${Number(t.id)},'${(t.titel||t.gegner||"").replace(/'/g,"")}')" style="margin-left:auto;border:1px solid #7c3aed;border-radius:8px;background:#faf5ff;color:#6d28d9;font-family:inherit;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;min-height:32px">📸 Fotos</button>
+          <button onclick="galerieOpen(${Number(t.id)},'${(t.titel||t.gegner||"").replace(/'/g,"")}')" style="margin-left:auto;border:1px solid #7c3aed;border-radius:9px;background:#faf5ff;color:#6d28d9;font-family:inherit;font-size:12px;font-weight:700;padding:8px 14px;cursor:pointer;min-height:44px">📸 Fotos</button>
         </div>
       </div>`;
     }
@@ -697,7 +697,7 @@ async function elternDashLoad(){
   html+=`</div>`; // /cat-regeln
   // ── DATENSCHUTZ & FREIGABEN (NEU): Foto/Video + Notfallkarte pro Kind + Datenexport ──
   html+=`<div id="cat-datenschutz" class="el-cat-panel" style="display:none">`;
-  html+=elRow("🛡️","So schützen wir eure Fotos &amp; Daten","Warum die App sicherer ist als die WhatsApp-Gruppe – kurz erklärt","datenschutzInfoOpen()","#0f766e",true);
+  html+=elRow("🛡️","So schützen wir eure Fotos &amp; Daten","Warum die App sicherer ist als die WhatsApp-Gruppe – kurz erklärt","datenschutzInfoOpen()","#115e59",true);
   html+=kids.map(k=>{const kn=esc((k.kader&&k.kader.name)||"Kind");const nn=((k.kader&&k.kader.name)||"").replace(/'/g,"");
     return elRow("📸",`Foto- &amp; Video-Freigabe: ${kn}`,"App-intern / Trainingsvideos / öffentlich – jederzeit widerrufbar",`elternFotoConsentOpen(${k.spieler_id},'${nn}')`,"#0f766e")
          + elRow("🚑",`Notfallkarte: ${kn}`,"Allergien, Medikamente &amp; Notfallkontakt – nur fürs Trainerteam",`notfallOpen(${k.spieler_id},'${nn}')`,"#0d9488");

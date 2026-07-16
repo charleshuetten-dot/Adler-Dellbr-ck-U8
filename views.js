@@ -2697,7 +2697,7 @@ function saisonStartOpen(){
     ${mdlHead("sstart-modal","🌅","Saisonstart-Check",`Saison ${saisonLabel()} · ${n}/${SAISONSTART_STEPS.length} erledigt`,"#ea580c")}
     <div style="height:6px;background:var(--surface2);border-radius:4px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:${Math.round(n/SAISONSTART_STEPS.length*100)}%;background:linear-gradient(90deg,#ea580c,#f59e0b);transition:width .3s"></div></div>
     ${SAISONSTART_STEPS.map(s=>`<div style="display:flex;align-items:center;gap:10px;border:var(--border-s);border-left:4px solid ${done[s.k]?"#16a34a":"#ea580c"};border-radius:12px;padding:10px 12px;margin-bottom:8px;${done[s.k]?"opacity:.65":""}">
-      <button onclick="saisonStartToggle('${s.k}')" aria-label="abhaken" style="border:none;background:transparent;font-size:20px;cursor:pointer;padding:4px">${done[s.k]?"✅":"⬜"}</button>
+      <button onclick="saisonStartToggle('${s.k}')" aria-label="abhaken" style="border:none;background:transparent;font-size:20px;cursor:pointer;min-width:44px;min-height:44px;margin:-6px 0 -6px -8px;flex:none">${done[s.k]?"✅":"⬜"}</button>
       <div style="flex:1;min-width:0">
         <div style="font-size:13.5px;font-weight:800;${done[s.k]?"text-decoration:line-through":""}">${s.emo} ${s.t}</div>
         <div style="font-size:11.5px;color:var(--text2)">${s.d}</div>

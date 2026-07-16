@@ -844,7 +844,7 @@ function mdlHead(modalId,emoji,title,sub,col){
       <div style="font-size:15.5px;font-weight:800;line-height:1.2;color:var(--text)">${title}</div>
       ${sub?`<div style="font-size:11px;color:var(--text2);margin-top:1px">${sub}</div>`:""}
     </div>
-    <button onclick="document.getElementById('${modalId}')?.remove()" aria-label="Schließen" style="border:none;background:transparent;font-size:24px;color:var(--text2);cursor:pointer;line-height:1;padding:4px;flex:none">×</button>
+    <button onclick="document.getElementById('${modalId}')?.remove()" aria-label="Schließen" style="border:none;background:transparent;font-size:24px;color:var(--text2);cursor:pointer;line-height:1;min-width:44px;min-height:44px;margin:-8px -8px -8px 0;flex:none">×</button>
   </div>`;
 }
 
