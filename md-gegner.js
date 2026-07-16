@@ -179,7 +179,18 @@ async function tmLoad(){
     pa.innerHTML=vergangen.length?vergangen.slice(0,40).map(tmRow).join(""):'<div style="font-size:11px;color:var(--text3);padding:6px">Noch keine vergangenen Termine.</div>';
     kFull.forEach(t=>wetterInto("wx-tm-"+t.id,t.datum,t.ort,t.uhrzeit)); // Wetter nur für die vollen Karten
     kFull.filter(t=>t.heim===true&&(t.typ==="spiel"||t.typ==="turnier")).forEach(buedchenTrainerFill); // Büdchen je Heimspiel
+    kFull.filter(t=>["training","spiel","turnier"].includes(t.typ)).forEach(abholTrainerFill); // 🚸 Abhol-Info
   }catch(e){up.innerHTML='<div style="font-size:11px;color:var(--text3)">Offline</div>';}
+}
+/* 🚸 Abhol-Info (Trainer): wer holt die Kinder bei diesem Termin ab? Eltern pflegen die
+   Einträge im Termin-Detail ihres Bereichs; hier nur die Lese-Liste für den Platz. */
+async function abholTrainerFill(t){
+  const slot=document.getElementById("abhol-tm-"+t.id); if(!slot)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/abhol_info?termin_id=eq.${t.id}&select=spieler_id,abholer`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)rows=(await r.json())||[];}catch(e){}
+  if(!rows.length){slot.innerHTML="";return;}
+  const nameById={}; (typeof KADER!=="undefined"?KADER:[]).forEach(k=>{nameById[k._id!=null?k._id:k.id]=k.name;});
+  slot.innerHTML=`🚸 Abholen: `+rows.map(x=>`<b style="color:var(--text)">${esc(nameById[x.spieler_id]||"?")}</b> → ${esc(x.abholer)}`).join(" · ");
 }
 // J6: Ansage zu einem Termin – öffnet das Ansage-Modal mit vorbefülltem Termin-Text.
 function ansageVomTermin(id){
@@ -262,6 +273,7 @@ function tmDetailOpen(id){
   if(t.heim===true&&(t.typ==="spiel"||t.typ==="turnier")){ try{ buedchenTrainerFill(t); }catch(e){} }
   if(["training","spiel","turnier"].includes(t.typ)&&t.datum<new Date().toISOString().slice(0,10)){ try{ pulsTrainerFill(t); }catch(e){} } // F4
   if(t.datum>=new Date().toISOString().slice(0,10)){ try{ helferTrainerFill(t); }catch(e){} } // G4
+  if(t.datum>=new Date().toISOString().slice(0,10)&&["training","spiel","turnier"].includes(t.typ)){ try{ abholTrainerFill(t); }catch(e){} } // 🚸
 }
 // G4: Helferliste im Trainer-Termindetail (Lesesicht; Löschen dürfen Eltern selbst / Trainer per RLS).
 async function helferTrainerFill(t){
@@ -460,6 +472,7 @@ function tmCard(t){
     ${(t.heim===true&&(t.typ==="spiel"||t.typ==="turnier")&&t.datum>=new Date().toISOString().slice(0,10))?`<div id="bd-tm-${t.id}" style="font-size:11px;color:var(--text2);margin-top:4px">🍿 Büdchen: lädt …</div>`:""}
     ${(["training","spiel","turnier"].includes(t.typ)&&t.datum<new Date().toISOString().slice(0,10))?`<div id="puls-tm-${t.id}" style="font-size:11.5px;color:var(--text2);margin-top:4px"></div>`:""}
     ${t.datum>=new Date().toISOString().slice(0,10)?`<div id="helfer-tm-${t.id}" style="font-size:11.5px;color:var(--text2);margin-top:4px"></div>`:""}
+    ${(t.datum>=new Date().toISOString().slice(0,10)&&["training","spiel","turnier"].includes(t.typ))?`<div id="abhol-tm-${t.id}" style="font-size:11.5px;color:var(--text2);margin-top:4px"></div>`:""}
     ${t.datum>=new Date().toISOString().slice(0,10)?`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px">
       <span style="font-size:10px;color:var(--text3);font-weight:700">Trainer dabei?</span>
       ${(typeof TRAINER!=="undefined"?TRAINER:[]).map(tn=>{const stt=(t.trainer_status||{})[tn];const bg=stt==="ja"?"#16a34a":stt==="unsicher"?"#ca8a04":stt==="nein"?"#dc2626":"var(--surface2)";const col=stt?"#fff":"var(--text2)";const mk=stt==="ja"?" ✓":stt==="unsicher"?" 🤔":stt==="nein"?" ✕":"";return `<button onclick="tmTrainerToggle(${Number(t.id)},'${tn.replace(/'/g,"")}')" title="Tippen wechselt: dabei → unsicher → nicht dabei → offen" style="border:var(--border-s);border-radius:12px;padding:2px 8px;font-size:10.5px;font-weight:700;background:${bg};color:${col};cursor:pointer;font-family:inherit">${esc(tn)}${mk}</button>`;}).join("")}

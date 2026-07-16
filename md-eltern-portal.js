@@ -398,11 +398,12 @@ async function chronikOpen(){
    Adler News (seen-Baseline). KONVENTION: Bei eltern-sichtbaren neuen Features den key
    (sortierbares Datum) hochsetzen und die Punkte austauschen – sonst entdecken
    Bestandsfamilien neue Funktionen nie (die Tour läuft nur beim ersten Login). */
-const ELTERN_WHATSNEW={key:"2026-07-16",titel:"Neu in eurer App",punkte:[
+const ELTERN_WHATSNEW={key:"2026-07-16b",titel:"Neu in eurer App",punkte:[
+  "🚸 „Wer holt ab?“ – tragt am Termin ein, wer euer Kind abholt; das Trainerteam sieht es am Platz",
   "📖 Panini-Sammelalbum mit Sticker-Tüten, Raritäten und Tauschbörse – in der Kabine",
   "🛡️ „So schützen wir eure Fotos & Daten“ – warum die Galerie sicherer ist als WhatsApp (unter Datenschutz & Freigaben)",
   "📸 Mehrere Fotos auf einmal hochladen – direkt am Termin oder nach dem Spiel",
-  "📌 To-Dos räumen sich selbst auf – und Abstimmungen (z. B. Elterngespräch) erscheinen dort, bis ihr geantwortet habt"
+  "📖 „Unsere Saison“ – die Chronik mit allen Spielen, Festen & Meilensteinen (unter Mehr vom Team)"
 ]};
 function whatsNewOpen(){
   document.getElementById("wn-modal")?.remove();
@@ -888,6 +889,7 @@ async function terminDetailOpen(id){
     </div>
     <div id="td-nom"></div>
     <div id="td-betreuung"></div>
+    <div id="td-abhol"></div>
     <div id="td-buedchen"></div>
     <div id="td-helfer"></div>
     ${t.typ==="event"?'<div id="td-mitbring"></div>':""}
@@ -900,6 +902,7 @@ async function terminDetailOpen(id){
   if(t.typ==="training")tdBetreuungLoad(t,kids);
   if(istSpiel&&t.heim===true)tdBuedchenLoad(t,kids);
   tdHelferLoad(t); // G4: Elternhelfer-Board (nur kommende Termine)
+  tdAbholLoad(t,kids); // 🚸 Abhol-Info: wer holt heute ab? (Safeguarding)
   // „Wie war's" (Puls) lebt jetzt NUR im Zu-erledigen-Fenster (PO: der Termin wandert
   // nach der Endzeit ins Archiv, dort würde die Smiley-Frage niemand mehr finden).
   if(t.typ==="event")tdMitbringLoad(t); // Mitbringliste direkt im Termin ansehen & ändern
@@ -1033,6 +1036,50 @@ async function pulsNudgeLoad(){
     <button onclick="elternCatClose();galerieOpen(${first.id},'${(first.titel||first.gegner||"").replace(/'/g,"")}')" style="width:100%;min-height:44px;margin-top:8px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#faf5ff;color:#6d28d9;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 Fotos davon in die Team-Galerie laden</button>
   </div>`;
   tdPulsRender(first.id,null,true);
+}
+/* 🚸 Abhol-Info (Eltern): pro Kind kurz eintragen, wer heute abholt – Presets als Chips,
+   freier Text möglich („fährt bei Matteo mit"). Das Trainerteam sieht die Liste am Platz;
+   Einträge verfallen automatisch 14 Tage nach dem Termin (Datenhygiene-Cron). */
+async function tdAbholLoad(t,kids){
+  const box=document.getElementById("td-abhol"); if(!box)return;
+  kids=kids||window._elternKids||[];
+  if(!kids.length||!["training","spiel","turnier"].includes(t.typ)||(typeof terminVorbei==="function"&&terminVorbei(t))){box.innerHTML="";return;}
+  let cur={};
+  try{const ids=kids.map(k=>k.spieler_id).join(",");
+    const r=await fetch(`${SB_URL}/rest/v1/abhol_info?termin_id=eq.${t.id}&spieler_id=in.(${ids})&select=spieler_id,abholer`,{headers:sbAuthHeaders()});
+    if(r.ok)(await r.json()).forEach(x=>cur[x.spieler_id]=x.abholer);}catch(e){}
+  const presets=["Mama","Papa","Oma","Opa","fährt mit bei …"];
+  box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
+    <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🚸 Wer holt ab?</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:6px">Kurz eintragen – dann geben wir euer Kind am Platz nur in die richtigen Hände.</div>
+    ${kids.map(k=>{const kd=k.kader||{};const v=cur[k.spieler_id]||"";
+      return `<div style="margin-top:8px">
+        ${kids.length>1?`<div style="font-size:12px;font-weight:700;margin-bottom:4px">${esc(kd.name||"Kind")}</div>`:""}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${presets.map(p=>`<button onclick="tdAbholPreset(${k.spieler_id},'${p.replace(/'/g,"")}')" style="padding:6px 10px;border-radius:9px;border:1.5px solid #e2e8f0;background:#fff;color:#334155;font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer">${p}</button>`).join("")}</div>
+        <div style="display:flex;gap:6px">
+          <input id="abhol-${k.spieler_id}" value="${esc(v)}" maxlength="60" placeholder="z. B. Oma, fährt bei Matteo mit …" style="flex:1;min-width:0;min-height:44px;padding:9px;border:1.5px solid ${v?"#16a34a":"#e2e8f0"};border-radius:10px;font-family:inherit;font-size:13px;box-sizing:border-box" onkeydown="if(event.key==='Enter')tdAbholSave(${t.id},${k.spieler_id})">
+          <button onclick="tdAbholSave(${t.id},${k.spieler_id},this)" aria-label="Abhol-Info speichern" style="min-height:44px;min-width:52px;border:none;border-radius:10px;background:#16a34a;color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">✓</button>
+        </div>
+        ${v?`<div style="font-size:10.5px;color:#16a34a;margin-top:3px">Eingetragen: ${esc(v)} · Feld leeren + ✓ = entfernen</div>`:""}
+      </div>`;}).join("")}
+  </div>`;
+}
+function tdAbholPreset(sid,txt){const i=document.getElementById("abhol-"+sid);if(i){i.value=txt;i.focus();}}
+async function tdAbholSave(terminId,sid,btn){
+  const v=(document.getElementById("abhol-"+sid)?.value||"").trim().slice(0,60);
+  if(btn)btn.disabled=true;
+  try{
+    if(!v){
+      await fetch(`${SB_URL}/rest/v1/abhol_info?termin_id=eq.${terminId}&spieler_id=eq.${sid}`,{method:"DELETE",headers:sbAuthHeaders()});
+    }else{
+      const r=await fetch(`${SB_URL}/rest/v1/abhol_info?on_conflict=termin_id,spieler_id`,{method:"POST",headers:sbAuthHeaders({'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify({termin_id:terminId,spieler_id:sid,abholer:v,updated_at:new Date().toISOString()})});
+      if(!r.ok&&r.status!==201){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");if(btn)btn.disabled=false;return;}
+    }
+  }catch(e){toast("Netzwerkfehler","err");if(btn)btn.disabled=false;return;}
+  try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
+  toast(v?"🚸 Abhol-Info gespeichert ✓":"Abhol-Info entfernt");
+  if(btn)btn.disabled=false;
+  if(window._tdTermin&&window._tdTermin.id===terminId)tdAbholLoad(window._tdTermin,window._elternKids||[]);
 }
 /* J3: Helfer-Erinnerung – hast du dich für HEUTE als Helfer eingetragen (Fotos, Live-Ticker,
    Aufbau, Betreuung)? Dann erscheint ein To-Do mit Direktlink zur passenden Funktion. */
