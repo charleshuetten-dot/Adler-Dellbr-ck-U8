@@ -332,6 +332,34 @@ function elternNewsMarkSeen(){
   try{ if(window._elternNewsCur)localStorage.setItem("adler_news_seen",JSON.stringify(window._elternNewsCur)); }catch(e){}
   const b=document.getElementById("eltern-news-badge"); if(b){ b.textContent="0"; b.style.display="none"; }
 }
+/* 🛡️ Datenschutz-Versprechen: DIE Seite für besorgte Eltern (WhatsApp-Bedenken, „Fotos
+   meines Kindes im Netz"). Klare Sprache, ehrlich, ohne Jura-Deutsch – als Modal aus
+   der Kategorie „Datenschutz & Freigaben". */
+function datenschutzInfoOpen(){
+  document.getElementById("dsi-modal")?.remove();
+  const m=document.createElement("div");m.id="dsi-modal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10050;display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  const punkt=(emo,t,d)=>`<div style="display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-top:1px solid #f1f5f9">
+    <span style="font-size:20px;line-height:1.2;flex:none">${emo}</span>
+    <span><span style="display:block;font-size:13.5px;font-weight:800;color:#0f172a">${t}</span>
+    <span style="display:block;font-size:12px;color:#475569;line-height:1.55;margin-top:2px">${d}</span></span></div>`;
+  m.innerHTML=`<div style="background:#fff;color:#1a1a2e;border-radius:16px;padding:18px;max-width:520px;width:100%;margin:auto">
+    ${mdlHead("dsi-modal","🛡️","So schützen wir eure Fotos &amp; Daten","Kurz &amp; ehrlich erklärt – für alle, die bei WhatsApp ein mulmiges Gefühl haben","#0f766e")}
+    ${punkt("🔐","Geschlossener Team-Bereich","Alles hier ist nur mit Login sichtbar – ausschließlich für die Familien und das Trainerteam unserer U9. Nichts ist über Google auffindbar, nichts ist öffentlich.")}
+    ${punkt("📸","Ihr entscheidet über jedes Bild","Für jedes Kind gibt es drei getrennte Freigaben (App-intern / Trainingsvideos / öffentlich) – jederzeit widerrufbar. Ohne euer Häkchen zeigt die App nur Initialen statt Foto. Beim Aushängen und Verteilen werden Nachnamen automatisch gekürzt („Max M.“).")}
+    ${punkt("🇪🇺","Daten in Europa","Die Daten liegen auf Servern in Frankfurt (EU) und unterliegen der DSGVO. Keine Werbung, kein Tracking, kein Verkauf von Daten – die App gehört dem Team, niemandem sonst.")}
+    ${punkt("🧽","Löschen ist wirklich Löschen","Ein gelöschtes Foto ist weg – auf allen Geräten, sofort. Vieles räumt sich sogar selbst auf: Stimmungen, Grüße und ähnliche Einträge verfallen automatisch nach festen Fristen. Und ihr könnt jederzeit alle Daten eures Kindes als Datei herunterladen.")}
+    ${punkt("🚑","Sensibles bleibt beim Trainerteam","Notfallkarte und Gesundheits-Hinweise sehen ausschließlich die Trainer – keine anderen Eltern. Ihr pflegt sie selbst und könnt sie jederzeit leeren.")}
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px;margin-top:14px">
+      <div style="font-size:12.5px;font-weight:800;color:#166534;margin-bottom:4px">💬 Und warum nicht einfach WhatsApp?</div>
+      <div style="font-size:12px;color:#166534;line-height:1.55">Bei WhatsApp wird jedes Foto sofort als Kopie auf alle Handys der Gruppe verteilt – und landet oft ungefragt in deren Cloud-Backups. Weiterleiten ist ein Fingertipp, Zurückholen unmöglich. Hier bleibt alles im geschützten Bereich, eure Freigaben gelten, und das Trainerteam kann eingreifen. <b>Deshalb: Team-Fotos bitte in die Event-Galerie statt in die Gruppe.</b></div>
+    </div>
+    <div style="font-size:10.5px;color:#94a3b8;margin-top:12px;line-height:1.5">Ganz ehrlich: 100 % Sicherheit gibt es nirgends im Internet. Der Unterschied ist Kontrolle – hier behaltet ihr sie, bei Messenger-Gruppen gebt ihr sie ab. Fragen dazu? Sprecht das Trainerteam einfach an.</div>
+    <button onclick="document.getElementById('dsi-modal').remove()" style="width:100%;margin-top:14px;padding:11px;border:none;border-radius:10px;background:#f1f5f9;color:#334155;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Alles klar 👍</button>
+  </div>`;
+  document.body.appendChild(m);
+}
 /* H1 – Team-Ansagen: aktive Ansagen der letzten 14 Tage als Banner ganz oben. „Gelesen &
    verstanden" schreibt eine Zeile in ansagen_gelesen (user_id = auth.uid per Default);
    der Trainer sieht daraus die Quote „X/Y Familien". Gelesene Banner verschwinden. */
@@ -583,6 +611,7 @@ async function elternDashLoad(){
   html+=`</div>`; // /cat-regeln
   // ── DATENSCHUTZ & FREIGABEN (NEU): Foto/Video + Notfallkarte pro Kind + Datenexport ──
   html+=`<div id="cat-datenschutz" class="el-cat-panel" style="display:none">`;
+  html+=elRow("🛡️","So schützen wir eure Fotos &amp; Daten","Warum die App sicherer ist als die WhatsApp-Gruppe – kurz erklärt","datenschutzInfoOpen()","#0f766e",true);
   html+=kids.map(k=>{const kn=esc((k.kader&&k.kader.name)||"Kind");const nn=((k.kader&&k.kader.name)||"").replace(/'/g,"");
     return elRow("📸",`Foto- &amp; Video-Freigabe: ${kn}`,"App-intern / Trainingsvideos / öffentlich – jederzeit widerrufbar",`elternFotoConsentOpen(${k.spieler_id},'${nn}')`,"#0f766e")
          + elRow("🚑",`Notfallkarte: ${kn}`,"Allergien, Medikamente &amp; Notfallkontakt – nur fürs Trainerteam",`notfallOpen(${k.spieler_id},'${nn}')`,"#0d9488");
@@ -1287,7 +1316,7 @@ const ELTERN_TOUR=[
   {emo:"👍", t:"Zu- & Absagen", d:"Melde dein Kind am nächsten Termin oder im Termin-Karussell zu oder ab – ein Tipp genügt, nochmal tippen entfernt die Antwort. Über „Alle Termine\" lädst du alles in deinen Kalender."},
   {emo:"🙋", t:"Alles rund um den Termin", d:"Im Termin-Detail: Wetter, Adresse mit Route, Fahrgemeinschaft, Mitbringliste bei Events und „Wer hilft mit?\" (Aufbau, Fotos, Live-Ticker, Betreuung in den Pausen). Beim Training gibst du an, ob du vor Ort bleibst."},
   {emo:"🎮", t:"Die Kabine (Kinder-Modus)", d:"Gib dein Handy bedenkenlos weiter: Quiz, Missionen, Galerie – und jetzt auch das Panini-Sammelalbum mit Sticker-Tüten & Tauschbörse, Komplimente an Mitspieler, die eigene Adler-Post und der Stimmungs-Smiley nach dem Training. Zurück geht es nur mit Code."},
-  {emo:"🃏", t:"Für dein Kind", d:"Sammelkarte, Technik-Abzeichen (die hakst du zuhause ab), Saison-Statistik und Fan-Fakten. Foto- & Video-Freigaben und die Notfallkarte pflegst du unter „🔒 Datenschutz &amp; Freigaben\" – deine Freigabe gilt für die ganze App."},
+  {emo:"🃏", t:"Für dein Kind", d:"Sammelkarte, Technik-Abzeichen (die hakst du zuhause ab), Saison-Statistik und Fan-Fakten. Foto- & Video-Freigaben und die Notfallkarte pflegst du unter „🔒 Datenschutz &amp; Freigaben\" – dort erklärt „🛡️ So schützen wir eure Fotos &amp; Daten\" auch, warum die App sicherer ist als jede WhatsApp-Gruppe."},
   {emo:"📰", t:"Team, Heft & Adler-Kasse", d:"Das „Adler Nest\" ist unser digitales Stadionheft – jetzt mit der Kabinen-Reporter-Rubrik der Kinder. Und über „Fan-Link teilen\" schickst du Oma, Opa und Fans den Spenden-Link. Viel Spaß! 🎉"},
 ];
 let elternTourIdx=0;

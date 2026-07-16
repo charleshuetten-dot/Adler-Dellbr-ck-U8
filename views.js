@@ -2615,6 +2615,7 @@ function elternInvitePaket(){
   const msg=`🦅 SV Adler Dellbrück U9 – unsere Eltern-App\n\n`+
     `Liebe Eltern, ab jetzt läuft alles rund um euer Kind über die Eltern-App:\n`+
     `✅ Termine zu- & absagen\n📅 alle Termine + Kalender-Export\n📣 Liveticker, wenn ihr mal nicht dabei seid\n🃏 Sammelkarte & Technik-Abzeichen fürs Kind\n🍿 Büdchen- & Mitbringlisten\n\n`+
+    `🔒 Und wichtig: Fotos & Daten eurer Kinder bleiben hier im geschützten Team-Bereich (Server in der EU, ihr entscheidet per Freigabe) – sicherer als jede WhatsApp-Gruppe.\n\n`+
     `So kommt ihr rein:\n`+
     `1️⃣ Link öffnen: ${url}\n`+
     `2️⃣ Mit EURER E-Mail anmelden (die, die ihr dem Trainer gegeben habt) – ihr bekommt einen Code per Mail.\n`+
