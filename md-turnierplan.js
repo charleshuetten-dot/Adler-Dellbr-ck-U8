@@ -453,17 +453,32 @@ function nomRender(){
 }
 
 /* ═══════════════════════════════════
-   M1: BLITZTURNIER – schnelles Turnier zum Trainingsabschluss. Teams kommen automatisch
-   aus dem Kader (heutige Anwesenheit, falls erfasst), sind per Tipp verschiebbar, und
-   Extra-Teams („Eltern", „Trainer") lassen sich von Hand ergänzen. Jeder gegen jeden,
-   Rundenzeit mit Pfiff, Punktetafel, Sieger mit Konfetti. Reines Frontend + localStorage –
-   kein Server, damit es am Platz auch ohne Netz läuft.
+   M1: BLITZTURNIER – schnelles Turnier zum Trainingsabschluss, jetzt mit Zeitbudget-
+   Automatik: Budget (15/20/30/40/frei) + 1–4 Felder (FUNiño!) → die Automatik wählt
+   Spielzeit (5–10 Min.) und Format. Kürzungsleiter: Spielzeit runter → Felder parallel
+   → Finale nur bei Restzeit → 2 Los-Gruppen mit Finale + kleinem Finale → ehrliche
+   „braucht X Min. mehr“-Meldung (nie heimlich unter 5 Minuten). Bei mehreren Feldern
+   gilt EIN Pfiff für alle (Festival-Praxis). Reines Frontend + localStorage.
 ═══════════════════════════════════ */
 const BLZ_FARBEN=["#1a56db","#dc2626","#059669","#7c3aed","#d97706"];
+const BLZ_MIN=5, BLZ_MAX=10, BLZ_W=1; // Spielzeit-Grenzen + Wechselminute zwischen Fenstern
 let BLZ=null;
 function _blzHeute(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function blzSave(){try{localStorage.setItem("adler_blitz",JSON.stringify(BLZ));}catch(e){}}
-function _blzLoad(){try{const s=JSON.parse(localStorage.getItem("adler_blitz")||"null");if(s&&s.datum===_blzHeute())return s;}catch(e){}return null;}
+function _blzLoad(){
+  try{
+    const s=JSON.parse(localStorage.getItem("adler_blitz")||"null");
+    if(s&&s.datum===_blzHeute()){
+      // Migration älterer Stände (vor der Zeitbudget-Automatik)
+      if(s.budget==null)s.budget=0;
+      if(!s.felder)s.felder=1;
+      if(!s.modus)s.modus="rr";
+      (s.plan||[]).forEach((p,i)=>{if(!p.phase)p.phase="runde";if(p.slot==null)p.slot=i;if(!p.feld)p.feld=1;});
+      return s;
+    }
+  }catch(e){}
+  return null;
+}
 // Spielerpool: heutige Anwesenheit (nur wer da ist), sonst alle aktiven Kader-Kinder
 function _blzPool(){
   const aktive=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false).map(k=>k.name);
@@ -497,17 +512,106 @@ function _blzRR(n){
   }
   return out;
 }
+/* Echte Spiele in Zeitfenster packen: bis zu <felder> parallel, kein Team doppelt je
+   Fenster. Liefert die Anzahl Fenster zurück; Finals bekommen danach eigene Fenster. */
+function _blzSlots(matches,felder){
+  const queue=matches.slice(); let slot=0;
+  while(queue.length&&slot<100){
+    const belegt=new Set(); let f=1;
+    for(let i=0;i<queue.length&&f<=felder;){
+      const m=queue[i];
+      if(!belegt.has(String(m.a))&&!belegt.has(String(m.b))){
+        m.slot=slot;m.feld=f++;belegt.add(String(m.a));belegt.add(String(m.b));
+        queue.splice(i,1);continue;
+      }
+      i++;
+    }
+    slot++;
+  }
+  return matches.length?Math.max(...matches.map(m=>m.slot))+1:0;
+}
+/* Zeitbudget-Automatik. Liefert {ms,slots,z,modus,dauer,hinweis,finaleBonus}:
+   ms = fertige Spielliste (Finals als Platzhalter a/b=null, werden live aufgelöst),
+   hinweis = fehlende Minuten, wenn selbst das kürzeste faire Format nicht passt. */
+function _blzPlanen(n,budget,felder){
+  const dauer=(slots,z)=>slots*z+Math.max(0,slots-1)*BLZ_W;
+  const zMax=slots=>Math.floor((budget-(slots-1)*BLZ_W)/slots);
+  const bau=modus=>{
+    let ms=[],finals=[];
+    if(modus==="gruppen"){
+      const na=Math.ceil(n/2);
+      const A=[...Array(na).keys()],B=[...Array(n-na).keys()].map(i=>i+na);
+      const ra=_blzRR(A.length).map(([x,y])=>({a:A[x],b:A[y],phase:"gruppeA",ta:null,tb:null}));
+      const rb=_blzRR(B.length).map(([x,y])=>({a:B[x],b:B[y],phase:"gruppeB",ta:null,tb:null}));
+      const max=Math.max(ra.length,rb.length);
+      for(let i=0;i<max;i++){if(ra[i])ms.push(ra[i]);if(rb[i])ms.push(rb[i]);}
+      finals=[{a:null,b:null,phase:"kfinale",ta:null,tb:null},{a:null,b:null,phase:"finale",ta:null,tb:null}];
+    }else if(n===2){
+      ms=[{a:0,b:1,phase:"runde",ta:null,tb:null},{a:1,b:0,phase:"runde",ta:null,tb:null}];
+    }else{
+      ms=_blzRR(n).map(([a,b])=>({a,b,phase:"runde",ta:null,tb:null}));
+    }
+    let slots=_blzSlots(ms,felder);
+    finals.forEach(f2=>{f2.slot=slots++;f2.feld=1;});
+    return {ms:ms.concat(finals),slots};
+  };
+  // Ohne Budget (frei): volles Programm, Spielzeit stellt der Trainer selbst
+  if(!budget||budget<=0){const v0=bau("rr");return {...v0,z:null,modus:"rr",dauer:null,hinweis:null,finaleBonus:false};}
+  // Stufe 1: volle Runde, Spielzeit 10 → 5. Finale als Krönung obendrauf, wenn es
+  // MIT voller Hauptrunde und mindestens 5-Minuten-Spielen noch ins Budget passt –
+  // dafür darf die Spielzeit etwas sinken (Konzept: 40 Min./3 Teams → à 9 + Finale).
+  const v=bau("rr");
+  let z=zMax(v.slots);
+  if(z>=BLZ_MIN){
+    let finaleBonus=false;
+    const zF=n>=3?zMax(v.slots+1):0;
+    if(zF>=BLZ_MIN){
+      z=Math.min(BLZ_MAX,zF);
+      v.ms.push({a:null,b:null,phase:"finale",ta:null,tb:null,slot:v.slots,feld:1});
+      v.slots++; finaleBonus=true;
+    }else{
+      z=Math.min(BLZ_MAX,z);
+    }
+    return {...v,z,modus:"rr",dauer:dauer(v.slots,z),hinweis:null,finaleBonus};
+  }
+  // Stufe 2 (ab 4 Teams): 2 Los-Gruppen + kleines Finale + Finale – jedes Team gleich viele Spiele
+  if(n>=4){
+    const g=bau("gruppen");
+    const zg=zMax(g.slots);
+    if(zg>=BLZ_MIN){const z2=Math.min(BLZ_MAX,zg);return {...g,z:z2,modus:"gruppen",dauer:dauer(g.slots,z2),hinweis:null,finaleBonus:false};}
+    const braucht=dauer(g.slots,BLZ_MIN);
+    return {...g,z:BLZ_MIN,modus:"gruppen",dauer:braucht,hinweis:braucht-budget,finaleBonus:false};
+  }
+  // Stufe 3 (2–3 Teams): ehrlich sagen, was das kürzeste faire Format braucht
+  if(n===2){
+    const eins={ms:[{a:0,b:1,phase:"runde",ta:null,tb:null,slot:0,feld:1}],slots:1};
+    const z1=Math.min(BLZ_MAX,budget);
+    if(z1>=BLZ_MIN)return {...eins,z:z1,modus:"rr",dauer:z1,hinweis:null,finaleBonus:false};
+    return {...eins,z:BLZ_MIN,modus:"rr",dauer:BLZ_MIN,hinweis:BLZ_MIN-budget,finaleBonus:false};
+  }
+  const braucht=dauer(v.slots,BLZ_MIN);
+  return {...v,z:BLZ_MIN,modus:"rr",dauer:braucht,hinweis:braucht-budget,finaleBonus:false};
+}
+// Vorschau-Text für das Setup (transparent: Format, Spielzeit, Gesamtdauer, Warnung)
+function _blzVorschauHtml(){
+  if(!BLZ.budget)return `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Freies Spiel: Du stellst die Spielzeit selbst ein – ohne Zeitbudget, ohne Automatik.</div>`;
+  const p=_blzPlanen(BLZ.teams.length,BLZ.budget,BLZ.felder||1);
+  const fmt=p.modus==="gruppen"?"2 Los-Gruppen + kleines Finale + Finale":(BLZ.teams.length===2?(p.slots===1?"ein Spiel":"Hin- und Rückspiel"):"jeder gegen jeden"+(p.finaleBonus?" + Finale":""));
+  const felderTxt=(BLZ.felder||1)>1?` · ${BLZ.felder} Felder, ein Pfiff für alle`:"";
+  if(p.hinweis>0)return `<div style="font-size:12px;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:8px 10px;margin-bottom:8px">⏰ Fair (min. ${BLZ_MIN} Min. je Spiel) braucht das kürzeste Format <b>${p.dauer} Min.</b> – das sind <b>${p.hinweis} Min. mehr</b> als geplant. Budget erhöhen, ein Feld dazu – oder bewusst überziehen und trotzdem starten.</div>`;
+  return `<div style="font-size:12px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 10px;margin-bottom:8px">✅ Vorschlag: <b>${fmt}</b> à <b>${p.z} Min.</b> → ${p.ms.length} Spiele, ca. <b>${p.dauer} von ${BLZ.budget} Min.</b>${felderTxt}</div>`;
+}
 function blitzOpen(){
   const alt=_blzLoad();
   if(alt){BLZ=alt;}
-  else{const a=_blzAuto(2);BLZ={datum:_blzHeute(),phase:"setup",anzahl:2,runde:8,quelle:a.quelle,teams:a.teams,plan:[]};blzSave();}
+  else{const a=_blzAuto(2);BLZ={datum:_blzHeute(),phase:"setup",anzahl:2,runde:8,budget:20,felder:1,modus:"rr",quelle:a.quelle,teams:a.teams,plan:[]};blzSave();}
   document.getElementById("blitz-modal")?.remove();
   const m=document.createElement("div");m.id="blitz-modal";
   m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Blitzturnier");
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
-    ${mdlHead("blitz-modal","⚡","Blitzturnier","Schnelles Turnier zum Trainingsabschluss – Teams tippen, Pfiff, los","#d97706")}
+    ${mdlHead("blitz-modal","⚡","Blitzturnier","Zeit vorgeben, Teams tippen – die Automatik baut das Turnier","#d97706")}
     <div id="blitz-body"></div>
   </div>`;
   document.body.appendChild(m);
@@ -515,10 +619,14 @@ function blitzOpen(){
 }
 function blzRender(){
   const el=document.getElementById("blitz-body");if(!el||!BLZ)return;
+  if(BLZ.phase!=="setup")_blzResolve();
   el.innerHTML=(BLZ.phase==="setup")?_blzSetupHtml():_blzLiveHtml();
 }
 function _blzSetupHtml(){
-  const chips=[2,3,4].map(n=>`<button onclick="blzAnzahl(${n})" style="flex:1;min-height:44px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;background:${BLZ.anzahl===n?"#d97706":"var(--surface2)"};color:${BLZ.anzahl===n?"#fff":"var(--text2)"}">${n} Teams</button>`).join("");
+  const chip=(aktiv,label,onclick)=>`<button onclick="${onclick}" style="flex:1;min-height:44px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;background:${aktiv?"#d97706":"var(--surface2)"};color:${aktiv?"#fff":"var(--text2)"}">${label}</button>`;
+  const nChips=[2,3,4].map(n=>chip(BLZ.anzahl===n,n+" Teams",`blzAnzahl(${n})`)).join("");
+  const bChips=[15,20,30,40,0].map(b=>chip((BLZ.budget||0)===b,b?b+" Min.":"frei",`blzBudget(${b})`)).join("");
+  const fChips=[1,2,3,4].map(f=>chip((BLZ.felder||1)===f,f+(f===1?" Feld":" Felder"),`blzFelder(${f})`)).join("");
   const teams=BLZ.teams.map((t,i)=>`<div style="border:var(--border-s);border-left:4px solid ${BLZ_FARBEN[i%BLZ_FARBEN.length]};border-radius:12px;padding:8px 10px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:6px">
         <button onclick="blzRename(${i})" title="Team umbenennen" style="border:none;background:transparent;font-family:inherit;font-size:13.5px;font-weight:800;color:var(--text);cursor:pointer;min-height:44px;padding:0;margin:-8px 0">${esc(t.name)} ✏️</button>
@@ -527,19 +635,26 @@ function _blzSetupHtml(){
       </div>
       ${t.spieler.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${t.spieler.map(n=>`<button onclick="blzCycle('${jsq(n)}')" title="Tippen = ins nächste Team" style="min-height:44px;padding:6px 12px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12.5px;cursor:pointer;background:var(--surface2);color:var(--text)">${esc(n)}</button>`).join("")}</div>`:""}
     </div>`).join("");
-  return `<div style="display:flex;gap:8px;margin-bottom:10px">${chips}</div>
+  return `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Zeitbudget</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">${bChips}</div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Spielfelder <span style="font-weight:400;text-transform:none;letter-spacing:0">(3–4 = FUNiño/Kleinfelder · ein Pfiff für alle)</span></div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">${fChips}</div>
+    ${_blzVorschauHtml()}
+    <div style="display:flex;gap:8px;margin-bottom:10px">${nChips}</div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Quelle: ${esc(BLZ.quelle)} · Kind antippen = wandert ins nächste Team · Würfel = neu mischen</div>
     ${teams}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       <button class="btn btn-sm" onclick="blzNeuMischen()">🎲 Neu mischen</button>
       <button class="btn btn-sm" onclick="blzTeamPlus()">➕ Team von Hand (z. B. Eltern)</button>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+    ${!BLZ.budget?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <label for="blz-runde" style="font-size:12.5px;color:var(--text2)">Spielzeit je Begegnung</label>
       <input id="blz-runde" type="number" min="1" max="30" value="${BLZ.runde}" style="width:64px;text-align:center;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text)"> <span style="font-size:12.5px;color:var(--text2)">Min.</span>
-    </div>
-    <button class="btn btn-p" style="width:100%" onclick="blzStart()"><i class="ti ti-tournament"></i>Spielplan erzeugen &amp; los</button>`;
+    </div>`:""}
+    <button class="btn btn-p" style="width:100%" onclick="blzStart()"><i class="ti ti-tournament"></i>Turnier bauen &amp; los</button>`;
 }
+function blzBudget(b){BLZ.budget=b;blzSave();blzRender();}
+function blzFelder(f){BLZ.felder=f;blzSave();blzRender();}
 function blzAnzahl(n){const a=_blzAuto(n);BLZ.anzahl=n;BLZ.teams=a.teams.concat(BLZ.teams.filter(t=>t.fest));BLZ.quelle=a.quelle;blzSave();blzRender();}
 function blzNeuMischen(){blzAnzahl(BLZ.anzahl);}
 function blzCycle(name){
@@ -558,53 +673,114 @@ function blzRename(i){
   BLZ.teams[i].name=name;blzSave();blzRender();
 }
 function blzStart(){
-  const r=Number(document.getElementById("blz-runde")?.value)||8;
   if(BLZ.teams.length<2){toast("Mindestens 2 Teams","err");return;}
-  BLZ.runde=Math.min(30,Math.max(1,r));
-  BLZ.plan=_blzRR(BLZ.teams.length).map(([a,b])=>({a,b,ta:null,tb:null}));
+  const p=_blzPlanen(BLZ.teams.length,BLZ.budget||0,BLZ.felder||1);
+  if(BLZ.budget){BLZ.runde=p.z;}
+  else{const r=Number(document.getElementById("blz-runde")?.value)||8;BLZ.runde=Math.min(30,Math.max(1,r));}
+  BLZ.plan=p.ms;
+  BLZ.modus=p.modus;
+  BLZ.dauer=BLZ.budget?p.dauer:null;
+  BLZ.hinweis=BLZ.budget?(p.hinweis||0):0;
   BLZ.phase="live";blzSave();blzRender();
 }
-function _blzTabelle(){
+// Tabelle über eine Phasen-Teilmenge (Finale/kleines Finale zählen nie in die Tabelle)
+function _blzTab(phasenRx){
   const t=BLZ.teams.map((team,i)=>({i,name:team.name,pkt:0,tore:0,geg:0,sp:0}));
   BLZ.plan.forEach(p=>{
-    if(p.ta==null||p.tb==null)return;
-    const A=t[p.a],B=t[p.b];A.sp++;B.sp++;A.tore+=p.ta;A.geg+=p.tb;B.tore+=p.tb;B.geg+=p.ta;
+    if(p.a==null||p.b==null||p.ta==null||p.tb==null||!phasenRx.test(p.phase))return;
+    const A=t[p.a],B=t[p.b];if(!A||!B)return;
+    A.sp++;B.sp++;A.tore+=p.ta;A.geg+=p.tb;B.tore+=p.tb;B.geg+=p.ta;
     if(p.ta>p.tb)A.pkt+=3;else if(p.ta<p.tb)B.pkt+=3;else{A.pkt++;B.pkt++;}
   });
   return t.sort((a,b)=>b.pkt-a.pkt||(b.tore-b.geg)-(a.tore-a.geg)||b.tore-a.tore);
 }
+// Finale/kleines Finale besetzen, sobald die Vorrunde komplett ist
+function _blzResolve(){
+  if(!BLZ||!BLZ.plan)return;
+  const vorrundeFertig=BLZ.plan.filter(p=>p.a!=null&&!/finale/.test(p.phase)).every(p=>p.ta!=null);
+  if(!vorrundeFertig)return;
+  BLZ.plan.forEach(p=>{
+    if(p.a!=null||!/finale/.test(p.phase))return;
+    if(BLZ.modus==="gruppen"){
+      const gA=_blzGruppe("A"),gB=_blzGruppe("B");
+      const rangA=_blzTab(/^gruppeA$/).filter(z=>gA.indexOf(z.i)>=0);
+      const rangB=_blzTab(/^gruppeB$/).filter(z=>gB.indexOf(z.i)>=0);
+      const r=p.phase==="finale"?0:1;
+      if(rangA[r]&&rangB[r]){p.a=rangA[r].i;p.b=rangB[r].i;}
+    }else{
+      const t=_blzTab(/^runde$/);
+      if(t[0]&&t[1]){p.a=t[0].i;p.b=t[1].i;}
+    }
+  });
+  blzSave();
+}
+function _blzGruppe(g){
+  const na=Math.ceil(BLZ.teams.length/2);
+  return g==="A"?[...Array(na).keys()]:[...Array(BLZ.teams.length-na).keys()].map(i=>i+na);
+}
+const BLZ_PHASE={runde:"",gruppeA:"Gruppe A",gruppeB:"Gruppe B",kfinale:"Kleines Finale",finale:"Finale"};
 function _blzLiveHtml(){
-  const naechste=BLZ.plan.findIndex(p=>p.ta==null);
-  const spiele=BLZ.plan.map((p,mi)=>{
-    const A=BLZ.teams[p.a],B=BLZ.teams[p.b];
-    const fA=BLZ_FARBEN[p.a%BLZ_FARBEN.length],fB=BLZ_FARBEN[p.b%BLZ_FARBEN.length];
-    const step=(seite,wert)=>`<span style="display:inline-flex;align-items:center;gap:2px">
+  const felder=BLZ.felder||1;
+  // nächstes offenes Fenster (kleinster Slot mit einem Spiel ohne Ergebnis)
+  const offene=BLZ.plan.filter(p=>p.ta==null);
+  const naechsterSlot=offene.length?Math.min(...offene.map(p=>p.slot)):-1;
+  const slots=[...new Set(BLZ.plan.map(p=>p.slot))].sort((a,b)=>a-b);
+  const step=(mi,seite,wert)=>`<span style="display:inline-flex;align-items:center;gap:2px">
       <button onclick="blzTor(${mi},'${seite}',-1)" aria-label="Tor zurücknehmen" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer">−</button>
       <b style="min-width:26px;text-align:center;font-size:17px">${wert==null?"–":wert}</b>
       <button onclick="blzTor(${mi},'${seite}',1)" aria-label="Tor" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer">+</button>
     </span>`;
-    return `<div style="border:var(--border-s);border-radius:12px;padding:8px 10px;margin-bottom:8px;${mi===naechste?"box-shadow:0 0 0 2px #d97706;":""}${p.ta!=null?"opacity:.75;":""}">
+  const karte=p=>{
+    const mi=BLZ.plan.indexOf(p);
+    const offenPlatzh=p.a==null;
+    const nameVon=v=>offenPlatzh?(p.phase==="finale"?(BLZ.modus==="gruppen"?(v==="a"?"1. Gruppe A":"1. Gruppe B"):(v==="a"?"Erster":"Zweiter")):(v==="a"?"2. Gruppe A":"2. Gruppe B")):esc(BLZ.teams[p[v]].name);
+    const fA=p.a!=null?BLZ_FARBEN[p.a%BLZ_FARBEN.length]:"#94a3b8";
+    const fB=p.b!=null?BLZ_FARBEN[p.b%BLZ_FARBEN.length]:"#94a3b8";
+    return `<div style="border:var(--border-s);border-radius:12px;padding:8px 10px;flex:1;min-width:230px;${p.ta!=null?"opacity:.75;":""}">
       <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;flex-wrap:wrap">
-        <span style="color:${fA}">${esc(A.name)}</span><span style="color:var(--text3)">vs</span><span style="color:${fB}">${esc(B.name)}</span>
-        ${mi===naechste?`<button class="btn btn-sm" style="margin-left:auto" onclick="blzTimerStart()">⏱️ ${BLZ.runde} Min.</button>`:""}
+        ${felder>1?`<span style="font-size:9.5px;font-weight:800;background:var(--surface2);border-radius:8px;padding:2px 7px;color:var(--text2)">Feld ${p.feld||1}</span>`:""}
+        ${BLZ_PHASE[p.phase]?`<span style="font-size:9.5px;font-weight:800;color:#b45309">${BLZ_PHASE[p.phase]}</span>`:""}
+        <span style="color:${fA}">${nameVon("a")}</span><span style="color:var(--text3)">vs</span><span style="color:${fB}">${nameVon("b")}</span>
       </div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px">${step("ta",p.ta)}<span style="font-weight:900">:</span>${step("tb",p.tb)}</div>
+      ${p.a!=null?`<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px">${step(mi,"ta",p.ta)}<span style="font-weight:900">:</span>${step(mi,"tb",p.tb)}</div>`:'<div style="font-size:11px;color:var(--text3);margin-top:4px">Wird nach der Vorrunde besetzt.</div>'}
+    </div>`;
+  };
+  const fenster=slots.map(s=>{
+    const ms=BLZ.plan.filter(p=>p.slot===s);
+    const aktiv=s===naechsterSlot;
+    return `<div style="margin-bottom:10px;${aktiv?"box-shadow:0 0 0 2px #d97706;border-radius:14px;padding:8px;":""}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:11px;font-weight:800;color:${aktiv?"#d97706":"var(--text3)"}">Fenster ${s+1}/${slots.length}</span>
+        ${aktiv?`<button class="btn btn-sm btn-p" style="margin-left:auto" onclick="blzTimerStart()">⏱️ ${BLZ.runde} Min.${felder>1?" – Pfiff für alle Felder":""}</button>`:""}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${ms.map(karte).join("")}</div>
     </div>`;
   }).join("");
-  const tab=_blzTabelle();
-  const tabelle=`<div style="font-weight:800;font-size:13.5px;margin:12px 0 4px">📊 Tabelle</div>`
-    +tab.map((z,pl)=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0">
+  // Tabellen
+  let tabellen="";
+  const tabHtml=(titel,rows)=>`<div style="font-weight:800;font-size:13.5px;margin:12px 0 4px">📊 ${titel}</div>`
+    +rows.map((z,pl)=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0">
       <span style="width:22px">${["🥇","🥈","🥉"][pl]||(pl+1)+"."}</span>
       <span style="flex:1;color:${BLZ_FARBEN[z.i%BLZ_FARBEN.length]};font-weight:700">${esc(z.name)}</span>
       <span style="font-size:11px;color:var(--text3)">${z.tore}:${z.geg}</span>
       <span style="font-weight:900;min-width:24px;text-align:right">${z.pkt}</span>
     </div>`).join("");
-  return spiele+tabelle+`
+  if(BLZ.modus==="gruppen"){
+    const gA=_blzGruppe("A"),gB=_blzGruppe("B");
+    tabellen=tabHtml("Gruppe A",_blzTab(/^gruppeA$/).filter(z=>gA.indexOf(z.i)>=0))
+            +tabHtml("Gruppe B",_blzTab(/^gruppeB$/).filter(z=>gB.indexOf(z.i)>=0));
+  }else{
+    tabellen=tabHtml("Tabelle",_blzTab(/^runde$/));
+  }
+  const kopf=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">${BLZ.dauer?`~${BLZ.dauer} Min. geplant (Budget ${BLZ.budget})`:`Spielzeit frei gewählt`} · ${BLZ.runde} Min. je Spiel · ${felder>1?felder+" Felder, ein Pfiff für alle":"1 Feld"}</div>`
+    +(BLZ.hinweis>0?`<div style="font-size:12px;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:8px 10px;margin-bottom:8px">⏰ Ehrlich gesagt: Das kürzeste faire Format braucht <b>${BLZ.hinweis} Min. mehr</b> als geplant – ihr überzieht bewusst.</div>`:"");
+  return kopf+fenster+tabellen+`
     <button class="btn btn-p" style="width:100%;margin-top:12px" onclick="blzEnde()"><i class="ti ti-trophy"></i>Turnier beenden</button>
     <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="blzReset()">Neu starten (Teams ändern)</button>`;
 }
 function blzTor(mi,seite,delta){
   const p=BLZ.plan[mi];
+  if(!p||p.a==null)return;
   p[seite]=Math.max(0,(p[seite]==null?0:p[seite])+delta);
   const andere=seite==="ta"?"tb":"ta";if(p[andere]==null)p[andere]=0; // Ergebnis zählt erst, wenn beide Seiten stehen
   blzSave();blzRender();
@@ -612,15 +788,22 @@ function blzTor(mi,seite,delta){
 function blzEnde(){
   const offen=BLZ.plan.filter(p=>p.ta==null).length;
   if(offen&&!confirm(offen+" Begegnung"+(offen===1?"":"en")+" ohne Ergebnis – trotzdem beenden?"))return;
-  const tab=_blzTabelle();
-  const erste=tab.filter(z=>z.pkt===tab[0].pkt&&(z.tore-z.geg)===(tab[0].tore-tab[0].geg));
+  // Sieger: gespieltes Finale schlägt die Tabelle; sonst Tabellenführung (geteilt möglich)
+  const finale=BLZ.plan.find(p=>p.phase==="finale"&&p.a!=null&&p.ta!=null);
+  let erste;
+  if(finale&&finale.ta!==finale.tb){
+    erste=[{name:BLZ.teams[finale.ta>finale.tb?finale.a:finale.b].name}];
+  }else{
+    const tab=BLZ.modus==="gruppen"?_blzTab(/^gruppe/):_blzTab(/^runde$/);
+    erste=tab.filter(z=>z.pkt===tab[0].pkt&&(z.tore-z.geg)===(tab[0].tore-tab[0].geg));
+  }
   const el=document.getElementById("blitz-body");if(!el)return;
   el.innerHTML=`<div style="text-align:center;padding:14px 0">
       <div style="font-size:56px">🏆</div>
       <div style="font-size:20px;font-weight:900;margin:8px 0">${erste.map(z=>esc(z.name)).join(" & ")}</div>
       <div style="font-size:12.5px;color:var(--text2)">${erste.length>1?"Geteilter Turniersieg":"gewinnt das Blitzturnier"} – stark gespielt, alle zusammen! 🦅</div>
     </div>`
-    +BLZ.plan.filter(p=>p.ta!=null).map(p=>`<div style="display:flex;gap:8px;font-size:12.5px;padding:2px 0;justify-content:center"><span>${esc(BLZ.teams[p.a].name)}</span><b>${p.ta}:${p.tb}</b><span>${esc(BLZ.teams[p.b].name)}</span></div>`).join("")
+    +BLZ.plan.filter(p=>p.a!=null&&p.ta!=null).map(p=>`<div style="display:flex;gap:8px;font-size:12.5px;padding:2px 0;justify-content:center"><span>${BLZ_PHASE[p.phase]?BLZ_PHASE[p.phase]+": ":""}${esc(BLZ.teams[p.a].name)}</span><b>${p.ta}:${p.tb}</b><span>${esc(BLZ.teams[p.b].name)}</span></div>`).join("")
     +`<button class="btn btn-sm" style="width:100%;margin-top:12px" onclick="blzReset()">Neues Blitzturnier</button>`;
   try{if(typeof confetti==="function")confetti(el);}catch(e){}
   try{navigator.vibrate&&navigator.vibrate([60,40,60]);}catch(e){}
@@ -628,7 +811,7 @@ function blzEnde(){
   BLZ=null;
 }
 function blzReset(){try{localStorage.removeItem("adler_blitz");}catch(e){}BLZ=null;blitzOpen();}
-/* Rundentimer: eigener kleiner Vollbild-Countdown (der Stationstimer hängt am Trainingsplan) */
+/* Rundentimer: eigener kleiner Vollbild-Countdown – bei mehreren Feldern der EINE Pfiff für alle */
 let _blzT=null;
 function blzTimerStart(){
   const sek=(BLZ?BLZ.runde:8)*60;
@@ -652,9 +835,9 @@ function _blzTick(){
 function _blzTimerRender(){
   const ov=document.getElementById("blz-timer");if(!ov||!_blzT)return;
   const mm=Math.floor(_blzT.left/60),ss=_blzT.left%60;
-  ov.innerHTML=`<div style="font-size:15px;opacity:.7">⚡ Blitzturnier</div>
+  ov.innerHTML=`<div style="font-size:15px;opacity:.7">⚡ Blitzturnier${(BLZ&&BLZ.felder>1)?" · "+BLZ.felder+" Felder":""}</div>
     <div style="font-size:88px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:2px">${_blzT.left?mm+":"+(ss<10?"0":"")+ss:"⏱️"}</div>
-    ${_blzT.left?"":'<div style="font-size:22px;font-weight:800">Abpfiff!</div>'}
+    ${_blzT.left?"":'<div style="font-size:22px;font-weight:800">Abpfiff – alle Felder!</div>'}
     <div style="display:flex;gap:10px;margin-top:24px">
       ${_blzT.left?`<button onclick="_blzT.paused=!_blzT.paused;_blzTimerRender()" style="padding:14px 24px;border:none;border-radius:12px;background:#334155;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer">${_blzT.paused?"▶ Weiter":"⏸ Pause"}</button>`:""}
       <button onclick="blzTimerStop()" style="padding:14px 24px;border:none;border-radius:12px;background:#16a34a;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer">Fertig</button>

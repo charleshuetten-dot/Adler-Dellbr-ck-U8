@@ -3117,7 +3117,7 @@ const HELP=[
     {t:"Planung", d:"Zeitplan bauen, Übungen zuweisen, danach bewerten.", go:"planung"},
     {t:"Einheit bewerten", d:"Schnell-Sterne: Spaß, Umsetzung, Erfolg.", run:"einheitBewertenOpen()"},
     {t:"Trainingsformen", d:"Bibliothek + Filter · „Auto-Plan\" baut eine Einheit · KI-Coach · Saison-Periodisierung.", go:"formen"},
-    {t:"Blitzturnier", d:"Schnelles Turnier zum Trainingsabschluss: Teams automatisch (per Tipp verschiebbar) oder von Hand (z. B. Eltern), Rundenzeit mit Pfiff, Punktetafel, Sieger mit Konfetti.", run:"blitzOpen()"},
+    {t:"Blitzturnier", d:"Turnier zum Trainingsabschluss mit Zeitbudget-Automatik: Gesamtzeit (z. B. 40 Min.) und 1–4 Felder vorgeben, die Automatik wählt Format und Spielzeit (5–10 Min., Finale nur bei Restzeit) – reicht die Zeit fair nicht, sagt sie ehrlich, wie viele Minuten fehlen. Teams automatisch oder von Hand (z. B. Eltern), ein Pfiff für alle Felder.", run:"blitzOpen()"},
   ]},
   {cat:"⚽ Spieltag", items:[
     {t:"Match", d:"Nominierung, Match-Uhr, Live-Aktionen, Rotations-Timer für faire Zeiten.", go:"spieltag"},
