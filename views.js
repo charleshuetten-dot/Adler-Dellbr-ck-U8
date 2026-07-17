@@ -3022,6 +3022,38 @@ async function saisonCockpitOpen(){
       }
     }
   }catch(e){}
+  // Rückmelde-Tempo: wie viele Tage VOR dem Termin haben die Familien zu-/abgesagt?
+  // Datengrundlage für Elterngespräche (Reaktion auf Benachrichtigungen). created_at ist
+  // der Erst-Antwort-Zeitpunkt; spätere Status-Wechsel verschieben ihn nicht.
+  let tempoHtml="";
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?select=spieler_id,status,created_at,termine!inner(datum)&termine.datum=gte.${ab}`,{headers:sbAuthHeaders()});
+    if(!sbCheck401(r)&&r.ok){
+      const rows=await r.json();
+      const perKid={}; const nameById={}; active.forEach(k=>nameById[k.id]=k.name);
+      rows.forEach(x=>{
+        const datum=x.termine&&x.termine.datum; const name=nameById[x.spieler_id];
+        if(!datum||!name||!x.created_at)return;
+        const cd=new Date(x.created_at);
+        const cLoc=cd.getFullYear()+"-"+String(cd.getMonth()+1).padStart(2,"0")+"-"+String(cd.getDate()).padStart(2,"0");
+        const diff=Math.round((new Date(datum+"T12:00:00")-new Date(cLoc+"T12:00:00"))/864e5);
+        if(diff<0)return; // nachträgliche Antworten sagen nichts über Reaktionszeit
+        (perKid[name]=perKid[name]||[]).push(diff);
+      });
+      const arr=Object.entries(perKid).map(([name,ds])=>({
+        name, n:ds.length,
+        avg:ds.reduce((s,d)=>s+d,0)/ds.length,
+        kurz:ds.filter(d=>d<=1).length
+      })).sort((a,b)=>b.avg-a.avg);
+      if(arr.length){
+        const teamAvg=(arr.reduce((s,x)=>s+x.avg*x.n,0)/arr.reduce((s,x)=>s+x.n,0)).toFixed(1).replace(".",",");
+        const col=a=>a>=4?"#16a34a":a>=2?"#b45309":"#dc2626";
+        tempoHtml=`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">⏱️ Rückmelde-Tempo <span style="font-weight:400;color:var(--text2);font-size:11px">(Zu-/Absagen · Team-Ø ${teamAvg} Tage vor dem Termin)</span></div>`
+          +arr.map(x=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0"><span style="flex:1">${esc(x.name)}</span>${x.kurz?`<span title="davon kurzfristig (≤1 Tag vorher)" style="font-size:10px;color:var(--text3)">⚡ ${x.kurz}× kurzfristig</span>`:""}<span style="font-weight:700;color:${col(x.avg)}">Ø ${x.avg.toFixed(1).replace(".",",")} Tage</span><span style="font-size:10px;color:var(--text3)">(${x.n})</span></div>`).join("")
+          +`<div style="font-size:10px;color:var(--text3);margin-top:4px">Ø Tage zwischen erster Antwort und Termin – je höher, desto früher meldet die Familie zurück. Exakt gemessen ab Juli 2026; ältere Antworten zählen mit dem Zeitpunkt der letzten Änderung.</div>`;
+      }
+    }
+  }catch(e){}
   // A-Etappe 2: Rollen-Erfahrung auch im Cockpit (Kurzform + Button zur vollen Matrix)
   let rollenHtml="";
   try{ if(typeof rollenExpFetch==="function"){ const re=await rollenExpFetch(); if(re&&re.games){ const nie=(typeof _neverTW==="function")?_neverTW(re.byKid):[];
@@ -3053,6 +3085,7 @@ async function saisonCockpitOpen(){
     <div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">📊 Anwesenheit – am zuverlässigsten</div>
     ${topAtt.length?topAtt.map(attRow).join(""):'<div style="font-size:12px;color:var(--text3)">Noch keine Daten.</div>'}
     ${lowAtt.length?`<div style="font-weight:800;font-size:12.5px;margin:12px 0 2px;color:#b45309">Zuletzt oft gefehlt – dranbleiben</div>${lowAtt.map(attRow).join("")}`:""}
+    ${tempoHtml}
     ${wenig.length?`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">⚖️ Faire Einsätze – wer war seltener dabei</div>${wenig.map(x=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0"><span style="flex:1">${esc(x.name)}</span><span style="font-size:11px;color:var(--text3)">${x.e} Einsätze</span></div>`).join("")}`:""}
     ${(toreTeam[2]||toreTeam[3])?`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🏆 Tore je Team</div><div style="display:flex;gap:8px;flex-wrap:wrap">${[1,2,3].filter(t=>toreTeam[t]>0||t===1).map(t=>`<div style="flex:1;min-width:70px;text-align:center;background:var(--surface2);border-radius:10px;padding:8px"><div style="font-size:11px;color:var(--text2)">Adler ${t}</div><div style="font-size:18px;font-weight:900;color:#059669">⚽ ${toreTeam[t]||0}</div></div>`).join("")}</div>`:""}
     ${stimmungHtml}
@@ -3072,7 +3105,7 @@ async function saisonCockpitOpen(){
 const HELP=[
   {cat:"🏠 Start & Team", items:[
     {t:"Dashboard", d:"Deine To-Dos (Zusagen, Einheit, Sprachlob), nächster Termin mit Wetter, Schnellzugriffe, Ferien-Radar.", go:"home"},
-    {t:"Saison-Cockpit", d:"Torschützen, Anwesenheit, faire Einsätze, Kinder-Stimmung, Eltern-Puls – alles auf einen Blick.", run:"saisonCockpitOpen()"},
+    {t:"Saison-Cockpit", d:"Torschützen, Anwesenheit, Rückmelde-Tempo der Familien, faire Einsätze, Kinder-Stimmung, Eltern-Puls – alles auf einen Blick.", run:"saisonCockpitOpen()"},
     {t:"Kader", d:"Spieler anlegen/bearbeiten, Trikotnummer, Foto, Kontakte, Foto-Freigabe.", go:"kader"},
     {t:"Bewerten", d:"Spieler in 16 Kriterien einschätzen – mit Live-Radar.", go:"bew"},
     {t:"Profil", d:"Spielerprofil, Stärken, Adler-Karte, Entwicklungs-Report drucken.", go:"profil"},
