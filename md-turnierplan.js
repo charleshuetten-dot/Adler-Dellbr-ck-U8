@@ -451,3 +451,555 @@ function nomRender(){
       </div>`;
     }).join("");
 }
+
+/* ═══════════════════════════════════
+   M1: BLITZTURNIER – schnelles Turnier zum Trainingsabschluss. Teams kommen automatisch
+   aus dem Kader (heutige Anwesenheit, falls erfasst), sind per Tipp verschiebbar, und
+   Extra-Teams („Eltern", „Trainer") lassen sich von Hand ergänzen. Jeder gegen jeden,
+   Rundenzeit mit Pfiff, Punktetafel, Sieger mit Konfetti. Reines Frontend + localStorage –
+   kein Server, damit es am Platz auch ohne Netz läuft.
+═══════════════════════════════════ */
+const BLZ_FARBEN=["#1a56db","#dc2626","#059669","#7c3aed","#d97706"];
+let BLZ=null;
+function _blzHeute(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function blzSave(){try{localStorage.setItem("adler_blitz",JSON.stringify(BLZ));}catch(e){}}
+function _blzLoad(){try{const s=JSON.parse(localStorage.getItem("adler_blitz")||"null");if(s&&s.datum===_blzHeute())return s;}catch(e){}return null;}
+// Spielerpool: heutige Anwesenheit (nur wer da ist), sonst alle aktiven Kader-Kinder
+function _blzPool(){
+  const aktive=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false).map(k=>k.name);
+  try{
+    const day=(typeof AW_DATA!=="undefined"?AW_DATA:{})[_blzHeute()]||{};
+    const da=aktive.filter(n=>day[n]&&day[n].da===true);
+    if(da.length>=4)return {namen:da,quelle:"Anwesenheit heute"};
+  }catch(e){}
+  return {namen:aktive,quelle:"ganzer Kader"};
+}
+// Ausgewogene Auto-Einteilung: stärkstes Kind ins momentan schwächste Team (wie Spieltag-Einteilung)
+function _blzAuto(n){
+  const pool=_blzPool();
+  const st=x=>(typeof teamStaerke==="function")?Math.max(0,teamStaerke(x)):0;
+  const teams=[];for(let i=0;i<n;i++)teams.push({name:"Adler "+(i+1),spieler:[],fest:false});
+  const summe=new Array(n).fill(0);
+  pool.namen.slice().sort((a,b)=>st(b)-st(a)).forEach(name=>{
+    let ziel=0;for(let t=1;t<n;t++){if(teams[t].spieler.length<teams[ziel].spieler.length||(teams[t].spieler.length===teams[ziel].spieler.length&&summe[t]<summe[ziel]))ziel=t;}
+    teams[ziel].spieler.push(name);summe[ziel]+=st(name);
+  });
+  return {teams,quelle:pool.quelle};
+}
+// Berger-Rotation: jeder gegen jeden, fair verteilt (niemand spielt zweimal direkt hintereinander)
+function _blzRR(n){
+  const ids=[...Array(n).keys()];if(n%2)ids.push(-1);
+  const runden=ids.length-1,halb=ids.length/2,out=[];
+  let arr=ids.slice();
+  for(let r=0;r<runden;r++){
+    for(let i=0;i<halb;i++){const a=arr[i],b=arr[arr.length-1-i];if(a!==-1&&b!==-1)out.push([a,b]);}
+    arr=[arr[0],arr[arr.length-1]].concat(arr.slice(1,arr.length-1));
+  }
+  return out;
+}
+function blitzOpen(){
+  const alt=_blzLoad();
+  if(alt){BLZ=alt;}
+  else{const a=_blzAuto(2);BLZ={datum:_blzHeute(),phase:"setup",anzahl:2,runde:8,quelle:a.quelle,teams:a.teams,plan:[]};blzSave();}
+  document.getElementById("blitz-modal")?.remove();
+  const m=document.createElement("div");m.id="blitz-modal";
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Blitzturnier");
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
+    ${mdlHead("blitz-modal","⚡","Blitzturnier","Schnelles Turnier zum Trainingsabschluss – Teams tippen, Pfiff, los","#d97706")}
+    <div id="blitz-body"></div>
+  </div>`;
+  document.body.appendChild(m);
+  blzRender();
+}
+function blzRender(){
+  const el=document.getElementById("blitz-body");if(!el||!BLZ)return;
+  el.innerHTML=(BLZ.phase==="setup")?_blzSetupHtml():_blzLiveHtml();
+}
+function _blzSetupHtml(){
+  const chips=[2,3,4].map(n=>`<button onclick="blzAnzahl(${n})" style="flex:1;min-height:44px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;background:${BLZ.anzahl===n?"#d97706":"var(--surface2)"};color:${BLZ.anzahl===n?"#fff":"var(--text2)"}">${n} Teams</button>`).join("");
+  const teams=BLZ.teams.map((t,i)=>`<div style="border:var(--border-s);border-left:4px solid ${BLZ_FARBEN[i%BLZ_FARBEN.length]};border-radius:12px;padding:8px 10px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <button onclick="blzRename(${i})" title="Team umbenennen" style="border:none;background:transparent;font-family:inherit;font-size:13.5px;font-weight:800;color:var(--text);cursor:pointer;min-height:44px;padding:0;margin:-8px 0">${esc(t.name)} ✏️</button>
+        <span style="margin-left:auto;font-size:11px;color:var(--text3)">${t.spieler.length?t.spieler.length+" Kinder":"ohne Kader-Kinder"}</span>
+        ${t.fest?`<button onclick="blzTeamWeg(${i})" aria-label="Team entfernen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;min-width:44px;min-height:44px;margin:-8px -8px -8px 0"><i class="ti ti-trash"></i></button>`:""}
+      </div>
+      ${t.spieler.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${t.spieler.map(n=>`<button onclick="blzCycle('${jsq(n)}')" title="Tippen = ins nächste Team" style="min-height:44px;padding:6px 12px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12.5px;cursor:pointer;background:var(--surface2);color:var(--text)">${esc(n)}</button>`).join("")}</div>`:""}
+    </div>`).join("");
+  return `<div style="display:flex;gap:8px;margin-bottom:10px">${chips}</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Quelle: ${esc(BLZ.quelle)} · Kind antippen = wandert ins nächste Team · Würfel = neu mischen</div>
+    ${teams}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <button class="btn btn-sm" onclick="blzNeuMischen()">🎲 Neu mischen</button>
+      <button class="btn btn-sm" onclick="blzTeamPlus()">➕ Team von Hand (z. B. Eltern)</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <label for="blz-runde" style="font-size:12.5px;color:var(--text2)">Spielzeit je Begegnung</label>
+      <input id="blz-runde" type="number" min="1" max="30" value="${BLZ.runde}" style="width:64px;text-align:center;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text)"> <span style="font-size:12.5px;color:var(--text2)">Min.</span>
+    </div>
+    <button class="btn btn-p" style="width:100%" onclick="blzStart()"><i class="ti ti-tournament"></i>Spielplan erzeugen &amp; los</button>`;
+}
+function blzAnzahl(n){const a=_blzAuto(n);BLZ.anzahl=n;BLZ.teams=a.teams.concat(BLZ.teams.filter(t=>t.fest));BLZ.quelle=a.quelle;blzSave();blzRender();}
+function blzNeuMischen(){blzAnzahl(BLZ.anzahl);}
+function blzCycle(name){
+  const von=BLZ.teams.findIndex(t=>t.spieler.indexOf(name)>=0);if(von<0)return;
+  BLZ.teams[von].spieler=BLZ.teams[von].spieler.filter(x=>x!==name);
+  BLZ.teams[(von+1)%BLZ.teams.length].spieler.push(name);
+  blzSave();blzRender();
+}
+function blzTeamPlus(){
+  const name=(prompt("Name des Teams (z. B. Eltern, Trainer):")||"").trim();if(!name)return;
+  BLZ.teams.push({name,spieler:[],fest:true});blzSave();blzRender();
+}
+function blzTeamWeg(i){BLZ.teams.splice(i,1);blzSave();blzRender();}
+function blzRename(i){
+  const name=(prompt("Neuer Team-Name:",BLZ.teams[i].name)||"").trim();if(!name)return;
+  BLZ.teams[i].name=name;blzSave();blzRender();
+}
+function blzStart(){
+  const r=Number(document.getElementById("blz-runde")?.value)||8;
+  if(BLZ.teams.length<2){toast("Mindestens 2 Teams","err");return;}
+  BLZ.runde=Math.min(30,Math.max(1,r));
+  BLZ.plan=_blzRR(BLZ.teams.length).map(([a,b])=>({a,b,ta:null,tb:null}));
+  BLZ.phase="live";blzSave();blzRender();
+}
+function _blzTabelle(){
+  const t=BLZ.teams.map((team,i)=>({i,name:team.name,pkt:0,tore:0,geg:0,sp:0}));
+  BLZ.plan.forEach(p=>{
+    if(p.ta==null||p.tb==null)return;
+    const A=t[p.a],B=t[p.b];A.sp++;B.sp++;A.tore+=p.ta;A.geg+=p.tb;B.tore+=p.tb;B.geg+=p.ta;
+    if(p.ta>p.tb)A.pkt+=3;else if(p.ta<p.tb)B.pkt+=3;else{A.pkt++;B.pkt++;}
+  });
+  return t.sort((a,b)=>b.pkt-a.pkt||(b.tore-b.geg)-(a.tore-a.geg)||b.tore-a.tore);
+}
+function _blzLiveHtml(){
+  const naechste=BLZ.plan.findIndex(p=>p.ta==null);
+  const spiele=BLZ.plan.map((p,mi)=>{
+    const A=BLZ.teams[p.a],B=BLZ.teams[p.b];
+    const fA=BLZ_FARBEN[p.a%BLZ_FARBEN.length],fB=BLZ_FARBEN[p.b%BLZ_FARBEN.length];
+    const step=(seite,wert)=>`<span style="display:inline-flex;align-items:center;gap:2px">
+      <button onclick="blzTor(${mi},'${seite}',-1)" aria-label="Tor zurücknehmen" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer">−</button>
+      <b style="min-width:26px;text-align:center;font-size:17px">${wert==null?"–":wert}</b>
+      <button onclick="blzTor(${mi},'${seite}',1)" aria-label="Tor" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer">+</button>
+    </span>`;
+    return `<div style="border:var(--border-s);border-radius:12px;padding:8px 10px;margin-bottom:8px;${mi===naechste?"box-shadow:0 0 0 2px #d97706;":""}${p.ta!=null?"opacity:.75;":""}">
+      <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;flex-wrap:wrap">
+        <span style="color:${fA}">${esc(A.name)}</span><span style="color:var(--text3)">vs</span><span style="color:${fB}">${esc(B.name)}</span>
+        ${mi===naechste?`<button class="btn btn-sm" style="margin-left:auto" onclick="blzTimerStart()">⏱️ ${BLZ.runde} Min.</button>`:""}
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px">${step("ta",p.ta)}<span style="font-weight:900">:</span>${step("tb",p.tb)}</div>
+    </div>`;
+  }).join("");
+  const tab=_blzTabelle();
+  const tabelle=`<div style="font-weight:800;font-size:13.5px;margin:12px 0 4px">📊 Tabelle</div>`
+    +tab.map((z,pl)=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0">
+      <span style="width:22px">${["🥇","🥈","🥉"][pl]||(pl+1)+"."}</span>
+      <span style="flex:1;color:${BLZ_FARBEN[z.i%BLZ_FARBEN.length]};font-weight:700">${esc(z.name)}</span>
+      <span style="font-size:11px;color:var(--text3)">${z.tore}:${z.geg}</span>
+      <span style="font-weight:900;min-width:24px;text-align:right">${z.pkt}</span>
+    </div>`).join("");
+  return spiele+tabelle+`
+    <button class="btn btn-p" style="width:100%;margin-top:12px" onclick="blzEnde()"><i class="ti ti-trophy"></i>Turnier beenden</button>
+    <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="blzReset()">Neu starten (Teams ändern)</button>`;
+}
+function blzTor(mi,seite,delta){
+  const p=BLZ.plan[mi];
+  p[seite]=Math.max(0,(p[seite]==null?0:p[seite])+delta);
+  const andere=seite==="ta"?"tb":"ta";if(p[andere]==null)p[andere]=0; // Ergebnis zählt erst, wenn beide Seiten stehen
+  blzSave();blzRender();
+}
+function blzEnde(){
+  const offen=BLZ.plan.filter(p=>p.ta==null).length;
+  if(offen&&!confirm(offen+" Begegnung"+(offen===1?"":"en")+" ohne Ergebnis – trotzdem beenden?"))return;
+  const tab=_blzTabelle();
+  const erste=tab.filter(z=>z.pkt===tab[0].pkt&&(z.tore-z.geg)===(tab[0].tore-tab[0].geg));
+  const el=document.getElementById("blitz-body");if(!el)return;
+  el.innerHTML=`<div style="text-align:center;padding:14px 0">
+      <div style="font-size:56px">🏆</div>
+      <div style="font-size:20px;font-weight:900;margin:8px 0">${erste.map(z=>esc(z.name)).join(" & ")}</div>
+      <div style="font-size:12.5px;color:var(--text2)">${erste.length>1?"Geteilter Turniersieg":"gewinnt das Blitzturnier"} – stark gespielt, alle zusammen! 🦅</div>
+    </div>`
+    +BLZ.plan.filter(p=>p.ta!=null).map(p=>`<div style="display:flex;gap:8px;font-size:12.5px;padding:2px 0;justify-content:center"><span>${esc(BLZ.teams[p.a].name)}</span><b>${p.ta}:${p.tb}</b><span>${esc(BLZ.teams[p.b].name)}</span></div>`).join("")
+    +`<button class="btn btn-sm" style="width:100%;margin-top:12px" onclick="blzReset()">Neues Blitzturnier</button>`;
+  try{if(typeof confetti==="function")confetti(el);}catch(e){}
+  try{navigator.vibrate&&navigator.vibrate([60,40,60]);}catch(e){}
+  try{localStorage.removeItem("adler_blitz");}catch(e){}
+  BLZ=null;
+}
+function blzReset(){try{localStorage.removeItem("adler_blitz");}catch(e){}BLZ=null;blitzOpen();}
+/* Rundentimer: eigener kleiner Vollbild-Countdown (der Stationstimer hängt am Trainingsplan) */
+let _blzT=null;
+function blzTimerStart(){
+  const sek=(BLZ?BLZ.runde:8)*60;
+  document.getElementById("blz-timer")?.remove();
+  const ov=document.createElement("div");ov.id="blz-timer";
+  ov.style.cssText="position:fixed;inset:0;background:#0b1220;color:#fff;z-index:11000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center";
+  document.body.appendChild(ov);
+  _blzT={left:sek,paused:false,timer:setInterval(_blzTick,1000)};
+  try{if(typeof requestWakeLock==="function")requestWakeLock();}catch(e){}
+  _blzTimerRender();
+}
+function _blzTick(){
+  if(!_blzT||_blzT.paused)return;
+  _blzT.left--;
+  if(_blzT.left<=0){
+    try{if(typeof stTimerWhistle==="function")stTimerWhistle();}catch(e){}
+    clearInterval(_blzT.timer);_blzT.timer=null;_blzT.left=0;
+  }
+  _blzTimerRender();
+}
+function _blzTimerRender(){
+  const ov=document.getElementById("blz-timer");if(!ov||!_blzT)return;
+  const mm=Math.floor(_blzT.left/60),ss=_blzT.left%60;
+  ov.innerHTML=`<div style="font-size:15px;opacity:.7">⚡ Blitzturnier</div>
+    <div style="font-size:88px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:2px">${_blzT.left?mm+":"+(ss<10?"0":"")+ss:"⏱️"}</div>
+    ${_blzT.left?"":'<div style="font-size:22px;font-weight:800">Abpfiff!</div>'}
+    <div style="display:flex;gap:10px;margin-top:24px">
+      ${_blzT.left?`<button onclick="_blzT.paused=!_blzT.paused;_blzTimerRender()" style="padding:14px 24px;border:none;border-radius:12px;background:#334155;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer">${_blzT.paused?"▶ Weiter":"⏸ Pause"}</button>`:""}
+      <button onclick="blzTimerStop()" style="padding:14px 24px;border:none;border-radius:12px;background:#16a34a;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer">Fertig</button>
+    </div>`;
+}
+function blzTimerStop(){if(_blzT&&_blzT.timer)clearInterval(_blzT.timer);_blzT=null;document.getElementById("blz-timer")?.remove();try{if(typeof releaseWakeLock==="function")releaseWakeLock();}catch(e){}}
+
+/* ═══════════════════════════════════
+   M2/M3: HEIMTURNIER – wir richten selbst aus. Kern bewusst schlank: Teams, Format,
+   Spielplan-Generator, Live-Ergebnisse. Der Plan geht per öffentlichem Link
+   (?turnier=<slug>) ohne Login an die Gast-Trainer – die Tabelle enthält NUR Teamnamen,
+   nie Kindernamen. Formate: Liga (jeder gegen jeden), 2 Gruppen + Platzierungsspiele,
+   Festival (DFB-Kinderfußball: alle spielen, keine Tabelle).
+═══════════════════════════════════ */
+let _HT=null;
+function _htSlug(){ return Math.random().toString(36).slice(2,8)+Math.random().toString(36).slice(2,6); }
+function _htUrl(slug){ return appRoot()+"?turnier="+encodeURIComponent(slug); }
+const HT_FORMATE={liga:"Liga – jeder gegen jeden",gruppen:"2 Gruppen + Platzierungsspiele",festival:"Festival – alle spielen, keine Tabelle"};
+// Platzhalter der Finalrunde ("A1" = Erster Gruppe A) lesbar machen
+function _htName(v,teams){
+  if(typeof v==="number")return teams[v]||"?";
+  const m=/^([AB])(\d)$/.exec(String(v));
+  return m?`${m[2]}. Gruppe ${m[1]}`:String(v);
+}
+/* Spielplan-Generator: Begegnungen je Format, dann Zeitfenster füllen (bis zu <felder>
+   Spiele parallel, kein Team doppelt im selben Fenster). Platzierungsspiele starten erst,
+   wenn alle Gruppenspiele geplant sind; das Finale bekommt ein eigenes Fenster. */
+function _htGen(teams,cfg){
+  const n=teams.length;
+  let ms=[];
+  if(cfg.format==="gruppen"&&n>=4){
+    const na=Math.ceil(n/2);
+    const A=[...Array(na).keys()],B=[...Array(n-na).keys()].map(i=>i+na);
+    const ra=_blzRR(A.length).map(([x,y])=>({a:A[x],b:A[y],phase:"Gruppe A"}));
+    const rb=_blzRR(B.length).map(([x,y])=>({a:B[x],b:B[y],phase:"Gruppe B"}));
+    const max=Math.max(ra.length,rb.length);           // A/B abwechselnd = faire Pausen
+    for(let i=0;i<max;i++){if(ra[i])ms.push(ra[i]);if(rb[i])ms.push(rb[i]);}
+    const plaetze=Math.min(A.length,B.length);
+    for(let r=plaetze-1;r>=0;r--)ms.push({a:"A"+(r+1),b:"B"+(r+1),phase:r===0?"Finale":"Spiel um Platz "+(2*r+1)});
+  }else{
+    ms=_blzRR(n).map(([a,b])=>({a,b,phase:cfg.format==="festival"?"Festival":"Runde"}));
+  }
+  const felder=Math.max(1,Number(cfg.felder)||1), dauer=Math.max(1,Number(cfg.spieldauer)||10), pause=Math.max(0,Number(cfg.pause)||0);
+  const [sh,sm]=(cfg.start||"10:00").split(":").map(Number);
+  let slot=0; const done=[]; const queue=ms.slice();
+  while(queue.length&&slot<200){
+    const belegt=new Set(); let f=1;
+    for(let i=0;i<queue.length&&f<=felder;){
+      const m=queue[i], finale=m.phase==="Finale", platzh=typeof m.a==="string";
+      const gruppenOffen=queue.some(q=>typeof q.a==="number");
+      if(!belegt.has(String(m.a))&&!belegt.has(String(m.b))&&(!platzh||!gruppenOffen)&&(!finale||(f===1&&!belegt.size))){
+        const t=sh*60+sm+slot*(dauer+pause);
+        m.zeit=String(Math.floor(t/60)%24).padStart(2,"0")+":"+String(t%60).padStart(2,"0");
+        m.feld=f++; belegt.add(String(m.a)); belegt.add(String(m.b));
+        done.push(m); queue.splice(i,1);
+        if(finale)break;
+      }else i++;
+    }
+    slot++;
+  }
+  return done.map(m=>({...m,ta:null,tb:null}));
+}
+// Tabelle über eine Teilmenge des Plans (nur echte Team-Indizes, nur mit Ergebnis)
+function _htTabelle(plan,idxs,teams){
+  const t={}; idxs.forEach(i=>t[i]={i,name:teams[i],pkt:0,tore:0,geg:0,sp:0});
+  plan.forEach(p=>{
+    if(typeof p.a!=="number"||typeof p.b!=="number"||p.ta==null||p.tb==null)return;
+    if(!t[p.a]||!t[p.b])return;
+    const A=t[p.a],B=t[p.b];A.sp++;B.sp++;A.tore+=p.ta;A.geg+=p.tb;B.tore+=p.tb;B.geg+=p.ta;
+    if(p.ta>p.tb)A.pkt+=3;else if(p.ta<p.tb)B.pkt+=3;else{A.pkt++;B.pkt++;}
+  });
+  return Object.values(t).sort((a,b)=>b.pkt-a.pkt||(b.tore-b.geg)-(a.tore-a.geg)||b.tore-a.tore);
+}
+function _htGruppen(row){
+  const na=Math.ceil(row.teams.length/2);
+  return {A:[...Array(na).keys()],B:[...Array(row.teams.length-na).keys()].map(i=>i+na)};
+}
+async function htOpen(){
+  document.getElementById("hturnier-modal")?.remove();
+  const m=document.createElement("div");m.id="hturnier-modal";
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Heimturnier");
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
+    ${mdlHead("hturnier-modal","🏆","Heimturnier","Wir richten aus – Spielplan erstellen und per Link an alle Trainer","#b45309")}
+    <div id="ht-body"><div style="font-size:12px;color:var(--text3)">Lade…</div></div>
+  </div>`;
+  document.body.appendChild(m);
+  htListe();
+}
+async function htListe(){
+  _HT=null;
+  const el=document.getElementById("ht-body"); if(!el)return;
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/heimturnier?select=id,slug,name,datum,teams,aktiv&order=created_at.desc&limit=10`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)rows=(await r.json())||[];}catch(e){}
+  const fld="box-sizing:border-box;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13.5px;background:var(--surface2);color:var(--text)";
+  el.innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:6px">
+      <input id="ht-name" placeholder="Turniername, z. B. Adler-Cup 2026" style="${fld}">
+      <div style="display:flex;gap:8px"><input id="ht-datum" type="date" style="${fld};flex:1"><button class="btn btn-p btn-sm" onclick="htNeu(this)"><i class="ti ti-plus"></i>Anlegen</button></div>
+    </div>
+    <div style="font-weight:800;font-size:13px;margin:12px 0 6px">Unsere Turniere</div>
+    ${rows.length?rows.map(t=>`<div style="display:flex;align-items:center;gap:8px;border:var(--border-s);border-left:4px solid #b45309;border-radius:12px;padding:10px 12px;margin-bottom:8px">
+        <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${esc(t.name)}</div>
+        <div style="font-size:11px;color:var(--text2)">${t.datum?new Date(t.datum+"T00:00:00").toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit",year:"numeric"})+" · ":""}${(t.teams||[]).length} Teams</div></div>
+        <button class="btn btn-sm btn-p" onclick="htEdit(${t.id})">Öffnen</button>
+      </div>`).join(""):'<div style="font-size:12px;color:var(--text3)">Noch kein Heimturnier angelegt.</div>'}`;
+}
+async function htNeu(btn){
+  const name=(document.getElementById("ht-name")?.value||"").trim();
+  const datum=document.getElementById("ht-datum")?.value||null;
+  if(!name){toast("Bitte einen Turniernamen eingeben","err");return;}
+  if(btn)btn.disabled=true;
+  try{
+    const body={slug:_htSlug(),name,datum,ort:(typeof VEREIN_ADRESSE!=="undefined"?VEREIN_ADRESSE:"Thurner Kamp 97, 51069 Köln"),
+      config:{felder:1,start:"10:00",spieldauer:12,pause:3,format:"liga"},teams:["SV Adler Dellbrück"]};
+    const r=await fetch(`${SB_URL}/rest/v1/heimturnier`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=representation'},body:JSON.stringify(body)});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht anlegen"),"err");return;}
+    const row=(await r.json())[0];
+    toast("🏆 Turnier angelegt");
+    htEdit(row.id);
+  }catch(e){toast("Netzwerkfehler","err");}
+  finally{if(btn)btn.disabled=false;}
+}
+async function htEdit(id){
+  const el=document.getElementById("ht-body"); if(!el)return;
+  el.innerHTML='<div style="font-size:12px;color:var(--text3)">Lade…</div>';
+  try{const r=await fetch(`${SB_URL}/rest/v1/heimturnier?id=eq.${id}&select=*`,{headers:sbAuthHeaders()});if(r.ok)_HT=((await r.json())||[])[0]||null;}catch(e){}
+  if(!_HT){el.innerHTML='<div style="font-size:12px;color:var(--text3)">Nicht gefunden.</div>';return;}
+  htRender();
+}
+async function htPatch(fields){
+  if(!_HT)return false;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/heimturnier?id=eq.${_HT.id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({...fields,updated_at:new Date().toISOString()})});
+    if(!r.ok&&r.status!==204){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return false;}
+    Object.assign(_HT,fields);
+    return true;
+  }catch(e){toast("Netzwerkfehler","err");return false;}
+}
+function htRender(){
+  const el=document.getElementById("ht-body"); if(!el||!_HT)return;
+  const cfg=_HT.config||{}, teams=_HT.teams||[], plan=_HT.plan||[];
+  const fld="box-sizing:border-box;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text)";
+  const gr=cfg.format==="gruppen"?_htGruppen(_HT):null;
+  const teamZeile=(name,i)=>`<div style="display:flex;align-items:center;gap:6px;padding:2px 0">
+      ${gr?`<span style="font-size:10px;font-weight:800;color:#b45309;width:18px">${gr.A.indexOf(i)>=0?"A":"B"}</span>`:""}
+      <span style="flex:1;font-size:13px">${esc(name)}</span>
+      ${i>0?`<button onclick="htTeamHoch(${i})" aria-label="nach oben" style="min-width:44px;min-height:44px;margin:-8px 0;border:none;background:transparent;color:var(--text3);cursor:pointer"><i class="ti ti-arrow-up"></i></button>`:'<span style="min-width:44px"></span>'}
+      <button onclick="htTeamWeg(${i})" aria-label="Team entfernen" style="min-width:44px;min-height:44px;margin:-8px 0;border:none;background:transparent;color:#dc2626;cursor:pointer"><i class="ti ti-trash"></i></button>
+    </div>`;
+  // Spielplan-Zeilen mit Ergebnis-Steppern (Platzhalter erst nach „Finalrunde füllen" spielbar)
+  const spielZeile=(p,mi)=>{
+    const echt=typeof p.a==="number"&&typeof p.b==="number";
+    const step=(seite,wert)=>`<span style="display:inline-flex;align-items:center;gap:2px">
+      <button onclick="htTor(${mi},'${seite}',-1)" aria-label="Tor zurücknehmen" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-size:15px;cursor:pointer">−</button>
+      <b style="min-width:24px;text-align:center;font-size:16px">${wert==null?"–":wert}</b>
+      <button onclick="htTor(${mi},'${seite}',1)" aria-label="Tor" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-size:15px;cursor:pointer">+</button>
+    </span>`;
+    return `<div style="border:var(--border-s);border-radius:12px;padding:8px 10px;margin-bottom:8px;${p.ta!=null?"opacity:.78;":""}">
+      <div style="font-size:10.5px;color:var(--text2);display:flex;gap:8px"><b>${esc(p.zeit||"")}</b><span>Feld ${p.feld||1}</span><span style="margin-left:auto;color:#b45309;font-weight:700">${esc(p.phase||"")}</span></div>
+      <div style="font-size:13px;font-weight:800;margin-top:2px">${esc(_htName(p.a,teams))} <span style="color:var(--text3);font-weight:400">vs</span> ${esc(_htName(p.b,teams))}</div>
+      ${echt?`<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px">${step("ta",p.ta)}<span style="font-weight:900">:</span>${step("tb",p.tb)}</div>`:'<div style="font-size:11px;color:var(--text3);margin-top:4px">Wird nach der Gruppenphase gefüllt.</div>'}
+    </div>`;
+  };
+  // Tabellen (Festival: bewusst keine)
+  let tabellen="";
+  if(plan.length&&cfg.format!=="festival"){
+    const blocks=cfg.format==="gruppen"
+      ?[["Gruppe A",_htGruppen(_HT).A],["Gruppe B",_htGruppen(_HT).B]]
+      :[["Tabelle",teams.map((_,i)=>i)]];
+    tabellen=blocks.map(([titel,idxs])=>`<div style="font-weight:800;font-size:13px;margin:10px 0 2px">📊 ${titel}</div>`
+      +_htTabelle(plan,idxs,teams).map((z,pl)=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:2px 0">
+        <span style="width:20px">${pl+1}.</span><span style="flex:1">${esc(z.name)}</span>
+        <span style="font-size:10.5px;color:var(--text3)">${z.tore}:${z.geg}</span><b style="min-width:22px;text-align:right">${z.pkt}</b>
+      </div>`).join("")).join("");
+  }
+  const url=_htUrl(_HT.slug);
+  const finalsOffen=cfg.format==="gruppen"&&plan.some(p=>typeof p.a==="string");
+  el.innerHTML=`
+    <button class="btn btn-sm" style="margin-bottom:10px" onclick="htListe()"><i class="ti ti-arrow-left"></i>Alle Turniere</button>
+    <div style="font-size:15px;font-weight:900;margin-bottom:8px">${esc(_HT.name)}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <label style="font-size:11px;color:var(--text2)">Datum<input id="ht-e-datum" type="date" value="${esc(_HT.datum||"")}" style="${fld};width:100%;margin-top:3px"></label>
+      <label style="font-size:11px;color:var(--text2)">Start<input id="ht-e-start" type="time" value="${esc(cfg.start||"10:00")}" style="${fld};width:100%;margin-top:3px"></label>
+      <label style="font-size:11px;color:var(--text2)">Felder<select id="ht-e-felder" style="${fld};width:100%;margin-top:3px"><option value="1"${cfg.felder==1?" selected":""}>1 Feld</option><option value="2"${cfg.felder==2?" selected":""}>2 Felder</option></select></label>
+      <label style="font-size:11px;color:var(--text2)">Format<select id="ht-e-format" style="${fld};width:100%;margin-top:3px">${Object.entries(HT_FORMATE).map(([k,v])=>`<option value="${k}"${cfg.format===k?" selected":""}>${v}</option>`).join("")}</select></label>
+      <label style="font-size:11px;color:var(--text2)">Spielzeit (Min.)<input id="ht-e-dauer" type="number" min="4" max="30" value="${cfg.spieldauer||12}" style="${fld};width:100%;margin-top:3px"></label>
+      <label style="font-size:11px;color:var(--text2)">Pause (Min.)<input id="ht-e-pause" type="number" min="0" max="15" value="${cfg.pause||3}" style="${fld};width:100%;margin-top:3px"></label>
+    </div>
+    <div style="font-weight:800;font-size:13px;margin:10px 0 4px">Teams <span style="font-weight:400;font-size:11px;color:var(--text3)">(${teams.length}${gr?" · erste Hälfte = Gruppe A":""})</span></div>
+    ${teams.map(teamZeile).join("")}
+    <div style="display:flex;gap:6px;margin:6px 0 10px">
+      <input id="ht-team-neu" placeholder="Gast-Team, z. B. FC Musterstadt" style="${fld};flex:1;min-width:0" onkeydown="if(event.key==='Enter')htTeamPlus()">
+      <button class="btn btn-sm" onclick="htTeamPlus()"><i class="ti ti-plus"></i></button>
+    </div>
+    <button class="btn btn-p" style="width:100%" onclick="htGenerieren()"><i class="ti ti-calendar-bolt"></i>${plan.length?"Spielplan NEU erzeugen":"Spielplan erzeugen"}</button>
+    ${plan.length?`
+      <div style="font-weight:800;font-size:13.5px;margin:14px 0 6px">📅 Spielplan</div>
+      ${plan.map(spielZeile).join("")}
+      ${finalsOffen?`<button class="btn btn-sm" style="width:100%" onclick="htFinalsFill()">🏁 Finalrunde aus den Gruppen füllen</button>`:""}
+      ${tabellen}
+      ${cfg.format==="festival"?'<div style="font-size:11.5px;color:#16a34a;margin-top:6px">🦅 Festival-Modus: alle spielen gleich viel, bewusst keine Tabelle (DFB-Kinderfußball).</div>':""}
+      <div style="font-weight:800;font-size:13.5px;margin:14px 0 6px">📤 An die Gast-Trainer</div>
+      <div style="font-size:11px;color:var(--text2);word-break:break-all;background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:8px">${esc(url)}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-p" onclick="htShare()"><i class="ti ti-share"></i>Link teilen</button>
+        <a class="btn btn-sm" href="https://wa.me/?text=${encodeURIComponent("🏆 "+_HT.name+" – Spielplan & Live-Ergebnisse: "+url)}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+        <a class="btn btn-sm" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><i class="ti ti-external-link"></i>Ansicht öffnen</a>
+      </div>
+      <div style="text-align:center;margin-top:10px"><img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}" alt="QR-Code zum Turnierplan" width="180" height="180" style="border-radius:10px;background:#fff;padding:6px"></div>
+    `:""}
+    <button class="btn btn-sm" style="width:100%;margin-top:14px;color:#dc2626" onclick="htDelete()"><i class="ti ti-trash"></i>Turnier löschen</button>`;
+}
+function _htCfgLesen(){
+  return {
+    felder:Number(document.getElementById("ht-e-felder")?.value)||1,
+    start:document.getElementById("ht-e-start")?.value||"10:00",
+    spieldauer:Number(document.getElementById("ht-e-dauer")?.value)||12,
+    pause:Number(document.getElementById("ht-e-pause")?.value)||3,
+    format:document.getElementById("ht-e-format")?.value||"liga"
+  };
+}
+async function htTeamPlus(){
+  const inp=document.getElementById("ht-team-neu");
+  const name=(inp?.value||"").trim(); if(!name)return;
+  if((_HT.teams||[]).some(t=>t.toLowerCase()===name.toLowerCase())){toast("Team ist schon dabei","err");return;}
+  if(await htPatch({teams:[...(_HT.teams||[]),name],config:_htCfgLesen(),datum:document.getElementById("ht-e-datum")?.value||_HT.datum}))htRender();
+}
+async function htTeamWeg(i){
+  const teams=(_HT.teams||[]).slice();
+  if((_HT.plan||[]).length&&!confirm("Team entfernen? Der Spielplan muss danach neu erzeugt werden."))return;
+  teams.splice(i,1);
+  if(await htPatch({teams,plan:[]}))htRender();
+}
+async function htTeamHoch(i){
+  const teams=(_HT.teams||[]).slice();
+  const t=teams.splice(i,1)[0];teams.splice(i-1,0,t);
+  if(await htPatch({teams}))htRender();
+}
+async function htGenerieren(){
+  const teams=_HT.teams||[];
+  if(teams.length<3){toast("Mindestens 3 Teams eintragen","err");return;}
+  const hatErg=(_HT.plan||[]).some(p=>p.ta!=null);
+  if(hatErg&&!confirm("Es gibt schon Ergebnisse – Spielplan wirklich neu erzeugen? Alle Ergebnisse gehen verloren."))return;
+  const cfg=_htCfgLesen();
+  const plan=_htGen(teams,cfg);
+  if(await htPatch({config:cfg,plan,datum:document.getElementById("ht-e-datum")?.value||_HT.datum})){
+    toast("📅 Spielplan steht – "+plan.length+" Spiele");
+    htRender();
+  }
+}
+async function htTor(mi,seite,delta){
+  const plan=(_HT.plan||[]).slice();
+  const p=plan[mi]; if(!p)return;
+  p[seite]=Math.max(0,(p[seite]==null?0:p[seite])+delta);
+  const andere=seite==="ta"?"tb":"ta"; if(p[andere]==null)p[andere]=0;
+  if(await htPatch({plan}))htRender();
+}
+async function htFinalsFill(){
+  const plan=(_HT.plan||[]).slice(), teams=_HT.teams||[];
+  const offenGruppe=plan.some(p=>typeof p.a==="number"&&/^Gruppe/.test(p.phase||"")&&p.ta==null);
+  if(offenGruppe&&!confirm("Noch nicht alle Gruppenspiele haben ein Ergebnis – Finalrunde trotzdem nach aktuellem Stand füllen?"))return;
+  const gr=_htGruppen(_HT);
+  const rangA=_htTabelle(plan.filter(p=>p.phase==="Gruppe A"),gr.A,teams);
+  const rangB=_htTabelle(plan.filter(p=>p.phase==="Gruppe B"),gr.B,teams);
+  const aufloesen=v=>{
+    const m=/^([AB])(\d)$/.exec(String(v)); if(!m)return v;
+    const rang=(m[1]==="A"?rangA:rangB)[Number(m[2])-1];
+    return rang?rang.i:v;
+  };
+  plan.forEach(p=>{if(typeof p.a==="string")p.a=aufloesen(p.a);if(typeof p.b==="string")p.b=aufloesen(p.b);});
+  if(await htPatch({plan})){toast("🏁 Finalrunde gefüllt");htRender();}
+}
+function htShare(){
+  const url=_htUrl(_HT.slug);
+  if(navigator.share){navigator.share({title:_HT.name,text:"🏆 "+_HT.name+" – Spielplan & Live-Ergebnisse",url}).catch(()=>{});return;}
+  try{navigator.clipboard.writeText(url);toast("Link kopiert ✓");}catch(e){prompt("Link kopieren:",url);}
+}
+async function htDelete(){
+  if(!confirm(`„${_HT.name}" samt Spielplan wirklich löschen?`))return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/heimturnier?id=eq.${_HT.id}`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(!r.ok&&r.status!==204){toast("Konnte nicht löschen","err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Gelöscht ✓");
+  htListe();
+}
+/* ── M3: Öffentliche Turnierseite (?turnier=<slug>) – kein Login, nur Teamnamen.
+   Eigenes helles Layout (unabhängig vom App-Theme), Auto-Aktualisierung alle 30 s. ── */
+async function renderHeimturnierView(slug){
+  document.body.style.cssText="margin:0;background:#f1f5f9;font-family:Inter,system-ui,sans-serif;color:#0f172a";
+  const wrap=document.createElement("div");
+  wrap.id="ht-public";
+  wrap.style.cssText="max-width:560px;margin:0 auto;padding:14px 14px 40px";
+  document.body.appendChild(wrap);
+  const laden=async()=>{
+    let row=null;
+    try{const r=await fetch(`${SB_URL}/rest/v1/heimturnier?slug=eq.${encodeURIComponent(slug)}&select=*`,{headers:sbAuthHeaders()});if(r.ok)row=((await r.json())||[])[0]||null;}catch(e){}
+    _htPublicRender(wrap,row);
+  };
+  await laden();
+  setInterval(()=>{if(!document.hidden)laden();},30000);
+}
+function _htPublicRender(wrap,row){
+  if(!row){wrap.innerHTML=`<div style="text-align:center;padding:60px 20px"><div style="font-size:44px">🏆</div><div style="font-weight:800;margin-top:8px">Turnier nicht gefunden</div><div style="font-size:13px;color:#64748b;margin-top:4px">Der Link ist abgelaufen oder falsch – bitte beim Veranstalter nachfragen.</div></div>`;return;}
+  const teams=row.teams||[], plan=row.plan||[], cfg=row.config||{};
+  const dat=row.datum?new Date(row.datum+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"}):"";
+  const zeilen=plan.map(p=>`<tr style="border-top:1px solid #e2e8f0;${p.ta!=null?"background:#f8fafc;":""}">
+      <td style="padding:7px 6px;font-weight:700;white-space:nowrap">${esc(p.zeit||"")}</td>
+      <td style="padding:7px 4px;color:#64748b;white-space:nowrap">F${p.feld||1}</td>
+      <td style="padding:7px 6px">${esc(_htName(p.a,teams))} – ${esc(_htName(p.b,teams))}<div style="font-size:10px;color:#b45309;font-weight:700">${esc(p.phase||"")}</div></td>
+      <td style="padding:7px 6px;text-align:right;font-weight:900;white-space:nowrap">${p.ta!=null?p.ta+" : "+p.tb:"–"}</td>
+    </tr>`).join("");
+  let tabellen="";
+  if(plan.length&&cfg.format!=="festival"){
+    const na=Math.ceil(teams.length/2);
+    const blocks=cfg.format==="gruppen"
+      ?[["Gruppe A",[...Array(na).keys()]],["Gruppe B",[...Array(teams.length-na).keys()].map(i=>i+na)]]
+      :[["Tabelle",teams.map((_,i)=>i)]];
+    tabellen=blocks.map(([titel,idxs])=>`<div style="background:#fff;border-radius:14px;padding:12px 14px;margin-top:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)">
+      <div style="font-weight:800;font-size:14px;margin-bottom:6px">📊 ${titel}</div>
+      ${_htTabelle(plan,idxs,teams).map((z,pl)=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0">
+        <span style="width:22px;color:#64748b">${pl+1}.</span><span style="flex:1;font-weight:600">${esc(z.name)}</span>
+        <span style="font-size:11px;color:#94a3b8">${z.sp} Sp. · ${z.tore}:${z.geg}</span><b style="min-width:24px;text-align:right">${z.pkt}</b>
+      </div>`).join("")}
+    </div>`).join("");
+  }else if(plan.length){
+    tabellen=`<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:14px;padding:12px 14px;margin-top:12px;font-size:13px;color:#065f46">🦅 Festival-Turnier: Alle spielen gleich viel – auf eine Tabelle verzichten wir bewusst (Kinderfußball!).</div>`;
+  }
+  wrap.innerHTML=`
+    <div style="background:linear-gradient(135deg,#1e3a8a,#b45309);border-radius:16px;padding:18px 16px;color:#fff;text-align:center">
+      <div style="font-size:36px">🏆</div>
+      <div style="font-size:20px;font-weight:900;margin-top:4px">${esc(row.name)}</div>
+      <div style="font-size:12.5px;opacity:.9;margin-top:4px">${esc(dat)}${row.ort?" · "+esc(row.ort):""}</div>
+      <div style="font-size:11px;opacity:.75;margin-top:6px">Veranstalter: SV Adler Dellbrück U9 · Ergebnisse live</div>
+    </div>
+    ${plan.length?`<div style="background:#fff;border-radius:14px;padding:8px 4px;margin-top:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">${zeilen}</table>
+    </div>`:'<div style="background:#fff;border-radius:14px;padding:20px;margin-top:12px;text-align:center;color:#64748b;font-size:13px">Der Spielplan wird gerade erstellt – gleich nochmal schauen.</div>'}
+    ${tabellen}
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="location.reload()" style="flex:1;min-height:44px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🔄 Aktualisieren</button>
+      <button onclick="window.print()" style="flex:1;min-height:44px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🖨️ Drucken</button>
+    </div>
+    <div style="text-align:center;font-size:10.5px;color:#94a3b8;margin-top:10px">Aktualisiert sich automatisch · Stand ${new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})} Uhr</div>`;
+}

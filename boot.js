@@ -801,7 +801,7 @@ function tpRenderTimeline(){
   const allForms=tpAllForms();
   let time=0;
   // F5: Stationstimer + G3: Anwesenheits-Prognose (async gefüllt).
-  let html='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span id="tp-prognose"></span><button class="btn btn-p btn-sm" onclick="stTimerStart()" title="Stationen am Platz mit Countdown durchlaufen">⏱️ Stationstimer</button></div><div id="ziel-uebungen-hint"></div>';
+  let html='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span id="tp-prognose"></span><span style="display:flex;gap:6px"><button class="btn btn-sm" onclick="blitzOpen()" title="Schnelles Turnier zum Trainingsabschluss – Teams automatisch oder von Hand (auch Eltern-Team)">⚡ Blitzturnier</button><button class="btn btn-p btn-sm" onclick="stTimerStart()" title="Stationen am Platz mit Countdown durchlaufen">⏱️ Stationstimer</button></span></div><div id="ziel-uebungen-hint"></div>';
   tpSlots.forEach((slot,si)=>{
     const startMin=time;
     const endMin=time+slot.dauer;
@@ -1143,6 +1143,16 @@ async function pinCheck(){
     document.getElementById("pin-gate")?.remove();
     document.getElementById("main-app")?.remove();
     renderHandoverView();
+    return;
+  }
+  // M3: Öffentliche Heimturnier-Seite (?turnier=<slug>) – für Gast-Trainer, kein Login.
+  // Enthält nur Teamnamen + Spielplan (keine Kindernamen), deshalb anonym lesbar.
+  if(params.has("turnier")){
+    document.title="Turnierplan – SV Adler Dellbrück U9";
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#b45309");
+    document.getElementById("pin-gate")?.remove();
+    document.getElementById("main-app")?.remove();
+    renderHeimturnierView(params.get("turnier")||"");
     return;
   }
   // Digitales Stadionheft: Nur-Ansehen fuer alle Eltern (?heft), kein Login. Namen maskiert, Fotos nur bei Einwilligung.

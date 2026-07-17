@@ -3117,12 +3117,14 @@ const HELP=[
     {t:"Planung", d:"Zeitplan bauen, Übungen zuweisen, danach bewerten.", go:"planung"},
     {t:"Einheit bewerten", d:"Schnell-Sterne: Spaß, Umsetzung, Erfolg.", run:"einheitBewertenOpen()"},
     {t:"Trainingsformen", d:"Bibliothek + Filter · „Auto-Plan\" baut eine Einheit · KI-Coach · Saison-Periodisierung.", go:"formen"},
+    {t:"Blitzturnier", d:"Schnelles Turnier zum Trainingsabschluss: Teams automatisch (per Tipp verschiebbar) oder von Hand (z. B. Eltern), Rundenzeit mit Pfiff, Punktetafel, Sieger mit Konfetti.", run:"blitzOpen()"},
   ]},
   {cat:"⚽ Spieltag", items:[
     {t:"Match", d:"Nominierung, Match-Uhr, Live-Aktionen, Rotations-Timer für faire Zeiten.", go:"spieltag"},
     {t:"Aufstellung", d:"Auto-Aufstellung mit fairen Einsatzzeiten.", go:"kombi"},
     {t:"Analyse", d:"Auswertung nach dem Spiel.", go:"analyse"},
     {t:"Taktikboard", d:"Formationen stellen, Laufwege/Pässe zeichnen, als Bild teilen.", go:"taktik"},
+    {t:"Heimturnier ausrichten", d:"Eigenes Turnier: Teams, Format (Liga, 2 Gruppen + Platzierungsspiele, Festival ohne Tabelle), Spielplan-Generator, Live-Ergebnisse – Link/QR geht ohne Login an die Gast-Trainer.", run:"htOpen()"},
   ]},
   {cat:"🪶 Adler-Welt (Kids)", items:[
     {t:"Adler-Welt-Hub", d:"Federn je Kind, FUT-Karten, Technik-Abzeichen und Wochen-Challenge an einem Ort.", run:"adlerWeltOpen()"},
@@ -3543,6 +3545,7 @@ async function renderHome(){
       ${homeTool("🗓️ Trainer-Meeting","trainerMeetingOpen()")}
       ${homeTool("🗣️ Elterngespräch","epollTrainerOpen()")}
       ${homeTool("🎉 Event-Mitbringliste","mitbringTrainerOpen()")}
+      ${homeTool("🏆 Heimturnier","htOpen()")}
       ${homeTool("💰 Teamkasse","kasseOpen()")}
       ${homeTool("👕 Team-Ausrüstung","ausruestungGrid()")}
       ${homeTool("🧦 Fundbüro","fundbueroOpen()")}
