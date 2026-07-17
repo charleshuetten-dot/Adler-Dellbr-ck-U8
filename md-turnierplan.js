@@ -938,6 +938,22 @@ function htRender(){
       <div style="text-align:center;margin-top:10px"><img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}" alt="QR-Code zum Turnierplan" width="180" height="180" style="border-radius:10px;background:#fff;padding:6px"></div>
       <div style="font-size:11px;color:var(--text2);margin-top:12px">✏️ <b>Helfer-Link</b> – wie der Zuschauer-Link, aber mit Schreib-Code: wer ihn hat (z. B. der Anzeigetisch), darf Ergebnisse eintragen, sonst nichts.</div>
       <button class="btn btn-sm" style="margin-top:4px" onclick="htShareHelfer()"><i class="ti ti-pencil"></i>Helfer-Link teilen</button>
+      <div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">📣 Live-Durchsage</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Erscheint groß auf der öffentlichen Seite und im Monitor-Modus – z. B. wenn sich der Plan schiebt.</div>
+      ${cfg.durchsage?`<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:8px 10px;font-size:12.5px;margin-bottom:6px">📣 <b>${esc(cfg.durchsage)}</b> <span style="color:var(--text3);font-size:10.5px">(${esc(cfg.durchsage_um||"")} Uhr)</span></div>`:""}
+      <div style="display:flex;gap:6px">
+        <input id="ht-durchsage" placeholder="z. B. Siegerehrung 13:30 am Vereinsheim" style="${fld};flex:1;min-width:0" onkeydown="if(event.key==='Enter')htDurchsage()">
+        <button class="btn btn-sm btn-p" onclick="htDurchsage()"><i class="ti ti-speakerphone"></i>Senden</button>
+      </div>
+      ${cfg.durchsage?`<button class="btn btn-sm" style="margin-top:6px" onclick="htDurchsage(true)">Durchsage beenden</button>`:""}
+      <div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🤝 Fair-Play-Pokal</div>
+      <select id="ht-fairplay" onchange="htFairplay(this.value)" style="${fld};width:100%"><option value="">– noch nicht vergeben –</option>${teams.map((t,i)=>`<option value="${i}"${cfg.fairplay==i?" selected":""}>${esc(t)}</option>`).join("")}</select>
+      <div style="font-size:10.5px;color:var(--text3);margin-top:4px">Das fairste Team des Turniers – erscheint auf der öffentlichen Seite und bekommt eine eigene Urkunde.</div>
+      <div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🖨️ Drucken</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm" onclick="htFeldDruck()">🖨️ Feld-Aushänge (je Feld eine Seite)</button>
+        <button class="btn btn-sm" onclick="htUrkundenDruck()">🏅 Team-Urkunden (alle Teams)</button>
+      </div>
     `:""}
     <button class="btn btn-sm" style="width:100%;margin-top:14px;color:#dc2626" onclick="htDelete()"><i class="ti ti-trash"></i>Turnier löschen</button>`;
 }
@@ -945,7 +961,8 @@ function htRender(){
 function htRenderCfg(){ Object.assign(_HT.config,_htCfgLesen()); htRender(); }
 function _htCfgLesen(){
   const alt=_HT&&_HT.config||{};
-  return {
+  // Spread zuerst: unbekannte Schlüssel (durchsage, fairplay …) überleben jedes Speichern
+  return {...alt,
     felder:Number(document.getElementById("ht-e-felder")?.value)||alt.felder||1,
     start:document.getElementById("ht-e-start")?.value||alt.start||"10:00",
     spieldauer:Number(document.getElementById("ht-e-dauer")?.value)||alt.spieldauer||12,
@@ -1078,6 +1095,115 @@ async function htShift(delta){
     htRender();
   }
 }
+/* Live-Durchsage: kurze Nachricht, die groß auf der öffentlichen Seite und im
+   Monitor-Modus erscheint (Auto-Refresh trägt sie in <30 s zu allen). */
+async function htDurchsage(beenden){
+  const cfg=_htCfgLesen();
+  if(beenden){cfg.durchsage="";cfg.durchsage_um="";}
+  else{
+    const txt=(document.getElementById("ht-durchsage")?.value||"").trim();
+    if(!txt){toast("Bitte erst den Text eingeben","err");return;}
+    cfg.durchsage=txt;
+    cfg.durchsage_um=new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+  }
+  if(await htPatch({config:cfg})){
+    toast(beenden?"Durchsage beendet":"📣 Durchsage ist draußen – erscheint bei allen in unter 30 Sekunden");
+    htRender();
+  }
+}
+async function htFairplay(v){
+  const cfg=_htCfgLesen();
+  cfg.fairplay=(v===""?null:Number(v));
+  if(await htPatch({config:cfg}))toast(v===""?"Fair-Play-Pokal zurückgenommen":"🤝 Fair-Play-Pokal vergeben");
+}
+/* Endstand aus den Platzierungsspielen (Finale = 1/2, Spiel um Platz N = N/N+1);
+   Liga füllt aus der Tabelle auf. Wer kein Platzierungsspiel hatte (3./4. Gruppen,
+   Festival), bleibt ohne Nummer und bekommt eine Teilnahme-Urkunde. */
+function _htEndstand(row){
+  const teams=row.teams||[], plan=row.plan||[], cfg=row.config||{};
+  const platz={};
+  if(cfg.format!=="festival"){
+    plan.forEach(p=>{
+      if(typeof p.a!=="number"||typeof p.b!=="number"||p.ta==null||p.tb==null||p.ta===p.tb)return;
+      let basis=null;
+      if(p.phase==="Finale")basis=1;
+      else{const m=/^Spiel um Platz (\d+)$/.exec(p.phase||"");if(m)basis=Number(m[1]);}
+      if(basis==null)return;
+      const w=p.ta>p.tb?p.a:p.b, l=p.ta>p.tb?p.b:p.a;
+      platz[w]=basis; platz[l]=basis+1;
+    });
+    if(cfg.format==="liga"){
+      _htTabelle(plan,teams.map((_,i)=>i),teams).forEach((z,i)=>{if(platz[z.i]==null)platz[z.i]=i+1;});
+    }
+  }
+  const nummeriert=teams.map((_,i)=>i).filter(i=>platz[i]!=null).sort((a,b)=>platz[a]-platz[b]);
+  const rest=teams.map((_,i)=>i).filter(i=>platz[i]==null);
+  return {platz,nummeriert,rest};
+}
+// Druck über ein unsichtbares iframe: kein Popup-Blocker, App bleibt unangetastet
+function _htDruck(html,titel,css){
+  const f=document.createElement("iframe");
+  f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+  document.body.appendChild(f);
+  const d=f.contentDocument;
+  d.open();
+  d.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(titel)}</title><style>${css}</style></head><body>${html}</body></html>`);
+  d.close();
+  setTimeout(()=>{try{f.contentWindow.focus();f.contentWindow.print();}catch(e){}},350);
+  setTimeout(()=>f.remove(),60000);
+}
+function htUrkundenDruck(){
+  const teams=_HT.teams||[], cfg=_HT.config||{};
+  if(!teams.length){toast("Erst Teams eintragen","err");return;}
+  const {platz,nummeriert,rest}=_htEndstand(_HT);
+  const datum=_HT.datum?new Date(_HT.datum+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"long",year:"numeric"}):"";
+  const seite=(team,zeile)=>`<div class="seite"><div class="rahmen">
+      <div style="font-size:54px">🏆</div>
+      <div class="t1">URKUNDE</div>
+      <div class="t2">${esc(_HT.name)}</div>
+      <div class="team">${esc(team)}</div>
+      <div class="platz">${zeile}</div>
+      <div class="fuss">${esc(datum)}${datum?" · ":""}SV Adler Dellbrück U9 · Fairness zuerst 🦅</div>
+    </div></div>`;
+  let html="";
+  nummeriert.forEach(i=>{const p=platz[i];html+=seite(teams[i],p===1?"🥇 1. Platz":p===2?"🥈 2. Platz":p===3?"🥉 3. Platz":p+". Platz");});
+  rest.forEach(i=>{html+=seite(teams[i],cfg.format==="festival"?"⚽ Starke Leistung beim Festival":"⚽ Starke Teilnahme");});
+  if(cfg.fairplay!=null&&teams[cfg.fairplay])html+=seite(teams[cfg.fairplay],"🤝 Fair-Play-Pokal – das fairste Team des Turniers");
+  const css=`body{font-family:Georgia,'Times New Roman',serif;margin:0}
+    .seite{page-break-after:always;display:flex;align-items:center;justify-content:center;min-height:96vh}
+    .rahmen{border:6px double #b45309;border-radius:14px;padding:56px 40px;text-align:center;width:82%}
+    .t1{font-size:34px;font-weight:700;letter-spacing:8px;color:#b45309;margin-top:8px}
+    .t2{font-size:16px;color:#555;margin-top:10px}
+    .team{font-size:38px;font-weight:700;margin:26px 0 10px}
+    .platz{font-size:22px;color:#1e3a8a;font-weight:700}
+    .fuss{font-size:12px;color:#777;margin-top:40px}`;
+  _htDruck(html,"Team-Urkunden "+_HT.name,css);
+  toast("🏅 "+(nummeriert.length+rest.length+((cfg.fairplay!=null&&teams[cfg.fairplay])?1:0))+" Urkunden im Druckdialog");
+}
+function htFeldDruck(){
+  const teams=_HT.teams||[], plan=_HT.plan||[], cfg=_HT.config||{};
+  if(!plan.length){toast("Erst den Spielplan erzeugen","err");return;}
+  const felder=[...new Set(plan.map(p=>p.feld||1))].sort((a,b)=>a-b);
+  const html=felder.map(f=>`<div class="seite">
+      <h1>🏆 ${esc(_HT.name)} · Feld ${f}</h1>
+      <table><tr><th>Zeit</th><th>Runde</th><th>Begegnung</th><th class="erg">Ergebnis</th></tr>
+      ${plan.filter(p=>(p.feld||1)===f).map(p=>`<tr><td class="z">${esc(p.zeit||"")}</td><td class="ph">${esc(p.phase||"")}</td><td>${esc(_htName(p.a,teams))} – ${esc(_htName(p.b,teams))}</td><td class="erg">${p.ta!=null?p.ta+" : "+p.tb:""}</td></tr>`).join("")}
+      </table>
+      <div class="fuss">Spielzeit ${cfg.spieldauer||"?"} Min.${HT_SPIELFORM[cfg.spielform]?" · "+HT_SPIELFORM[cfg.spielform]:""} · SV Adler Dellbrück U9</div>
+    </div>`).join("");
+  const css=`body{font-family:Inter,Arial,sans-serif;margin:0;padding:24px}
+    .seite{page-break-after:always}
+    h1{font-size:26px;margin:0 0 14px}
+    table{width:100%;border-collapse:collapse;font-size:18px}
+    th{text-align:left;font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#666;padding:6px 8px;border-bottom:2px solid #333}
+    td{padding:10px 8px;border-bottom:1px solid #ccc}
+    .z{font-weight:700;white-space:nowrap}
+    .ph{color:#b45309;font-size:14px;white-space:nowrap}
+    .erg{min-width:110px;font-weight:700}
+    .fuss{font-size:12px;color:#777;margin-top:16px}`;
+  _htDruck(html,"Feld-Aushänge "+_HT.name,css);
+  toast("🖨️ "+felder.length+" Feld-Aushänge im Druckdialog");
+}
 async function htDelete(){
   if(!confirm(`„${_HT.name}" samt Spielplan wirklich löschen?`))return;
   try{
@@ -1152,7 +1278,9 @@ function _htPublicRender(wrap,row){
   const teams=row.teams||[], plan=row.plan||[], cfg=row.config||{};
   const dat=row.datum?new Date(row.datum+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"}):"";
   const helfer=!!(_htPub&&_htPub.code);
+  const filter=(_htPub&&_htPub.filter!=null)?_htPub.filter:null;
   const zeilen=plan.map((p,mi)=>{
+    if(filter!=null&&p.a!==filter&&p.b!==filter)return "";
     const echt=typeof p.a==="number"&&typeof p.b==="number";
     const erg=p.ta!=null?p.ta+" : "+p.tb:"–";
     const ergZelle=(helfer&&echt)
@@ -1189,6 +1317,11 @@ function _htPublicRender(wrap,row){
       <div style="font-size:11px;opacity:.75;margin-top:6px">Veranstalter: SV Adler Dellbrück U9 · Ergebnisse live</div>
     </div>
     ${helfer?'<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:10px 12px;margin-top:10px;font-size:13px;color:#065f46;font-weight:700">✏️ Helfer-Modus: Ergebnis antippen und eintragen – mehr geht mit diesem Link nicht.</div>':""}
+    ${cfg.durchsage?`<div style="background:#fffbeb;border:2px solid #f59e0b;border-radius:12px;padding:12px 14px;margin-top:10px;font-size:14.5px;color:#78350f;font-weight:800">📣 ${esc(cfg.durchsage)} <span style="font-weight:400;font-size:11px;color:#b45309">(Durchsage ${esc(cfg.durchsage_um||"")} Uhr)</span></div>`:""}
+    ${plan.length?`<div style="display:flex;gap:6px;overflow-x:auto;padding:12px 2px 2px;-webkit-overflow-scrolling:touch">
+      <button onclick="htPubFilter(null)" style="flex:none;min-height:44px;padding:6px 14px;border-radius:20px;border:1px solid ${filter==null?"#1e3a8a":"#cbd5e1"};background:${filter==null?"#1e3a8a":"#fff"};color:${filter==null?"#fff":"#334155"};font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">Alle</button>
+      ${teams.map((t,i)=>`<button onclick="htPubFilter(${i})" style="flex:none;min-height:44px;padding:6px 14px;border-radius:20px;border:1px solid ${filter===i?"#1e3a8a":"#cbd5e1"};background:${filter===i?"#1e3a8a":"#fff"};color:${filter===i?"#fff":"#334155"};font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">${esc(t)}</button>`).join("")}
+    </div>${filter!=null?_htPubCountdown(row,filter):""}`:""}
     ${plan.length?`<div style="background:#fff;border-radius:14px;padding:8px 4px;margin-top:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:13px">${zeilen}</table>
     </div>`:'<div style="background:#fff;border-radius:14px;padding:20px;margin-top:12px;text-align:center;color:#64748b;font-size:13px">Der Spielplan wird gerade erstellt – gleich nochmal schauen.</div>'}
@@ -1201,9 +1334,82 @@ function _htPublicRender(wrap,row){
       <div style="font-weight:800;font-size:14px;margin-bottom:6px">ℹ️ Infos für die Gastvereine</div>
       <div style="font-size:13px;line-height:1.55;white-space:pre-wrap;color:#334155">${esc(cfg.infos)}</div>
     </div>`:""}
+    ${cfg.fairplay!=null&&teams[cfg.fairplay]!=null?`<div style="background:#ecfdf5;border:2px solid #34d399;border-radius:14px;padding:12px 14px;margin-top:12px;font-size:14px;color:#065f46"><b>🤝 Fair-Play-Pokal: ${esc(teams[cfg.fairplay])}</b><div style="font-size:12px;margin-top:2px">Das fairste Team des Turniers – Glückwunsch!</div></div>`:""}
     <div style="display:flex;gap:8px;margin-top:14px">
       <button onclick="location.reload()" style="flex:1;min-height:44px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🔄 Aktualisieren</button>
+      <button onclick="htPubMonitor()" style="flex:1;min-height:44px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📺 Monitor</button>
       <button onclick="window.print()" style="flex:1;min-height:44px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🖨️ Drucken</button>
     </div>
     <div style="text-align:center;font-size:10.5px;color:#94a3b8;margin-top:10px">Aktualisiert sich automatisch · Stand ${new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})} Uhr</div>`;
+}
+
+/* Team-Filter auf der öffentlichen Seite: Gast-Trainer tippt sein Team an und sieht nur
+   die eigenen Spiele plus einen Countdown zum nächsten Anpfiff. Rein clientseitig. */
+function htPubFilter(i){
+  if(!_htPub)return;
+  _htPub.filter=(i==null||_htPub.filter===i)?null:i;
+  _htPublicRender(_htPub.wrap,_htPub.row);
+}
+function _htPubCountdown(row,teamIdx){
+  const plan=row.plan||[], teams=row.teams||[];
+  const d=new Date(), jetzt=d.getHours()*60+d.getMinutes();
+  const startMin=z=>{const[a,b]=(z||"0:0").split(":").map(Number);return a*60+b;};
+  const naechste=plan.filter(p=>(p.a===teamIdx||p.b===teamIdx)&&p.ta==null&&startMin(p.zeit)>=jetzt)
+    .sort((a,b)=>startMin(a.zeit)-startMin(b.zeit))[0];
+  if(!naechste)return `<div style="background:#fff;border-radius:12px;padding:10px 14px;margin-top:8px;font-size:13px;color:#64748b;box-shadow:0 1px 3px rgba(0,0,0,.08)">🏁 Keine weiteren Spiele für ${esc(teams[teamIdx]||"?")} – danke fürs Mitspielen!</div>`;
+  const inMin=startMin(naechste.zeit)-jetzt;
+  const gegner=naechste.a===teamIdx?naechste.b:naechste.a;
+  return `<div style="background:#1e3a8a;color:#fff;border-radius:12px;padding:10px 14px;margin-top:8px;font-size:13.5px;font-weight:700">⏱️ Nächstes Spiel: ${esc(naechste.zeit)} auf Feld ${naechste.feld||1} gegen ${esc(_htName(gegner,teams))}${inMin>0?` – <b>in ${inMin} Min.</b>`:" – <b>jetzt!</b>"}</div>`;
+}
+/* Monitor-Modus: Vollbild-Anzeigetafel fürs Vereinsheim/Tablet – wechselt alle 10 s
+   zwischen „Jetzt läuft / Gleich dran" und den Tabellen; Uhr tickt sekündlich,
+   die Daten kommen aus dem normalen 30-s-Auto-Refresh der Seite. */
+let _htMon=null;
+function htPubMonitor(){
+  document.getElementById("htpub-monitor")?.remove();
+  const ov=document.createElement("div");ov.id="htpub-monitor";
+  ov.style.cssText="position:fixed;inset:0;background:#0b1730;color:#fff;z-index:2000;padding:3vmin;overflow:hidden;font-family:Inter,system-ui,sans-serif";
+  document.body.appendChild(ov);
+  _htMon={screen:0,timer:setInterval(_htMonRender,1000),flip:setInterval(()=>{if(_htMon)_htMon.screen=1-_htMon.screen;},10000)};
+  try{if(typeof requestWakeLock==="function")requestWakeLock();}catch(e){}
+  try{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();}catch(e){}
+  _htMonRender();
+}
+function htPubMonitorStop(){
+  if(_htMon){clearInterval(_htMon.timer);clearInterval(_htMon.flip);}
+  _htMon=null;
+  document.getElementById("htpub-monitor")?.remove();
+  try{document.exitFullscreen&&document.fullscreenElement&&document.exitFullscreen();}catch(e){}
+  try{if(typeof releaseWakeLock==="function")releaseWakeLock();}catch(e){}
+}
+function _htMonRender(){
+  const ov=document.getElementById("htpub-monitor"); if(!ov||!_htMon)return;
+  const row=_htPub&&_htPub.row;
+  if(!row){ov.innerHTML='<div style="padding:8vmin;text-align:center;font-size:4vmin">Lade…</div>';return;}
+  const teams=row.teams||[], plan=row.plan||[], cfg=row.config||{};
+  const d=new Date(), jetzt=d.getHours()*60+d.getMinutes();
+  const uhr=d.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  const startMin=z=>{const[a,b]=(z||"0:0").split(":").map(Number);return a*60+b;};
+  const dauer=Math.max(1,Number(cfg.spieldauer)||10);
+  const live=plan.filter(p=>{const s=startMin(p.zeit);return s<=jetzt&&jetzt<s+dauer;});
+  const next=plan.filter(p=>startMin(p.zeit)>jetzt).slice(0,4);
+  const spiel=p=>`<div style="display:flex;align-items:center;gap:2vmin;font-size:4vmin;font-weight:800;padding:1vmin 0"><span style="opacity:.65;font-size:2.8vmin;min-width:14vmin;white-space:nowrap">${esc(p.zeit||"")} · F${p.feld||1}</span><span style="flex:1;min-width:0">${esc(_htName(p.a,teams))} <span style="opacity:.5">vs</span> ${esc(_htName(p.b,teams))}</span><span style="font-size:5vmin;font-weight:900">${p.ta!=null?p.ta+":"+p.tb:""}</span></div>`;
+  let inhalt="";
+  if(cfg.format!=="festival"&&_htMon.screen===1&&plan.length){
+    const blocks=cfg.format==="gruppen"?_htGruppenN(row).map((idxs,g)=>["Gruppe "+HT_GRLABEL[g],idxs]):[["Tabelle",teams.map((_,i)=>i)]];
+    inhalt=`<div style="display:flex;gap:4vmin;flex-wrap:wrap">${blocks.map(([t,idxs])=>`<div style="flex:1;min-width:34vmin"><div style="font-size:3.2vmin;font-weight:900;opacity:.75;margin-bottom:1vmin">📊 ${t}</div>${_htTabelle(plan,idxs,teams).map((z,pl)=>`<div style="display:flex;gap:1.5vmin;font-size:3.2vmin;padding:.5vmin 0"><span style="opacity:.55;min-width:4vmin">${pl+1}.</span><span style="flex:1;min-width:0">${esc(z.name)}</span><span style="opacity:.55;font-size:2.6vmin">${z.tore}:${z.geg}</span><b style="min-width:5vmin;text-align:right">${z.pkt}</b></div>`).join("")}</div>`).join("")}</div>`;
+  }else{
+    const fertig=!live.length&&!next.length&&plan.length&&plan.every(p=>typeof p.a!=="number"||p.ta!=null||startMin(p.zeit)<jetzt);
+    inhalt=(live.length?`<div style="font-size:2.8vmin;font-weight:900;color:#4ade80;letter-spacing:.4vmin">● JETZT LÄUFT</div>${live.map(spiel).join("")}`:"")
+      +(next.length?`<div style="font-size:2.8vmin;font-weight:900;color:#fbbf24;letter-spacing:.4vmin;margin-top:2.5vmin">⏭ GLEICH DRAN</div>${next.map(spiel).join("")}`:"")
+      +((!live.length&&!next.length)?`<div style="font-size:5vmin;font-weight:900;text-align:center;margin-top:8vmin">${fertig?"🏁 Alle Spiele gespielt – Siegerehrung! 🦅":"🦅 Gleich geht es los!"}</div>${cfg.fairplay!=null&&teams[cfg.fairplay]?`<div style="font-size:3.4vmin;text-align:center;margin-top:2vmin">🤝 Fair-Play-Pokal: <b>${esc(teams[cfg.fairplay])}</b></div>`:""}`:"");
+  }
+  ov.innerHTML=`<div style="display:flex;align-items:center;gap:2vmin">
+      <span style="font-size:4vmin">🏆</span>
+      <span style="font-size:3.4vmin;font-weight:900;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(row.name)}</span>
+      <span style="font-size:4.4vmin;font-weight:900;font-variant-numeric:tabular-nums">${uhr}</span>
+      <button onclick="htPubMonitorStop()" aria-label="Monitor beenden" style="min-width:44px;min-height:44px;border:none;background:rgba(255,255,255,.14);color:#fff;border-radius:10px;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    ${cfg.durchsage?`<div style="background:#f59e0b;color:#0b1730;border-radius:1.5vmin;padding:1.5vmin 2vmin;font-size:3.2vmin;font-weight:900;margin-top:1.5vmin">📣 ${esc(cfg.durchsage)}</div>`:""}
+    <div style="margin-top:2.5vmin">${inhalt}</div>`;
 }
