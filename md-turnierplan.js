@@ -662,53 +662,97 @@ function _blzTimerRender(){
 }
 function blzTimerStop(){if(_blzT&&_blzT.timer)clearInterval(_blzT.timer);_blzT=null;document.getElementById("blz-timer")?.remove();try{if(typeof releaseWakeLock==="function")releaseWakeLock();}catch(e){}}
 
+
 /* ═══════════════════════════════════
-   M2/M3: HEIMTURNIER – wir richten selbst aus. Kern bewusst schlank: Teams, Format,
-   Spielplan-Generator, Live-Ergebnisse. Der Plan geht per öffentlichem Link
-   (?turnier=<slug>) ohne Login an die Gast-Trainer – die Tabelle enthält NUR Teamnamen,
-   nie Kindernamen. Formate: Liga (jeder gegen jeden), 2 Gruppen + Platzierungsspiele,
-   Festival (DFB-Kinderfußball: alle spielen, keine Tabelle).
+   M2/M3: HEIMTURNIER – wir richten selbst aus. Teams direkt aus der Gegner-DB (Vereine
+   dürfen mehrere Mannschaften stellen → automatische „2"/„3"-Nummerierung), 2–4 Gruppen
+   je nach Meldezahl, 1–4 Felder parallel, Spielform (FUNiño, 4+1, 5+1 …) mit hinterlegtem,
+   anpassbarem Regelwerk. Der Plan geht per öffentlichem Link (?turnier=<slug>) ohne Login
+   an die Gast-Trainer – er enthält NUR Teamnamen, nie Kindernamen.
+   Formate: Liga (jeder gegen jeden), Gruppen + Finalrunde, Festival (keine Tabelle).
 ═══════════════════════════════════ */
 let _HT=null;
 function _htSlug(){ return Math.random().toString(36).slice(2,8)+Math.random().toString(36).slice(2,6); }
 function _htUrl(slug){ return appRoot()+"?turnier="+encodeURIComponent(slug); }
-const HT_FORMATE={liga:"Liga – jeder gegen jeden",gruppen:"2 Gruppen + Platzierungsspiele",festival:"Festival – alle spielen, keine Tabelle"};
-// Platzhalter der Finalrunde ("A1" = Erster Gruppe A) lesbar machen
+const HT_FORMATE={liga:"Liga – jeder gegen jeden",gruppen:"Gruppen + Finalrunde",festival:"Festival – alle spielen, keine Tabelle"};
+const HT_SPIELFORM={funino:"FUNiño (3 gegen 3)",f4:"4+1",f5:"5+1",f6:"6+1",f7:"7 gegen 7",frei:"eigene Spielform"};
+/* Regel-Vorlagen je Spielform – bewusst als VORLAGE beschriftet, der Trainer passt sie an
+   die eigene Ausschreibung/Kreis-Vorgaben an (die Details sind regional unterschiedlich). */
+const HT_REGELN={
+  funino:"FUNiño – 3 gegen 3 (Vorlage, bitte an eure Ausschreibung anpassen)\n• 3 gegen 3 auf vier Minitore, ohne Torwart\n• Tore zählen nur aus der Schusszone vor den Toren\n• Eindribbeln statt Einwurf, Ecke und Abstoß\n• Nach jedem Tor und in festen Abständen wird gewechselt – alle spielen gleich viel\n• Ohne Schiedsrichter: die Kinder entscheiden selbst, die Trainer begleiten\n• Fair-Play-Regel: Zuschauer feuern an, coachen nicht",
+  f4:"4+1 (Vorlage, bitte an eure Ausschreibung anpassen)\n• 4 Feldspieler + Torwart, fliegender Wechsel\n• Kein Abseits\n• Eindribbeln oder Einpassen statt Einwurf\n• Abstoß und Freistoß: Gegner mindestens 3 m Abstand\n• Torwart darf den Rückpass aufnehmen\n• Fair-Play-Liga: ohne Schiedsrichter, die Trainer begleiten das Spiel\n• Zuschauerzone mit Abstand zum Spielfeld – anfeuern ja, coachen nein",
+  f5:"5+1 (Vorlage, bitte an eure Ausschreibung anpassen)\n• 5 Feldspieler + Torwart, fliegender Wechsel\n• Kein Abseits\n• Einwurf oder Eindribbeln (je nach Ausschreibung)\n• Freistöße indirekt, Gegner mindestens 3 m Abstand\n• Fair-Play-Liga: ohne Schiedsrichter, die Trainer begleiten das Spiel\n• Zuschauerzone mit Abstand zum Spielfeld – anfeuern ja, coachen nein",
+  f6:"6+1 (Vorlage, bitte an eure Ausschreibung anpassen)\n• 6 Feldspieler + Torwart, fliegender Wechsel\n• Kein Abseits\n• Einwurf regulär\n• Freistöße indirekt, Gegner mindestens 3 m Abstand\n• Spielbegleiter statt Schiedsrichter (je nach Ausschreibung)",
+  f7:"7 gegen 7 (Vorlage, bitte an eure Ausschreibung anpassen)\n• 6 Feldspieler + Torwart, fliegender Wechsel\n• Abseits je nach Kreis-Ausschreibung\n• Einwurf regulär, Freistöße nach Ausschreibung\n• Schiedsrichter oder Spielbegleiter je nach Turnierordnung",
+  frei:"Eigene Spielform – Regeln hier eintragen."
+};
+const HT_INFOS_VORLAGE="📍 Treffpunkt: Thurner Kamp 97, 51069 Köln\n⏰ Bitte 30 Minuten vor dem ersten Spiel da sein\n🅿️ Parken: \n🚻 Kabinen/WC: \n🥤 Büdchen mit Kaffee, Kaltgetränken und Kuchen vor Ort\n📞 Turnierleitung: ";
+const HT_GRLABEL=["A","B","C","D"];
+// Platzhalter der Finalrunde lesbar machen ("A1" = Erster Gruppe A, "S|Halbfinale 1" = Sieger HF 1 …)
 function _htName(v,teams){
   if(typeof v==="number")return teams[v]||"?";
-  const m=/^([AB])(\d)$/.exec(String(v));
-  return m?`${m[2]}. Gruppe ${m[1]}`:String(v);
+  const s=String(v);
+  let m=/^([A-D])(\d+)$/.exec(s); if(m)return `${m[2]}. Gruppe ${m[1]}`;
+  m=/^S\|(.+)$/.exec(s); if(m)return "Sieger "+m[1];
+  m=/^V\|(.+)$/.exec(s); if(m)return "Verlierer "+m[1];
+  if(s==="GS1")return "Bester Gruppensieger";
+  if(s==="GS2")return "Zweitbester Gruppensieger";
+  if(s==="GS3")return "Drittbester Gruppensieger";
+  if(s==="GZ1")return "Bester Gruppenzweiter";
+  return s;
 }
+// Gruppen-Einteilung: Teamliste in <gruppen> Blöcke (Reihenfolge bestimmt der Trainer)
+function _htGruppenN(row){
+  const n=(row.teams||[]).length, g=Math.min(4,Math.max(2,Number((row.config||{}).gruppen)||2));
+  const out=[]; const basis=Math.floor(n/g); let rest=n%g, start=0;
+  for(let i=0;i<g;i++){const groesse=basis+(i<rest?1:0);out.push([...Array(groesse).keys()].map(x=>x+start));start+=groesse;}
+  return out;
+}
+function _htGrVorschlag(n){ if(n>=12&&n%4===0)return 4; if(n>=9&&n%3===0)return 3; if(n>=13)return 4; if(n>=10)return 3; return 2; }
 /* Spielplan-Generator: Begegnungen je Format, dann Zeitfenster füllen (bis zu <felder>
-   Spiele parallel, kein Team doppelt im selben Fenster). Platzierungsspiele starten erst,
-   wenn alle Gruppenspiele geplant sind; das Finale bekommt ein eigenes Fenster. */
+   Spiele parallel, kein Team doppelt im selben Fenster). Finalrunde startet erst nach den
+   Gruppenspielen (+ Puffer); Finale/Platz 3 nach den Halbfinals; das Finale spielt allein. */
 function _htGen(teams,cfg){
   const n=teams.length;
   let ms=[];
   if(cfg.format==="gruppen"&&n>=4){
-    const na=Math.ceil(n/2);
-    const A=[...Array(na).keys()],B=[...Array(n-na).keys()].map(i=>i+na);
-    const ra=_blzRR(A.length).map(([x,y])=>({a:A[x],b:A[y],phase:"Gruppe A"}));
-    const rb=_blzRR(B.length).map(([x,y])=>({a:B[x],b:B[y],phase:"Gruppe B"}));
-    const max=Math.max(ra.length,rb.length);           // A/B abwechselnd = faire Pausen
-    for(let i=0;i<max;i++){if(ra[i])ms.push(ra[i]);if(rb[i])ms.push(rb[i]);}
-    const plaetze=Math.min(A.length,B.length);
-    for(let r=plaetze-1;r>=0;r--)ms.push({a:"A"+(r+1),b:"B"+(r+1),phase:r===0?"Finale":"Spiel um Platz "+(2*r+1)});
+    const gruppen=_htGruppenN({teams,config:cfg});
+    const rr=gruppen.map((idxs,g)=>_blzRR(idxs.length).map(([x,y])=>({a:idxs[x],b:idxs[y],phase:"Gruppe "+HT_GRLABEL[g]})));
+    const max=Math.max(...rr.map(r=>r.length));           // Gruppen abwechselnd = faire Pausen
+    for(let i=0;i<max;i++)rr.forEach(r=>{if(r[i])ms.push(r[i]);});
+    if(gruppen.length===2){
+      const plaetze=Math.min(gruppen[0].length,gruppen[1].length);
+      for(let r=plaetze-1;r>=0;r--)ms.push({a:"A"+(r+1),b:"B"+(r+1),phase:r===0?"Finale":"Spiel um Platz "+(2*r+1)});
+    }else if(gruppen.length===3){
+      ms.push({a:"GS3",b:"GZ1",phase:"Spiel um Platz 3"});
+      ms.push({a:"GS1",b:"GS2",phase:"Finale"});
+    }else{
+      ms.push({a:"A1",b:"C1",phase:"Halbfinale 1"});
+      ms.push({a:"B1",b:"D1",phase:"Halbfinale 2"});
+      ms.push({a:"V|Halbfinale 1",b:"V|Halbfinale 2",phase:"Spiel um Platz 3"});
+      ms.push({a:"S|Halbfinale 1",b:"S|Halbfinale 2",phase:"Finale"});
+    }
   }else{
     ms=_blzRR(n).map(([a,b])=>({a,b,phase:cfg.format==="festival"?"Festival":"Runde"}));
   }
-  const felder=Math.max(1,Number(cfg.felder)||1), dauer=Math.max(1,Number(cfg.spieldauer)||10), pause=Math.max(0,Number(cfg.pause)||0);
+  const felder=Math.min(4,Math.max(1,Number(cfg.felder)||1)), dauer=Math.max(1,Number(cfg.spieldauer)||10), pause=Math.max(0,Number(cfg.pause)||0), puffer=Math.max(0,Number(cfg.puffer)||0);
   const [sh,sm]=(cfg.start||"10:00").split(":").map(Number);
-  let slot=0; const done=[]; const queue=ms.slice();
-  while(queue.length&&slot<200){
-    const belegt=new Set(); let f=1;
+  let slot=0, extra=0; const done=[]; const queue=ms.slice();
+  while(queue.length&&slot<300){
+    const belegt=new Set(); let f=1, slotGruppe=false, slotHF=false;
     for(let i=0;i<queue.length&&f<=felder;){
       const m=queue[i], finale=m.phase==="Finale", platzh=typeof m.a==="string";
-      const gruppenOffen=queue.some(q=>typeof q.a==="number");
-      if(!belegt.has(String(m.a))&&!belegt.has(String(m.b))&&(!platzh||!gruppenOffen)&&(!finale||(f===1&&!belegt.size))){
-        const t=sh*60+sm+slot*(dauer+pause);
+      const gruppenOffen=queue.some(q=>typeof q.a==="number"&&/^(Gruppe|Runde|Festival)/.test(q.phase));
+      const hfOffen=queue.some(q=>/^Halbfinale/.test(q.phase))||slotHF;
+      // Finalrunde nie im selben Fenster wie ein Gruppenspiel; Finale/Platz 3 erst NACH den Halbfinals
+      const wartet=platzh&&(gruppenOffen||slotGruppe||(/^[SV]\|/.test(String(m.a))&&hfOffen));
+      if(!belegt.has(String(m.a))&&!belegt.has(String(m.b))&&!wartet&&(!finale||(f===1&&!belegt.size))){
+        if(platzh&&!extra)extra=puffer;                    // Verschnaufpause vor der Finalrunde
+        const t=sh*60+sm+slot*(dauer+pause)+extra;
         m.zeit=String(Math.floor(t/60)%24).padStart(2,"0")+":"+String(t%60).padStart(2,"0");
         m.feld=f++; belegt.add(String(m.a)); belegt.add(String(m.b));
+        if(typeof m.a==="number")slotGruppe=true;
+        if(/^Halbfinale/.test(m.phase))slotHF=true;
         done.push(m); queue.splice(i,1);
         if(finale)break;
       }else i++;
@@ -727,10 +771,6 @@ function _htTabelle(plan,idxs,teams){
     if(p.ta>p.tb)A.pkt+=3;else if(p.ta<p.tb)B.pkt+=3;else{A.pkt++;B.pkt++;}
   });
   return Object.values(t).sort((a,b)=>b.pkt-a.pkt||(b.tore-b.geg)-(a.tore-a.geg)||b.tore-a.tore);
-}
-function _htGruppen(row){
-  const na=Math.ceil(row.teams.length/2);
-  return {A:[...Array(na).keys()],B:[...Array(row.teams.length-na).keys()].map(i=>i+na)};
 }
 async function htOpen(){
   document.getElementById("hturnier-modal")?.remove();
@@ -770,7 +810,7 @@ async function htNeu(btn){
   if(btn)btn.disabled=true;
   try{
     const body={slug:_htSlug(),name,datum,ort:(typeof VEREIN_ADRESSE!=="undefined"?VEREIN_ADRESSE:"Thurner Kamp 97, 51069 Köln"),
-      config:{felder:1,start:"10:00",spieldauer:12,pause:3,format:"liga"},teams:["SV Adler Dellbrück"]};
+      config:{felder:1,start:"10:00",spieldauer:12,pause:3,puffer:10,format:"liga",gruppen:2,spielform:"f4",regeln:HT_REGELN.f4,infos:HT_INFOS_VORLAGE},teams:["SV Adler Dellbrück"]};
     const r=await fetch(`${SB_URL}/rest/v1/heimturnier`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=representation'},body:JSON.stringify(body)});
     if(sbCheck401(r))return;
     if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht anlegen"),"err");return;}
@@ -785,6 +825,11 @@ async function htEdit(id){
   el.innerHTML='<div style="font-size:12px;color:var(--text3)">Lade…</div>';
   try{const r=await fetch(`${SB_URL}/rest/v1/heimturnier?id=eq.${id}&select=*`,{headers:sbAuthHeaders()});if(r.ok)_HT=((await r.json())||[])[0]||null;}catch(e){}
   if(!_HT){el.innerHTML='<div style="font-size:12px;color:var(--text3)">Nicht gefunden.</div>';return;}
+  // Gegner-DB einmal laden – daraus werden die Schnellwahl-Chips
+  if(!window._htGegner){
+    try{const r=await fetch(`${SB_URL}/rest/v1/gegner?select=name&order=name.asc&limit=60`,{headers:sbAuthHeaders()});if(r.ok)window._htGegner=((await r.json())||[]).map(g=>g.name);}catch(e){}
+    if(!window._htGegner)window._htGegner=[];
+  }
   htRender();
 }
 async function htPatch(fields){
@@ -800,13 +845,18 @@ function htRender(){
   const el=document.getElementById("ht-body"); if(!el||!_HT)return;
   const cfg=_HT.config||{}, teams=_HT.teams||[], plan=_HT.plan||[];
   const fld="box-sizing:border-box;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text)";
-  const gr=cfg.format==="gruppen"?_htGruppen(_HT):null;
+  const istGruppen=cfg.format==="gruppen";
+  const gruppen=istGruppen?_htGruppenN(_HT):null;
+  const grVon=i=>{if(!gruppen)return "";const g=gruppen.findIndex(idxs=>idxs.indexOf(i)>=0);return g>=0?HT_GRLABEL[g]:"";};
   const teamZeile=(name,i)=>`<div style="display:flex;align-items:center;gap:6px;padding:2px 0">
-      ${gr?`<span style="font-size:10px;font-weight:800;color:#b45309;width:18px">${gr.A.indexOf(i)>=0?"A":"B"}</span>`:""}
+      ${istGruppen?`<span style="font-size:10px;font-weight:800;color:#b45309;width:18px">${grVon(i)}</span>`:""}
       <span style="flex:1;font-size:13px">${esc(name)}</span>
       ${i>0?`<button onclick="htTeamHoch(${i})" aria-label="nach oben" style="min-width:44px;min-height:44px;margin:-8px 0;border:none;background:transparent;color:var(--text3);cursor:pointer"><i class="ti ti-arrow-up"></i></button>`:'<span style="min-width:44px"></span>'}
       <button onclick="htTeamWeg(${i})" aria-label="Team entfernen" style="min-width:44px;min-height:44px;margin:-8px 0;border:none;background:transparent;color:#dc2626;cursor:pointer"><i class="ti ti-trash"></i></button>
     </div>`;
+  // Schnellwahl aus der Gegner-DB: Tippen fügt hinzu; nochmal tippen = zweite Mannschaft („… 2")
+  const dbChips=(window._htGegner||[]).length?`<div style="font-size:11px;color:var(--text2);margin:6px 0 4px">Aus der Gegner-Datenbank (nochmal tippen = 2. Mannschaft):</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${(window._htGegner||[]).map(g=>`<button onclick="htTeamAusDB('${jsq(g)}')" style="min-height:44px;padding:6px 12px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12px;cursor:pointer;background:var(--surface2);color:var(--text)">${esc(g)}</button>`).join("")}</div>`:"";
   // Spielplan-Zeilen mit Ergebnis-Steppern (Platzhalter erst nach „Finalrunde füllen" spielbar)
   const spielZeile=(p,mi)=>{
     const echt=typeof p.a==="number"&&typeof p.b==="number";
@@ -818,14 +868,14 @@ function htRender(){
     return `<div style="border:var(--border-s);border-radius:12px;padding:8px 10px;margin-bottom:8px;${p.ta!=null?"opacity:.78;":""}">
       <div style="font-size:10.5px;color:var(--text2);display:flex;gap:8px"><b>${esc(p.zeit||"")}</b><span>Feld ${p.feld||1}</span><span style="margin-left:auto;color:#b45309;font-weight:700">${esc(p.phase||"")}</span></div>
       <div style="font-size:13px;font-weight:800;margin-top:2px">${esc(_htName(p.a,teams))} <span style="color:var(--text3);font-weight:400">vs</span> ${esc(_htName(p.b,teams))}</div>
-      ${echt?`<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px">${step("ta",p.ta)}<span style="font-weight:900">:</span>${step("tb",p.tb)}</div>`:'<div style="font-size:11px;color:var(--text3);margin-top:4px">Wird nach der Gruppenphase gefüllt.</div>'}
+      ${echt?`<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px">${step("ta",p.ta)}<span style="font-weight:900">:</span>${step("tb",p.tb)}</div>`:'<div style="font-size:11px;color:var(--text3);margin-top:4px">Wird über „Finalrunde füllen" besetzt.</div>'}
     </div>`;
   };
   // Tabellen (Festival: bewusst keine)
   let tabellen="";
   if(plan.length&&cfg.format!=="festival"){
-    const blocks=cfg.format==="gruppen"
-      ?[["Gruppe A",_htGruppen(_HT).A],["Gruppe B",_htGruppen(_HT).B]]
+    const blocks=istGruppen
+      ?_htGruppenN(_HT).map((idxs,g)=>["Gruppe "+HT_GRLABEL[g],idxs])
       :[["Tabelle",teams.map((_,i)=>i)]];
     tabellen=blocks.map(([titel,idxs])=>`<div style="font-weight:800;font-size:13px;margin:10px 0 2px">📊 ${titel}</div>`
       +_htTabelle(plan,idxs,teams).map((z,pl)=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:2px 0">
@@ -834,29 +884,44 @@ function htRender(){
       </div>`).join("")).join("");
   }
   const url=_htUrl(_HT.slug);
-  const finalsOffen=cfg.format==="gruppen"&&plan.some(p=>typeof p.a==="string");
+  const finalsOffen=istGruppen&&plan.some(p=>typeof p.a==="string");
+  const vorschlag=_htGrVorschlag(teams.length);
   el.innerHTML=`
     <button class="btn btn-sm" style="margin-bottom:10px" onclick="htListe()"><i class="ti ti-arrow-left"></i>Alle Turniere</button>
     <div style="font-size:15px;font-weight:900;margin-bottom:8px">${esc(_HT.name)}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <label style="font-size:11px;color:var(--text2)">Datum<input id="ht-e-datum" type="date" value="${esc(_HT.datum||"")}" style="${fld};width:100%;margin-top:3px"></label>
       <label style="font-size:11px;color:var(--text2)">Start<input id="ht-e-start" type="time" value="${esc(cfg.start||"10:00")}" style="${fld};width:100%;margin-top:3px"></label>
-      <label style="font-size:11px;color:var(--text2)">Felder<select id="ht-e-felder" style="${fld};width:100%;margin-top:3px"><option value="1"${cfg.felder==1?" selected":""}>1 Feld</option><option value="2"${cfg.felder==2?" selected":""}>2 Felder</option></select></label>
-      <label style="font-size:11px;color:var(--text2)">Format<select id="ht-e-format" style="${fld};width:100%;margin-top:3px">${Object.entries(HT_FORMATE).map(([k,v])=>`<option value="${k}"${cfg.format===k?" selected":""}>${v}</option>`).join("")}</select></label>
+      <label style="font-size:11px;color:var(--text2)">Spielfelder<select id="ht-e-felder" style="${fld};width:100%;margin-top:3px">${[1,2,3,4].map(f=>`<option value="${f}"${cfg.felder==f?" selected":""}>${f} ${f===1?"Feld":"Felder parallel"}</option>`).join("")}</select></label>
+      <label style="font-size:11px;color:var(--text2)">Format<select id="ht-e-format" onchange="htRenderCfg()" style="${fld};width:100%;margin-top:3px">${Object.entries(HT_FORMATE).map(([k,v])=>`<option value="${k}"${cfg.format===k?" selected":""}>${v}</option>`).join("")}</select></label>
+      ${istGruppen?`<label style="font-size:11px;color:var(--text2)">Gruppen<select id="ht-e-gruppen" style="${fld};width:100%;margin-top:3px">${[2,3,4].map(g=>`<option value="${g}"${(cfg.gruppen||2)==g?" selected":""}>${g} Gruppen${g===vorschlag?" (Vorschlag)":""}</option>`).join("")}</select></label>`:""}
+      <label style="font-size:11px;color:var(--text2)">Spielform<select id="ht-e-spielform" style="${fld};width:100%;margin-top:3px">${Object.entries(HT_SPIELFORM).map(([k,v])=>`<option value="${k}"${(cfg.spielform||"f4")===k?" selected":""}>${v}</option>`).join("")}</select></label>
       <label style="font-size:11px;color:var(--text2)">Spielzeit (Min.)<input id="ht-e-dauer" type="number" min="4" max="30" value="${cfg.spieldauer||12}" style="${fld};width:100%;margin-top:3px"></label>
-      <label style="font-size:11px;color:var(--text2)">Pause (Min.)<input id="ht-e-pause" type="number" min="0" max="15" value="${cfg.pause||3}" style="${fld};width:100%;margin-top:3px"></label>
+      <label style="font-size:11px;color:var(--text2)">Pause (Min.)<input id="ht-e-pause" type="number" min="0" max="15" value="${cfg.pause==null?3:cfg.pause}" style="${fld};width:100%;margin-top:3px"></label>
+      <label style="font-size:11px;color:var(--text2)">Puffer vor Finalrunde (Min.)<input id="ht-e-puffer" type="number" min="0" max="60" value="${cfg.puffer==null?10:cfg.puffer}" style="${fld};width:100%;margin-top:3px"></label>
     </div>
-    <div style="font-weight:800;font-size:13px;margin:10px 0 4px">Teams <span style="font-weight:400;font-size:11px;color:var(--text3)">(${teams.length}${gr?" · erste Hälfte = Gruppe A":""})</span></div>
+    ${istGruppen?`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">${teams.length} Teams → Vorschlag: <b>${vorschlag} Gruppen</b>. Finalrunde: 2 Gruppen = Platzierungsspiele Rang gegen Rang · 3 Gruppen = Finale der besten Gruppensieger · 4 Gruppen = Überkreuz-Halbfinals + Finale.</div>`:""}
+    <div style="font-weight:800;font-size:13px;margin:10px 0 4px">Teams <span style="font-weight:400;font-size:11px;color:var(--text3)">(${teams.length}${istGruppen?" · Reihenfolge = Gruppen-Blöcke, ↑ zum Sortieren":""})</span></div>
     ${teams.map(teamZeile).join("")}
+    ${dbChips}
     <div style="display:flex;gap:6px;margin:6px 0 10px">
-      <input id="ht-team-neu" placeholder="Gast-Team, z. B. FC Musterstadt" style="${fld};flex:1;min-width:0" onkeydown="if(event.key==='Enter')htTeamPlus()">
+      <input id="ht-team-neu" placeholder="Team von Hand, z. B. FC Musterstadt" style="${fld};flex:1;min-width:0" onkeydown="if(event.key==='Enter')htTeamPlus()">
       <button class="btn btn-sm" onclick="htTeamPlus()"><i class="ti ti-plus"></i></button>
     </div>
+    <details style="margin-bottom:10px"${plan.length?"":" open"}>
+      <summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:var(--blue);min-height:44px;display:flex;align-items:center">📖 Regelwerk &amp; Infos für Gastvereine</summary>
+      <div style="font-size:11px;color:var(--text2);margin:6px 0 4px">Regelwerk (steht auf der öffentlichen Turnierseite):</div>
+      <textarea id="ht-e-regeln" rows="7" style="${fld};width:100%;resize:vertical">${esc(cfg.regeln||"")}</textarea>
+      <button class="btn btn-sm" style="margin-top:4px" onclick="htRegelnVorlage()">↺ Vorlage zur gewählten Spielform laden</button>
+      <div style="font-size:11px;color:var(--text2);margin:10px 0 4px">Infos für die Gastvereine (Anreise, Parken, Turnierleitung …):</div>
+      <textarea id="ht-e-infos" rows="6" style="${fld};width:100%;resize:vertical">${esc(cfg.infos||"")}</textarea>
+      <button class="btn btn-sm btn-p" style="margin-top:6px" onclick="htTexteSave(this)"><i class="ti ti-device-floppy"></i>Regeln &amp; Infos speichern</button>
+    </details>
     <button class="btn btn-p" style="width:100%" onclick="htGenerieren()"><i class="ti ti-calendar-bolt"></i>${plan.length?"Spielplan NEU erzeugen":"Spielplan erzeugen"}</button>
     ${plan.length?`
-      <div style="font-weight:800;font-size:13.5px;margin:14px 0 6px">📅 Spielplan</div>
+      <div style="font-weight:800;font-size:13.5px;margin:14px 0 6px">📅 Spielplan <span style="font-weight:400;font-size:11px;color:var(--text3)">(${plan.length} Spiele · ${HT_SPIELFORM[cfg.spielform]||""})</span></div>
       ${plan.map(spielZeile).join("")}
-      ${finalsOffen?`<button class="btn btn-sm" style="width:100%" onclick="htFinalsFill()">🏁 Finalrunde aus den Gruppen füllen</button>`:""}
+      ${finalsOffen?`<button class="btn btn-sm" style="width:100%" onclick="htFinalsFill()">🏁 Finalrunde füllen (nach Gruppen bzw. Halbfinals)</button>`:""}
       ${tabellen}
       ${cfg.format==="festival"?'<div style="font-size:11.5px;color:#16a34a;margin-top:6px">🦅 Festival-Modus: alle spielen gleich viel, bewusst keine Tabelle (DFB-Kinderfußball).</div>':""}
       <div style="font-weight:800;font-size:13.5px;margin:14px 0 6px">📤 An die Gast-Trainer</div>
@@ -870,19 +935,46 @@ function htRender(){
     `:""}
     <button class="btn btn-sm" style="width:100%;margin-top:14px;color:#dc2626" onclick="htDelete()"><i class="ti ti-trash"></i>Turnier löschen</button>`;
 }
+// Formatwechsel: Gruppen-Auswahl ein-/ausblenden, ohne Eingaben zu verlieren
+function htRenderCfg(){ Object.assign(_HT.config,_htCfgLesen()); htRender(); }
 function _htCfgLesen(){
+  const alt=_HT&&_HT.config||{};
   return {
-    felder:Number(document.getElementById("ht-e-felder")?.value)||1,
-    start:document.getElementById("ht-e-start")?.value||"10:00",
-    spieldauer:Number(document.getElementById("ht-e-dauer")?.value)||12,
-    pause:Number(document.getElementById("ht-e-pause")?.value)||3,
-    format:document.getElementById("ht-e-format")?.value||"liga"
+    felder:Number(document.getElementById("ht-e-felder")?.value)||alt.felder||1,
+    start:document.getElementById("ht-e-start")?.value||alt.start||"10:00",
+    spieldauer:Number(document.getElementById("ht-e-dauer")?.value)||alt.spieldauer||12,
+    pause:document.getElementById("ht-e-pause")?(Number(document.getElementById("ht-e-pause").value)||0):(alt.pause==null?3:alt.pause),
+    puffer:document.getElementById("ht-e-puffer")?(Number(document.getElementById("ht-e-puffer").value)||0):(alt.puffer==null?10:alt.puffer),
+    format:document.getElementById("ht-e-format")?.value||alt.format||"liga",
+    gruppen:Number(document.getElementById("ht-e-gruppen")?.value)||alt.gruppen||2,
+    spielform:document.getElementById("ht-e-spielform")?.value||alt.spielform||"f4",
+    regeln:document.getElementById("ht-e-regeln")?document.getElementById("ht-e-regeln").value:(alt.regeln||""),
+    infos:document.getElementById("ht-e-infos")?document.getElementById("ht-e-infos").value:(alt.infos||"")
   };
+}
+function htRegelnVorlage(){
+  const sf=document.getElementById("ht-e-spielform")?.value||"f4";
+  const ta=document.getElementById("ht-e-regeln"); if(!ta)return;
+  if(ta.value.trim()&&!confirm("Regelwerk durch die Vorlage ersetzen?"))return;
+  ta.value=HT_REGELN[sf]||"";
+}
+async function htTexteSave(btn){
+  if(btn)btn.disabled=true;
+  const ok=await htPatch({config:_htCfgLesen(),datum:document.getElementById("ht-e-datum")?.value||_HT.datum});
+  if(btn)btn.disabled=false;
+  if(ok)toast("Gespeichert ✓");
+}
+// Aus der Gegner-DB: erster Tipp = Vereinsname, weitere Tipps = „… 2", „… 3" (mehrere Mannschaften)
+async function htTeamAusDB(name){
+  const teams=_HT.teams||[];
+  let neu=name, nr=2;
+  while(teams.some(t=>t.toLowerCase()===neu.toLowerCase())){neu=name+" "+nr;nr++;}
+  if(await htPatch({teams:[...teams,neu],config:_htCfgLesen(),datum:document.getElementById("ht-e-datum")?.value||_HT.datum}))htRender();
 }
 async function htTeamPlus(){
   const inp=document.getElementById("ht-team-neu");
   const name=(inp?.value||"").trim(); if(!name)return;
-  if((_HT.teams||[]).some(t=>t.toLowerCase()===name.toLowerCase())){toast("Team ist schon dabei","err");return;}
+  if((_HT.teams||[]).some(t=>t.toLowerCase()===name.toLowerCase())){toast("Team ist schon dabei – für eine zweite Mannschaft z. B. „… 2“ anhängen","err");return;}
   if(await htPatch({teams:[...(_HT.teams||[]),name],config:_htCfgLesen(),datum:document.getElementById("ht-e-datum")?.value||_HT.datum}))htRender();
 }
 async function htTeamWeg(i){
@@ -899,9 +991,10 @@ async function htTeamHoch(i){
 async function htGenerieren(){
   const teams=_HT.teams||[];
   if(teams.length<3){toast("Mindestens 3 Teams eintragen","err");return;}
+  const cfg=_htCfgLesen();
+  if(cfg.format==="gruppen"&&teams.length<cfg.gruppen*2){toast("Zu wenige Teams für "+cfg.gruppen+" Gruppen","err");return;}
   const hatErg=(_HT.plan||[]).some(p=>p.ta!=null);
   if(hatErg&&!confirm("Es gibt schon Ergebnisse – Spielplan wirklich neu erzeugen? Alle Ergebnisse gehen verloren."))return;
-  const cfg=_htCfgLesen();
   const plan=_htGen(teams,cfg);
   if(await htPatch({config:cfg,plan,datum:document.getElementById("ht-e-datum")?.value||_HT.datum})){
     toast("📅 Spielplan steht – "+plan.length+" Spiele");
@@ -915,20 +1008,41 @@ async function htTor(mi,seite,delta){
   const andere=seite==="ta"?"tb":"ta"; if(p[andere]==null)p[andere]=0;
   if(await htPatch({plan}))htRender();
 }
+/* Finalrunde füllen: löst Platzhalter auf, sobald die Daten da sind.
+   Gruppen-Ränge (A1…D3) nach der Gruppenphase; GS/GZ (3 Gruppen) im Quer-Vergleich
+   aller Gruppensieger bzw. Zweiten; Sieger/Verlierer der Halbfinals (4 Gruppen)
+   nach den HF-Ergebnissen – bei HF-Unentschieden bitte erst einen Sieger eintragen. */
 async function htFinalsFill(){
   const plan=(_HT.plan||[]).slice(), teams=_HT.teams||[];
   const offenGruppe=plan.some(p=>typeof p.a==="number"&&/^Gruppe/.test(p.phase||"")&&p.ta==null);
-  if(offenGruppe&&!confirm("Noch nicht alle Gruppenspiele haben ein Ergebnis – Finalrunde trotzdem nach aktuellem Stand füllen?"))return;
-  const gr=_htGruppen(_HT);
-  const rangA=_htTabelle(plan.filter(p=>p.phase==="Gruppe A"),gr.A,teams);
-  const rangB=_htTabelle(plan.filter(p=>p.phase==="Gruppe B"),gr.B,teams);
+  if(offenGruppe&&!confirm("Noch nicht alle Gruppenspiele haben ein Ergebnis – Platzhalter trotzdem nach aktuellem Stand füllen?"))return;
+  const gruppen=_htGruppenN(_HT);
+  const tabs=gruppen.map((idxs,g)=>_htTabelle(plan.filter(p=>p.phase==="Gruppe "+HT_GRLABEL[g]),idxs,teams));
+  const cmp=(a,b)=>b.pkt-a.pkt||(b.tore-b.geg)-(a.tore-a.geg)||b.tore-a.tore;
+  const sieger=tabs.map(t=>t[0]).filter(Boolean).sort(cmp);
+  const zweite=tabs.map(t=>t[1]).filter(Boolean).sort(cmp);
+  let hfUnentschieden=false;
   const aufloesen=v=>{
-    const m=/^([AB])(\d)$/.exec(String(v)); if(!m)return v;
-    const rang=(m[1]==="A"?rangA:rangB)[Number(m[2])-1];
-    return rang?rang.i:v;
+    const s=String(v);
+    let m=/^([A-D])(\d+)$/.exec(s);
+    if(m){const rang=(tabs[HT_GRLABEL.indexOf(m[1])]||[])[Number(m[2])-1];return rang?rang.i:v;}
+    m=/^GS(\d)$/.exec(s); if(m)return sieger[Number(m[1])-1]?sieger[Number(m[1])-1].i:v;
+    if(s==="GZ1")return zweite[0]?zweite[0].i:v;
+    m=/^([SV])\|(.+)$/.exec(s);
+    if(m){
+      const hf=plan.find(p=>p.phase===m[2]&&typeof p.a==="number"&&typeof p.b==="number"&&p.ta!=null);
+      if(!hf)return v;
+      if(hf.ta===hf.tb){hfUnentschieden=true;return v;}
+      const siegerIdx=hf.ta>hf.tb?hf.a:hf.b, verliererIdx=hf.ta>hf.tb?hf.b:hf.a;
+      return m[1]==="S"?siegerIdx:verliererIdx;
+    }
+    return v;
   };
   plan.forEach(p=>{if(typeof p.a==="string")p.a=aufloesen(p.a);if(typeof p.b==="string")p.b=aufloesen(p.b);});
-  if(await htPatch({plan})){toast("🏁 Finalrunde gefüllt");htRender();}
+  if(await htPatch({plan})){
+    toast(hfUnentschieden?"Halbfinale unentschieden – bitte erst einen Sieger eintragen (z. B. nach Neunmeter)":"🏁 Finalrunde gefüllt");
+    htRender();
+  }
 }
 function htShare(){
   const url=_htUrl(_HT.slug);
@@ -972,9 +1086,8 @@ function _htPublicRender(wrap,row){
     </tr>`).join("");
   let tabellen="";
   if(plan.length&&cfg.format!=="festival"){
-    const na=Math.ceil(teams.length/2);
     const blocks=cfg.format==="gruppen"
-      ?[["Gruppe A",[...Array(na).keys()]],["Gruppe B",[...Array(teams.length-na).keys()].map(i=>i+na)]]
+      ?_htGruppenN(row).map((idxs,g)=>["Gruppe "+HT_GRLABEL[g],idxs])
       :[["Tabelle",teams.map((_,i)=>i)]];
     tabellen=blocks.map(([titel,idxs])=>`<div style="background:#fff;border-radius:14px;padding:12px 14px;margin-top:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)">
       <div style="font-weight:800;font-size:14px;margin-bottom:6px">📊 ${titel}</div>
@@ -986,17 +1099,27 @@ function _htPublicRender(wrap,row){
   }else if(plan.length){
     tabellen=`<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:14px;padding:12px 14px;margin-top:12px;font-size:13px;color:#065f46">🦅 Festival-Turnier: Alle spielen gleich viel – auf eine Tabelle verzichten wir bewusst (Kinderfußball!).</div>`;
   }
+  const sf=HT_SPIELFORM[cfg.spielform]||"";
   wrap.innerHTML=`
     <div style="background:linear-gradient(135deg,#1e3a8a,#b45309);border-radius:16px;padding:18px 16px;color:#fff;text-align:center">
       <div style="font-size:36px">🏆</div>
       <div style="font-size:20px;font-weight:900;margin-top:4px">${esc(row.name)}</div>
       <div style="font-size:12.5px;opacity:.9;margin-top:4px">${esc(dat)}${row.ort?" · "+esc(row.ort):""}</div>
+      ${sf?`<div style="display:inline-block;margin-top:8px;background:rgba(255,255,255,.18);border-radius:12px;padding:3px 12px;font-size:12px;font-weight:800">⚽ ${esc(sf)}</div>`:""}
       <div style="font-size:11px;opacity:.75;margin-top:6px">Veranstalter: SV Adler Dellbrück U9 · Ergebnisse live</div>
     </div>
     ${plan.length?`<div style="background:#fff;border-radius:14px;padding:8px 4px;margin-top:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:13px">${zeilen}</table>
     </div>`:'<div style="background:#fff;border-radius:14px;padding:20px;margin-top:12px;text-align:center;color:#64748b;font-size:13px">Der Spielplan wird gerade erstellt – gleich nochmal schauen.</div>'}
     ${tabellen}
+    ${cfg.regeln?`<details style="background:#fff;border-radius:14px;padding:12px 14px;margin-top:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)">
+      <summary style="font-weight:800;font-size:14px;cursor:pointer;min-height:44px;display:flex;align-items:center">📖 Regelwerk (${esc(sf||"Spielform")})</summary>
+      <div style="font-size:13px;line-height:1.55;white-space:pre-wrap;margin-top:6px;color:#334155">${esc(cfg.regeln)}</div>
+    </details>`:""}
+    ${cfg.infos?`<div style="background:#fff;border-radius:14px;padding:12px 14px;margin-top:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)">
+      <div style="font-weight:800;font-size:14px;margin-bottom:6px">ℹ️ Infos für die Gastvereine</div>
+      <div style="font-size:13px;line-height:1.55;white-space:pre-wrap;color:#334155">${esc(cfg.infos)}</div>
+    </div>`:""}
     <div style="display:flex;gap:8px;margin-top:14px">
       <button onclick="location.reload()" style="flex:1;min-height:44px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🔄 Aktualisieren</button>
       <button onclick="window.print()" style="flex:1;min-height:44px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🖨️ Drucken</button>
