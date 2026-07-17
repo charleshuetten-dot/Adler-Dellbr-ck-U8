@@ -473,6 +473,8 @@ function _blzLoad(){
       if(s.budget==null)s.budget=0;
       if(!s.felder)s.felder=1;
       if(!s.modus)s.modus="rr";
+      if(!s.spielmodus)s.spielmodus="kinder";
+      if(!s.trainer)s.trainer=[];
       (s.plan||[]).forEach((p,i)=>{if(!p.phase)p.phase="runde";if(p.slot==null)p.slot=i;if(!p.feld)p.feld=1;});
       return s;
     }
@@ -500,6 +502,46 @@ function _blzAuto(n){
     teams[ziel].spieler.push(name);summe[ziel]+=st(name);
   });
   return {teams,quelle:pool.quelle};
+}
+/* Anwesende Trainer als Mitspieler in die Kinder-Teams verteilen (🧢-Kennung).
+   Reihum ins jeweils kleinste Team; per Tipp wie jedes Kind weiter verschiebbar. */
+function _blzTrainerVerteilen(){
+  const ziele=BLZ.teams.filter(t=>!t.eltern);
+  if(!ziele.length)return;
+  (BLZ.trainer||[]).forEach(name=>{
+    const tag="🧢 "+name;
+    if(BLZ.teams.some(t=>t.spieler.indexOf(tag)>=0))return;
+    let ziel=ziele[0];
+    ziele.forEach(t=>{if(t.spieler.length<ziel.spieler.length)ziel=t;});
+    ziel.spieler.push(tag);
+  });
+}
+function blzTrainerToggle(name){
+  BLZ.trainer=BLZ.trainer||[];
+  const ix=BLZ.trainer.indexOf(name);
+  if(ix>=0){
+    BLZ.trainer.splice(ix,1);
+    const tag="🧢 "+name;
+    BLZ.teams.forEach(t=>{t.spieler=t.spieler.filter(s=>s!==tag);});
+  }else{
+    BLZ.trainer.push(name);
+    _blzTrainerVerteilen();
+  }
+  blzSave();blzRender();
+}
+// Duell-Modus: EIN Eltern-Team + n Kinder-Teams; gespielt wird nur Kinder GEGEN Eltern
+function _blzDuellTeams(nKids){
+  const alt=BLZ.teams.find(t=>t.eltern);
+  const a=_blzAuto(nKids);
+  BLZ.teams=[alt||{name:"Eltern",spieler:[],fest:false,eltern:true}].concat(a.teams);
+  BLZ.quelle=a.quelle;
+  _blzTrainerVerteilen();
+}
+function blzModus(m){
+  BLZ.spielmodus=m;
+  if(m==="duell"){BLZ.anzahl=Math.min(3,Math.max(1,BLZ.anzahl===4?3:BLZ.anzahl));_blzDuellTeams(BLZ.anzahl);}
+  else{BLZ.teams=BLZ.teams.filter(t=>!t.eltern);if(BLZ.teams.filter(t=>!t.fest).length<2)blzAnzahl(Math.max(2,BLZ.anzahl));}
+  blzSave();blzRender();
 }
 // Berger-Rotation: jeder gegen jeden, fair verteilt (niemand spielt zweimal direkt hintereinander)
 function _blzRR(n){
@@ -533,9 +575,27 @@ function _blzSlots(matches,felder){
 /* Zeitbudget-Automatik. Liefert {ms,slots,z,modus,dauer,hinweis,finaleBonus}:
    ms = fertige Spielliste (Finals als Platzhalter a/b=null, werden live aufgelöst),
    hinweis = fehlende Minuten, wenn selbst das kürzeste faire Format nicht passt. */
-function _blzPlanen(n,budget,felder){
+function _blzPlanen(n,budget,felder,spielmodus){
   const dauer=(slots,z)=>slots*z+Math.max(0,slots-1)*BLZ_W;
   const zMax=slots=>Math.floor((budget-(slots-1)*BLZ_W)/slots);
+  /* Duell-Modus (Kinder gegen Eltern): Team 0 = Eltern, dahinter die Kinder-Teams.
+     Es gibt NUR Eltern-Spiele → immer 1 Feld, sequenziell. Die Automatik wählt die
+     Zahl der Durchgänge (3 → 1), damit jedes Kinder-Team gleich oft drankommt. */
+  if(spielmodus==="duell"){
+    const nKids=Math.max(1,n-1);
+    const runde=d=>{
+      const ms=[];
+      for(let r=0;r<d;r++)for(let k=1;k<=nKids;k++)ms.push({a:0,b:k,phase:"runde",ta:null,tb:null,slot:ms.length,feld:1});
+      return {ms,slots:ms.length};
+    };
+    if(!budget||budget<=0)return {...runde(2),z:null,modus:"duell",dauer:null,hinweis:null,finaleBonus:false};
+    for(let d=3;d>=1;d--){
+      const v=runde(d), z=zMax(v.slots);
+      if(z>=BLZ_MIN){const z2=Math.min(BLZ_MAX,z);return {...v,z:z2,modus:"duell",dauer:dauer(v.slots,z2),hinweis:null,finaleBonus:false};}
+    }
+    const v=runde(1), braucht=dauer(v.slots,BLZ_MIN);
+    return {...v,z:BLZ_MIN,modus:"duell",dauer:braucht,hinweis:braucht-budget,finaleBonus:false};
+  }
   const bau=modus=>{
     let ms=[],finals=[];
     if(modus==="gruppen"){
@@ -595,8 +655,10 @@ function _blzPlanen(n,budget,felder){
 // Vorschau-Text für das Setup (transparent: Format, Spielzeit, Gesamtdauer, Warnung)
 function _blzVorschauHtml(){
   if(!BLZ.budget)return `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Freies Spiel: Du stellst die Spielzeit selbst ein – ohne Zeitbudget, ohne Automatik.</div>`;
-  const p=_blzPlanen(BLZ.teams.length,BLZ.budget,BLZ.felder||1);
-  const fmt=p.modus==="gruppen"?"2 Los-Gruppen + kleines Finale + Finale":(BLZ.teams.length===2?(p.slots===1?"ein Spiel":"Hin- und Rückspiel"):"jeder gegen jeden"+(p.finaleBonus?" + Finale":""));
+  const p=_blzPlanen(BLZ.teams.length,BLZ.budget,BLZ.felder||1,BLZ.spielmodus);
+  const nKids=BLZ.teams.filter(t=>!t.eltern).length;
+  const fmt=p.modus==="duell"?`Kinder gegen Eltern – ${Math.round(p.ms.length/Math.max(1,nKids))} Durchgang${p.ms.length/Math.max(1,nKids)>1?"e":""} je Kinder-Team`
+    :p.modus==="gruppen"?"2 Los-Gruppen + kleines Finale + Finale":(BLZ.teams.length===2?(p.slots===1?"ein Spiel":"Hin- und Rückspiel"):"jeder gegen jeden"+(p.finaleBonus?" + Finale":""));
   const felderTxt=(BLZ.felder||1)>1?` · ${BLZ.felder} Felder, ein Pfiff für alle`:"";
   if(p.hinweis>0)return `<div style="font-size:12px;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:8px 10px;margin-bottom:8px">⏰ Fair (min. ${BLZ_MIN} Min. je Spiel) braucht das kürzeste Format <b>${p.dauer} Min.</b> – das sind <b>${p.hinweis} Min. mehr</b> als geplant. Budget erhöhen, ein Feld dazu – oder bewusst überziehen und trotzdem starten.</div>`;
   return `<div style="font-size:12px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 10px;margin-bottom:8px">✅ Vorschlag: <b>${fmt}</b> à <b>${p.z} Min.</b> → ${p.ms.length} Spiele, ca. <b>${p.dauer} von ${BLZ.budget} Min.</b>${felderTxt}</div>`;
@@ -604,7 +666,7 @@ function _blzVorschauHtml(){
 function blitzOpen(){
   const alt=_blzLoad();
   if(alt){BLZ=alt;}
-  else{const a=_blzAuto(2);BLZ={datum:_blzHeute(),phase:"setup",anzahl:2,runde:8,budget:20,felder:1,modus:"rr",quelle:a.quelle,teams:a.teams,plan:[]};blzSave();}
+  else{const a=_blzAuto(2);BLZ={datum:_blzHeute(),phase:"setup",spielmodus:"kinder",anzahl:2,runde:8,budget:20,felder:1,modus:"rr",quelle:a.quelle,teams:a.teams,trainer:[],plan:[]};blzSave();}
   document.getElementById("blitz-modal")?.remove();
   const m=document.createElement("div");m.id="blitz-modal";
   m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Blitzturnier");
@@ -624,23 +686,30 @@ function blzRender(){
 }
 function _blzSetupHtml(){
   const chip=(aktiv,label,onclick)=>`<button onclick="${onclick}" style="flex:1;min-height:44px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;background:${aktiv?"#d97706":"var(--surface2)"};color:${aktiv?"#fff":"var(--text2)"}">${label}</button>`;
-  const nChips=[2,3,4].map(n=>chip(BLZ.anzahl===n,n+" Teams",`blzAnzahl(${n})`)).join("");
+  const duell=BLZ.spielmodus==="duell";
+  const mChips=chip(!duell,"⚽ Kinder-Turnier","blzModus('kinder')")+chip(duell,"👨‍👩‍👧 Kinder gegen Eltern","blzModus('duell')");
+  const nChips=(duell?[1,2,3]:[2,3,4]).map(n=>chip(BLZ.anzahl===n,n+(duell?" Kinder-Team"+(n>1?"s":""):" Teams"),`blzAnzahl(${n})`)).join("");
   const bChips=[15,20,30,40,0].map(b=>chip((BLZ.budget||0)===b,b?b+" Min.":"frei",`blzBudget(${b})`)).join("");
   const fChips=[1,2,3,4].map(f=>chip((BLZ.felder||1)===f,f+(f===1?" Feld":" Felder"),`blzFelder(${f})`)).join("");
-  const teams=BLZ.teams.map((t,i)=>`<div style="border:var(--border-s);border-left:4px solid ${BLZ_FARBEN[i%BLZ_FARBEN.length]};border-radius:12px;padding:8px 10px;margin-bottom:8px">
+  const trainerChips=(typeof TRAINER!=="undefined"&&TRAINER.length)?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Trainer spielen mit <span style="font-weight:400;text-transform:none;letter-spacing:0">(werden in die Kinder-Teams verteilt)</span></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${TRAINER.map(t=>`<button onclick="blzTrainerToggle('${jsq(t)}')" style="min-height:44px;padding:6px 12px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;background:${(BLZ.trainer||[]).indexOf(t)>=0?"#d97706":"var(--surface2)"};color:${(BLZ.trainer||[]).indexOf(t)>=0?"#fff":"var(--text2)"}">🧢 ${esc(t)}</button>`).join("")}</div>`:"";
+  const teams=BLZ.teams.map((t,i)=>`<div style="border:var(--border-s);border-left:4px solid ${t.eltern?"#7c3aed":BLZ_FARBEN[i%BLZ_FARBEN.length]};border-radius:12px;padding:8px 10px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:6px">
-        <button onclick="blzRename(${i})" title="Team umbenennen" style="border:none;background:transparent;font-family:inherit;font-size:13.5px;font-weight:800;color:var(--text);cursor:pointer;min-height:44px;padding:0;margin:-8px 0">${esc(t.name)} ✏️</button>
-        <span style="margin-left:auto;font-size:11px;color:var(--text3)">${t.spieler.length?t.spieler.length+" Kinder":"ohne Kader-Kinder"}</span>
+        <button onclick="blzRename(${i})" title="Team umbenennen" style="border:none;background:transparent;font-family:inherit;font-size:13.5px;font-weight:800;color:var(--text);cursor:pointer;min-height:44px;padding:0;margin:-8px 0">${t.eltern?"👨‍👩‍👧 ":""}${esc(t.name)} ✏️</button>
+        <span style="margin-left:auto;font-size:11px;color:var(--text3)">${t.eltern?"spielt jedes Duell":(t.spieler.length?t.spieler.length+" im Team":"ohne Kader-Kinder")}</span>
         ${t.fest?`<button onclick="blzTeamWeg(${i})" aria-label="Team entfernen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;min-width:44px;min-height:44px;margin:-8px -8px -8px 0"><i class="ti ti-trash"></i></button>`:""}
       </div>
       ${t.spieler.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${t.spieler.map(n=>`<button onclick="blzCycle('${jsq(n)}')" title="Tippen = ins nächste Team" style="min-height:44px;padding:6px 12px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12.5px;cursor:pointer;background:var(--surface2);color:var(--text)">${esc(n)}</button>`).join("")}</div>`:""}
     </div>`).join("");
-  return `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Zeitbudget</div>
+  return `<div style="display:flex;gap:6px;margin-bottom:10px">${mChips}</div>
+    ${duell?`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Duell-Tag: Gespielt wird NUR Kinder gegen Eltern – nie Kinder gegen Kinder. Die Kinder-Teams wechseln sich gegen das Eltern-Team ab.</div>`:""}
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Zeitbudget</div>
     <div style="display:flex;gap:6px;margin-bottom:8px">${bChips}</div>
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Spielfelder <span style="font-weight:400;text-transform:none;letter-spacing:0">(3–4 = FUNiño/Kleinfelder · ein Pfiff für alle)</span></div>
-    <div style="display:flex;gap:6px;margin-bottom:8px">${fChips}</div>
+    ${duell?"":`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Spielfelder <span style="font-weight:400;text-transform:none;letter-spacing:0">(3–4 = FUNiño/Kleinfelder · ein Pfiff für alle)</span></div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">${fChips}</div>`}
     ${_blzVorschauHtml()}
     <div style="display:flex;gap:8px;margin-bottom:10px">${nChips}</div>
+    ${trainerChips}
     <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Quelle: ${esc(BLZ.quelle)} · Kind antippen = wandert ins nächste Team · Würfel = neu mischen</div>
     ${teams}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
@@ -655,12 +724,21 @@ function _blzSetupHtml(){
 }
 function blzBudget(b){BLZ.budget=b;blzSave();blzRender();}
 function blzFelder(f){BLZ.felder=f;blzSave();blzRender();}
-function blzAnzahl(n){const a=_blzAuto(n);BLZ.anzahl=n;BLZ.teams=a.teams.concat(BLZ.teams.filter(t=>t.fest));BLZ.quelle=a.quelle;blzSave();blzRender();}
+function blzAnzahl(n){
+  BLZ.anzahl=n;
+  if(BLZ.spielmodus==="duell"){_blzDuellTeams(n);}
+  else{const a=_blzAuto(n);BLZ.teams=a.teams.concat(BLZ.teams.filter(t=>t.fest&&!t.eltern));BLZ.quelle=a.quelle;_blzTrainerVerteilen();}
+  blzSave();blzRender();
+}
 function blzNeuMischen(){blzAnzahl(BLZ.anzahl);}
 function blzCycle(name){
   const von=BLZ.teams.findIndex(t=>t.spieler.indexOf(name)>=0);if(von<0)return;
+  // nächstes Nicht-Eltern-Team (Kinder/Trainer wandern nie in das abstrakte Eltern-Team)
+  let ziel=(von+1)%BLZ.teams.length, runden=0;
+  while(BLZ.teams[ziel].eltern&&runden++<BLZ.teams.length)ziel=(ziel+1)%BLZ.teams.length;
+  if(ziel===von)return;
   BLZ.teams[von].spieler=BLZ.teams[von].spieler.filter(x=>x!==name);
-  BLZ.teams[(von+1)%BLZ.teams.length].spieler.push(name);
+  BLZ.teams[ziel].spieler.push(name);
   blzSave();blzRender();
 }
 function blzTeamPlus(){
@@ -674,7 +752,7 @@ function blzRename(i){
 }
 function blzStart(){
   if(BLZ.teams.length<2){toast("Mindestens 2 Teams","err");return;}
-  const p=_blzPlanen(BLZ.teams.length,BLZ.budget||0,BLZ.felder||1);
+  const p=_blzPlanen(BLZ.teams.length,BLZ.budget||0,BLZ.spielmodus==="duell"?1:(BLZ.felder||1),BLZ.spielmodus);
   if(BLZ.budget){BLZ.runde=p.z;}
   else{const r=Number(document.getElementById("blz-runde")?.value)||8;BLZ.runde=Math.min(30,Math.max(1,r));}
   BLZ.plan=p.ms;
@@ -765,7 +843,18 @@ function _blzLiveHtml(){
       <span style="font-size:11px;color:var(--text3)">${z.tore}:${z.geg}</span>
       <span style="font-weight:900;min-width:24px;text-align:right">${z.pkt}</span>
     </div>`).join("");
-  if(BLZ.modus==="gruppen"){
+  if(BLZ.modus==="duell"){
+    // großes Duell-Scoreboard (Gesamttore) + Rangliste der Kinder-Teams gegen die Eltern
+    let kTore=0,eTore=0;
+    BLZ.plan.forEach(p=>{if(p.ta!=null){eTore+=p.ta;kTore+=p.tb;}});
+    const elternIdx=BLZ.teams.findIndex(t=>t.eltern);
+    tabellen=`<div style="display:flex;align-items:center;justify-content:center;gap:14px;background:var(--surface2);border-radius:14px;padding:12px;margin:12px 0 4px">
+        <div style="text-align:center"><div style="font-size:11px;font-weight:800;color:var(--text2)">KINDER</div><div style="font-size:30px;font-weight:900;color:#059669">${kTore}</div></div>
+        <div style="font-size:22px;font-weight:900;color:var(--text3)">:</div>
+        <div style="text-align:center"><div style="font-size:11px;font-weight:800;color:var(--text2)">ELTERN</div><div style="font-size:30px;font-weight:900;color:#7c3aed">${eTore}</div></div>
+      </div>`
+      +tabHtml("Beste Kinder-Teams gegen die Eltern",_blzTab(/^runde$/).filter(z=>z.i!==elternIdx));
+  }else if(BLZ.modus==="gruppen"){
     const gA=_blzGruppe("A"),gB=_blzGruppe("B");
     tabellen=tabHtml("Gruppe A",_blzTab(/^gruppeA$/).filter(z=>gA.indexOf(z.i)>=0))
             +tabHtml("Gruppe B",_blzTab(/^gruppeB$/).filter(z=>gB.indexOf(z.i)>=0));
@@ -788,21 +877,39 @@ function blzTor(mi,seite,delta){
 function blzEnde(){
   const offen=BLZ.plan.filter(p=>p.ta==null).length;
   if(offen&&!confirm(offen+" Begegnung"+(offen===1?"":"en")+" ohne Ergebnis – trotzdem beenden?"))return;
-  // Sieger: gespieltes Finale schlägt die Tabelle; sonst Tabellenführung (geteilt möglich)
-  const finale=BLZ.plan.find(p=>p.phase==="finale"&&p.a!=null&&p.ta!=null);
-  let erste;
-  if(finale&&finale.ta!==finale.tb){
-    erste=[{name:BLZ.teams[finale.ta>finale.tb?finale.a:finale.b].name}];
+  // Sieger: Duell = Gesamttore Kinder vs Eltern; sonst gespieltes Finale vor Tabelle
+  let kopf;
+  if(BLZ.modus==="duell"){
+    let kTore=0,eTore=0;BLZ.plan.forEach(p=>{if(p.ta!=null){eTore+=p.ta;kTore+=p.tb;}});
+    const elternIdx=BLZ.teams.findIndex(t=>t.eltern);
+    const besteKids=_blzTab(/^runde$/).filter(z=>z.i!==elternIdx)[0];
+    const titel=kTore>eTore?"DIE KINDER GEWINNEN!":kTore<eTore?"Die Eltern gewinnen!":"Unentschieden!";
+    const unter=kTore>eTore?`${kTore}:${eTore} gegen die Eltern – was für ein Team! 🦅`
+      :kTore<eTore?`${eTore}:${kTore} für die Eltern – Revanche im nächsten Training! 💪`
+      :`${kTore}:${kTore} – ehrenvoll für beide Seiten! 🤝`;
+    kopf=`<div style="text-align:center;padding:14px 0">
+      <div style="font-size:56px">${kTore>=eTore?"🏆":"👨‍👩‍👧"}</div>
+      <div style="font-size:20px;font-weight:900;margin:8px 0">${titel}</div>
+      <div style="font-size:12.5px;color:var(--text2)">${unter}</div>
+      ${besteKids&&besteKids.sp?`<div style="font-size:12px;color:var(--text2);margin-top:6px">⭐ Bestes Kinder-Team: <b>${esc(besteKids.name)}</b></div>`:""}
+    </div>`;
   }else{
-    const tab=BLZ.modus==="gruppen"?_blzTab(/^gruppe/):_blzTab(/^runde$/);
-    erste=tab.filter(z=>z.pkt===tab[0].pkt&&(z.tore-z.geg)===(tab[0].tore-tab[0].geg));
-  }
-  const el=document.getElementById("blitz-body");if(!el)return;
-  el.innerHTML=`<div style="text-align:center;padding:14px 0">
+    const finale=BLZ.plan.find(p=>p.phase==="finale"&&p.a!=null&&p.ta!=null);
+    let erste;
+    if(finale&&finale.ta!==finale.tb){
+      erste=[{name:BLZ.teams[finale.ta>finale.tb?finale.a:finale.b].name}];
+    }else{
+      const tab=BLZ.modus==="gruppen"?_blzTab(/^gruppe/):_blzTab(/^runde$/);
+      erste=tab.filter(z=>z.pkt===tab[0].pkt&&(z.tore-z.geg)===(tab[0].tore-tab[0].geg));
+    }
+    kopf=`<div style="text-align:center;padding:14px 0">
       <div style="font-size:56px">🏆</div>
       <div style="font-size:20px;font-weight:900;margin:8px 0">${erste.map(z=>esc(z.name)).join(" & ")}</div>
       <div style="font-size:12.5px;color:var(--text2)">${erste.length>1?"Geteilter Turniersieg":"gewinnt das Blitzturnier"} – stark gespielt, alle zusammen! 🦅</div>
-    </div>`
+    </div>`;
+  }
+  const el=document.getElementById("blitz-body");if(!el)return;
+  el.innerHTML=kopf
     +BLZ.plan.filter(p=>p.a!=null&&p.ta!=null).map(p=>`<div style="display:flex;gap:8px;font-size:12.5px;padding:2px 0;justify-content:center"><span>${BLZ_PHASE[p.phase]?BLZ_PHASE[p.phase]+": ":""}${esc(BLZ.teams[p.a].name)}</span><b>${p.ta}:${p.tb}</b><span>${esc(BLZ.teams[p.b].name)}</span></div>`).join("")
     +`<button class="btn btn-sm" style="width:100%;margin-top:12px" onclick="blzReset()">Neues Blitzturnier</button>`;
   try{if(typeof confetti==="function")confetti(el);}catch(e){}
