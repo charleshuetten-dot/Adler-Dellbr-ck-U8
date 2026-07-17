@@ -719,12 +719,12 @@ function _blzSetupHtml(){
   const sfChips=Object.entries(BLZ_SPIELFORM).map(([k,v])=>chip((BLZ.spielform||"frei")===k,v[0],`blzSpielform('${k}')`)).join("");
   const bChips=[15,20,30,40,0].map(b=>chip((BLZ.budget||0)===b,b?b+" Min.":"frei",`blzBudget(${b})`)).join("");
   const fChips=[1,2,3,4].map(f=>chip((BLZ.felder||1)===f,f+(f===1?" Feld":" Felder"),`blzFelder(${f})`)).join("");
-  const trainerChips=(typeof TRAINER!=="undefined"&&TRAINER.length)?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Trainer spielen mit <span style="font-weight:400;text-transform:none;letter-spacing:0">(werden in die Kinder-Teams verteilt)</span></div>
+  const trainerChips=(typeof TRAINER!=="undefined"&&TRAINER.length)?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Trainer spielen mit <span style="font-weight:400;text-transform:none;letter-spacing:0">(landen erst bei den Kindern – antippen schiebt sie weiter${duell?", auch in die Eltern-Teams":""})</span></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${TRAINER.map(t=>`<button onclick="blzTrainerToggle('${jsq(t)}')" style="min-height:44px;padding:6px 12px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;background:${(BLZ.trainer||[]).indexOf(t)>=0?"#d97706":"var(--surface2)"};color:${(BLZ.trainer||[]).indexOf(t)>=0?"#fff":"var(--text2)"}">🧢 ${esc(t)}</button>`).join("")}</div>`:"";
   const teams=BLZ.teams.map((t,i)=>`<div style="border:var(--border-s);border-left:4px solid ${t.eltern?"#7c3aed":BLZ_FARBEN[i%BLZ_FARBEN.length]};border-radius:12px;padding:8px 10px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:6px">
         <button onclick="blzRename(${i})" title="Team umbenennen" style="border:none;background:transparent;font-family:inherit;font-size:13.5px;font-weight:800;color:var(--text);cursor:pointer;min-height:44px;padding:0;margin:-8px 0">${t.eltern?"👨‍👩‍👧 ":""}${esc(t.name)} ✏️</button>
-        <span style="margin-left:auto;font-size:11px;color:var(--text3)">${t.eltern?"spielt jedes Duell":(t.spieler.length?t.spieler.length+" im Team":"ohne Kader-Kinder")}</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--text3)">${t.eltern?(t.spieler.length?"🧢 "+t.spieler.length+" dabei · ":"")+"spielt jedes Duell":(t.spieler.length?t.spieler.length+" im Team":"ohne Kader-Kinder")}</span>
         ${t.fest?`<button onclick="blzTeamWeg(${i})" aria-label="Team entfernen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;min-width:44px;min-height:44px;margin:-8px -8px -8px 0"><i class="ti ti-trash"></i></button>`:""}
       </div>
       ${t.spieler.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${t.spieler.map(n=>`<button onclick="blzCycle('${jsq(n)}')" title="Tippen = ins nächste Team" style="min-height:44px;padding:6px 12px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12.5px;cursor:pointer;background:var(--surface2);color:var(--text)">${esc(n)}</button>`).join("")}</div>`:""}
@@ -766,9 +766,11 @@ function blzAnzahl(n){
 function blzNeuMischen(){blzAnzahl(BLZ.anzahl);}
 function blzCycle(name){
   const von=BLZ.teams.findIndex(t=>t.spieler.indexOf(name)>=0);if(von<0)return;
-  // nächstes Nicht-Eltern-Team (Kinder/Trainer wandern nie in das abstrakte Eltern-Team)
+  // Kinder wandern nie ins abstrakte Eltern-Team – Trainer (🧢) dürfen überall hin,
+  // damit sie beim Eltern-Duell auch auf der Eltern-Seite mitspielen können.
+  const istTrainer=name.indexOf("🧢 ")===0;
   let ziel=(von+1)%BLZ.teams.length, runden=0;
-  while(BLZ.teams[ziel].eltern&&runden++<BLZ.teams.length)ziel=(ziel+1)%BLZ.teams.length;
+  while(!istTrainer&&BLZ.teams[ziel].eltern&&runden++<BLZ.teams.length)ziel=(ziel+1)%BLZ.teams.length;
   if(ziel===von)return;
   BLZ.teams[von].spieler=BLZ.teams[von].spieler.filter(x=>x!==name);
   BLZ.teams[ziel].spieler.push(name);
