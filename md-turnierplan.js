@@ -920,6 +920,10 @@ function htRender(){
     <button class="btn btn-p" style="width:100%" onclick="htGenerieren()"><i class="ti ti-calendar-bolt"></i>${plan.length?"Spielplan NEU erzeugen":"Spielplan erzeugen"}</button>
     ${plan.length?`
       <div style="font-weight:800;font-size:13.5px;margin:14px 0 6px">📅 Spielplan <span style="font-weight:400;font-size:11px;color:var(--text3)">(${plan.length} Spiele · ${HT_SPIELFORM[cfg.spielform]||""})</span></div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button class="btn btn-sm" style="flex:1" onclick="htShift(5)" title="Alle noch offenen Spiele 5 Minuten nach hinten – wenn sich der Zeitplan schiebt">⏩ Rest +5 Min.</button>
+        <button class="btn btn-sm" style="flex:1" onclick="htShift(-5)" title="Wieder 5 Minuten nach vorn">⏪ Rest −5 Min.</button>
+      </div>
       ${plan.map(spielZeile).join("")}
       ${finalsOffen?`<button class="btn btn-sm" style="width:100%" onclick="htFinalsFill()">🏁 Finalrunde füllen (nach Gruppen bzw. Halbfinals)</button>`:""}
       ${tabellen}
@@ -932,6 +936,8 @@ function htRender(){
         <a class="btn btn-sm" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><i class="ti ti-external-link"></i>Ansicht öffnen</a>
       </div>
       <div style="text-align:center;margin-top:10px"><img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}" alt="QR-Code zum Turnierplan" width="180" height="180" style="border-radius:10px;background:#fff;padding:6px"></div>
+      <div style="font-size:11px;color:var(--text2);margin-top:12px">✏️ <b>Helfer-Link</b> – wie der Zuschauer-Link, aber mit Schreib-Code: wer ihn hat (z. B. der Anzeigetisch), darf Ergebnisse eintragen, sonst nichts.</div>
+      <button class="btn btn-sm" style="margin-top:4px" onclick="htShareHelfer()"><i class="ti ti-pencil"></i>Helfer-Link teilen</button>
     `:""}
     <button class="btn btn-sm" style="width:100%;margin-top:14px;color:#dc2626" onclick="htDelete()"><i class="ti ti-trash"></i>Turnier löschen</button>`;
 }
@@ -1049,6 +1055,29 @@ function htShare(){
   if(navigator.share){navigator.share({title:_HT.name,text:"🏆 "+_HT.name+" – Spielplan & Live-Ergebnisse",url}).catch(()=>{});return;}
   try{navigator.clipboard.writeText(url);toast("Link kopiert ✓");}catch(e){prompt("Link kopieren:",url);}
 }
+// Helfer-Link = Zuschauer-Link + Schreib-Code (nur Ergebnisse, via RPC heimturnier_ergebnis)
+function htShareHelfer(){
+  if(!_HT.edit_code){toast("Kein Schreib-Code vorhanden","err");return;}
+  const url=_htUrl(_HT.slug)+"&code="+encodeURIComponent(_HT.edit_code);
+  if(navigator.share){navigator.share({title:_HT.name+" (Helfer)",text:"✏️ Helfer-Link "+_HT.name+" – Ergebnisse eintragen",url}).catch(()=>{});return;}
+  try{navigator.clipboard.writeText(url);toast("Helfer-Link kopiert ✓");}catch(e){prompt("Helfer-Link kopieren:",url);}
+}
+/* Turniertage schieben sich gern nach hinten: verschiebt alle noch offenen Begegnungen
+   (ab dem ersten Spiel ohne Ergebnis) um +/- Minuten – der öffentliche Link zieht mit. */
+async function htShift(delta){
+  const plan=(_HT.plan||[]).slice();
+  const ab=plan.findIndex(p=>p.ta==null);
+  if(ab<0){toast("Alle Spiele haben schon ein Ergebnis","err");return;}
+  for(let i=ab;i<plan.length;i++){
+    const [h,m]=(plan[i].zeit||"00:00").split(":").map(Number);
+    const t=Math.max(0,h*60+m+delta);
+    plan[i].zeit=String(Math.floor(t/60)%24).padStart(2,"0")+":"+String(t%60).padStart(2,"0");
+  }
+  if(await htPatch({plan})){
+    toast(delta>0?"⏩ Offene Spiele +"+delta+" Min. geschoben":"⏪ Offene Spiele "+Math.abs(delta)+" Min. vorgezogen");
+    htRender();
+  }
+}
 async function htDelete(){
   if(!confirm(`„${_HT.name}" samt Spielplan wirklich löschen?`))return;
   try{
@@ -1059,31 +1088,82 @@ async function htDelete(){
   htListe();
 }
 /* ── M3: Öffentliche Turnierseite (?turnier=<slug>) – kein Login, nur Teamnamen.
-   Eigenes helles Layout (unabhängig vom App-Theme), Auto-Aktualisierung alle 30 s. ── */
+   Eigenes helles Layout (unabhängig vom App-Theme), Auto-Aktualisierung alle 30 s.
+   Mit &code=<edit_code> wird sie zum Helfer-Modus: Ergebnisse antippbar (RPC-gesichert);
+   anon darf die Spalte edit_code nicht lesen, deshalb hier eine explizite Spaltenliste. ── */
+let _htPub=null;
 async function renderHeimturnierView(slug){
   document.body.style.cssText="margin:0;background:#f1f5f9;font-family:Inter,system-ui,sans-serif;color:#0f172a";
   const wrap=document.createElement("div");
   wrap.id="ht-public";
   wrap.style.cssText="max-width:560px;margin:0 auto;padding:14px 14px 40px";
   document.body.appendChild(wrap);
-  const laden=async()=>{
-    let row=null;
-    try{const r=await fetch(`${SB_URL}/rest/v1/heimturnier?slug=eq.${encodeURIComponent(slug)}&select=*`,{headers:sbAuthHeaders()});if(r.ok)row=((await r.json())||[])[0]||null;}catch(e){}
-    _htPublicRender(wrap,row);
-  };
-  await laden();
-  setInterval(()=>{if(!document.hidden)laden();},30000);
+  _htPub={slug,code:new URLSearchParams(location.search).get("code")||"",wrap,row:null};
+  await _htPubLoad();
+  setInterval(()=>{if(!document.hidden&&!document.getElementById("htpub-sheet"))_htPubLoad();},30000);
+}
+async function _htPubLoad(){
+  if(!_htPub)return;
+  let row=null;
+  try{const r=await fetch(`${SB_URL}/rest/v1/heimturnier?slug=eq.${encodeURIComponent(_htPub.slug)}&select=id,slug,name,datum,ort,config,teams,plan,aktiv`,{headers:sbAuthHeaders()});if(r.ok)row=((await r.json())||[])[0]||null;}catch(e){}
+  _htPub.row=row;
+  _htPublicRender(_htPub.wrap,row);
+}
+// Helfer-Modus: großes Eingabe-Blatt für EIN Spiel (Anzeigetisch-tauglich, 52px-Tasten)
+function htPubEdit(mi){
+  const row=_htPub&&_htPub.row; if(!row)return;
+  const p=row.plan[mi]; if(!p||typeof p.a!=="number"||typeof p.b!=="number")return;
+  document.getElementById("htpub-sheet")?.remove();
+  const sh=document.createElement("div");sh.id="htpub-sheet";
+  sh.style.cssText="position:fixed;left:0;right:0;bottom:0;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -6px 30px rgba(0,0,0,.3);padding:16px;z-index:1000;max-width:560px;margin:0 auto";
+  sh.innerHTML=`<div style="font-weight:800;font-size:14px;text-align:center">${esc(_htName(p.a,row.teams))} <span style="color:#94a3b8">vs</span> ${esc(_htName(p.b,row.teams))}</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin:14px 0">
+      <span style="display:inline-flex;align-items:center;gap:4px">
+        <button onclick="htPubTor(${mi},'ta',-1)" aria-label="Tor zurücknehmen" style="min-width:52px;min-height:52px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc;font-size:20px;cursor:pointer">−</button>
+        <b id="htpub-ta" style="min-width:36px;text-align:center;font-size:28px">${p.ta==null?0:p.ta}</b>
+        <button onclick="htPubTor(${mi},'ta',1)" aria-label="Tor" style="min-width:52px;min-height:52px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc;font-size:20px;cursor:pointer">+</button>
+      </span>
+      <span style="font-weight:900;font-size:24px">:</span>
+      <span style="display:inline-flex;align-items:center;gap:4px">
+        <button onclick="htPubTor(${mi},'tb',-1)" aria-label="Tor zurücknehmen" style="min-width:52px;min-height:52px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc;font-size:20px;cursor:pointer">−</button>
+        <b id="htpub-tb" style="min-width:36px;text-align:center;font-size:28px">${p.tb==null?0:p.tb}</b>
+        <button onclick="htPubTor(${mi},'tb',1)" aria-label="Tor" style="min-width:52px;min-height:52px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc;font-size:20px;cursor:pointer">+</button>
+      </span>
+    </div>
+    <button onclick="document.getElementById('htpub-sheet').remove();_htPubLoad()" style="width:100%;min-height:48px;border:none;border-radius:12px;background:#16a34a;color:#fff;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit">Fertig</button>`;
+  document.body.appendChild(sh);
+}
+async function htPubTor(mi,seite,delta){
+  const row=_htPub&&_htPub.row; if(!row)return;
+  const p=row.plan[mi];
+  const ta=Math.max(0,(p.ta==null?0:p.ta)+(seite==="ta"?delta:0));
+  const tb=Math.max(0,(p.tb==null?0:p.tb)+(seite==="tb"?delta:0));
+  let ok=false;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/heimturnier_ergebnis`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_slug:_htPub.slug,p_code:_htPub.code,p_idx:mi,p_ta:ta,p_tb:tb})});
+    ok=r.ok&&(await r.json())===true;
+  }catch(e){}
+  if(!ok){if(typeof toast==="function")toast("Eintragen nicht möglich – Helfer-Code ungültig?","err");return;}
+  p.ta=ta;p.tb=tb;
+  const el=document.getElementById("htpub-"+seite); if(el)el.textContent=String(seite==="ta"?ta:tb);
 }
 function _htPublicRender(wrap,row){
   if(!row){wrap.innerHTML=`<div style="text-align:center;padding:60px 20px"><div style="font-size:44px">🏆</div><div style="font-weight:800;margin-top:8px">Turnier nicht gefunden</div><div style="font-size:13px;color:#64748b;margin-top:4px">Der Link ist abgelaufen oder falsch – bitte beim Veranstalter nachfragen.</div></div>`;return;}
   const teams=row.teams||[], plan=row.plan||[], cfg=row.config||{};
   const dat=row.datum?new Date(row.datum+"T00:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"}):"";
-  const zeilen=plan.map(p=>`<tr style="border-top:1px solid #e2e8f0;${p.ta!=null?"background:#f8fafc;":""}">
+  const helfer=!!(_htPub&&_htPub.code);
+  const zeilen=plan.map((p,mi)=>{
+    const echt=typeof p.a==="number"&&typeof p.b==="number";
+    const erg=p.ta!=null?p.ta+" : "+p.tb:"–";
+    const ergZelle=(helfer&&echt)
+      ?`<button onclick="htPubEdit(${mi})" style="min-height:44px;min-width:70px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer">✏️ ${erg}</button>`
+      :erg;
+    return `<tr style="border-top:1px solid #e2e8f0;${p.ta!=null?"background:#f8fafc;":""}">
       <td style="padding:7px 6px;font-weight:700;white-space:nowrap">${esc(p.zeit||"")}</td>
       <td style="padding:7px 4px;color:#64748b;white-space:nowrap">F${p.feld||1}</td>
       <td style="padding:7px 6px">${esc(_htName(p.a,teams))} – ${esc(_htName(p.b,teams))}<div style="font-size:10px;color:#b45309;font-weight:700">${esc(p.phase||"")}</div></td>
-      <td style="padding:7px 6px;text-align:right;font-weight:900;white-space:nowrap">${p.ta!=null?p.ta+" : "+p.tb:"–"}</td>
-    </tr>`).join("");
+      <td style="padding:7px 6px;text-align:right;font-weight:900;white-space:nowrap">${ergZelle}</td>
+    </tr>`;}).join("");
   let tabellen="";
   if(plan.length&&cfg.format!=="festival"){
     const blocks=cfg.format==="gruppen"
@@ -1108,6 +1188,7 @@ function _htPublicRender(wrap,row){
       ${sf?`<div style="display:inline-block;margin-top:8px;background:rgba(255,255,255,.18);border-radius:12px;padding:3px 12px;font-size:12px;font-weight:800">⚽ ${esc(sf)}</div>`:""}
       <div style="font-size:11px;opacity:.75;margin-top:6px">Veranstalter: SV Adler Dellbrück U9 · Ergebnisse live</div>
     </div>
+    ${helfer?'<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:10px 12px;margin-top:10px;font-size:13px;color:#065f46;font-weight:700">✏️ Helfer-Modus: Ergebnis antippen und eintragen – mehr geht mit diesem Link nicht.</div>':""}
     ${plan.length?`<div style="background:#fff;border-radius:14px;padding:8px 4px;margin-top:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:13px">${zeilen}</table>
     </div>`:'<div style="background:#fff;border-radius:14px;padding:20px;margin-top:12px;text-align:center;color:#64748b;font-size:13px">Der Spielplan wird gerade erstellt – gleich nochmal schauen.</div>'}

@@ -3124,7 +3124,7 @@ const HELP=[
     {t:"Aufstellung", d:"Auto-Aufstellung mit fairen Einsatzzeiten.", go:"kombi"},
     {t:"Analyse", d:"Auswertung nach dem Spiel.", go:"analyse"},
     {t:"Taktikboard", d:"Formationen stellen, Laufwege/Pässe zeichnen, als Bild teilen.", go:"taktik"},
-    {t:"Heimturnier ausrichten", d:"Eigenes Turnier: Teams aus der Gegner-DB (auch 2. Mannschaften), 2–4 Gruppen nach Meldezahl, 1–4 Felder parallel, Spielform (FUNiño, 4+1, 5+1 …) mit Regelwerk, Live-Ergebnisse – Link/QR geht ohne Login an die Gast-Trainer.", run:"htOpen()"},
+    {t:"Heimturnier ausrichten", d:"Eigenes Turnier: Teams aus der Gegner-DB (auch 2. Mannschaften), 2–4 Gruppen nach Meldezahl, 1–4 Felder parallel, Spielform (FUNiño, 4+1, 5+1 …) mit Regelwerk, Live-Ergebnisse, „Rest +5 Min.“-Verschieber – Zuschauer-Link/QR ohne Login, Helfer-Link fürs Ergebnis-Eintragen am Anzeigetisch.", run:"htOpen()"},
   ]},
   {cat:"🪶 Adler-Welt (Kids)", items:[
     {t:"Adler-Welt-Hub", d:"Federn je Kind, FUT-Karten, Technik-Abzeichen und Wochen-Challenge an einem Ort.", run:"adlerWeltOpen()"},
