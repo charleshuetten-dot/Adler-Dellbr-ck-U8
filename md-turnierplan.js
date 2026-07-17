@@ -873,7 +873,7 @@ function _blzLiveHtml(){
     const aktiv=s===naechsterSlot;
     return `<div style="margin-bottom:10px;${aktiv?"box-shadow:0 0 0 2px #d97706;border-radius:14px;padding:8px;":""}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <span style="font-size:11px;font-weight:800;color:${aktiv?"#d97706":"var(--text3)"}">Fenster ${s+1}/${slots.length}</span>
+        <span style="font-size:11px;font-weight:800;color:${aktiv?"#d97706":"var(--text3)"}">Fenster ${s+1}/${slots.length}${ms.length>1?` · ${ms.length} Spiele parallel`:""}</span>
         ${aktiv?`<button class="btn btn-sm btn-p" style="margin-left:auto" onclick="blzTimerStart()">⏱️ ${BLZ.runde} Min.${felder>1?" – Pfiff für alle Felder":""}</button>`:""}
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">${ms.map(karte).join("")}</div>
