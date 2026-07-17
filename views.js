@@ -3117,7 +3117,7 @@ const HELP=[
     {t:"Planung", d:"Zeitplan bauen, Übungen zuweisen, danach bewerten.", go:"planung"},
     {t:"Einheit bewerten", d:"Schnell-Sterne: Spaß, Umsetzung, Erfolg.", run:"einheitBewertenOpen()"},
     {t:"Trainingsformen", d:"Bibliothek + Filter · „Auto-Plan\" baut eine Einheit · KI-Coach · Saison-Periodisierung.", go:"formen"},
-    {t:"Blitzturnier", d:"Turnier zum Trainingsabschluss mit Zeitbudget-Automatik: Gesamtzeit (z. B. 40 Min.) und 1–4 Felder vorgeben, die Automatik wählt Format und Spielzeit (5–10 Min., Finale nur bei Restzeit) – reicht die Zeit fair nicht, sagt sie ehrlich, wie viele Minuten fehlen. Zwei Modi: Kinder-Turnier (Trainer spielen auf Wunsch in den Teams mit) oder Kinder gegen Eltern (Duell-Scoreboard, nie Kind gegen Kind). Ein Pfiff für alle Felder.", run:"blitzOpen()"},
+    {t:"Blitzturnier", d:"Turnier zum Trainingsabschluss mit Zeitbudget-Automatik: Gesamtzeit (z. B. 40 Min.) und 1–4 Felder vorgeben, die Automatik wählt Format und Spielzeit (5–10 Min., Finale nur bei Restzeit) – reicht die Zeit fair nicht, sagt sie ehrlich, wie viele Minuten fehlen. Zwei Modi: Kinder-Turnier (Trainer spielen auf Wunsch in den Teams mit) oder Kinder gegen Eltern (1–4 Eltern-Teams, Duelle parallel auf den Feldern, Duell-Scoreboard, nie Kind gegen Kind). Spielform wählbar (FUNiño, 4+1, 5+1) mit Team-Vorschlag aus der Kinderzahl. Ein Pfiff für alle Felder.", run:"blitzOpen()"},
   ]},
   {cat:"⚽ Spieltag", items:[
     {t:"Match", d:"Nominierung, Match-Uhr, Live-Aktionen, Rotations-Timer für faire Zeiten.", go:"spieltag"},

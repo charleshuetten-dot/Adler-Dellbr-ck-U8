@@ -475,6 +475,8 @@ function _blzLoad(){
       if(!s.modus)s.modus="rr";
       if(!s.spielmodus)s.spielmodus="kinder";
       if(!s.trainer)s.trainer=[];
+      if(!s.spielform)s.spielform="frei";
+      if(!s.elternAnzahl)s.elternAnzahl=1;
       (s.plan||[]).forEach((p,i)=>{if(!p.phase)p.phase="runde";if(p.slot==null)p.slot=i;if(!p.feld)p.feld=1;});
       return s;
     }
@@ -529,13 +531,32 @@ function blzTrainerToggle(name){
   }
   blzSave();blzRender();
 }
-// Duell-Modus: EIN Eltern-Team + n Kinder-Teams; gespielt wird nur Kinder GEGEN Eltern
+/* Duell-Modus: 1–4 Eltern-Teams (abstrakt, ohne Kader) + 1–4 Kinder-Teams; gespielt
+   wird IMMER NUR Kinder gegen Eltern – bei gleich vielen Teams laufen die Duelle
+   parallel auf mehreren Feldern (13 Kinder + 13 Eltern, FUNiño, 4 Felder!). */
 function _blzDuellTeams(nKids){
-  const alt=BLZ.teams.find(t=>t.eltern);
+  const m=Math.min(4,Math.max(1,BLZ.elternAnzahl||1));
+  const alteEltern=BLZ.teams.filter(t=>t.eltern);
+  const eltern=[];
+  for(let i=0;i<m;i++)eltern.push(alteEltern[i]||{name:m>1?"Eltern "+(i+1):"Eltern",spieler:[],fest:false,eltern:true});
+  // Standard-Namen an die neue Anzahl anpassen (umbenannte Teams bleiben unangetastet)
+  if(m===1&&/^Eltern \d$/.test(eltern[0].name))eltern[0].name="Eltern";
+  if(m>1)eltern.forEach((t,i)=>{if(t.name==="Eltern")t.name="Eltern "+(i+1);});
   const a=_blzAuto(nKids);
-  BLZ.teams=[alt||{name:"Eltern",spieler:[],fest:false,eltern:true}].concat(a.teams);
+  BLZ.teams=eltern.concat(a.teams);
   BLZ.quelle=a.quelle;
   _blzTrainerVerteilen();
+}
+function blzElternAnzahl(m){BLZ.elternAnzahl=m;_blzDuellTeams(BLZ.anzahl);blzSave();blzRender();}
+const BLZ_SPIELFORM={funino:["FUNiño (3 gegen 3)",3],f4:["4+1",5],f5:["5+1",6],frei:["frei",0]};
+function blzSpielform(sf){BLZ.spielform=sf;blzSave();blzRender();}
+// Team-Größen-Vorschlag aus Kinderzahl + Spielform (13 Kinder, FUNiño → 4 Teams)
+function _blzTeamVorschlag(){
+  const groesse=(BLZ_SPIELFORM[BLZ.spielform]||[])[1];
+  if(!groesse)return null;
+  const pool=_blzPool().namen.length;
+  if(!pool)return null;
+  return {pool,teams:Math.min(4,Math.max(BLZ.spielmodus==="duell"?1:2,Math.round(pool/groesse)))};
 }
 function blzModus(m){
   BLZ.spielmodus=m;
@@ -575,18 +596,22 @@ function _blzSlots(matches,felder){
 /* Zeitbudget-Automatik. Liefert {ms,slots,z,modus,dauer,hinweis,finaleBonus}:
    ms = fertige Spielliste (Finals als Platzhalter a/b=null, werden live aufgelöst),
    hinweis = fehlende Minuten, wenn selbst das kürzeste faire Format nicht passt. */
-function _blzPlanen(n,budget,felder,spielmodus){
+function _blzPlanen(n,budget,felder,spielmodus,elternAnzahl){
   const dauer=(slots,z)=>slots*z+Math.max(0,slots-1)*BLZ_W;
   const zMax=slots=>Math.floor((budget-(slots-1)*BLZ_W)/slots);
-  /* Duell-Modus (Kinder gegen Eltern): Team 0 = Eltern, dahinter die Kinder-Teams.
-     Es gibt NUR Eltern-Spiele → immer 1 Feld, sequenziell. Die Automatik wählt die
-     Zahl der Durchgänge (3 → 1), damit jedes Kinder-Team gleich oft drankommt. */
+  /* Duell-Modus (Kinder gegen Eltern): Teams 0..m-1 = Eltern-Teams, dahinter die
+     Kinder-Teams. Je Durchgang spielt JEDES Kinder-Team genau einmal – gegen ein
+     rotierendes Eltern-Team (nie Kind gegen Kind, nie Eltern gegen Eltern). Bei
+     gleich vielen Eltern-Teams laufen die Duelle parallel auf den Feldern; die
+     Fenster-Packung verhindert, dass ein Eltern-Team doppelt im selben Fenster steht. */
   if(spielmodus==="duell"){
-    const nKids=Math.max(1,n-1);
+    const m=Math.max(1,elternAnzahl||1);
+    const nKids=Math.max(1,n-m);
     const runde=d=>{
       const ms=[];
-      for(let r=0;r<d;r++)for(let k=1;k<=nKids;k++)ms.push({a:0,b:k,phase:"runde",ta:null,tb:null,slot:ms.length,feld:1});
-      return {ms,slots:ms.length};
+      for(let r=0;r<d;r++)for(let k=0;k<nKids;k++)ms.push({a:(k+r)%m,b:m+k,phase:"runde",ta:null,tb:null});
+      const slots=_blzSlots(ms,felder);
+      return {ms,slots};
     };
     if(!budget||budget<=0)return {...runde(2),z:null,modus:"duell",dauer:null,hinweis:null,finaleBonus:false};
     for(let d=3;d>=1;d--){
@@ -655,7 +680,7 @@ function _blzPlanen(n,budget,felder,spielmodus){
 // Vorschau-Text für das Setup (transparent: Format, Spielzeit, Gesamtdauer, Warnung)
 function _blzVorschauHtml(){
   if(!BLZ.budget)return `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Freies Spiel: Du stellst die Spielzeit selbst ein – ohne Zeitbudget, ohne Automatik.</div>`;
-  const p=_blzPlanen(BLZ.teams.length,BLZ.budget,BLZ.felder||1,BLZ.spielmodus);
+  const p=_blzPlanen(BLZ.teams.length,BLZ.budget,BLZ.felder||1,BLZ.spielmodus,BLZ.teams.filter(t=>t.eltern).length);
   const nKids=BLZ.teams.filter(t=>!t.eltern).length;
   const fmt=p.modus==="duell"?`Kinder gegen Eltern – ${Math.round(p.ms.length/Math.max(1,nKids))} Durchgang${p.ms.length/Math.max(1,nKids)>1?"e":""} je Kinder-Team`
     :p.modus==="gruppen"?"2 Los-Gruppen + kleines Finale + Finale":(BLZ.teams.length===2?(p.slots===1?"ein Spiel":"Hin- und Rückspiel"):"jeder gegen jeden"+(p.finaleBonus?" + Finale":""));
@@ -666,7 +691,7 @@ function _blzVorschauHtml(){
 function blitzOpen(){
   const alt=_blzLoad();
   if(alt){BLZ=alt;}
-  else{const a=_blzAuto(2);BLZ={datum:_blzHeute(),phase:"setup",spielmodus:"kinder",anzahl:2,runde:8,budget:20,felder:1,modus:"rr",quelle:a.quelle,teams:a.teams,trainer:[],plan:[]};blzSave();}
+  else{const a=_blzAuto(2);BLZ={datum:_blzHeute(),phase:"setup",spielmodus:"kinder",anzahl:2,elternAnzahl:1,spielform:"frei",runde:8,budget:20,felder:1,modus:"rr",quelle:a.quelle,teams:a.teams,trainer:[],plan:[]};blzSave();}
   document.getElementById("blitz-modal")?.remove();
   const m=document.createElement("div");m.id="blitz-modal";
   m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Blitzturnier");
@@ -687,8 +712,11 @@ function blzRender(){
 function _blzSetupHtml(){
   const chip=(aktiv,label,onclick)=>`<button onclick="${onclick}" style="flex:1;min-height:44px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;background:${aktiv?"#d97706":"var(--surface2)"};color:${aktiv?"#fff":"var(--text2)"}">${label}</button>`;
   const duell=BLZ.spielmodus==="duell";
+  const vorschlag=_blzTeamVorschlag();
   const mChips=chip(!duell,"⚽ Kinder-Turnier","blzModus('kinder')")+chip(duell,"👨‍👩‍👧 Kinder gegen Eltern","blzModus('duell')");
-  const nChips=(duell?[1,2,3]:[2,3,4]).map(n=>chip(BLZ.anzahl===n,n+(duell?" Kinder-Team"+(n>1?"s":""):" Teams"),`blzAnzahl(${n})`)).join("");
+  const nChips=(duell?[1,2,3,4]:[2,3,4]).map(n=>chip(BLZ.anzahl===n,n+(duell?" Kinder-Team"+(n>1?"s":""):" Teams")+(vorschlag&&vorschlag.teams===n?" ✦":""),`blzAnzahl(${n})`)).join("");
+  const eChips=[1,2,3,4].map(m=>chip((BLZ.elternAnzahl||1)===m,m+" Eltern-Team"+(m>1?"s":""),`blzElternAnzahl(${m})`)).join("");
+  const sfChips=Object.entries(BLZ_SPIELFORM).map(([k,v])=>chip((BLZ.spielform||"frei")===k,v[0],`blzSpielform('${k}')`)).join("");
   const bChips=[15,20,30,40,0].map(b=>chip((BLZ.budget||0)===b,b?b+" Min.":"frei",`blzBudget(${b})`)).join("");
   const fChips=[1,2,3,4].map(f=>chip((BLZ.felder||1)===f,f+(f===1?" Feld":" Felder"),`blzFelder(${f})`)).join("");
   const trainerChips=(typeof TRAINER!=="undefined"&&TRAINER.length)?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Trainer spielen mit <span style="font-weight:400;text-transform:none;letter-spacing:0">(werden in die Kinder-Teams verteilt)</span></div>
@@ -702,11 +730,16 @@ function _blzSetupHtml(){
       ${t.spieler.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${t.spieler.map(n=>`<button onclick="blzCycle('${jsq(n)}')" title="Tippen = ins nächste Team" style="min-height:44px;padding:6px 12px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12.5px;cursor:pointer;background:var(--surface2);color:var(--text)">${esc(n)}</button>`).join("")}</div>`:""}
     </div>`).join("");
   return `<div style="display:flex;gap:6px;margin-bottom:10px">${mChips}</div>
-    ${duell?`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Duell-Tag: Gespielt wird NUR Kinder gegen Eltern – nie Kinder gegen Kinder. Die Kinder-Teams wechseln sich gegen das Eltern-Team ab.</div>`:""}
+    ${duell?`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Duell-Tag: Gespielt wird NUR Kinder gegen Eltern – nie Kinder gegen Kinder, nie Eltern gegen Eltern. Bei gleich vielen Teams laufen die Duelle parallel auf den Feldern.</div>`:""}
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Spielform</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">${sfChips}</div>
+    ${vorschlag?`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">💡 ${vorschlag.pool} Kinder → Vorschlag: <b>${vorschlag.teams} Kinder-Team${vorschlag.teams>1?"s":""}</b> (${BLZ_SPIELFORM[BLZ.spielform][0]})${duell?" – und genauso viele Eltern-Teams, dann spielt alles parallel":""}</div>`:""}
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Zeitbudget</div>
     <div style="display:flex;gap:6px;margin-bottom:8px">${bChips}</div>
-    ${duell?"":`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Spielfelder <span style="font-weight:400;text-transform:none;letter-spacing:0">(3–4 = FUNiño/Kleinfelder · ein Pfiff für alle)</span></div>
-    <div style="display:flex;gap:6px;margin-bottom:8px">${fChips}</div>`}
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Spielfelder <span style="font-weight:400;text-transform:none;letter-spacing:0">(3–4 = FUNiño/Kleinfelder · ein Pfiff für alle)</span></div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">${fChips}</div>
+    ${duell?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Eltern-Teams</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">${eChips}</div>`:""}
     ${_blzVorschauHtml()}
     <div style="display:flex;gap:8px;margin-bottom:10px">${nChips}</div>
     ${trainerChips}
@@ -752,7 +785,7 @@ function blzRename(i){
 }
 function blzStart(){
   if(BLZ.teams.length<2){toast("Mindestens 2 Teams","err");return;}
-  const p=_blzPlanen(BLZ.teams.length,BLZ.budget||0,BLZ.spielmodus==="duell"?1:(BLZ.felder||1),BLZ.spielmodus);
+  const p=_blzPlanen(BLZ.teams.length,BLZ.budget||0,BLZ.felder||1,BLZ.spielmodus,BLZ.teams.filter(t=>t.eltern).length);
   if(BLZ.budget){BLZ.runde=p.z;}
   else{const r=Number(document.getElementById("blz-runde")?.value)||8;BLZ.runde=Math.min(30,Math.max(1,r));}
   BLZ.plan=p.ms;
@@ -847,13 +880,13 @@ function _blzLiveHtml(){
     // großes Duell-Scoreboard (Gesamttore) + Rangliste der Kinder-Teams gegen die Eltern
     let kTore=0,eTore=0;
     BLZ.plan.forEach(p=>{if(p.ta!=null){eTore+=p.ta;kTore+=p.tb;}});
-    const elternIdx=BLZ.teams.findIndex(t=>t.eltern);
+    const elternSet=new Set(BLZ.teams.map((t,i)=>t.eltern?i:-1).filter(i=>i>=0));
     tabellen=`<div style="display:flex;align-items:center;justify-content:center;gap:14px;background:var(--surface2);border-radius:14px;padding:12px;margin:12px 0 4px">
         <div style="text-align:center"><div style="font-size:11px;font-weight:800;color:var(--text2)">KINDER</div><div style="font-size:30px;font-weight:900;color:#059669">${kTore}</div></div>
         <div style="font-size:22px;font-weight:900;color:var(--text3)">:</div>
         <div style="text-align:center"><div style="font-size:11px;font-weight:800;color:var(--text2)">ELTERN</div><div style="font-size:30px;font-weight:900;color:#7c3aed">${eTore}</div></div>
       </div>`
-      +tabHtml("Beste Kinder-Teams gegen die Eltern",_blzTab(/^runde$/).filter(z=>z.i!==elternIdx));
+      +tabHtml("Beste Kinder-Teams gegen die Eltern",_blzTab(/^runde$/).filter(z=>!elternSet.has(z.i)));
   }else if(BLZ.modus==="gruppen"){
     const gA=_blzGruppe("A"),gB=_blzGruppe("B");
     tabellen=tabHtml("Gruppe A",_blzTab(/^gruppeA$/).filter(z=>gA.indexOf(z.i)>=0))
@@ -861,7 +894,7 @@ function _blzLiveHtml(){
   }else{
     tabellen=tabHtml("Tabelle",_blzTab(/^runde$/));
   }
-  const kopf=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">${BLZ.dauer?`~${BLZ.dauer} Min. geplant (Budget ${BLZ.budget})`:`Spielzeit frei gewählt`} · ${BLZ.runde} Min. je Spiel · ${felder>1?felder+" Felder, ein Pfiff für alle":"1 Feld"}</div>`
+  const kopf=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">${BLZ.dauer?`~${BLZ.dauer} Min. geplant (Budget ${BLZ.budget})`:`Spielzeit frei gewählt`} · ${BLZ.runde} Min. je Spiel · ${felder>1?felder+" Felder, ein Pfiff für alle":"1 Feld"}${(BLZ.spielform&&BLZ.spielform!=="frei")?" · ⚽ "+BLZ_SPIELFORM[BLZ.spielform][0]:""}</div>`
     +(BLZ.hinweis>0?`<div style="font-size:12px;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:8px 10px;margin-bottom:8px">⏰ Ehrlich gesagt: Das kürzeste faire Format braucht <b>${BLZ.hinweis} Min. mehr</b> als geplant – ihr überzieht bewusst.</div>`:"");
   return kopf+fenster+tabellen+`
     <button class="btn btn-p" style="width:100%;margin-top:12px" onclick="blzEnde()"><i class="ti ti-trophy"></i>Turnier beenden</button>
@@ -881,8 +914,8 @@ function blzEnde(){
   let kopf;
   if(BLZ.modus==="duell"){
     let kTore=0,eTore=0;BLZ.plan.forEach(p=>{if(p.ta!=null){eTore+=p.ta;kTore+=p.tb;}});
-    const elternIdx=BLZ.teams.findIndex(t=>t.eltern);
-    const besteKids=_blzTab(/^runde$/).filter(z=>z.i!==elternIdx)[0];
+    const elternSet=new Set(BLZ.teams.map((t,i)=>t.eltern?i:-1).filter(i=>i>=0));
+    const besteKids=_blzTab(/^runde$/).filter(z=>!elternSet.has(z.i))[0];
     const titel=kTore>eTore?"DIE KINDER GEWINNEN!":kTore<eTore?"Die Eltern gewinnen!":"Unentschieden!";
     const unter=kTore>eTore?`${kTore}:${eTore} gegen die Eltern – was für ein Team! 🦅`
       :kTore<eTore?`${eTore}:${kTore} für die Eltern – Revanche im nächsten Training! 💪`
