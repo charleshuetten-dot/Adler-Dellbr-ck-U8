@@ -467,8 +467,11 @@ function _blzHeute(){const d=new Date();return d.getFullYear()+"-"+String(d.getM
 function blzSave(){try{localStorage.setItem("adler_blitz",JSON.stringify(BLZ));}catch(e){}}
 function _blzLoad(){
   try{
+    // Bewusst KEINE Tages-Grenze mehr: ein vorbereitetes Turnier (z. B. am Vorabend
+    // angelegt) wartet, bis es am Platz geöffnet wird. Weg geht es nur über
+    // „Turnier beenden“ oder „Neu starten“.
     const s=JSON.parse(localStorage.getItem("adler_blitz")||"null");
-    if(s&&s.datum===_blzHeute()){
+    if(s){
       // Migration älterer Stände (vor der Zeitbudget-Automatik)
       if(s.budget==null)s.budget=0;
       if(!s.felder)s.felder=1;
@@ -505,6 +508,15 @@ function _blzAuto(n){
     teams[ziel].spieler.push(name);summe[ziel]+=st(name);
   });
   return {teams,quelle:pool.quelle};
+}
+/* Struktur-Änderung (Modus, Team-Anzahl) macht einen gebauten Spielplan ungültig.
+   Ohne Ergebnisse wird er still verworfen; mit Ergebnissen erst nach Rückfrage. */
+function _blzPlanVerwerfen(){
+  if(!BLZ.plan||!BLZ.plan.length)return true;
+  const hatErg=BLZ.plan.some(p=>p.ta!=null);
+  if(hatErg&&!confirm("Es gibt schon Ergebnisse – diese Änderung verwirft Spielplan UND Ergebnisse. Fortfahren?"))return false;
+  BLZ.plan=[];
+  return true;
 }
 /* Anwesende Trainer als Mitspieler in die Kinder-Teams verteilen (🧢-Kennung).
    Reihum ins jeweils kleinste Team; per Tipp wie jedes Kind weiter verschiebbar. */
@@ -548,7 +560,7 @@ function _blzDuellTeams(nKids){
   BLZ.quelle=a.quelle;
   _blzTrainerVerteilen();
 }
-function blzElternAnzahl(m){BLZ.elternAnzahl=m;_blzDuellTeams(BLZ.anzahl);blzSave();blzRender();}
+function blzElternAnzahl(m){if(!_blzPlanVerwerfen())return;BLZ.elternAnzahl=m;_blzDuellTeams(BLZ.anzahl);blzSave();blzRender();}
 const BLZ_SPIELFORM={funino:["FUNiño (3 gegen 3)",3],f4:["4+1",5],f5:["5+1",6],frei:["frei",0]};
 function blzSpielform(sf){BLZ.spielform=sf;blzSave();blzRender();}
 // Team-Größen-Vorschlag aus Kinderzahl + Spielform (13 Kinder, FUNiño → 4 Teams)
@@ -560,6 +572,8 @@ function _blzTeamVorschlag(){
   return {pool,teams:Math.min(4,Math.max(BLZ.spielmodus==="duell"?1:2,Math.round(pool/groesse)))};
 }
 function blzModus(m){
+  if(m===BLZ.spielmodus)return;
+  if(!_blzPlanVerwerfen())return;
   BLZ.spielmodus=m;
   if(m==="duell"){BLZ.anzahl=Math.min(3,Math.max(1,BLZ.anzahl===4?3:BLZ.anzahl));_blzDuellTeams(BLZ.anzahl);}
   else{BLZ.teams=BLZ.teams.filter(t=>!t.eltern);if(BLZ.teams.filter(t=>!t.fest).length<2)blzAnzahl(Math.max(2,BLZ.anzahl));}
@@ -763,17 +777,27 @@ function _blzSetupHtml(){
       <label for="blz-runde" style="font-size:12.5px;color:var(--text2)">Spielzeit je Begegnung</label>
       <input id="blz-runde" type="number" min="1" max="30" value="${BLZ.runde}" style="width:64px;text-align:center;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text)"> <span style="font-size:12.5px;color:var(--text2)">Min.</span>
     </div>`:""}
-    <button class="btn btn-p" style="width:100%" onclick="blzStart()"><i class="ti ti-tournament"></i>Turnier bauen &amp; los</button>`;
+    ${BLZ.plan&&BLZ.plan.length?`
+      <div style="font-size:11.5px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 10px;margin-bottom:8px">💾 Turnier ist gebaut${BLZ.datum!==_blzHeute()?" (angelegt "+new Date(BLZ.datum+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})+")":""} und bleibt gespeichert, bis ihr es beendet. Kinder/Trainer umsetzen und Namen ändern geht jederzeit – nur Modus- oder Team-Anzahl-Änderungen verwerfen den Plan.</div>
+      <button class="btn btn-p" style="width:100%" onclick="blzWeiter()">▶ Weiter im Turnier (Plan &amp; Ergebnisse behalten)</button>
+      <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="blzStart()">🔁 Spielplan neu erzeugen</button>`
+    :`<button class="btn btn-p" style="width:100%" onclick="blzStart()"><i class="ti ti-tournament"></i>Turnier bauen &amp; los</button>`}`;
 }
 function blzBudget(b){BLZ.budget=b;blzSave();blzRender();}
 function blzFelder(f){BLZ.felder=f;blzSave();blzRender();}
 function blzAnzahl(n){
+  if(!_blzPlanVerwerfen())return;
   BLZ.anzahl=n;
   if(BLZ.spielmodus==="duell"){_blzDuellTeams(n);}
   else{const a=_blzAuto(n);BLZ.teams=a.teams.concat(BLZ.teams.filter(t=>t.fest&&!t.eltern));BLZ.quelle=a.quelle;_blzTrainerVerteilen();}
   blzSave();blzRender();
 }
-function blzNeuMischen(){blzAnzahl(BLZ.anzahl);}
+function blzNeuMischen(){
+  // Mischen ändert nur die Zusammensetzung, nicht die Team-Anzahl – der Plan bleibt gültig
+  if(BLZ.spielmodus==="duell"){_blzDuellTeams(BLZ.anzahl);}
+  else{const a=_blzAuto(BLZ.anzahl);BLZ.teams=a.teams.concat(BLZ.teams.filter(t=>t.fest&&!t.eltern));BLZ.quelle=a.quelle;_blzTrainerVerteilen();}
+  blzSave();blzRender();
+}
 function blzCycle(name){
   const von=BLZ.teams.findIndex(t=>t.spieler.indexOf(name)>=0);if(von<0)return;
   // Kinder wandern nie ins abstrakte Eltern-Team – Trainer (🧢) dürfen überall hin,
@@ -788,15 +812,21 @@ function blzCycle(name){
 }
 function blzTeamPlus(){
   const name=(prompt("Name des Teams (z. B. Eltern, Trainer):")||"").trim();if(!name)return;
+  if(!_blzPlanVerwerfen())return;
   BLZ.teams.push({name,spieler:[],fest:true});blzSave();blzRender();
 }
-function blzTeamWeg(i){BLZ.teams.splice(i,1);blzSave();blzRender();}
+function blzTeamWeg(i){if(!_blzPlanVerwerfen())return;BLZ.teams.splice(i,1);blzSave();blzRender();}
+// Aus dem laufenden Turnier zurück ins Setup: Trainer/Kinder umsetzen, Namen ändern –
+// Spielplan und Ergebnisse bleiben erhalten, solange die Team-Struktur gleich bleibt.
+function blzBearbeiten(){BLZ.phase="setup";blzSave();blzRender();}
+function blzWeiter(){BLZ.phase="live";blzSave();blzRender();}
 function blzRename(i){
   const name=(prompt("Neuer Team-Name:",BLZ.teams[i].name)||"").trim();if(!name)return;
   BLZ.teams[i].name=name;blzSave();blzRender();
 }
 function blzStart(){
   if(BLZ.teams.length<2){toast("Mindestens 2 Teams","err");return;}
+  if(BLZ.plan&&BLZ.plan.some(p=>p.ta!=null)&&!confirm("Es gibt schon Ergebnisse – Spielplan wirklich neu erzeugen? Alle Ergebnisse gehen verloren."))return;
   const p=_blzPlanen(BLZ.teams.length,BLZ.budget||0,BLZ.felder||1,BLZ.spielmodus,BLZ.teams.filter(t=>t.eltern).length);
   if(BLZ.budget){BLZ.runde=p.z;}
   else{const r=Number(document.getElementById("blz-runde")?.value)||8;BLZ.runde=Math.min(30,Math.max(1,r));}
@@ -910,7 +940,10 @@ function _blzLiveHtml(){
     +(BLZ.hinweis>0?`<div style="font-size:12px;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:8px 10px;margin-bottom:8px">⏰ Ehrlich gesagt: Das kürzeste faire Format braucht <b>${BLZ.hinweis} Min. mehr</b> als geplant – ihr überzieht bewusst.</div>`:"");
   return kopf+fenster+tabellen+`
     <button class="btn btn-p" style="width:100%;margin-top:12px" onclick="blzEnde()"><i class="ti ti-trophy"></i>Turnier beenden</button>
-    <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="blzReset()">Neu starten (Teams ändern)</button>`;
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-sm" style="flex:1" onclick="blzBearbeiten()">✏️ Bearbeiten (Teams/Trainer)</button>
+      <button class="btn btn-sm" style="flex:1;color:#dc2626" onclick="blzReset()">🗑️ Neu starten</button>
+    </div>`;
 }
 function blzTor(mi,seite,delta){
   const p=BLZ.plan[mi];
@@ -962,7 +995,11 @@ function blzEnde(){
   try{localStorage.removeItem("adler_blitz");}catch(e){}
   BLZ=null;
 }
-function blzReset(){try{localStorage.removeItem("adler_blitz");}catch(e){}BLZ=null;blitzOpen();}
+function blzReset(){
+  if(BLZ&&BLZ.plan&&BLZ.plan.length&&!confirm("Alles verwerfen und komplett neu starten?"))return;
+  try{localStorage.removeItem("adler_blitz");}catch(e){}
+  BLZ=null;blitzOpen();
+}
 /* Rundentimer: Vollbild-Countdown (ein Pfiff für alle Felder). Nach dem Abpfiff wird
    das Vollbild zur großen Ergebnis-Eingabe für GENAU dieses Fenster – eintragen,
    „Fenster abschließen“, und die Live-Ansicht steht schon auf dem nächsten Fenster. */
