@@ -874,7 +874,7 @@ function _blzLiveHtml(){
     return `<div style="margin-bottom:10px;${aktiv?"box-shadow:0 0 0 2px #d97706;border-radius:14px;padding:8px;":""}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <span style="font-size:11px;font-weight:800;color:${aktiv?"#d97706":"var(--text3)"}">Fenster ${s+1}/${slots.length}${ms.length>1?` · ${ms.length} Spiele parallel`:""}</span>
-        ${aktiv?`<button class="btn btn-sm btn-p" style="margin-left:auto" onclick="blzTimerStart()">⏱️ ${BLZ.runde} Min.${felder>1?" – Pfiff für alle Felder":""}</button>`:""}
+        ${aktiv?`<button class="btn btn-sm btn-p" style="margin-left:auto" onclick="blzTimerStart(${s})">⏱️ ${BLZ.runde} Min.${felder>1?" – Pfiff für alle Felder":""}</button>`:""}
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">${ms.map(karte).join("")}</div>
     </div>`;
@@ -963,39 +963,78 @@ function blzEnde(){
   BLZ=null;
 }
 function blzReset(){try{localStorage.removeItem("adler_blitz");}catch(e){}BLZ=null;blitzOpen();}
-/* Rundentimer: eigener kleiner Vollbild-Countdown – bei mehreren Feldern der EINE Pfiff für alle */
+/* Rundentimer: Vollbild-Countdown (ein Pfiff für alle Felder). Nach dem Abpfiff wird
+   das Vollbild zur großen Ergebnis-Eingabe für GENAU dieses Fenster – eintragen,
+   „Fenster abschließen“, und die Live-Ansicht steht schon auf dem nächsten Fenster. */
 let _blzT=null;
-function blzTimerStart(){
+function blzTimerStart(slot){
   const sek=(BLZ?BLZ.runde:8)*60;
   document.getElementById("blz-timer")?.remove();
   const ov=document.createElement("div");ov.id="blz-timer";
-  ov.style.cssText="position:fixed;inset:0;background:#0b1220;color:#fff;z-index:11000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center";
+  ov.style.cssText="position:fixed;inset:0;background:#0b1220;color:#fff;z-index:11000;overflow-y:auto;padding:20px;text-align:center";
   document.body.appendChild(ov);
-  _blzT={left:sek,paused:false,timer:setInterval(_blzTick,1000)};
+  _blzT={left:sek,paused:false,slot:(slot==null?-1:slot),phase:"lauf",timer:setInterval(_blzTick,1000)};
   try{if(typeof requestWakeLock==="function")requestWakeLock();}catch(e){}
   _blzTimerRender();
 }
 function _blzTick(){
-  if(!_blzT||_blzT.paused)return;
+  if(!_blzT||_blzT.paused||_blzT.phase!=="lauf")return;
   _blzT.left--;
-  if(_blzT.left<=0){
-    try{if(typeof stTimerWhistle==="function")stTimerWhistle();}catch(e){}
-    clearInterval(_blzT.timer);_blzT.timer=null;_blzT.left=0;
-  }
+  if(_blzT.left<=0)blzAbpfiff();
+  else _blzTimerRender();
+}
+// Abpfiff (automatisch bei 0:00 oder per Knopf): Pfiff + Wechsel zur Ergebnis-Eingabe
+function blzAbpfiff(){
+  if(!_blzT)return;
+  try{if(typeof stTimerWhistle==="function")stTimerWhistle();}catch(e){}
+  if(_blzT.timer){clearInterval(_blzT.timer);_blzT.timer=null;}
+  _blzT.left=0;_blzT.phase="ergebnis";
   _blzTimerRender();
+}
+// Große Stepper direkt im Vollbild – schreibt in den Plan, Punktetafel rechnet live mit
+function blzTorOv(mi,seite,delta){
+  const p=BLZ&&BLZ.plan[mi]; if(!p||p.a==null)return;
+  p[seite]=Math.max(0,(p[seite]==null?0:p[seite])+delta);
+  const andere=seite==="ta"?"tb":"ta"; if(p[andere]==null)p[andere]=0;
+  blzSave();blzRender();_blzTimerRender();
 }
 function _blzTimerRender(){
   const ov=document.getElementById("blz-timer");if(!ov||!_blzT)return;
-  const mm=Math.floor(_blzT.left/60),ss=_blzT.left%60;
-  ov.innerHTML=`<div style="font-size:15px;opacity:.7">⚡ Blitzturnier${(BLZ&&BLZ.felder>1)?" · "+BLZ.felder+" Felder":""}</div>
-    <div style="font-size:88px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:2px">${_blzT.left?mm+":"+(ss<10?"0":"")+ss:"⏱️"}</div>
-    ${_blzT.left?"":'<div style="font-size:22px;font-weight:800">Abpfiff – alle Felder!</div>'}
-    <div style="display:flex;gap:10px;margin-top:24px">
-      ${_blzT.left?`<button onclick="_blzT.paused=!_blzT.paused;_blzTimerRender()" style="padding:14px 24px;border:none;border-radius:12px;background:#334155;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer">${_blzT.paused?"▶ Weiter":"⏸ Pause"}</button>`:""}
-      <button onclick="blzTimerStop()" style="padding:14px 24px;border:none;border-radius:12px;background:#16a34a;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer">Fertig</button>
+  if(_blzT.phase==="ergebnis"){
+    const spiele=BLZ.plan.map((p,mi)=>({p,mi})).filter(x=>x.p.slot===_blzT.slot&&x.p.a!=null);
+    const step=(mi,seite,wert)=>`<span style="display:inline-flex;align-items:center;gap:4px">
+        <button onclick="blzTorOv(${mi},'${seite}',-1)" aria-label="Tor zurücknehmen" style="min-width:52px;min-height:52px;border:1px solid #334155;border-radius:12px;background:#1e293b;color:#fff;font-size:20px;cursor:pointer">−</button>
+        <b style="min-width:38px;text-align:center;font-size:30px;font-variant-numeric:tabular-nums">${wert==null?0:wert}</b>
+        <button onclick="blzTorOv(${mi},'${seite}',1)" aria-label="Tor" style="min-width:52px;min-height:52px;border:1px solid #334155;border-radius:12px;background:#1e293b;color:#fff;font-size:20px;cursor:pointer">+</button>
+      </span>`;
+    ov.innerHTML=`<div style="max-width:520px;margin:0 auto">
+      <div style="font-size:26px;font-weight:900;margin:8px 0 2px">⏱️ Abpfiff${(BLZ&&BLZ.felder>1)?" – alle Felder":""}!</div>
+      <div style="font-size:13px;opacity:.75;margin-bottom:14px">Ergebnisse eintragen – dann weiter zum nächsten Fenster.</div>
+      ${spiele.length?spiele.map(x=>`<div style="background:#111c33;border-radius:16px;padding:14px;margin-bottom:12px">
+        <div style="font-size:16px;font-weight:800;margin-bottom:10px">${(BLZ.felder>1)?`<span style="font-size:11px;font-weight:800;background:#334155;border-radius:8px;padding:2px 8px;margin-right:6px">Feld ${x.p.feld||1}</span>`:""}${esc(BLZ.teams[x.p.a].name)} <span style="opacity:.5">vs</span> ${esc(BLZ.teams[x.p.b].name)}</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:14px">${step(x.mi,"ta",x.p.ta)}<span style="font-size:24px;font-weight:900">:</span>${step(x.mi,"tb",x.p.tb)}</div>
+      </div>`).join(""):'<div style="font-size:14px;opacity:.75;padding:20px 0">Für dieses Fenster stehen die Teams noch nicht fest.</div>'}
+      <button onclick="blzTimerStop()" style="width:100%;min-height:54px;border:none;border-radius:14px;background:#16a34a;color:#fff;font-size:16px;font-weight:900;font-family:inherit;cursor:pointer;margin-top:4px">✅ Fenster abschließen</button>
     </div>`;
+    return;
+  }
+  const mm=Math.floor(_blzT.left/60),ss=_blzT.left%60;
+  ov.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:90vh">
+    <div style="font-size:15px;opacity:.7">⚡ Blitzturnier${(BLZ&&BLZ.felder>1)?" · "+BLZ.felder+" Felder":""}</div>
+    <div style="font-size:88px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:2px">${mm+":"+(ss<10?"0":"")+ss}</div>
+    <div style="display:flex;gap:10px;margin-top:24px">
+      <button onclick="_blzT.paused=!_blzT.paused;_blzTimerRender()" style="padding:14px 24px;border:none;border-radius:12px;background:#334155;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer">${_blzT.paused?"▶ Weiter":"⏸ Pause"}</button>
+      <button onclick="blzAbpfiff()" style="padding:14px 24px;border:none;border-radius:12px;background:#16a34a;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer">⏹ Abpfiff &amp; Ergebnisse</button>
+    </div>
+  </div>`;
 }
-function blzTimerStop(){if(_blzT&&_blzT.timer)clearInterval(_blzT.timer);_blzT=null;document.getElementById("blz-timer")?.remove();try{if(typeof releaseWakeLock==="function")releaseWakeLock();}catch(e){}}
+function blzTimerStop(){
+  if(_blzT&&_blzT.timer)clearInterval(_blzT.timer);
+  _blzT=null;
+  document.getElementById("blz-timer")?.remove();
+  try{if(typeof releaseWakeLock==="function")releaseWakeLock();}catch(e){}
+  blzRender(); // Live-Ansicht springt aufs nächste Fenster (Markierung + Timer-Knopf)
+}
 
 
 /* ═══════════════════════════════════
