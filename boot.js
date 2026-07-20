@@ -1003,6 +1003,7 @@ function tpRenderTimeline(){
   tpPrognoseLoad(); // G3: erwartete Kinderzahl fürs gewählte Datum
   if(typeof zielUebungenHint==="function")zielUebungenHint(); // B: Übungen zu offenen Entwicklungszielen
   if(typeof tlCheck==="function")tlCheck(); // laufender Trainingsstart? → Bereit-Fenster
+  if(typeof tgSync==="function")tgSync();  // Trainingsgruppen vom Server (re-rendert bei Änderung einmal)
 }
 /* G3: Anwesenheits-Prognose – erwartete Kinderzahl fürs gewählte Trainingsdatum aus den
    Zusagen (fix) plus historischer Anwesenheitsquote je Kind (für noch offene). */
@@ -2293,9 +2294,44 @@ const TG_NAMEN=[
   {emo:"🟡",name:"Gelbe Löwen",farbe:"#eab308"},
   {emo:"🟣",name:"Lila Drachen",farbe:"#7c3aed"}
 ];
-function _tgKey(){return "adler_tg_"+(document.getElementById("tp-date")?.value||new Date().toISOString().slice(0,10));}
-function tgFor(){try{return JSON.parse(localStorage.getItem(_tgKey())||"null");}catch(e){return null;}}
-function tgSave(tg){try{localStorage.setItem(_tgKey(),JSON.stringify(tg));}catch(e){}}
+/* Server-Speicherung (PO): Tabelle trainingsgruppen je Termin-Datum – alle Trainer-
+   Geräte sehen dieselbe Aufteilung schon VOR dem Trainingsstart. Der Cache hält die
+   Render-Pfade synchron; localStorage bleibt Offline-Fallback (write-through). */
+let _tgCache={datum:null,tg:null,geladen:false};
+let _tgSaveTimer=null;
+function _tgDatum(){return document.getElementById("tp-date")?.value||new Date().toISOString().slice(0,10);}
+function _tgKey(){return "adler_tg_"+_tgDatum();}
+function tgFor(){return (_tgCache.datum===_tgDatum())?_tgCache.tg:null;}
+async function tgSync(){
+  const d=_tgDatum();
+  if(_tgCache.datum===d&&_tgCache.geladen)return;
+  _tgCache={datum:d,tg:_tgCache.datum===d?_tgCache.tg:null,geladen:true};
+  let tg=null, offline=false;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/trainingsgruppen?datum=eq.${encodeURIComponent(d)}&select=gruppen,aus_anwesenheit`,{headers:sbAuthHeaders()});
+    if(r.ok){const row=((await r.json())||[])[0];if(row)tg={gruppen:row.gruppen,ausAnwesenheit:row.aus_anwesenheit};}
+    else offline=true;
+  }catch(e){offline=true;}
+  if(!tg&&offline){try{tg=JSON.parse(localStorage.getItem("adler_tg_"+d)||"null");}catch(e){}}
+  if(_tgDatum()!==d)return; // Termin wurde inzwischen gewechselt
+  const vorher=JSON.stringify(_tgCache.tg);
+  _tgCache={datum:d,tg,geladen:true};
+  if(JSON.stringify(tg)!==vorher&&typeof tpRenderTimeline==="function")tpRenderTimeline();
+}
+function tgSave(tg){
+  const d=_tgDatum();
+  _tgCache={datum:d,tg,geladen:true};
+  try{localStorage.setItem("adler_tg_"+d,JSON.stringify(tg));}catch(e){}
+  if(_tgSaveTimer)clearTimeout(_tgSaveTimer);
+  _tgSaveTimer=setTimeout(async()=>{
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/trainingsgruppen?on_conflict=datum`,{method:"POST",
+        headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},
+        body:JSON.stringify({datum:d,gruppen:tg.gruppen,aus_anwesenheit:!!tg.ausAnwesenheit,updated_at:new Date().toISOString()})});
+      if(!r.ok&&r.status!==201)toast("Gruppen nur lokal gespeichert (kein Trainer-Recht/Netz)","err");
+    }catch(e){toast("Kein Netz – Gruppen nur auf diesem Gerät gespeichert","err");}
+  },800);
+}
 function tgKachelHtml(){
   const tg=tgFor();
   const sub=tg?tg.gruppen.map(g=>`${g.emo} ${g.name} (${g.kinder.length})`).join(" · ")
@@ -2318,7 +2354,8 @@ function tgBilden(){
   tgSave(tg);
   return tg;
 }
-function tgOpen(){
+async function tgOpen(){
+  await tgSync(); // erst den Server-Stand holen – sonst überschreibt ein Gerät die Kollegen
   let tg=tgFor()||tgBilden();
   document.getElementById("tg-modal")?.remove();
   const m=document.createElement("div");m.id="tg-modal";
