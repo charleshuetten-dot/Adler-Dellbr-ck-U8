@@ -353,10 +353,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .aw-star.on{color:#f59e0b}
 
 /* TRAININGSPLANUNG */
-.tp-check{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;background:var(--surface);border:var(--border-s);border-radius:999px;font-size:12.5px;font-weight:700;color:var(--text2);cursor:pointer;transition:all .15s}
-.tp-check input{accent-color:var(--blue)}
-.tp-check:has(input:checked){background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border-color:transparent;box-shadow:0 2px 8px rgba(37,99,235,.3)}
-.tp-check:has(input:checked) input{accent-color:#fff}
+/* .tp-check-Optik lebt jetzt als 🧢-Chip am Dateiende (PO-Look-&-Feel) */
 .tp-slot{background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:10px 12px;margin-bottom:8px}
 .tp-slot-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px}
 .tp-slot-label{font-weight:700;color:var(--text)}
@@ -792,3 +789,13 @@ button:not([class])[style*="background:none"]{min-height:0}
 .aw-tile.on{background:#dcfce7;border-color:#4ade80;color:#166534}
 .aw-tile.on .aw-ok{visibility:visible}
 html[data-theme="dark"] .aw-tile.on,body.dark .aw-tile.on{background:#14532d;border-color:#22c55e;color:#dcfce7}
+
+/* Trainer-Auswahl als 🧢-Chips (Planung + Anwesenheit) – ersetzt die Checkbox-Optik */
+.tp-check{position:relative;display:inline-flex}
+.tp-check input{position:absolute;opacity:0;pointer-events:none}
+.tp-check span{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:6px 14px;border:var(--border-s);border-radius:18px;background:var(--surface2);color:var(--text2);font-size:12.5px;font-weight:700;cursor:pointer;user-select:none}
+.tp-check span::before{content:"🧢"}
+.tp-check input:checked+span{background:#16a34a;border-color:#16a34a;color:#fff}
+
+/* Übungs-Picker-Button in der Planung (ersetzt das sichtbare Dropdown) */
+.tp-pick{flex:1;min-width:0;min-height:48px;text-align:left;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:8px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

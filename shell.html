@@ -441,7 +441,7 @@
     <div class="mgrid" style="grid-template-columns:1fr 1fr">
       <div class="mg"><label>Termin</label><select id="tp-date" onchange="tpRenderTimeline();tpPlanRestore(this.value)" style="width:100%;padding:8px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;background:var(--surface);font-family:inherit;color:var(--text)"><option>Lade Termine…</option></select></div>
       <div id="tp-vorplan" style="margin:6px 0 8px"></div>
-      <div class="mg"><label>Uhrzeit</label><input type="time" id="tp-time" value="17:00"></div>
+      <!-- Uhrzeit kommt aus dem Termin (PO) – kein eigenes Feld mehr -->
     </div>
     <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:10px 0 6px">Verfügbare Trainer</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="tp-trainer-checks"><!-- wird aus TRAINER befüllt (D2) --></div>
@@ -455,14 +455,13 @@
     </div>
     <div id="tp-diagnose"></div>
     <div id="tp-timeline"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-      <button class="btn btn-sm" onclick="tpAddSlot()"><i class="ti ti-plus"></i>Phase hinzufügen</button>
-      <button class="btn btn-sm" onclick="tpGenerate()"><i class="ti ti-wand"></i>Auto-Plan vorschlagen</button>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-      <button onclick="tpPlanSave()" style="flex:1;min-width:150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:none;border-radius:12px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.28)"><i class="ti ti-device-floppy"></i>Plan speichern</button>
-      <button class="btn" onclick="tpPlanLoad()"><i class="ti ti-cloud-download"></i>Laden</button>
-      <button class="btn" onclick="tpShareEinheit()"><i class="ti ti-share"></i>Teilen</button>
+    <!-- Aktionen in Kachel-Logik (PO): große Flächen, kein Kleinkram. „Laden" entfällt
+         (der Plan lädt beim Termin-Wechsel automatisch), „Teilen" entfällt (alle Trainer
+         haben die App; fürs Aushelfen gibt es das Vertretungs-Paket). -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+      <button onclick="tpAddSlot()" style="min-height:72px;border:var(--border-s);border-top:3px solid #16a34a;border-radius:14px;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 6px"><span style="font-size:24px">➕</span><span style="font-size:13.5px;font-weight:800">Phase hinzufügen</span></button>
+      <button onclick="tpGenerate()" style="min-height:72px;border:var(--border-s);border-top:3px solid #16a34a;border-radius:14px;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 6px"><span style="font-size:24px">🪄</span><span style="font-size:13.5px;font-weight:800">Auto-Plan</span></button>
+      <button onclick="tpPlanSave()" style="grid-column:1/-1;min-height:56px;border:none;border-radius:14px;background:linear-gradient(135deg,#15803d,#16a34a);color:#fff;font-family:inherit;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 2px 10px rgba(22,163,74,.3)">💾 Plan speichern</button>
     </div>
   </div><!-- /train-sub-planung -->
 

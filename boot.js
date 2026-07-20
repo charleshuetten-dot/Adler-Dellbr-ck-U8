@@ -914,9 +914,10 @@ function tpRenderTimeline(){
         </div>
         <div class="tp-feld"><label for="tp-form-${si}-0">Übung</label>
           <div class="tp-feld-zeile">
-            <select class="tp-form-sel" id="tp-form-${si}-0" onchange="tpOnSelectChange(this)">
+            <select class="tp-form-sel" id="tp-form-${si}-0" onchange="tpOnSelectChange(this)" style="display:none">
               <option value="">— Übung wählen —</option>${formOpts}
             </select>
+            <button class="tp-pick" id="tp-form-${si}-0-pick" onclick="tpPickerOpen('tp-form-${si}-0')">— Übung wählen —</button>
             <button class="tp-info" onclick="tpShowExFromSel('tp-form-${si}-0')" aria-label="Übung ansehen" title="Übung ansehen">ℹ️</button>
           </div>
         </div>
@@ -933,9 +934,10 @@ function tpRenderTimeline(){
       <div id="tp-ind-reco-${si}" style="margin-bottom:8px"></div>
       <div class="tp-feld"><label for="tp-form-${si}-0">Übung</label>
         <div class="tp-feld-zeile">
-          <select class="tp-form-sel" id="tp-form-${si}-0" onchange="tpOnSelectChange(this)">
+          <select class="tp-form-sel" id="tp-form-${si}-0" onchange="tpOnSelectChange(this)" style="display:none">
             <option value="">— Übung wählen —</option>${formOpts}
           </select>
+          <button class="tp-pick" id="tp-form-${si}-0-pick" onclick="tpPickerOpen('tp-form-${si}-0')">— Übung wählen —</button>
           <button class="tp-info" onclick="tpShowExFromSel('tp-form-${si}-0')" aria-label="Übung ansehen" title="Übung ansehen">ℹ️</button>
         </div>
       </div>
@@ -947,7 +949,6 @@ function tpRenderTimeline(){
         const selId=`tp-form-${si}-${p}`;
         if(!tpCoaches[selId]&&!noGroups&&trainers[p])tpCoaches[selId]=trainers[p]; // Station standardmäßig dem Gruppen-Trainer zuweisen
         const isMain=typ==="main";
-        const catOpts=isMain?TP_MAIN_CATS.map(c=>`<option value="${c.key}">${c.label}</option>`).join(""):"";
         // Eine Karte je Station. Frueher stand hier eine einzige Zeile, die am Handy in
         // fuenf Elemente umbrach – man sah nicht mehr, welches Feld zu welcher Gruppe gehoert.
         // Der Trainername stand doppelt: einmal als Etikett, einmal im (funktionslosen) Dropdown.
@@ -957,17 +958,13 @@ function tpRenderTimeline(){
             <span class="tp-station-titel">${noGroups?"Alle Kinder":`Gruppe ${p+1}`}</span>
             ${noGroups?"":tpCoachSelect(selId)}
           </div>`;
-        if(isMain){
-          html+=`<div class="tp-feld"><label for="tp-cat-${si}-${p}">Kategorie</label>
-            <select id="tp-cat-${si}-${p}" onchange="tpOnCatChange('${selId}',${si},${p})">
-              <option value="">Alle Kategorien</option>${catOpts}
-            </select></div>`;
-        }
+        // Kategorie-Dropdown entfällt – der Übungs-Picker gruppiert selbst (PO: keine Ellenlisten)
         html+=`<div class="tp-feld"><label for="${selId}">Übung</label>
             <div class="tp-feld-zeile">
-              <select class="tp-form-sel" id="${selId}" onchange="tpOnSelectChange(this)">
+              <select class="tp-form-sel" id="${selId}" onchange="tpOnSelectChange(this)" style="display:none">
                 <option value="">— Übung wählen —</option>${formOpts}
               </select>
+              <button class="tp-pick" id="${selId}-pick" onclick="tpPickerOpen('${selId}')">— Übung wählen —</button>
               <button class="tp-info" onclick="tpShowExFromSel('${selId}')" aria-label="Übung ansehen" title="Übung ansehen">ℹ️</button>
             </div>
           </div>
@@ -1011,6 +1008,7 @@ function tpOnSelectChange(sel){
   const histDiv=document.getElementById(sel.id+"-hist");
   if(histDiv&&sel.value) histDiv.innerHTML=tpExerciseHistoryHtml(parseInt(sel.value));
   else if(histDiv) histDiv.innerHTML="";
+  if(typeof tpPickSync==="function")tpPickSync(sel.id); // sichtbaren Auswahl-Button nachziehen
   tpPlanSaveDebounced(); // Plan am Datum festhalten -> "Einheit bewerten" kennt ihn spaeter
 }
 
@@ -1867,3 +1865,134 @@ function tpRenderMindsetTip(){
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start); else start();
 })();
+
+/* ═══════════════════════════════════
+   P2: ÜBUNGS-PICKER – ersetzt die ellenlangen Dropdowns in der Trainings-Planung.
+   Das <select> bleibt (versteckt) der Datenträger für Speichern/Laden/Timer; sichtbar
+   ist ein großer Auswahl-Button, der dieses Fenster öffnet: Suche, „Zuletzt genutzt",
+   4 Kategorie-Gruppen statt 7 Einzelkategorien, ⭐-Schwierigkeit (Startwerte je
+   Kategorie, per Tipp korrigierbar – geteilt über team_config.uebung_meta).
+═══════════════════════════════════ */
+const KAT_GRUPPEN=[
+  {key:"technik",  label:"⚽ Technik & Ballgefühl",  kats:["technik","wahrnehmung"]},
+  {key:"passen",   label:"🎯 Passen & Spielaufbau",  kats:["passspiel","raute"]},
+  {key:"zweikampf",label:"🛡️ Zweikampf & Pressing", kats:["pressing"]},
+  {key:"kopf",     label:"🎉 Spaß & Kopf",           kats:["spass","mindset"]}
+];
+const STERN_DEFAULT={aufwaermen:1,spass:1,technik:2,wahrnehmung:2,passspiel:2,individual:2,torwart:2,mindset:2,raute:3,pressing:3};
+window._uebungMeta=null;
+async function uebungMetaLoad(){
+  if(window._uebungMeta)return window._uebungMeta;
+  window._uebungMeta={};
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/team_config?select=id,uebung_meta&limit=1`,{headers:sbAuthHeaders()});
+    if(r.ok){const row=((await r.json())||[])[0];if(row){window._uebungMeta=row.uebung_meta||{};window._uebungMetaId=row.id;}}
+  }catch(e){}
+  return window._uebungMeta;
+}
+function _tpStern(f){
+  if(!f)return 2;
+  const ov=(window._uebungMeta||{})[f.name];
+  if(ov>=1&&ov<=3)return ov;
+  return STERN_DEFAULT[f.kat]||2;
+}
+function _tpGruppeVon(f){
+  const g=KAT_GRUPPEN.find(g2=>g2.kats.includes(f&&f.kat));
+  return g?g.key:"eigene";
+}
+let _tpPick={selId:null,gruppe:null,stern:0,suche:""};
+function tpPickerOpen(selId){
+  _tpPick={selId,gruppe:null,stern:0,suche:""};
+  document.getElementById("tp-pick-modal")?.remove();
+  const m=document.createElement("div");m.id="tp-pick-modal";
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Übung wählen");
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10004;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
+    ${mdlHead("tp-pick-modal","📚","Übung wählen","Suchen, Gruppe antippen oder aus „Zuletzt genutzt“","#16a34a")}
+    <input id="tp-pick-suche" type="text" placeholder="Suchen… (z. B. Dribbling)" oninput="_tpPick.suche=this.value;tpPickerRender()" style="width:100%;box-sizing:border-box;min-height:46px;padding:10px 12px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text)">
+    <div id="tp-pick-gruppen" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px"></div>
+    <div id="tp-pick-sterne" style="display:flex;gap:6px;margin-top:8px"></div>
+    <div id="tp-pick-liste" style="margin-top:10px"></div>
+  </div>`;
+  document.body.appendChild(m);
+  uebungMetaLoad().then(()=>tpPickerRender());
+  tpPickerRender();
+}
+function _tpPickItems(){
+  const sel=document.getElementById(_tpPick.selId); if(!sel)return [];
+  const forms=tpAllForms();
+  return [...sel.options].filter(o=>o.value!=="").map(o=>{
+    const i=Number(o.value), f=forms[i];
+    return f?{i,f,label:o.textContent}:null;
+  }).filter(Boolean);
+}
+function tpPickerRender(){
+  const alle=_tpPickItems();
+  // Gruppen-Kacheln nur zeigen, wenn die Liste gemischt ist (Aufwärmen/Torwart sind eh vorgefiltert)
+  const gruppenIm=new Set(alle.map(x=>_tpGruppeVon(x.f)));
+  const gr=document.getElementById("tp-pick-gruppen");
+  if(gr){
+    const kacheln=KAT_GRUPPEN.filter(g=>gruppenIm.has(g.key));
+    if(gruppenIm.has("eigene"))kacheln.push({key:"eigene",label:"🧪 Eigene & KI"});
+    gr.style.display=kacheln.length>1?"grid":"none";
+    gr.innerHTML=kacheln.map(g=>`<button onclick="_tpPick.gruppe=_tpPick.gruppe==='${g.key}'?null:'${g.key}';tpPickerRender()" style="min-height:56px;border:var(--border-s);${_tpPick.gruppe===g.key?"background:#16a34a;color:#fff;border-color:#16a34a;":"background:var(--surface2);color:var(--text2);"}border-radius:12px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;padding:8px">${g.label}</button>`).join("");
+  }
+  const st=document.getElementById("tp-pick-sterne");
+  if(st)st.innerHTML=[0,1,2,3].map(s=>`<button onclick="_tpPick.stern=${s};tpPickerRender()" style="flex:1;min-height:44px;border:var(--border-s);${_tpPick.stern===s?"background:#16a34a;color:#fff;border-color:#16a34a;":"background:var(--surface2);color:var(--text2);"}border-radius:10px;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer">${s===0?"Alle":"⭐".repeat(s)}</button>`).join("");
+  const q=(_tpPick.suche||"").trim().toLowerCase();
+  let items=alle;
+  if(q)items=items.filter(x=>(x.f.name+" "+(x.f.kat||"")).toLowerCase().includes(q));
+  else if(_tpPick.gruppe)items=items.filter(x=>_tpGruppeVon(x.f)===_tpPick.gruppe);
+  if(_tpPick.stern)items=items.filter(x=>_tpStern(x.f)===_tpPick.stern);
+  // „Zuletzt genutzt" nur im ungefilterten Zustand oben anbieten
+  let html="";
+  if(!q&&!_tpPick.gruppe&&!_tpPick.stern){
+    const zuletzt=alle.map(x=>({...x,d:tpLastUsedDays(x.i)})).filter(x=>x.d!==null&&x.d<28).sort((a,b)=>a.d-b.d).slice(0,4);
+    if(zuletzt.length)html+=`<div style="font-size:12px;font-weight:800;color:var(--text2);margin:2px 0 6px">🕘 Zuletzt genutzt</div>`+zuletzt.map(_tpPickKarte).join("");
+    html+=`<div style="font-size:12px;font-weight:800;color:var(--text2);margin:10px 0 6px">Alle Übungen (${items.length})</div>`;
+  }else{
+    html+=`<div style="font-size:12px;font-weight:800;color:var(--text2);margin:2px 0 6px">${items.length} Übung${items.length===1?"":"en"}</div>`;
+  }
+  html+=items.map(_tpPickKarte).join("")||'<div style="font-size:12.5px;color:var(--text3);padding:10px 0">Nichts gefunden.</div>';
+  const li=document.getElementById("tp-pick-liste");
+  if(li)li.innerHTML=html;
+}
+function _tpPickKarte(x){
+  const d=tpLastUsedDays(x.i);
+  const frische=d===null?'<span style="color:#16a34a">🆕 neu</span>':(d<14?`<span style="color:#b45309">vor ${d} T.</span>`:`vor ${d} T.`);
+  const stern=_tpStern(x.f);
+  return `<div style="display:flex;align-items:center;gap:8px;border:var(--border-s);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:var(--surface)">
+    <button onclick="tpPickerSet(${x.i})" style="flex:1;min-width:0;min-height:44px;border:none;background:transparent;color:var(--text);font-family:inherit;text-align:left;cursor:pointer;padding:0">
+      <span style="display:block;font-size:14px;font-weight:800">${esc(x.f.name)}</span>
+      <span style="display:block;font-size:11.5px;color:var(--text2)">${x.f.dauer||"?"} Min. · ${esc(x.f.kat||"eigene")} · ${frische}</span>
+    </button>
+    <button onclick="tpSternTipp('${x.f.name.replace(/'/g,"\\'")}')" title="Schwierigkeit antippen zum Ändern" style="min-width:52px;min-height:44px;border:none;background:transparent;color:#f59e0b;font-size:13px;cursor:pointer;letter-spacing:1px">${"⭐".repeat(stern)}</button>
+  </div>`;
+}
+function tpPickerSet(idx){
+  const sel=document.getElementById(_tpPick.selId);
+  if(sel){sel.value=String(idx);try{tpOnSelectChange(sel);}catch(e){}tpPickSync(_tpPick.selId);}
+  document.getElementById("tp-pick-modal")?.remove();
+}
+// Sterne-Korrektur: 1 → 2 → 3 → 1; geteilt über team_config.uebung_meta
+async function tpSternTipp(name){
+  const forms=tpAllForms(), f=forms.find(x=>x.name===name);
+  const neu=(_tpStern(f)%3)+1;
+  window._uebungMeta=window._uebungMeta||{};
+  window._uebungMeta[name]=neu;
+  tpPickerRender();
+  try{
+    if(window._uebungMetaId!=null)
+      await fetch(`${SB_URL}/rest/v1/team_config?id=eq.${window._uebungMetaId}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({uebung_meta:window._uebungMeta})});
+  }catch(e){}
+}
+// Sichtbaren Auswahl-Button mit dem (versteckten) Select synchron halten
+function tpPickSync(selId){
+  const sel=document.getElementById(selId), btn=document.getElementById(selId+"-pick");
+  if(!sel||!btn)return;
+  const o=sel.selectedOptions&&sel.selectedOptions[0];
+  btn.textContent=(sel.value&&o)?o.textContent:"— Übung wählen —";
+  btn.style.fontWeight=sel.value?"800":"600";
+}
+function tpPickSyncAll(){document.querySelectorAll(".tp-form-sel").forEach(s=>tpPickSync(s.id));}
