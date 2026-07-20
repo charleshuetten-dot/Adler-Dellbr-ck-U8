@@ -715,9 +715,9 @@ function blitzOpen(vorgabeBudget){
   m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Blitzturnier");
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
   m.onclick=e=>{if(e.target===m)m.remove();};
-  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto;overflow-x:hidden;box-sizing:border-box">
     ${mdlHead("blitz-modal","⚡","Blitzturnier","Zeit vorgeben, Teams tippen – die Automatik baut das Turnier","#d97706")}
-    <div id="blitz-body"></div>
+    <div id="blitz-body" style="max-width:100%;overflow-x:hidden"></div>
   </div>`;
   document.body.appendChild(m);
   blzRender();
@@ -735,7 +735,7 @@ function _blzSetupHtml(){
   const nChips=(duell?[1,2,3,4]:[2,3,4,5,6]).map(n=>chip(BLZ.anzahl===n,n+(duell?" Kinder-Team"+(n>1?"s":""):" Teams")+(vorschlag&&vorschlag.teams===n?" ✦":""),`blzAnzahl(${n})`)).join("");
   const eChips=[1,2,3,4].map(m=>chip((BLZ.elternAnzahl||1)===m,m+" Eltern-Team"+(m>1?"s":""),`blzElternAnzahl(${m})`)).join("");
   const sfChips=Object.entries(BLZ_SPIELFORM).map(([k,v])=>chip((BLZ.spielform||"frei")===k,v[0],`blzSpielform('${k}')`)).join("");
-  const bChips=[15,20,30,40,0].map(b=>chip((BLZ.budget||0)===b,b?b+" Min.":"frei",`blzBudget(${b})`)).join("");
+  const bChips=[10,15,20,30,40,0].map(b=>chip((BLZ.budget||0)===b,b?b+" Min.":"frei",`blzBudget(${b})`)).join("");
   const fChips=[1,2,3,4].map(f=>chip((BLZ.felder||1)===f,f+(f===1?" Feld":" Felder"),`blzFelder(${f})`)).join("");
   const trainerChips=(typeof TRAINER!=="undefined"&&TRAINER.length)?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Trainer spielen mit <span style="font-weight:400;text-transform:none;letter-spacing:0">(landen erst bei den Kindern – antippen schiebt sie weiter${duell?", auch in die Eltern-Teams":""})</span></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${TRAINER.map(t=>`<button onclick="blzTrainerToggle('${jsq(t)}')" style="min-height:44px;padding:6px 12px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;background:${(BLZ.trainer||[]).indexOf(t)>=0?"#d97706":"var(--surface2)"};color:${(BLZ.trainer||[]).indexOf(t)>=0?"#fff":"var(--text2)"}">🧢 ${esc(t)}</button>`).join("")}</div>`:"";
@@ -881,10 +881,10 @@ function _blzLiveHtml(){
   const offene=BLZ.plan.filter(p=>p.ta==null);
   const naechsterSlot=offene.length?Math.min(...offene.map(p=>p.slot)):-1;
   const slots=[...new Set(BLZ.plan.map(p=>p.slot))].sort((a,b)=>a-b);
-  const step=(mi,seite,wert)=>`<span style="display:inline-flex;align-items:center;gap:2px">
-      <button onclick="blzTor(${mi},'${seite}',-1)" aria-label="Tor zurücknehmen" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer">−</button>
+  const step=(mi,seite,wert)=>`<span style="display:inline-flex;align-items:center;gap:2px;flex:none">
+      <button onclick="blzTor(${mi},'${seite}',-1)" aria-label="Tor zurücknehmen" style="min-width:42px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer;flex:none">−</button>
       <b style="min-width:26px;text-align:center;font-size:17px">${wert==null?"–":wert}</b>
-      <button onclick="blzTor(${mi},'${seite}',1)" aria-label="Tor" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer">+</button>
+      <button onclick="blzTor(${mi},'${seite}',1)" aria-label="Tor" style="min-width:42px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer;flex:none">+</button>
     </span>`;
   const karte=p=>{
     const mi=BLZ.plan.indexOf(p);
@@ -892,7 +892,7 @@ function _blzLiveHtml(){
     const nameVon=v=>offenPlatzh?(p.phase==="finale"?(BLZ.modus==="gruppen"?(v==="a"?"1. Gruppe A":"1. Gruppe B"):(v==="a"?"Erster":"Zweiter")):(v==="a"?"2. Gruppe A":"2. Gruppe B")):esc(BLZ.teams[p[v]].name);
     const fA=p.a!=null?BLZ_FARBEN[p.a%BLZ_FARBEN.length]:"#94a3b8";
     const fB=p.b!=null?BLZ_FARBEN[p.b%BLZ_FARBEN.length]:"#94a3b8";
-    return `<div style="border:var(--border-s);border-radius:12px;padding:8px 10px;flex:1;min-width:230px;${p.ta!=null?"opacity:.75;":""}">
+    return `<div style="border:var(--border-s);border-radius:12px;padding:8px 10px;flex:1 1 200px;min-width:0;box-sizing:border-box;${p.ta!=null?"opacity:.75;":""}">
       <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;flex-wrap:wrap">
         ${felder>1?`<span style="font-size:9.5px;font-weight:800;background:var(--surface2);border-radius:8px;padding:2px 7px;color:var(--text2)">Feld ${p.feld||1}</span>`:""}
         ${BLZ_PHASE[p.phase]?`<span style="font-size:9.5px;font-weight:800;color:#b45309">${BLZ_PHASE[p.phase]}</span>`:""}

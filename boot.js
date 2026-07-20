@@ -883,23 +883,40 @@ function tpRenderTimeline(){
   const allForms=tpAllForms();
   let time=0;
   // F5: Stationstimer + G3: Anwesenheits-Prognose (async gefüllt).
-  let html='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span id="tp-prognose"></span><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-sm" onclick="kleingruppenOpen()" title="2er/3er/4er-Gruppen für Übungen auslosen – zufällig oder ausgewogen">👥 Kleingruppen</button><button class="btn btn-sm" onclick="blitzOpen()" title="Schnelles Turnier zum Trainingsabschluss – Teams automatisch oder von Hand (auch Eltern-Team)">⚡ Blitzturnier</button><button class="btn btn-sm" onclick="stTimerStart()" title="Lokaler Stationstimer – Fallback ohne Netz">⏱️ Solo-Timer</button><button class="btn btn-p btn-sm" onclick="tlStart()" title="Synchroner Start auf allen Trainer-Handys: alle bereit → 10-Sekunden-Countdown → Station läuft überall parallel">🟢 Trainingsstart</button></span></div><div id="ziel-uebungen-hint"></div>';
+  /* PO-Umbau: die lose Button-Reihe ist weg. Oben nur Prognose + die Trainingsgruppen-
+     Kachel; Kleingruppen wandert an den Aufwärm-Slot, Blitzturnier an den Abschluss-Slot,
+     Trainingsstart + Solo-Timer nach unten zu den Aktionen. */
+  let html='<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><span id="tp-prognose"></span></div>'
+    +tgKachelHtml()
+    +'<div id="ziel-uebungen-hint"></div>';
+  // Individual läuft PARALLEL zu einem Hauptteil (PO) – Alt-Slots ohne Zuordnung bekommen
+  // automatisch den ersten Hauptteil; die Zeitfenster paralleler Slots kommen vom Ziel.
+  tpSlots.forEach(s=>{if(s.typ==="individual"&&s.parallelZu==null){const mi=tpSlots.findIndex(x=>(x.typ||"main")==="main");if(mi>=0)s.parallelZu=mi;}});
+  let acc=0; const startsArr=tpSlots.map(s=>{const st0=acc;if(!((s.typ||"main")==="individual"&&s.parallelZu!=null))acc+=s.dauer;return st0;});
   tpSlots.forEach((slot,si)=>{
-    const startMin=time;
-    const endMin=time+slot.dauer;
     const typ=slot.typ||"main";
+    const parallel=typ==="individual"&&slot.parallelZu!=null&&tpSlots[slot.parallelZu];
+    const startMin=parallel?startsArr[slot.parallelZu]:time;
+    const endMin=startMin+(parallel?tpSlots[slot.parallelZu].dauer:slot.dauer);
     const noGroups=typ==="warmup"||typ==="abschluss"||typ==="tw";
     const noSelect=typ==="abschluss";
     const parallelSlots=noGroups?1:Math.min(trainerCount,5);
     const filtered=tpFilteredOpts(typ);
     const formOpts=filtered.map(x=>`<option value="${x.i}">${x.f.name} (${x.f.dauer})</option>`).join("");
 
-    html+=`<div class="tp-slot" style="border-left:3px solid ${slot.farbe}">
+    html+=`<div class="tp-slot" style="border-left:3px solid ${slot.farbe};${parallel?"margin-left:14px;":""}">
       <div class="tp-slot-head">
-        <span class="tp-slot-label">${slot.label}</span>
-        <span class="tp-slot-time">${startMin}' – ${endMin}' (${slot.dauer} Min.)</span>
+        <span class="tp-slot-label">${parallel?"🎯 ":""}${slot.label}</span>
+        <span class="tp-slot-time">${startMin}' – ${endMin}'${parallel?` · parallel zu ${tpSlots[slot.parallelZu].label}`:` (${slot.dauer} Min.)`}</span>
         <button class="tp-remove" onclick="tpRemoveSlot(${si})"><i class="ti ti-trash"></i></button>
       </div>`;
+    if(parallel){
+      const mains=tpSlots.map((s2,i2)=>({s2,i2})).filter(x=>(x.s2.typ||"main")==="main");
+      html+=`<div class="tp-feld"><label>Läuft parallel zu</label>
+        <select onchange="tpSlots[${si}].parallelZu=Number(this.value);tpRenderTimeline()" style="width:100%;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text)">
+          ${mains.map(x=>`<option value="${x.i2}"${slot.parallelZu===x.i2?" selected":""}>${x.s2.label}</option>`).join("")}
+        </select></div>`;
+    }
     if(noSelect){
       // PO-Wunsch: das Abschlussspiel kann direkt als Blitzturnier laufen – die Slot-Dauer
       // wird zum Zeitbudget (auch 2 gegen 2 ohne Torwart mit bis zu 6 Teams).
@@ -945,17 +962,19 @@ function tpRenderTimeline(){
       <div id="tp-form-${si}-0-hist"></div>`;
     } else {
       const trainers=tpGetCheckedTrainers();
+      const tg=(typeof tgFor==="function")?tgFor():null; // Trainingsgruppen: Namen + Trainer je Gruppe
       for(let p=0;p<parallelSlots;p++){
         const selId=`tp-form-${si}-${p}`;
-        if(!tpCoaches[selId]&&!noGroups&&trainers[p])tpCoaches[selId]=trainers[p]; // Station standardmäßig dem Gruppen-Trainer zuweisen
+        const tgg=(tg&&tg.gruppen&&!noGroups)?tg.gruppen[p]:null;
+        if(!tpCoaches[selId]&&!noGroups&&((tgg&&tgg.trainer)||trainers[p]))tpCoaches[selId]=(tgg&&tgg.trainer)||trainers[p]; // Station dem Gruppen-Trainer zuweisen
         const isMain=typ==="main";
         // Eine Karte je Station. Frueher stand hier eine einzige Zeile, die am Handy in
         // fuenf Elemente umbrach – man sah nicht mehr, welches Feld zu welcher Gruppe gehoert.
         // Der Trainername stand doppelt: einmal als Etikett, einmal im (funktionslosen) Dropdown.
         html+=`<div class="tp-station">
           <div class="tp-station-head">
-            <span class="tp-station-nr">${noGroups?"👥":p+1}</span>
-            <span class="tp-station-titel">${noGroups?"Alle Kinder":`Gruppe ${p+1}`}</span>
+            <span class="tp-station-nr">${noGroups?"👥":(tgg?tgg.emo:p+1)}</span>
+            <span class="tp-station-titel">${noGroups?"Alle Kinder":(tgg?`${tgg.name} (${tgg.kinder.length})`:`Gruppe ${p+1}`)}</span>
             ${noGroups?"":tpCoachSelect(selId)}
           </div>`;
         // Kategorie-Dropdown entfällt – der Übungs-Picker gruppiert selbst (PO: keine Ellenlisten)
@@ -971,9 +990,11 @@ function tpRenderTimeline(){
           <div id="${selId}-hist"></div>
         </div>`;
       }
+      // PO: Kleingruppen-Auslosung (2er/3er) gehört ans Aufwärmen/Ankommen – nicht in den Kopf
+      if(typ==="warmup")html+=`<button class="btn btn-sm" style="margin-top:6px" onclick="kleingruppenOpen()">👥 Kleingruppen (2er/3er) auslosen</button>`;
     }
     html+='</div>';
-    time+=slot.dauer;
+    if(!(typ==="individual"&&slot.parallelZu!=null))time+=slot.dauer; // parallele Einzeltrainings zählen nicht doppelt
   });
   const zielDauer=parseInt(document.getElementById("tp-dauer")?.value)||75; // H3
   const passt=time<=zielDauer;
@@ -1093,7 +1114,13 @@ const TP_ADD_OPTS=[
 ];
 function tpDoAddSlot(idx){
   const o=TP_ADD_OPTS[idx];
-  tpSlots.push({...o});
+  const neu={...o};
+  // Individual hängt sich parallel an den letzten Hauptteil (PO: nie ans Ende der Kette)
+  if(neu.typ==="individual"){
+    let mi=-1; tpSlots.forEach((s,i)=>{if((s.typ||"main")==="main")mi=i;});
+    if(mi>=0)neu.parallelZu=mi;
+  }
+  tpSlots.push(neu);
   tpRenderTimeline();
 }
 
@@ -1969,6 +1996,7 @@ function _tpPickKarte(x){
       <span style="display:block;font-size:11.5px;color:var(--text2)">${x.f.dauer||"?"} Min. · ${esc(x.f.kat||"eigene")} · ${frische}</span>
     </button>
     <button onclick="tpSternTipp('${x.f.name.replace(/'/g,"\\'")}')" title="Schwierigkeit antippen zum Ändern" style="min-width:52px;min-height:44px;border:none;background:transparent;color:#f59e0b;font-size:13px;cursor:pointer;letter-spacing:1px">${"⭐".repeat(stern)}</button>
+    <button onclick="tpPickerInfo(${x.i})" aria-label="Übung ansehen" title="Skizze & Beschreibung ansehen" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-size:15px;cursor:pointer">ℹ️</button>
   </div>`;
 }
 function tpPickerSet(idx){
@@ -2010,18 +2038,39 @@ function tpPickSyncAll(){document.querySelectorAll(".tp-form-sel").forEach(s=>tp
 ═══════════════════════════════════ */
 let _tl={row:null,poll:null,tick:null,gepfiffen:-1,uhr:{run:false,seit:0,acc:0,laps:[]}};
 function _tlHeute(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
-// Snapshot der geplanten Einheit: Slots mit Gruppen (Trainer + Übung) aus dem Formular
+/* Snapshot der geplanten Einheit: Slots mit Gruppen (Trainer + Übung + Trainingsgruppe
+   samt Kindernamen). Parallele Einzeltrainings werden an ihren Hauptteil angedockt;
+   das Einzel-Kind wird in diesem Fenster aus seiner Gruppe herausgenommen. */
 function _tlSnapshot(){
   const forms=tpAllForms(), trainers=tpGetCheckedTrainers();
-  return tpSlots.map((slot,si)=>{
+  const tg=(typeof tgFor==="function")?tgFor():null;
+  const stationen=[];
+  tpSlots.forEach((slot,si)=>{
+    if((slot.typ||"main")==="individual"&&slot.parallelZu!=null)return; // dockt unten an
     const gruppen=[];
     document.querySelectorAll(`.tp-form-sel[id^="tp-form-${si}-"]`).forEach((s,p)=>{
       const f=s.value?forms[Number(s.value)]:null;
-      gruppen.push({trainer:tpCoaches[s.id]||trainers[p]||"Alle",uebung:f?f.name:"(keine Übung gewählt)"});
+      const tgg=(tg&&tg.gruppen&&(slot.typ||"main")==="main")?tg.gruppen[p]:null;
+      gruppen.push({
+        trainer:tpCoaches[s.id]||(tgg&&tgg.trainer)||trainers[p]||"Alle",
+        uebung:f?f.name:"(keine Übung gewählt)",
+        gruppe:tgg?`${tgg.emo} ${tgg.name}`:null,
+        kinder:tgg?tgg.kinder.slice():null
+      });
     });
-    if(!gruppen.length)gruppen.push({trainer:"Alle",uebung:(slot.typ==="abschluss")?"Freies Spiel / Blitzturnier":"(frei)"});
-    return {label:slot.label||("Station "+(si+1)),dauer:Math.max(1,slot.dauer||10),farbe:slot.farbe||"#16a34a",gruppen};
+    if(!gruppen.length)gruppen.push({trainer:"Alle",uebung:(slot.typ==="abschluss")?"Freies Spiel / Blitzturnier":"(frei)",gruppe:null,kinder:null});
+    stationen.push({si,label:slot.label||("Station "+(si+1)),dauer:Math.max(1,slot.dauer||10),farbe:slot.farbe||"#16a34a",gruppen});
   });
+  tpSlots.forEach((slot,si)=>{
+    if(!((slot.typ||"main")==="individual"&&slot.parallelZu!=null))return;
+    const ziel=stationen.find(st=>st.si===slot.parallelZu); if(!ziel)return;
+    const sel=document.querySelector(`.tp-form-sel[id^="tp-form-${si}-"]`);
+    const f=(sel&&sel.value)?forms[Number(sel.value)]:null;
+    const kind=document.getElementById(`tp-ind-player-${si}`)?.value||"";
+    ziel.gruppen.forEach(g=>{if(kind&&g.kinder)g.kinder=g.kinder.filter(k=>k!==kind);});
+    ziel.gruppen.push({trainer:(sel&&tpCoaches[sel.id])||"?",uebung:`🎯 Einzeltraining${kind?" mit "+kind:""}: ${f?f.name:"(Übung wählen)"}`,gruppe:null,kinder:kind?[kind]:null,einzel:true});
+  });
+  return stationen.map(({si,...rest})=>rest);
 }
 async function _tlFetch(){
   try{
@@ -2054,6 +2103,7 @@ async function tlStart(){
   }catch(e){toast("Kein Netz – nimm den ⏱️ Stationstimer","err");return;}
   _tl.row=body;
   tlOverlayOpen(); _tlPollStart();
+  await _tlAdvance(); // Solo-Trainer: nicht auf den ersten Poll-Takt warten – sofort Countdown
 }
 /* Passive Erkennung (Startseite/Planung, gedrosselt): läuft heute eine Session, in der
    ich gebraucht werde, ploppt das Bereit-Fenster von selbst auf. */
@@ -2207,8 +2257,9 @@ function _tlRender(){
     <div style="font-size:56px;font-weight:900;font-variant-numeric:tabular-nums;color:${rest===0?"#f87171":"#fff"}">${rest===0?"Abpfiff!":_tlFmt(rest*1000)}</div>
     <div style="font-size:12px;opacity:.7;margin-bottom:14px">${esc(st.label)} · läuft auf allen Handys parallel</div>
     ${zeigen.map(g=>`<div style="background:#111c33;border-radius:16px;padding:16px;margin-bottom:10px;text-align:left">
-      <div style="font-size:11px;font-weight:800;opacity:.7">🧢 ${esc(g.trainer)}${meine.length?"":" (nicht deine Gruppe)"}</div>
+      <div style="font-size:11px;font-weight:800;opacity:.7">🧢 ${esc(g.trainer)}${g.gruppe?" · "+esc(g.gruppe):""}${meine.length?"":" (nicht deine Gruppe)"}</div>
       <div style="font-size:20px;font-weight:900;margin-top:4px">${esc(g.uebung)}</div>
+      ${g.kinder&&g.kinder.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${g.kinder.map(k=>`<span style="padding:5px 10px;border-radius:14px;background:rgba(255,255,255,.12);font-size:12.5px;font-weight:700">${esc(k)}</span>`).join("")}</div>`:""}
     </div>`).join("")}
     <div style="background:#111c33;border-radius:16px;padding:14px;margin:14px 0">
       <div style="font-size:11px;font-weight:800;opacity:.7;text-align:left">⏱ Meine Stoppuhr</div>
@@ -2223,4 +2274,107 @@ function _tlRender(){
     ${ich?'<div style="font-size:14px;font-weight:800;color:#4ade80">✅ Gemeldet – warten auf die anderen…</div>'
       :`<button onclick="tlAbgeschlossen()" style="width:100%;max-width:340px;min-height:60px;border:none;border-radius:16px;background:#16a34a;color:#fff;font-size:17px;font-weight:900;font-family:inherit;cursor:pointer">✅ Übung abgeschlossen</button>`}
   </div>`;
+}
+
+/* ═══════════════════════════════════
+   TRAININGSGRUPPEN (PO): Vor dem Training werden alle anwesenden Kinder in genau so
+   viele Gruppen geteilt, wie Trainer angehakt sind (2 Trainer = 2 Gruppen …).
+   Namen bewusst wertungsfrei UND farblogisch zu den Leibchen: Blaue Haie, Rote Füchse,
+   Grüne Krokodile, Gelbe Löwen. Kinder per Tipp verschiebbar (ungleiche Größen erlaubt),
+   Trainer je Gruppe tauschbar, Namen änderbar. Persistenz je Termin im Gerät; die
+   Gruppen fließen in die Hauptteil-Stationen UND in den Trainingsstart (jeder Trainer
+   sieht seine Gruppe mit Kindernamen; Einzeltrainings-Kinder werden im betroffenen
+   Fenster automatisch herausgenommen).
+═══════════════════════════════════ */
+const TG_NAMEN=[
+  {emo:"🔵",name:"Blaue Haie",farbe:"#2563eb"},
+  {emo:"🔴",name:"Rote Füchse",farbe:"#dc2626"},
+  {emo:"🟢",name:"Grüne Krokodile",farbe:"#16a34a"},
+  {emo:"🟡",name:"Gelbe Löwen",farbe:"#eab308"},
+  {emo:"🟣",name:"Lila Drachen",farbe:"#7c3aed"}
+];
+function _tgKey(){return "adler_tg_"+(document.getElementById("tp-date")?.value||new Date().toISOString().slice(0,10));}
+function tgFor(){try{return JSON.parse(localStorage.getItem(_tgKey())||"null");}catch(e){return null;}}
+function tgSave(tg){try{localStorage.setItem(_tgKey(),JSON.stringify(tg));}catch(e){}}
+function tgKachelHtml(){
+  const tg=tgFor();
+  const sub=tg?tg.gruppen.map(g=>`${g.emo} ${g.name} (${g.kinder.length})`).join(" · ")
+    :"Alle anwesenden Kinder in so viele Gruppen wie Trainer – antippen";
+  return `<button onclick="tgOpen()" style="width:100%;min-height:76px;margin:4px 0 10px;border:var(--border-s);border-top:3px solid #16a34a;border-radius:14px;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 8px;box-sizing:border-box">
+    <span style="font-size:15px;font-weight:900">👥 Trainingsgruppen${tg?"":" bilden"}</span>
+    <span style="font-size:11.5px;color:var(--text2);text-align:center">${sub}</span>
+  </button>`;
+}
+function tgBilden(){
+  const trainers=tpGetCheckedTrainers();
+  const n=Math.max(1,trainers.length);
+  const pool=_kgPool(); // Anwesenheit heute, sonst Kader; pausierte Kinder bleiben draußen
+  const st=x=>(typeof teamStaerke==="function")?Math.max(0,teamStaerke(x)):0;
+  const namen=pool.namen.slice().sort((a,b)=>st(b)-st(a));
+  const gruppen=Array.from({length:n},(_,i)=>({...TG_NAMEN[i%TG_NAMEN.length],trainer:trainers[i]||"",kinder:[]}));
+  // Schlangenlinie: ausgewogene Startaufteilung, danach frei verschiebbar
+  namen.forEach((k,i)=>{const r=Math.floor(i/n),pos=r%2===0?(i%n):(n-1-(i%n));gruppen[pos].kinder.push(k);});
+  const tg={gruppen,ausAnwesenheit:pool.ausAnwesenheit};
+  tgSave(tg);
+  return tg;
+}
+function tgOpen(){
+  let tg=tgFor()||tgBilden();
+  document.getElementById("tg-modal")?.remove();
+  const m=document.createElement("div");m.id="tg-modal";
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Trainingsgruppen");
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
+    ${mdlHead("tg-modal","👥","Trainingsgruppen","Kind antippen = nächste Gruppe · Größen dürfen ungleich sein","#16a34a")}
+    <div id="tg-quelle" style="font-size:11.5px;color:var(--text2);margin-bottom:8px"></div>
+    <div id="tg-liste"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btn-sm" style="flex:1" onclick="tgNeuMischen()">🎲 Neu mischen</button>
+      <button class="btn btn-p" style="flex:1" onclick="document.getElementById('tg-modal').remove();tpRenderTimeline()">✅ Fertig</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  tgRender();
+}
+function tgRender(){
+  const tg=tgFor(); const el=document.getElementById("tg-liste"); if(!el||!tg)return;
+  const q=document.getElementById("tg-quelle");
+  if(q)q.innerHTML=tg.ausAnwesenheit?"Quelle: Anwesenheit heute":"⚠️ Heute ist noch keine Anwesenheit erfasst – Basis ist der ganze Kader.";
+  el.innerHTML=tg.gruppen.map((g,gi)=>`<div style="border:var(--border-s);border-left:4px solid ${g.farbe};border-radius:12px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <button onclick="tgRename(${gi})" title="Gruppe umbenennen" style="border:none;background:transparent;font-family:inherit;font-size:14px;font-weight:900;color:${g.farbe};cursor:pointer;min-height:44px;padding:0;margin:-8px 0">${g.emo} ${esc(g.name)} ✏️</button>
+        <span style="font-size:11px;color:var(--text3)">${g.kinder.length} Kinder</span>
+        <button onclick="tgTrainerTipp(${gi})" title="Trainer wechseln" style="margin-left:auto;min-height:44px;padding:4px 12px;border:var(--border-s);border-radius:16px;background:var(--surface2);color:var(--text);font-family:inherit;font-size:12px;font-weight:800;cursor:pointer">🧢 ${esc(g.trainer||"– Trainer –")}</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        ${g.kinder.map(k=>`<button onclick="tgKindTipp(${gi},'${k.replace(/'/g,"\\'")}')" title="Antippen = nächste Gruppe" style="min-height:44px;padding:6px 12px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12.5px;cursor:pointer;background:var(--surface2);color:var(--text)">${esc(k)}</button>`).join("")||'<span style="font-size:11px;color:var(--text3)">leer</span>'}
+      </div>
+    </div>`).join("");
+}
+function tgKindTipp(gi,kind){
+  const tg=tgFor(); if(!tg)return;
+  tg.gruppen[gi].kinder=tg.gruppen[gi].kinder.filter(k=>k!==kind);
+  tg.gruppen[(gi+1)%tg.gruppen.length].kinder.push(kind);
+  tgSave(tg);tgRender();
+}
+function tgTrainerTipp(gi){
+  const tg=tgFor(); if(!tg)return;
+  const trainers=tpGetCheckedTrainers(); if(!trainers.length)return;
+  const cur=trainers.indexOf(tg.gruppen[gi].trainer);
+  tg.gruppen[gi].trainer=trainers[(cur+1)%trainers.length];
+  tgSave(tg);tgRender();
+}
+function tgRename(gi){
+  const tg=tgFor(); if(!tg)return;
+  const name=(prompt("Neuer Gruppenname:",tg.gruppen[gi].name)||"").trim(); if(!name)return;
+  tg.gruppen[gi].name=name;
+  tgSave(tg);tgRender();
+}
+function tgNeuMischen(){tgBilden();tgRender();}
+// ℹ️ direkt aus dem Übungs-Picker: Detail über dem Picker anzeigen (dessen z-index ist höher)
+function tpPickerInfo(idx){
+  tpShowExercise(idx);
+  const m=document.body.lastElementChild;
+  if(m&&m.id!=="tp-pick-modal")m.style.zIndex="10006";
 }
