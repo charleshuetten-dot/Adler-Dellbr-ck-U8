@@ -3496,83 +3496,26 @@ async function renderHome(){
     </div>
     <button onclick="onboardingDismiss()" style="margin-top:10px;background:transparent;border:none;color:var(--text3);font-family:inherit;font-size:11.5px;cursor:pointer;text-decoration:underline">Alles klar, ausblenden</button>
   </div>`; }catch(e){}
+  /* N1-Umbau (PO + Trainerkollegen: „zu überladen"): Die Startseite ist nur noch
+     To-Do-Banner → Als-Nächstes/Karussell → 6 Kacheln (2×3). ALLE Werkzeuge leben
+     jetzt hinter den Kachelseiten (kachelOpen) – nichts wurde gelöscht, nur einsortiert. */
   box.innerHTML=`
-    <div class="sl nt"><i class="ti ti-home"></i>Trainer-Dashboard</div>
     ${onboardHtml}
     <div id="trainer-todo-slot"></div>
+    <div id="eg-trainer"></div>
     <div id="home-next">${card('<div style="font-size:12px;color:var(--text3)">Lade nächsten Termin...</div>')}</div>
     <div id="home-carousel"></div>
-    <div style="display:flex;gap:8px;margin-bottom:2px">
-      <button onclick="openTab('spieltag')" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-height:72px;padding:12px 6px;border:none;border-radius:var(--rl);cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;box-shadow:0 2px 10px rgba(37,99,235,.28)">
-        <i class="ti ti-ball-football" style="font-size:24px"></i><span style="font-size:12.5px;font-weight:800">Spieltag</span></button>
-      <button onclick="go('anwesenheit')" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-height:72px;padding:12px 6px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;background:var(--surface);color:var(--text)">
-        <i class="ti ti-checkbox" style="font-size:24px;color:#2563eb"></i><span style="font-size:12.5px;font-weight:800">Anwesenheit</span></button>
-      <button onclick="go('termine')" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-height:72px;padding:12px 6px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;background:var(--surface);color:var(--text)">
-        <i class="ti ti-calendar-plus" style="font-size:24px;color:#2563eb"></i><span style="font-size:12.5px;font-weight:800">Termin</span></button>
-    </div>
-    <!-- Aufmerksamkeit/To-dos: direkt unter den Hauptaktionen, ohne Überschrift (leer = unsichtbar) -->
-    <div id="home-rsvp"></div>
-    <div id="home-antifrust"></div>
-    <div id="home-milestone"></div>
-    <div id="home-ferien"></div>
-    <div id="eg-trainer"></div>
-    <div class="sl nt" style="margin-top:18px"><i class="ti ti-tools"></i>Werkzeuge</div>
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:2px 2px 6px">Auswerten</div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px">
-      ${homeTool("📈 Saison-Cockpit","saisonCockpitOpen()")}
-      ${homeTool("⭐ Einheit bewerten","einheitBewertenOpen()")}
-      ${homeTool("📊 Anwesenheits-Quote","anwesenheitOpen()")}
-      <button onclick="toggleTeamCheck()" style="flex:1 1 calc(50% - 4px);min-width:140px;min-height:46px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text);background:var(--surface);text-align:left;padding:0 12px;display:flex;align-items:center;gap:6px">
-        <span>🩺 Team-Check</span>
-        ${stale>0?`<span style="background:#fee2e2;color:#dc2626;border-radius:8px;padding:1px 7px;font-size:10.5px;font-weight:800">${stale}</span>`:""}
-        <span id="tc-caret" style="margin-left:auto;font-size:11px;color:var(--text3)">▾</span>
-      </button>
-    </div>
-    <!-- Team-Check-Inhalt (Kader/bewertet/überfällig/Radar): volle Breite unter den Kacheln -->
-    <div id="team-check-body" class="card" style="display:none;padding:12px 14px;margin:8px 0 10px">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        ${statTile(KADER.length,"Kader","var(--blue)","go('kader')")}
-        ${statTile(bewertet+"/"+KADER.length,"bewertet","#059669","go('bew')")}
-        ${statTile(stale,"überfällig >6 Wo","#dc2626","go('bew')")}
-      </div>
-      <div id="home-radar"></div>
-    </div>
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:12px 2px 6px">Organisieren</div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px">
-      ${(new Date().getMonth()>=5&&new Date().getMonth()<=8)?homeTool("🌅 Saisonstart-Check","saisonStartOpen()"):""}
-      ${homeTool("📣 Team-Ansage","ansageTrainerOpen()")}
-      ${homeTool("🆕 Probetraining","probeOpen()")}
-      ${homeTool("🗓️ Trainer-Meeting","trainerMeetingOpen()")}
-      ${homeTool("🗣️ Elterngespräch","epollTrainerOpen()")}
-      ${homeTool("🎉 Event-Mitbringliste","mitbringTrainerOpen()")}
-      ${homeTool("🏆 Heimturnier","htOpen()")}
-      ${homeTool("💰 Teamkasse","kasseOpen()")}
-      ${homeTool("👕 Team-Ausrüstung","ausruestungGrid()")}
-      ${homeTool("🧦 Fundbüro","fundbueroOpen()")}
-    </div>
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:12px 2px 6px">Für Eltern &amp; Kinder</div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px">
-      ${homeTool("📰 Adler Nest","stadionheftOpen()")}
-      ${homeTool("🪶 Adler-Welt","adlerWeltOpen()")}
-      ${homeTool("🏅 Urkunden-Studio","urkundenOpen()")}
-    </div>
-    <div id="home-birthday" style="margin-top:12px"></div>
-    ${gebHtml}
-    <div class="sl nt" style="margin-top:18px"><i class="ti ti-settings"></i>Einstellungen</div>
-    <div id="push-slot-trainer" style="margin-bottom:10px"></div>
-    <button id="wrapped-btn" onclick="adlerWrappedTeaser()" style="width:100%;min-height:48px;border:1.5px dashed #cbd5e1;border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:#94a3b8;background:var(--surface)">🔒 Adler Wrapped · Saison-Rückblick (am Saisonende)</button>
-    <button onclick="pwChangeOpen()" style="width:100%;min-height:48px;margin-top:12px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text2);background:var(--surface)">🔑 Mein Passwort ändern</button>`;
-
-  window._radarLoaded=false; // Radar erst beim Aufklappen des Team-Checks laden
-  elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche
-  homeRsvpNudge(); // "wer hat noch nicht geantwortet" für den nächsten Termin
-  homeAntiFrust(); // Anti-Frust-Radar: wer braucht heute eine Bühne
-  homeMilestone(); // H7: frisch erreichte Team-Meilensteine kurz feiern
-  homeFerien();    // I-B: Ferien-Radar (nur sichtbar, wenn Ferien laufen/nahen)
-  trainerTodoLoad(); // persönliche To-Dos des eingeloggten Trainers (Zusagen/Einheit/Sprachlob)
-  // Team-Level ("Küken-Schwarm") lebt jetzt in der Adler-Welt, nicht mehr auf der Startseite
-  homeBirthday(); // C4: Geburtstags-Automatik
-  if(typeof pushRenderInto==="function")pushRenderInto("push-slot-trainer","trainer"); // Push-An/Aus
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
+      ${kachelTile("training","🏃","Training","#16a34a","#15803d")}
+      ${kachelTile("spieltag","⚽","Spieltag","#1e3a8a","#2563eb")}
+      ${kachelTile("team","👥","Team","#0f766e","#14b8a6")}
+      ${kachelTile("taktik","🎯","Taktik","#c2410c","#ea580c")}
+      ${kachelTile("elki","🪶","Eltern & Kinder","#6d28d9","#8b5cf6")}
+      ${kachelTile("orga","📅","Orga","#1d4ed8","#3b82f6")}
+    </div>`;
+  elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche (handeln nötig → bleibt oben)
+  trainerTodoLoad();             // To-Do-Banner (leer = unsichtbar)
+  if(stale>0){const b=document.getElementById("kb-team");if(b)b.textContent=stale+" Bewertungen fällig";}
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine?select=*&datum=gte.${heute}&order=datum.asc,uhrzeit.asc.nullslast&limit=10`,{headers:sbAuthHeaders()});
@@ -3583,7 +3526,16 @@ async function renderHome(){
     if(typeof TM_TERMINE!=="undefined")TM_TERMINE=rows; // Detail-/Karussell-Klick auf der Startseite findet den Termin (sonst Fallback auf go('termine'))
     // Karussell der nächsten Termine (Klick springt zur Detailkarte in der Terminliste)
     const carSlot=document.getElementById("home-carousel");
-    if(carSlot&&rows.length>1&&typeof tmCarouselHtml==="function") carSlot.innerHTML=tmCarouselHtml(rows);
+    if(carSlot&&rows.length>1&&typeof tmCarouselHtml==="function") carSlot.innerHTML=tmCarouselHtml(rows.slice(0,5)); // PO: Karussell = nächste 5
+    // Live-Badges auf den Kacheln (aus demselben Termin-Abruf – kostet nichts extra)
+    try{
+      const kurz=t=>{const d=new Date(t.datum+"T00:00:00");return ["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()]+" "+(t.uhrzeit?String(t.uhrzeit).slice(0,5):d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"}));};
+      const setB=(id,t)=>{const b=document.getElementById(id);if(b&&t)b.textContent=kurz(t);};
+      setB("kb-training",rows.find(x=>x.typ==="training"));
+      setB("kb-spieltag",rows.find(x=>x.typ==="spiel"||x.typ==="turnier"));
+      const ob=document.getElementById("kb-orga");
+      if(ob&&rows.length)ob.textContent=rows.length+" Termin"+(rows.length===1?"":"e")+" geplant";
+    }catch(e){}
     if(!rows.length){slot.innerHTML=card(`<div style="font-size:12.5px">📅 Kein Termin geplant. <a href="#" onclick="go('termine');return false" style="color:var(--blue)">Jetzt anlegen</a></div>`);return;}
     const t=rows[0];
     const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"#1a56db"};
@@ -4181,4 +4133,161 @@ async function renderStadionheftView(){
     ${repHtml}
     ${h.kommentar?`${nestLbl("📣 Vom Trainerteam")}<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #16a34a;border-radius:12px;padding:12px 13px;font-size:12.5px;color:#334155;line-height:1.55">${elternEsc(h.kommentar).replace(/\n/g,"<br>")}</div>`:""}
     <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:18px">Auf geht's, Adler! 🦅 · SV Adler Dellbrück e.V.</div></div>`;
+}
+
+/* ═══════════════════════════════════
+   N2: KACHEL-NAVIGATION – die 6 Startseiten-Kacheln (Training, Spieltag, Team, Taktik,
+   Eltern & Kinder, Orga) und ihre Seiten. Jede Kachelseite ist wieder in Kachel-Logik
+   aufgebaut: Gruppen mit Zeilen, oben das Tägliche, unten das Seltene. Alle Aktionen
+   laufen über kachelRun (schließt die Seite, ruft die bestehende Funktion).
+═══════════════════════════════════ */
+function kachelTile(key,emo,label,c1,c2){
+  return `<button onclick="kachelOpen('${key}')" style="min-height:96px;border:none;border-radius:16px;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,${c1},${c2});color:#fff;padding:12px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;box-shadow:0 2px 10px ${c1}44;text-align:left">
+    <span style="font-size:26px">${emo}</span>
+    <span style="min-width:0">
+      <span style="display:block;font-size:14.5px;font-weight:900">${label}</span>
+      <span id="kb-${key}" style="display:block;font-size:10.5px;opacity:.85;min-height:13px"></span>
+    </span>
+  </button>`;
+}
+// Aktion aus einer Kachelseite: Seite schließen, Funktion aufrufen (ehrlicher Toast, falls fehlt)
+function kachelRun(fn,arg){
+  document.getElementById("kachel-modal")?.remove();
+  const f=window[fn];
+  if(typeof f==="function"){arg===undefined?f():f(arg);}
+  else toast("Da fehlt noch eine Verknüpfung ("+fn+") – bitte kurz melden","err");
+}
+function kRow(emo,label,d,fn,arg){
+  return `<button onclick="kachelRun('${fn}'${arg!==undefined?`,'${arg}'`:""})" style="width:100%;display:flex;align-items:center;gap:10px;border:var(--border-s);border-radius:12px;background:var(--surface);color:var(--text);padding:10px 12px;margin-bottom:8px;cursor:pointer;font-family:inherit;text-align:left;min-height:52px;box-sizing:border-box">
+    <span style="font-size:20px;flex:none">${emo}</span>
+    <span style="flex:1;min-width:0">
+      <span style="display:block;font-size:13.5px;font-weight:800">${label}</span>
+      ${d?`<span style="display:block;font-size:11px;color:var(--text2)">${d}</span>`:""}
+    </span>
+    <span style="color:var(--text3);flex:none">›</span>
+  </button>`;
+}
+function kSec(t){return `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:14px 0 6px">${t}</div>`;}
+const KACHELN={
+  training:{emo:"🏃",titel:"Training",sub:"Vom Plan bis zum Abpfiff",col:"#16a34a"},
+  spieltag:{emo:"⚽",titel:"Spieltag",sub:"Vorher, während, danach",col:"#1e3a8a"},
+  team:{emo:"👥",titel:"Team",sub:"Spieler, Entwicklung, Überblick",col:"#0f766e"},
+  taktik:{emo:"🎯",titel:"Taktik",sub:"Brett, Zeichnen, Bibliothek",col:"#c2410c"},
+  elki:{emo:"🪶",titel:"Eltern & Kinder",sub:"Kommunikation und Adler-Welt",col:"#6d28d9"},
+  orga:{emo:"📅",titel:"Orga",sub:"Termine, Events, Verwaltung",col:"#1d4ed8"}
+};
+function kachelOpen(key){
+  const k=KACHELN[key]; if(!k)return;
+  document.getElementById("kachel-modal")?.remove();
+  const m=document.createElement("div");m.id="kachel-modal";
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label",k.titel);
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
+    ${mdlHead("kachel-modal",k.emo,k.titel,k.sub,k.col)}
+    <div id="kachel-body">${_kachelInhalt(key)}</div>
+  </div>`;
+  document.body.appendChild(m);
+  _kachelNachladen(key);
+}
+function _kachelInhalt(key){
+  if(key==="training")return kSec("Heute")
+    +kRow("✅","Anwesenheit erfassen","Wer ist da? Haken je Kind","go","anwesenheit")
+    +kRow("📋","Trainingsplan","Stationen bauen · Stationstimer am Platz","go","planung")
+    +kRow("⚡","Blitzturnier","Turnier zum Abschluss – Zeitbudget, Kinder- oder Eltern-Duell","blitzOpen")
+    +kSec("Vorbereiten")
+    +kRow("📚","Trainingsformen","Bibliothek, Auto-Plan, KI-Coach, DFB-Regal","go","formen")
+    +kSec("Danach")
+    +kRow("⭐","Einheit bewerten","Spaß, Umsetzung, Erfolg – und Übungen bewerten","einheitBewertenOpen");
+  if(key==="spieltag")return kSec("Vorher")
+    +kRow("🎽","Match-Zentrale","Nominierung, Team-Einteilung, Rollen, Match-Uhr, Ticker","go","spieltag")
+    +kRow("🧩","Aufstellung","Auto-Aufstellung mit fairen Einsatzzeiten","go","kombi")
+    +kRow("✅","Anwesenheit","Nominierte sind vorgehakt","go","anwesenheit")
+    +kSec("Danach")
+    +kRow("📊","Analyse","Auswertung nach dem Spiel","go","analyse")
+    +`<div id="kachel-turnier"></div>`;
+  if(key==="team"){
+    const names=Object.keys(DB||{});
+    const bewertet=names.filter(n=>DB[n]&&DB[n].length).length;
+    const cutoff=new Date(Date.now()-42*86400000).toISOString().slice(0,10);
+    const stale=KADER.filter(x=>{const s=DB[x.name];if(!s||!s.length)return true;return (s[s.length-1].datum||"0000")<cutoff;}).length;
+    const tile=(v,l,c,fn,arg)=>`<button onclick="kachelRun('${fn}','${arg}')" style="flex:1;min-width:90px;border:var(--border-s);border-radius:12px;background:var(--surface);padding:10px;text-align:center;cursor:pointer;font-family:inherit"><div style="font-size:20px;font-weight:900;color:${c}">${v}</div><div style="font-size:10px;color:var(--text2)">${l}</div></button>`;
+    return `<div style="display:flex;gap:8px;margin-bottom:4px">${tile(KADER.length,"Kader","var(--blue)","go","kader")}${tile(bewertet+"/"+KADER.length,"bewertet","#059669","go","bew")}${tile(stale,"überfällig","#dc2626","go","bew")}</div>
+      <div id="home-antifrust"></div><div id="home-birthday"></div>`
+      +kSec("Spieler")
+      +kRow("👥","Kader verwalten","Anlegen, Nummern, Fotos, Kontakte","go","kader")
+      +kRow("📝","Bewerten","16 Kriterien mit Live-Radar · alle 6 Wochen","go","bew")
+      +kRow("🌟","Profil & Stärken","Adler-Karte, Sprachlob, Selbstbild, Report","go","profil")
+      +kRow("📈","Entwicklung","Verlauf über die Zeit + Entwicklungsziele","go","verlauf")
+      +kRow("⏸️","Pausen-Status","Wer pausiert (Verletzung/Krankheit)","pausenOpen")
+      +kSec("Überblick")
+      +kRow("🧭","Saison-Cockpit","Torschützen, Anwesenheit, Rückmelde-Tempo, Stimmung","saisonCockpitOpen")
+      +kRow("📊","Anwesenheits-Quote","Quote je Kind über die Saison","anwesenheitOpen")
+      +kRow("🎽","Rollen-Matrix","Wer war schon Kapitän, im Tor …","rollenMatrixOpen")
+      +kSec("Besonderes")
+      +kRow("🆘","Notfallkarten","Notfall-Infos der Eltern (nur lesen)","notfallTrainerOpen")
+      +kRow("🆕","Probetraining","Schnupperkinder – getrennt vom Kader","probeOpen");
+  }
+  if(key==="taktik")return kSec("Am Brett")
+    +kRow("🎯","Taktikboard","Formationen stellen, Laufwege zeichnen, als Bild teilen · Tablet-Pro-Modus","go","taktik")
+    +kSec("Ideen")
+    +kRow("📚","Spielformen & Bibliothek","Trainingsformen mit Feldskizzen","go","formen");
+  if(key==="elki")return kSec("Kommunikation")
+    +kRow("📣","Team-Ansage","Wichtige Info an alle Eltern – mit Gelesen-Status","ansageTrainerOpen")
+    +kRow("🗣️","Elterngespräch","Terminfindung für Gespräche","epollTrainerOpen")
+    +kRow("🔗","Eltern einladen","Einladungspaket per Mail/WhatsApp","elternInvitePaket")
+    +kRow("🖨️","QR-Aushang","Zettel für Brett und Probetraining-Eltern","qrAushangOpen")
+    +kSec("Adler-Welt (Kinder)")
+    +kRow("🪶","Adler-Welt-Hub","Federn, Karten, Abzeichen, Challenge","adlerWeltOpen")
+    +kRow("🗳️","Kabinen-Wahl","Die Kinder stimmen ab","wahlTrainerOpen")
+    +kRow("🖼️","Album-Karten-Fotos","Bilder für Trainer- und Vereins-Sticker","albumFotosOpen")
+    +kRow("🎯","Team-Quests","Wochenziele mit Federn-Belohnung","questEditorOpen")
+    +kRow("🏅","Urkunden-Studio","Saison- und Anlass-Urkunden drucken","urkundenOpen")
+    +kSec("Inhalte")
+    +kRow("📰","Adler Nest","Digitales Stadionheft pflegen","stadionheftOpen")
+    +kRow("🏆","Adler Wrapped","Saison-Rückblick (am Saisonende)","adlerWrappedTeaser")
+    +`<div id="home-milestone" style="margin-top:6px"></div>`;
+  if(key==="orga")return `<div id="home-rsvp"></div><div id="home-ferien"></div>`
+    +kSec("Termine")
+    +kRow("📅","Termine & Serien","Anlegen, bearbeiten, Wochen-Serien, .ics","go","termine")
+    +kSec("Events & Helfer")
+    +kRow("🎉","Mitbringliste","Wer bringt was mit (geldfrei)","mitbringTrainerOpen")
+    +kRow("🗓️","Trainer-Meeting","Terminfindung im Trainerteam","trainerMeetingOpen")
+    +kSec("Verwaltung")
+    +kRow("💰","Teamkasse","Einnahmen und Ausgaben","kasseOpen")
+    +kRow("👕","Team-Ausrüstung","Trikots und Material","ausruestungGrid")
+    +kRow("🧦","Fundbüro","Liegengebliebenes","fundbueroOpen")
+    +((new Date().getMonth()>=5&&new Date().getMonth()<=8)?kRow("🌅","Saisonstart-Check","Geführt in die neue Saison","saisonStartOpen"):"")
+    +kRow("🧰","Setup-Übersicht","Was ist eingerichtet, was fehlt","setupTrainerOpen")
+    +kSec("Einstellungen")
+    +`<div id="push-slot-trainer" style="margin-bottom:8px"></div>`
+    +kRow("🔑","Mein Passwort ändern","","pwChangeOpen");
+  return "";
+}
+// Nachlader je Kachelseite: bestehende Slot-Renderer (schreiben in ihre bekannten IDs)
+function _kachelNachladen(key){
+  try{
+    if(key==="team"){if(typeof homeAntiFrust==="function")homeAntiFrust();if(typeof homeBirthday==="function")homeBirthday();}
+    if(key==="elki"&&typeof homeMilestone==="function")homeMilestone();
+    if(key==="orga"){
+      if(typeof homeRsvpNudge==="function")homeRsvpNudge();
+      if(typeof homeFerien==="function")homeFerien();
+      if(typeof pushRenderInto==="function")pushRenderInto("push-slot-trainer","trainer");
+    }
+    if(key==="spieltag")_kachelTurnierCheck();
+  }catch(e){}
+}
+/* PO-Entscheid: Die Turnier-Gruppe erscheint unter Spieltag NUR, wenn ein Turnier-Termin
+   ansteht oder schon ein Heimturnier angelegt ist – sonst bleibt die Seite schlank. */
+async function _kachelTurnierCheck(){
+  const slot=document.getElementById("kachel-turnier"); if(!slot)return;
+  const heute=new Date().toISOString().slice(0,10);
+  let terminTurnier=null, heimAngelegt=false;
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?typ=eq.turnier&datum=gte.${heute}&select=id,heim&order=datum.asc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)terminTurnier=((await r.json())||[])[0]||null;}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/heimturnier?select=id&limit=1`,{headers:sbAuthHeaders()});if(r.ok)heimAngelegt=((await r.json())||[]).length>0;}catch(e){}
+  if(!terminTurnier&&!heimAngelegt)return;
+  if(!document.getElementById("kachel-turnier"))return; // Seite schon gewechselt
+  slot.innerHTML=kSec("🏆 Turnier steht an")
+    +((heimAngelegt||(terminTurnier&&terminTurnier.heim))?kRow("🏆","Heimturnier ausrichten","Teams, Spielplan, öffentlicher Link, Urkunden","htOpen"):"")
+    +kRow("📋","Turnierplan (auswärts)","Aushang erfassen, Ergebnisse am Spieltag","go","spieltag");
 }
