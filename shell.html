@@ -285,7 +285,7 @@
   <input type="text" id="training-search" placeholder="🔍 Übung suchen (z. B. Passspiel, Funino) …" oninput="clearTimeout(window._tfDebounce);window._tfDebounce=setTimeout(renderTraining,200)"
     style="width:100%;box-sizing:border-box;padding:10px 14px;border:var(--border-s);border-radius:12px;font-size:13.5px;background:var(--surface);font-family:inherit;outline:none;margin-bottom:8px">
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-    <button class="btn btn-sm" onclick="autoPlanBuild()" title="Kompletten Trainings-Ablauf vorschlagen"><i class="ti ti-wand"></i>Auto-Plan vorschlagen</button>
+    <!-- Auto-Plan wohnt in der Planung (🪄 tpGenerate) – der doppelte Vorschlags-Button hier ist raus (PO) -->
     <button class="btn btn-sm" onclick="openAddTraining()"><i class="ti ti-plus"></i>Eigene Form anlegen</button>
   </div>
   <div class="frow" id="training-filter-row">

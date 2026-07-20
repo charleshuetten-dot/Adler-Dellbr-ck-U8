@@ -893,7 +893,17 @@ function tpRenderTimeline(){
   // automatisch den ersten Hauptteil; die Zeitfenster paralleler Slots kommen vom Ziel.
   tpSlots.forEach(s=>{if(s.typ==="individual"&&s.parallelZu==null){const mi=tpSlots.findIndex(x=>(x.typ||"main")==="main");if(mi>=0)s.parallelZu=mi;}});
   let acc=0; const startsArr=tpSlots.map(s=>{const st0=acc;if(!((s.typ||"main")==="individual"&&s.parallelZu!=null))acc+=s.dauer;return st0;});
-  tpSlots.forEach((slot,si)=>{
+  /* Render-Reihenfolge: parallele Einzeltrainings stehen direkt UNTER ihrem Ziel-Slot
+     (PO: „zeitlich vor dem Abschluss, aber optisch dahinter eingereiht"). si bleibt der
+     echte Array-Index – alle IDs/Handler zeigen weiter auf tpSlots[si]. */
+  const renderOrder=[];
+  tpSlots.forEach((s,i)=>{
+    if((s.typ||"main")==="individual"&&s.parallelZu!=null&&tpSlots[s.parallelZu])return;
+    renderOrder.push(i);
+    tpSlots.forEach((s2,i2)=>{if((s2.typ||"main")==="individual"&&s2.parallelZu===i)renderOrder.push(i2);});
+  });
+  tpSlots.forEach((s,i)=>{if(!renderOrder.includes(i))renderOrder.push(i);});
+  renderOrder.forEach(si=>{ const slot=tpSlots[si];
     const typ=slot.typ||"main";
     const parallel=typ==="individual"&&slot.parallelZu!=null&&tpSlots[slot.parallelZu];
     const startMin=parallel?startsArr[slot.parallelZu]:time;
@@ -2228,7 +2238,7 @@ function tlOverlayOpen(){
 function tlSchliessen(){ document.getElementById("tl-ov")?.remove(); _tlPollStop(); }
 // Lobby verwerfen (nur vor Station 1): Session löschen, dann oben Trainer anpassen + neu starten
 async function tlAbbrechen(){
-  if(!confirm("Diesen Trainingsstart verwerfen? Danach Trainer anhaken und neu starten."))return;
+  if(!confirm("Diesen Trainingsstart für ALLE Geräte verwerfen? Danach in der Planung anpassen und neu starten."))return;
   try{await fetch(`${SB_URL}/rest/v1/training_live?datum=eq.${_tlHeute()}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}
   _tl.row=null;
   tlSchliessen();
@@ -2272,6 +2282,8 @@ async function tlBereit(){
 }
 async function tlAbgeschlossen(){
   const me=await trainerMe(); if(!me||!_tl.row)return;
+  // Meine Stoppuhr endet mit der Übung (PO) – der Stand bleibt bis zur nächsten Station sichtbar
+  if(_tl.uhr.run){_tl.uhr.acc+=Date.now()-_tl.uhr.seit;_tl.uhr.run=false;}
   const fertig={...(_tl.row.fertig||{})};
   fertig[me]=[...new Set([...(fertig[me]||[]),_tl.row.slot])];
   await _tlPatch({fertig});
@@ -2329,11 +2341,13 @@ function _tlRender(){
       </div>
       ${binBereit?'<div style="font-size:14px;opacity:.8">Warten auf die anderen…</div>'
         :`<button onclick="tlBereit()" style="width:100%;max-width:340px;min-height:64px;border:none;border-radius:16px;background:#16a34a;color:#fff;font-size:20px;font-weight:900;font-family:inherit;cursor:pointer">✅ Bereit!</button>`}
-      ${row.slot===0?`<button onclick="tlAbbrechen()" style="display:block;margin:18px auto 0;min-height:44px;border:none;background:transparent;color:#94a3b8;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;text-decoration:underline">🔁 Abbrechen & neu aufsetzen (Trainer ändern)</button>`:""}
+      <button onclick="tlAbbrechen()" style="display:block;margin:18px auto 0;min-height:44px;border:none;background:transparent;color:#94a3b8;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;text-decoration:underline">🔁 Abbrechen & neu starten</button>
     </div>`;
     return;
   }
   // status laeuft: 10-s-Countdown, dann Stations-Countdown – Anker slot_start läuft überall parallel
+  // Neue Station = frische Stoppuhr (PO: die Uhr gehört zur Übung, nicht zum ganzen Training)
+  if(_tl.uhrSlot!==row.slot){_tl.uhr={run:false,seit:0,acc:0,laps:[]};_tl.uhrSlot=row.slot;}
   const startMs=row.slot_start?new Date(row.slot_start).getTime():Date.now();
   const jetzt=Date.now();
   const meine=st.gruppen.filter(g=>g.trainer===me||g.trainer==="Alle");
@@ -2369,6 +2383,7 @@ function _tlRender(){
     </div>
     ${ich?'<div style="font-size:14px;font-weight:800;color:#4ade80">✅ Gemeldet – warten auf die anderen…</div>'
       :`<button onclick="tlAbgeschlossen()" style="width:100%;max-width:340px;min-height:60px;border:none;border-radius:16px;background:#16a34a;color:#fff;font-size:17px;font-weight:900;font-family:inherit;cursor:pointer">✅ Übung abgeschlossen</button>`}
+    <button onclick="tlAbbrechen()" style="display:block;margin:14px auto 0;min-height:44px;border:none;background:transparent;color:#94a3b8;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;text-decoration:underline">🔁 Abbrechen & neu starten</button>
   </div>`;
 }
 

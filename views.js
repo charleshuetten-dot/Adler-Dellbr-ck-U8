@@ -2036,7 +2036,7 @@ const TABS={
     {key:"anwesenheit", label:"Anwesenheit", icon:"ti-checkbox"},
     {key:"planung",     label:"Planung",     icon:"ti-calendar-event"},
     {key:"formen",      label:"Formen",      icon:"ti-ball-football"},
-    {key:"quizresults", label:"Quiz",        icon:"ti-brain"},
+    {key:"quizresults", label:"Quiz",        icon:"ti-brain", hidden:true}, // PO: wohnt jetzt unter Eltern & Kinder; go() braucht den Eintrag weiter
   ]},
   spieltag:{sections:[
     {key:"spieltag", label:"Match",       icon:"ti-ball-football"},
@@ -2078,7 +2078,7 @@ function sectionTab(key){ for(const t in TABS){ if(TABS[t].sections.some(s=>s.ke
 function renderSubbar(tabId,activeKey){
   const bar=document.getElementById("tab-subbar");
   if(!bar)return;
-  const secs=TABS[tabId].sections;
+  const secs=TABS[tabId].sections.filter(s=>!s.hidden);
   if(secs.length<=1){ bar.style.display="none"; bar.innerHTML=""; return; }
   bar.style.display="flex";
   bar.innerHTML=secs.map(s=>`<button class="sub-tab${s.key===activeKey?' active':''}" onclick="go('${s.key}')"><i class="ti ${s.icon}"></i>${s.label}</button>`).join("");
@@ -3126,7 +3126,7 @@ const HELP=[
     {t:"Anwesenheits-Quote", d:"Quote je Kind über die Saison (Training + Spiele).", run:"anwesenheitOpen()"},
     {t:"Planung", d:"Zeitplan bauen, Übungen zuweisen, danach bewerten.", go:"planung"},
     {t:"Einheit bewerten", d:"Schnell-Sterne: Spaß, Umsetzung, Erfolg.", run:"einheitBewertenOpen()"},
-    {t:"Trainingsformen", d:"Bibliothek + Filter · „Auto-Plan\" baut eine Einheit · KI-Coach · Saison-Periodisierung.", go:"formen"},
+    {t:"Trainingsformen", d:"Bibliothek + Filter · KI-Coach · Saison-Periodisierung. Den Auto-Plan gibt es in der Planung (🪄).", go:"formen"},
     {t:"Blitzturnier", d:"Turnier zum Trainingsabschluss mit Zeitbudget-Automatik: Gesamtzeit (z. B. 40 Min.) und 1–4 Felder vorgeben, die Automatik wählt Format und Spielzeit (5–10 Min., Finale nur bei Restzeit) – reicht die Zeit fair nicht, sagt sie ehrlich, wie viele Minuten fehlen. Zwei Modi: Kinder-Turnier (Trainer spielen auf Wunsch in den Teams mit) oder Kinder gegen Eltern (1–4 Eltern-Teams, Duelle parallel auf den Feldern, Duell-Scoreboard, nie Kind gegen Kind). Spielform wählbar (FUNiño, 4+1, 5+1) mit Team-Vorschlag aus der Kinderzahl. Ein Pfiff für alle Felder.", run:"blitzOpen()"},
   ]},
   {cat:"⚽ Spieltag", items:[
@@ -3146,7 +3146,7 @@ const HELP=[
     {t:"Kabinen-Wahl", d:"Die Kinder stimmen ab (Song, Motto, Spielform) – du legst die Optionen fest.", run:"wahlTrainerOpen()"},
     {t:"Album-Karten-Fotos", d:"Bilder für die Trainer- und Vereins-Sticker im Panini-Sammelalbum.", run:"albumFotosOpen()"},
     {t:"Urkunden-Studio", d:"Saison-Urkunden für alle Kinder in einem Druck + freie Anlass-Urkunde.", run:"urkundenOpen()"},
-    {t:"Quiz (Kinder)", d:"Kinder spielen über den Kids-Link (?quiz); Ergebnisse hier unter Training → Quiz.", go:"quizresults"},
+    {t:"Quiz (Kinder)", d:"Kinder spielen über den Kids-Link (?quiz); Ergebnisse unter Eltern & Kinder → Quiz-Ergebnisse.", go:"quizresults"},
   ]},
   {cat:"📅 Orga", items:[
     {t:"Termine", d:"Anlegen/bearbeiten · Serien · Endzeit (danach automatisch ins Archiv) · Platz · Trainer-Verfügbarkeit · Wetter · Ferien-Warnung.", go:"termine"},
@@ -4267,6 +4267,7 @@ function _kachelInhalt(key){
     +kSec("Adler-Welt (Kinder)")
     +kTiles([
       {emo:"🪶",label:"Adler-Welt",fn:"adlerWeltOpen"},
+      {emo:"🧠",label:"Quiz-Ergebnisse",fn:"go",arg:"quizresults"},
       {emo:"🗳️",label:"Kabinen-Wahl",fn:"wahlTrainerOpen"},
       {emo:"🖼️",label:"Karten-Fotos",fn:"albumFotosOpen"},
       {emo:"🎯",label:"Team-Quests",fn:"questEditorOpen"},
