@@ -883,7 +883,7 @@ function tpRenderTimeline(){
   const allForms=tpAllForms();
   let time=0;
   // F5: Stationstimer + G3: Anwesenheits-Prognose (async gefüllt).
-  let html='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span id="tp-prognose"></span><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-sm" onclick="kleingruppenOpen()" title="2er/3er/4er-Gruppen für Übungen auslosen – zufällig oder ausgewogen">👥 Kleingruppen</button><button class="btn btn-sm" onclick="blitzOpen()" title="Schnelles Turnier zum Trainingsabschluss – Teams automatisch oder von Hand (auch Eltern-Team)">⚡ Blitzturnier</button><button class="btn btn-p btn-sm" onclick="stTimerStart()" title="Stationen am Platz mit Countdown durchlaufen">⏱️ Stationstimer</button></span></div><div id="ziel-uebungen-hint"></div>';
+  let html='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span id="tp-prognose"></span><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-sm" onclick="kleingruppenOpen()" title="2er/3er/4er-Gruppen für Übungen auslosen – zufällig oder ausgewogen">👥 Kleingruppen</button><button class="btn btn-sm" onclick="blitzOpen()" title="Schnelles Turnier zum Trainingsabschluss – Teams automatisch oder von Hand (auch Eltern-Team)">⚡ Blitzturnier</button><button class="btn btn-sm" onclick="stTimerStart()" title="Lokaler Stationstimer – Fallback ohne Netz">⏱️ Solo-Timer</button><button class="btn btn-p btn-sm" onclick="tlStart()" title="Synchroner Start auf allen Trainer-Handys: alle bereit → 10-Sekunden-Countdown → Station läuft überall parallel">🟢 Trainingsstart</button></span></div><div id="ziel-uebungen-hint"></div>';
   tpSlots.forEach((slot,si)=>{
     const startMin=time;
     const endMin=time+slot.dauer;
@@ -981,6 +981,7 @@ function tpRenderTimeline(){
   wrap.innerHTML=html;
   tpPrognoseLoad(); // G3: erwartete Kinderzahl fürs gewählte Datum
   if(typeof zielUebungenHint==="function")zielUebungenHint(); // B: Übungen zu offenen Entwicklungszielen
+  if(typeof tlCheck==="function")tlCheck(); // laufender Trainingsstart? → Bereit-Fenster
 }
 /* G3: Anwesenheits-Prognose – erwartete Kinderzahl fürs gewählte Trainingsdatum aus den
    Zusagen (fix) plus historischer Anwesenheitsquote je Kind (für noch offene). */
@@ -1996,3 +1997,230 @@ function tpPickSync(selId){
   btn.style.fontWeight=sel.value?"800":"600";
 }
 function tpPickSyncAll(){document.querySelectorAll(".tp-form-sel").forEach(s=>tpPickSync(s.id));}
+
+/* ═══════════════════════════════════
+   P3: TRAININGSSTART – synchroner Ablauf über alle Trainer-Handys (PO).
+   Ein Trainer drückt „Trainingsstart“ → bei allen anderen ploppt „Bereit?“ auf.
+   Sind alle Pflicht-Trainer bereit, zählt ein 10-Sekunden-Countdown herunter und die
+   Station läuft VOLLBILD auf allen Geräten parallel (Anker = slot_start-Zeitstempel in
+   training_live; die Geräte pollen alle 3 s – kein Realtime-Framework nötig).
+   Jeder Trainer sieht SEINE Übung, hat eine private Stoppuhr und meldet
+   „Übung abgeschlossen“; haben alle gemeldet, startet die Bereit-Runde für die nächste
+   Station. Ohne Netz: ehrlicher Hinweis + Fallback auf den lokalen Stationstimer.
+═══════════════════════════════════ */
+let _tl={row:null,poll:null,tick:null,gepfiffen:-1,uhr:{run:false,seit:0,acc:0,laps:[]}};
+function _tlHeute(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+// Snapshot der geplanten Einheit: Slots mit Gruppen (Trainer + Übung) aus dem Formular
+function _tlSnapshot(){
+  const forms=tpAllForms(), trainers=tpGetCheckedTrainers();
+  return tpSlots.map((slot,si)=>{
+    const gruppen=[];
+    document.querySelectorAll(`.tp-form-sel[id^="tp-form-${si}-"]`).forEach((s,p)=>{
+      const f=s.value?forms[Number(s.value)]:null;
+      gruppen.push({trainer:tpCoaches[s.id]||trainers[p]||"Alle",uebung:f?f.name:"(keine Übung gewählt)"});
+    });
+    if(!gruppen.length)gruppen.push({trainer:"Alle",uebung:(slot.typ==="abschluss")?"Freies Spiel / Blitzturnier":"(frei)"});
+    return {label:slot.label||("Station "+(si+1)),dauer:Math.max(1,slot.dauer||10),farbe:slot.farbe||"#16a34a",gruppen};
+  });
+}
+async function _tlFetch(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/training_live?datum=eq.${_tlHeute()}&select=*`,{headers:sbAuthHeaders()});
+    if(r.ok)return ((await r.json())||[])[0]||null;
+  }catch(e){}
+  return undefined; // undefined = Netzproblem, null = keine Session
+}
+async function _tlPatch(fields,nurStatus){
+  try{
+    const url=`${SB_URL}/rest/v1/training_live?datum=eq.${_tlHeute()}${nurStatus?`&status=eq.${nurStatus}`:""}`;
+    const r=await fetch(url,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({...fields,updated_at:new Date().toISOString()})});
+    return r.ok||r.status===204;
+  }catch(e){return false;}
+}
+// Start durch einen Trainer: Session anlegen (oder heutige übernehmen) + Lobby öffnen
+async function tlStart(){
+  const me=await trainerMe();
+  if(!me){toast("Bitte als Trainer anmelden","err");return;}
+  const pflicht=tpGetCheckedTrainers();
+  if(!pflicht.length){toast("Erst oben die Trainer von heute anhaken","err");return;}
+  if(!pflicht.includes(me)&&pflicht.length)pflicht.push(me);
+  const vorhanden=await _tlFetch();
+  if(vorhanden===undefined){toast("Kein Netz – nimm den ⏱️ Stationstimer (läuft ohne Server)","err");return;}
+  if(vorhanden&&vorhanden.status!=="fertig"){ _tl.row=vorhanden; tlOverlayOpen(); _tlPollStart(); return; }
+  const body={datum:_tlHeute(),status:"lobby",slot:0,slot_start:null,bereit:{[me]:true},fertig:{},pflicht,plan:{slots:_tlSnapshot()}};
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/training_live?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(body)});
+    if(!r.ok&&r.status!==201){toast(sbDeniedMsg(r,"Konnte nicht starten"),"err");return;}
+  }catch(e){toast("Kein Netz – nimm den ⏱️ Stationstimer","err");return;}
+  _tl.row=body;
+  tlOverlayOpen(); _tlPollStart();
+}
+/* Passive Erkennung (Startseite/Planung, gedrosselt): läuft heute eine Session, in der
+   ich gebraucht werde, ploppt das Bereit-Fenster von selbst auf. */
+let _tlCheckAt=0;
+async function tlCheck(){
+  if(Date.now()-_tlCheckAt<30000)return; _tlCheckAt=Date.now();
+  if(document.getElementById("tl-ov"))return;
+  const row=await _tlFetch(); if(!row||row.status==="fertig")return;
+  const me=await trainerMe(); if(!me||!(row.pflicht||[]).includes(me))return;
+  _tl.row=row; tlOverlayOpen(); _tlPollStart();
+}
+function _tlPollStart(){
+  if(_tl.poll)clearInterval(_tl.poll);
+  _tl.poll=setInterval(async()=>{
+    if(!document.getElementById("tl-ov")){_tlPollStop();return;}
+    const row=await _tlFetch();
+    if(row){_tl.row=row;await _tlAdvance();}
+  },3000);
+  if(_tl.tick)clearInterval(_tl.tick);
+  _tl.tick=setInterval(()=>{if(document.getElementById("tl-ov"))_tlRender();},500);
+  try{if(typeof requestWakeLock==="function")requestWakeLock();}catch(e){}
+}
+function _tlPollStop(){
+  if(_tl.poll){clearInterval(_tl.poll);_tl.poll=null;}
+  if(_tl.tick){clearInterval(_tl.tick);_tl.tick=null;}
+  try{if(typeof releaseWakeLock==="function")releaseWakeLock();}catch(e){}
+}
+function tlOverlayOpen(){
+  document.getElementById("tl-ov")?.remove();
+  const ov=document.createElement("div"); ov.id="tl-ov";
+  ov.style.cssText="position:fixed;inset:0;background:#0b1220;color:#fff;z-index:11000;overflow-y:auto;padding:18px;text-align:center";
+  document.body.appendChild(ov);
+  _tlRender();
+}
+function tlSchliessen(){ document.getElementById("tl-ov")?.remove(); _tlPollStop(); }
+// Zustands-Übergänge, die JEDES Gerät erkennen darf (Guard über status=eq. verhindert Doppel)
+async function _tlAdvance(){
+  const row=_tl.row; if(!row)return;
+  const slots=(row.plan&&row.plan.slots)||[];
+  if(row.status==="lobby"){
+    const alleBereit=(row.pflicht||[]).every(t=>row.bereit&&row.bereit[t]);
+    if(alleBereit&&(row.pflicht||[]).length){
+      await _tlPatch({status:"laeuft",slot_start:new Date(Date.now()+10000).toISOString()},"lobby");
+      const neu=await _tlFetch(); if(neu)_tl.row=neu;
+    }
+  }else if(row.status==="laeuft"){
+    const st=slots[row.slot];
+    if(st){
+      const noetig=_tlSlotTrainer(row,row.slot);
+      const alleFertig=noetig.every(t=>((row.fertig||{})[t]||[]).includes(row.slot));
+      if(alleFertig&&noetig.length){
+        if(row.slot+1<slots.length)await _tlPatch({status:"lobby",slot:row.slot+1,slot_start:null,bereit:{}},"laeuft");
+        else await _tlPatch({status:"fertig"},"laeuft");
+        const neu=await _tlFetch(); if(neu)_tl.row=neu;
+      }
+    }
+  }
+  _tlRender();
+}
+function _tlSlotTrainer(row,slotIdx){
+  const st=((row.plan&&row.plan.slots)||[])[slotIdx]; if(!st)return row.pflicht||[];
+  const namen=[...new Set(st.gruppen.map(g=>g.trainer))].filter(t=>(row.pflicht||[]).includes(t));
+  return namen.length?namen:(row.pflicht||[]);
+}
+async function tlBereit(){
+  const me=await trainerMe(); if(!me)return;
+  const bereit={...(_tl.row&&_tl.row.bereit||{}),[me]:true};
+  await _tlPatch({bereit});
+  if(_tl.row)_tl.row.bereit=bereit;
+  await _tlAdvance();
+}
+async function tlAbgeschlossen(){
+  const me=await trainerMe(); if(!me||!_tl.row)return;
+  const fertig={...(_tl.row.fertig||{})};
+  fertig[me]=[...new Set([...(fertig[me]||[]),_tl.row.slot])];
+  await _tlPatch({fertig});
+  _tl.row.fertig=fertig;
+  try{navigator.vibrate&&navigator.vibrate(40);}catch(e){}
+  await _tlAdvance();
+}
+// ── private Stoppuhr (nur lokal) ──
+function tlUhrToggle(){
+  const u=_tl.uhr;
+  if(u.run){u.acc+=Date.now()-u.seit;u.run=false;}
+  else{u.seit=Date.now();u.run=true;}
+  _tlRender();
+}
+function tlUhrRunde(){
+  const u=_tl.uhr;
+  u.laps.unshift(_tlUhrMs());
+  if(u.laps.length>5)u.laps.pop();
+  _tlRender();
+}
+function tlUhrReset(){_tl.uhr={run:false,seit:0,acc:0,laps:[]};_tlRender();}
+function _tlUhrMs(){const u=_tl.uhr;return u.acc+(u.run?Date.now()-u.seit:0);}
+function _tlFmt(ms){const s=Math.floor(ms/1000);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
+async function _tlMeinName(){ return (typeof _meTrainer==="string"&&_meTrainer)?_meTrainer:await trainerMe(); }
+function _tlRender(){
+  const ov=document.getElementById("tl-ov"); if(!ov)return;
+  const row=_tl.row;
+  if(!row){ov.innerHTML='<div style="padding:40px">Lade…</div>';return;}
+  const slots=(row.plan&&row.plan.slots)||[];
+  const me=(typeof _meTrainer==="string")?_meTrainer:"";
+  const kopf=`<div style="display:flex;align-items:center;gap:8px;max-width:520px;margin:0 auto">
+      <span style="font-size:20px">🏃</span>
+      <span style="font-size:14px;font-weight:800;flex:1;text-align:left">Trainingsstart · Station ${row.slot+1}/${slots.length||"?"}</span>
+      <button onclick="tlSchliessen()" aria-label="Schließen" style="min-width:44px;min-height:44px;border:none;background:rgba(255,255,255,.12);color:#fff;border-radius:10px;font-size:17px;cursor:pointer">✕</button>
+    </div>`;
+  if(row.status==="fertig"){
+    ov.innerHTML=kopf+`<div style="max-width:520px;margin:8vh auto 0">
+      <div style="font-size:64px">🎉</div>
+      <div style="font-size:24px;font-weight:900;margin:10px 0">Training geschafft!</div>
+      <div style="font-size:13px;opacity:.8">Denkt an die Nachbewertung – jeder bewertet seine eigenen Übungen.</div>
+      <button onclick="tlSchliessen()" style="margin-top:24px;padding:14px 28px;border:none;border-radius:12px;background:#16a34a;color:#fff;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer">Fertig</button>
+    </div>`;
+    return;
+  }
+  const st=slots[row.slot]||{label:"Station",dauer:10,gruppen:[]};
+  if(row.status==="lobby"){
+    const noetig=row.slot===0?(row.pflicht||[]):_tlSlotTrainer(row,row.slot);
+    const binBereit=me&&row.bereit&&row.bereit[me];
+    ov.innerHTML=kopf+`<div style="max-width:520px;margin:6vh auto 0">
+      <div style="font-size:52px">🟢</div>
+      <div style="font-size:22px;font-weight:900;margin:8px 0">${row.slot===0?"Training startet":"Nächste Station"} – bereit?</div>
+      <div style="font-size:14px;opacity:.85;margin-bottom:16px">${esc(st.label)} · ${st.dauer} Min.</div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:20px">
+        ${noetig.map(t=>`<span style="padding:8px 14px;border-radius:18px;font-size:13px;font-weight:800;background:${row.bereit&&row.bereit[t]?"#16a34a":"rgba(255,255,255,.12)"}">${row.bereit&&row.bereit[t]?"✅":"⏳"} ${esc(t)}</span>`).join("")}
+      </div>
+      ${binBereit?'<div style="font-size:14px;opacity:.8">Warten auf die anderen…</div>'
+        :`<button onclick="tlBereit()" style="width:100%;max-width:340px;min-height:64px;border:none;border-radius:16px;background:#16a34a;color:#fff;font-size:20px;font-weight:900;font-family:inherit;cursor:pointer">✅ Bereit!</button>`}
+    </div>`;
+    return;
+  }
+  // status laeuft: 10-s-Countdown, dann Stations-Countdown – Anker slot_start läuft überall parallel
+  const startMs=row.slot_start?new Date(row.slot_start).getTime():Date.now();
+  const jetzt=Date.now();
+  const meine=st.gruppen.filter(g=>g.trainer===me||g.trainer==="Alle");
+  const zeigen=meine.length?meine:st.gruppen;
+  if(jetzt<startMs){
+    const sek=Math.ceil((startMs-jetzt)/1000);
+    ov.innerHTML=kopf+`<div style="max-width:520px;margin:8vh auto 0">
+      <div style="font-size:16px;opacity:.8">${esc(st.label)} – gleich geht's los!</div>
+      <div style="font-size:110px;font-weight:900;font-variant-numeric:tabular-nums">${sek}</div>
+    </div>`;
+    return;
+  }
+  const rest=Math.max(0,Math.round((startMs+st.dauer*60000-jetzt)/1000));
+  if(rest===0&&_tl.gepfiffen!==row.slot){_tl.gepfiffen=row.slot;try{if(typeof stTimerWhistle==="function")stTimerWhistle();}catch(e){}}
+  const ich=me&&((row.fertig||{})[me]||[]).includes(row.slot);
+  ov.innerHTML=kopf+`<div style="max-width:520px;margin:2vh auto 0">
+    <div style="font-size:56px;font-weight:900;font-variant-numeric:tabular-nums;color:${rest===0?"#f87171":"#fff"}">${rest===0?"Abpfiff!":_tlFmt(rest*1000)}</div>
+    <div style="font-size:12px;opacity:.7;margin-bottom:14px">${esc(st.label)} · läuft auf allen Handys parallel</div>
+    ${zeigen.map(g=>`<div style="background:#111c33;border-radius:16px;padding:16px;margin-bottom:10px;text-align:left">
+      <div style="font-size:11px;font-weight:800;opacity:.7">🧢 ${esc(g.trainer)}${meine.length?"":" (nicht deine Gruppe)"}</div>
+      <div style="font-size:20px;font-weight:900;margin-top:4px">${esc(g.uebung)}</div>
+    </div>`).join("")}
+    <div style="background:#111c33;border-radius:16px;padding:14px;margin:14px 0">
+      <div style="font-size:11px;font-weight:800;opacity:.7;text-align:left">⏱ Meine Stoppuhr</div>
+      <div style="font-size:34px;font-weight:900;font-variant-numeric:tabular-nums;margin:4px 0">${_tlFmt(_tlUhrMs())}</div>
+      <div style="display:flex;gap:8px;justify-content:center">
+        <button onclick="tlUhrToggle()" style="flex:1;min-height:48px;border:none;border-radius:12px;background:#334155;color:#fff;font-weight:800;font-family:inherit;cursor:pointer">${_tl.uhr.run?"⏸ Stopp":"▶ Start"}</button>
+        <button onclick="tlUhrRunde()" style="flex:1;min-height:48px;border:none;border-radius:12px;background:#334155;color:#fff;font-weight:800;font-family:inherit;cursor:pointer">🔁 Runde</button>
+        <button onclick="tlUhrReset()" style="min-width:64px;min-height:48px;border:none;border-radius:12px;background:#1e293b;color:#94a3b8;font-weight:800;font-family:inherit;cursor:pointer">↺</button>
+      </div>
+      ${_tl.uhr.laps.length?`<div style="font-size:12px;opacity:.75;margin-top:8px">${_tl.uhr.laps.map((l,i)=>`R${_tl.uhr.laps.length-i}: ${_tlFmt(l)}`).join(" · ")}</div>`:""}
+    </div>
+    ${ich?'<div style="font-size:14px;font-weight:800;color:#4ade80">✅ Gemeldet – warten auf die anderen…</div>'
+      :`<button onclick="tlAbgeschlossen()" style="width:100%;max-width:340px;min-height:60px;border:none;border-radius:16px;background:#16a34a;color:#fff;font-size:17px;font-weight:900;font-family:inherit;cursor:pointer">✅ Übung abgeschlossen</button>`}
+  </div>`;
+}

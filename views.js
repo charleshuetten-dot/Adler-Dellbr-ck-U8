@@ -2462,6 +2462,15 @@ async function einheitDetailOpen(datum){
   EB_DATUM=datum;
   c.innerHTML='<div style="padding:20px;color:var(--text3);font-size:12.5px">Lade Einheit…</div>';
   EB_PLAN=(typeof tpPlanLoad==="function")?await tpPlanLoad(datum):[];
+  // P3 (PO): Jeder Trainer bewertet nur SEINE Übungen; „Alle"-Stationen sieht jeder.
+  // Kennt der Plan keine Trainer-Zuordnung (Altbestand), bleibt alles sichtbar.
+  try{
+    const me=await trainerMe();
+    if(me&&EB_PLAN.some(p=>p.trainer&&p.trainer!=="Alle")){
+      const meine=EB_PLAN.filter(p=>!p.trainer||p.trainer==="Alle"||p.trainer===me);
+      if(meine.length)EB_PLAN=meine;
+    }
+  }catch(e){}
   const ex=EINHEIT_CACHE.find(x=>x.datum===datum)||{};
   const evals=(typeof EVAL_DATA!=="undefined"&&EVAL_DATA[datum])||[];
   const aw=(typeof AW_DATA!=="undefined"&&AW_DATA[datum])||null;
@@ -3518,6 +3527,7 @@ async function renderHome(){
     </div>`;
   elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche (handeln nötig → bleibt oben)
   trainerTodoLoad();             // To-Do-Banner (leer = unsichtbar)
+  if(typeof tlCheck==="function")tlCheck(); // läuft gerade ein Trainingsstart? → Bereit-Fenster ploppt auf
   if(stale>0){const b=document.getElementById("kb-team");if(b)b.textContent=stale+" Bewertungen fällig";}
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
   try{
