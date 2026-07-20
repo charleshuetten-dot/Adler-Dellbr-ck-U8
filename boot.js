@@ -1050,14 +1050,64 @@ function _kgBedarf(f){
   if(/zu viert|vierergruppe|4er[- ]?(team|gruppe)/.test(txt))return 4;
   return null;
 }
+/* Braucht die Übung Sonder-ROLLEN (Haie, Fänger, Diebe)? Die werden zu Beginn bestimmt. */
+function _kgRolle(f){
+  if(!f)return null;
+  const txt=((f.name||"")+" "+(f.kurz||"")+" "+(f.ablauf||"")).toLowerCase();
+  if(/\bhai/.test(txt))return {lbl:"Haie",emo:"🦈"};
+  if(/fänger|fangspiel/.test(txt))return {lbl:"Fänger",emo:"🏃"};
+  if(/\bdieb/.test(txt))return {lbl:"Diebe",emo:"🕵️"};
+  return null;
+}
 function tpKgHintAll(){
   document.querySelectorAll("[id^='tp-kg-']").forEach(slotEl=>{
     const si=slotEl.id.split("-")[2];
     const sel=document.getElementById(`tp-form-${si}-0`);
     const f=(sel&&sel.value)?tpAllForms()[Number(sel.value)]:null;
-    const gr=_kgBedarf(f);
-    slotEl.innerHTML=gr?`<button class="btn btn-sm" style="margin-top:6px" onclick="_kgGroesse=${gr};kleingruppenOpen()">👥 ${gr}er-Gruppen auslosen – „${esc(f.name)}“ braucht sie</button>`:"";
+    const gr=_kgBedarf(f), rolle=_kgRolle(f);
+    let html="";
+    if(gr)html+=`<button class="btn btn-sm" style="margin-top:6px" onclick="_kgGroesse=${gr};kleingruppenOpen()">👥 ${gr}er-Gruppen auslosen – „${esc(f.name)}“ braucht sie</button>`;
+    if(rolle)html+=`<button class="btn btn-sm" style="margin-top:6px" onclick="rolleLosOpen('${rolle.lbl}','${rolle.emo}')">${rolle.emo} ${rolle.lbl} auslosen (1–2) – zu Beginn bestimmen</button>`;
+    slotEl.innerHTML=html;
   });
+}
+/* Rollen-Auslosung (z. B. 1–2 Haie bei „Hai & Fische“): zufällig aus den Anwesenden,
+   Ergebnis groß zum Hochhalten, Neu-losen jederzeit. */
+let _rolleAnzahl=2;
+function rolleLosOpen(lbl,emo){
+  document.getElementById("rolle-modal")?.remove();
+  const m=document.createElement("div");m.id="rolle-modal";
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label",lbl+" auslosen");
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
+    ${mdlHead("rolle-modal",emo,lbl+" auslosen","Wer startet in der Rolle? Zufällig aus den Anwesenden","#16a34a")}
+    <div id="rolle-chips" style="display:flex;gap:8px;margin-bottom:10px"></div>
+    <button class="btn btn-p" style="width:100%;min-height:52px" onclick="rolleLos('${lbl}','${emo}')">🎲 Auslosen</button>
+    <div id="rolle-result" style="margin-top:10px"></div>
+  </div>`;
+  document.body.appendChild(m);
+  _rolleChips(lbl,emo);
+}
+function _rolleChips(lbl,emo){
+  const el=document.getElementById("rolle-chips"); if(!el)return;
+  el.innerHTML=[1,2].map(n=>`<button onclick="_rolleAnzahl=${n};_rolleChips('${lbl}','${emo}')" style="flex:1;min-height:48px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;background:${_rolleAnzahl===n?"#16a34a":"var(--surface2)"};color:${_rolleAnzahl===n?"#fff":"var(--text2)"}">${n} ${n===1?lbl.replace(/e$/,""):lbl}</button>`).join("");
+}
+async function rolleLos(lbl,emo){
+  if(typeof pauseLoad==="function")await pauseLoad();
+  const pool=_kgPool();
+  const namen=pool.namen.slice();
+  if(namen.length<_rolleAnzahl){toast("Zu wenige Kinder","err");return;}
+  for(let i=namen.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[namen[i],namen[j]]=[namen[j],namen[i]];}
+  const gezogen=namen.slice(0,_rolleAnzahl);
+  const el=document.getElementById("rolle-result");
+  if(el)el.innerHTML=`<div style="background:#f0fdf4;border:2px solid #4ade80;border-radius:14px;padding:16px;text-align:center">
+      <div style="font-size:40px">${emo}</div>
+      <div style="font-size:20px;font-weight:900;margin-top:6px">${gezogen.map(esc).join(" & ")}</div>
+      <div style="font-size:12px;color:#166534;margin-top:4px">${gezogen.length===1?"startet":"starten"} als ${lbl}!</div>
+    </div>
+    <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="rolleLos('${lbl}','${emo}')">🎲 Neu losen</button>`;
+  try{navigator.vibrate&&navigator.vibrate([30,40,30]);}catch(e){}
 }
 
 function tpShowExFromSel(selId){
@@ -1415,9 +1465,9 @@ function addEvalSection(){
   sec.id="tp-eval-section";
   sec.style.marginTop="20px";
   sec.innerHTML=`
-    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:10px 0 6px">Nachbewertung der Einheit</div>
+    <div style="font-size:13.5px;font-weight:800;margin:16px 0 8px">⭐ Nachbewertung der Einheit</div>
     <div id="tp-eval-list"></div>
-    <button class="btn btn-sm" style="margin-top:8px" onclick="evalSave()"><i class="ti ti-device-floppy"></i>Nachbewertung speichern</button>
+    <button onclick="evalSave()" style="width:100%;min-height:56px;margin-top:10px;border:none;border-radius:14px;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;font-family:inherit;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 2px 10px rgba(37,99,235,.3)">💾 Nachbewertung speichern</button>
     <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:16px 0 6px">Bisherige Bewertungen</div>
     <div id="tp-eval-history"></div>
   `;
