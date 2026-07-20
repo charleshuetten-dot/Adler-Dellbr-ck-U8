@@ -990,20 +990,25 @@ function tpRenderTimeline(){
           <div id="${selId}-hist"></div>
         </div>`;
       }
-      // PO: Kleingruppen-Auslosung (2er/3er) gehört ans Aufwärmen/Ankommen – nicht in den Kopf
-      if(typ==="warmup")html+=`<button class="btn btn-sm" style="margin-top:6px" onclick="kleingruppenOpen()">👥 Kleingruppen (2er/3er) auslosen</button>`;
+      // PO: Kleingruppen erscheinen NUR, wenn die gewählte Aufwärm-Übung sie braucht
+      // (z. B. Schattenläufer = paarweise; Hai & Fische = alle zusammen → kein Button)
+      if(typ==="warmup")html+=`<div id="tp-kg-${si}"></div>`;
     }
     html+='</div>';
     if(!(typ==="individual"&&slot.parallelZu!=null))time+=slot.dauer; // parallele Einzeltrainings zählen nicht doppelt
   });
-  const zielDauer=parseInt(document.getElementById("tp-dauer")?.value)||75; // H3
+  const zielDauer=parseInt(document.getElementById("tp-dauer")?.value)||75; // H3 (Wert VOR dem Neuzeichnen gelesen)
   const passt=time<=zielDauer;
-  html+=`<div style="text-align:right;font-size:11px;font-weight:${passt?"400":"700"};color:${passt?"var(--text2)":"#dc2626"};margin-top:4px">Gesamt: ${time} von ${zielDauer} Min.${passt?"":" – zu lang!"}</div>`;
+  // Ziel-Dauer wohnt jetzt HIER statt als eigene „Zeitplan"-Zeile im Kopf (PO: schlanker)
+  html+=`<div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:12px;font-weight:${passt?"600":"800"};color:${passt?"var(--text2)":"#dc2626"};margin-top:6px">Gesamt: ${time} von
+    <select id="tp-dauer" onchange="tpRenderTimeline()" style="font-size:13px;min-height:40px;padding:4px 8px;border:var(--border-s);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">${[60,75,90].map(d=>`<option value="${d}"${zielDauer===d?" selected":""}>${d}</option>`).join("")}</select>
+    Min.${passt?"":" – zu lang!"}</div>`;
   wrap.innerHTML=html;
   tpPrognoseLoad(); // G3: erwartete Kinderzahl fürs gewählte Datum
   if(typeof zielUebungenHint==="function")zielUebungenHint(); // B: Übungen zu offenen Entwicklungszielen
   if(typeof tlCheck==="function")tlCheck(); // laufender Trainingsstart? → Bereit-Fenster
   if(typeof tgSync==="function")tgSync();  // Trainingsgruppen vom Server (re-rendert bei Änderung einmal)
+  if(typeof tpKgHintAll==="function")tpKgHintAll(); // Kleingruppen-Bedarf initial prüfen
 }
 /* G3: Anwesenheits-Prognose – erwartete Kinderzahl fürs gewählte Trainingsdatum aus den
    Zusagen (fix) plus historischer Anwesenheitsquote je Kind (für noch offene). */
@@ -1032,7 +1037,27 @@ function tpOnSelectChange(sel){
   if(histDiv&&sel.value) histDiv.innerHTML=tpExerciseHistoryHtml(parseInt(sel.value));
   else if(histDiv) histDiv.innerHTML="";
   if(typeof tpPickSync==="function")tpPickSync(sel.id); // sichtbaren Auswahl-Button nachziehen
+  if(typeof tpKgHintAll==="function")tpKgHintAll();     // Kleingruppen-Bedarf der Aufwärm-Übung
   tpPlanSaveDebounced(); // Plan am Datum festhalten -> "Einheit bewerten" kennt ihn spaeter
+}
+/* Braucht eine Übung Kleingruppen? Text-Analyse über Name/Kurz/Ablauf – erkennt auch
+   künftige und KI-Übungen. „Gruppenbildung im Spiel" (Atomspiel) zählt bewusst nicht. */
+function _kgBedarf(f){
+  if(!f)return null;
+  const txt=((f.name||"")+" "+(f.kurz||"")+" "+(f.ablauf||"")).toLowerCase();
+  if(/paarweise|zu zweit|partnerübung|partner-übung|2er[- ]?(paar|team|gruppe)/.test(txt))return 2;
+  if(/zu dritt|dreiergruppe|3er[- ]?(team|gruppe)/.test(txt))return 3;
+  if(/zu viert|vierergruppe|4er[- ]?(team|gruppe)/.test(txt))return 4;
+  return null;
+}
+function tpKgHintAll(){
+  document.querySelectorAll("[id^='tp-kg-']").forEach(slotEl=>{
+    const si=slotEl.id.split("-")[2];
+    const sel=document.getElementById(`tp-form-${si}-0`);
+    const f=(sel&&sel.value)?tpAllForms()[Number(sel.value)]:null;
+    const gr=_kgBedarf(f);
+    slotEl.innerHTML=gr?`<button class="btn btn-sm" style="margin-top:6px" onclick="_kgGroesse=${gr};kleingruppenOpen()">👥 ${gr}er-Gruppen auslosen – „${esc(f.name)}“ braucht sie</button>`:"";
+  });
 }
 
 function tpShowExFromSel(selId){
@@ -2096,7 +2121,18 @@ async function tlStart(){
   if(!pflicht.includes(me)&&pflicht.length)pflicht.push(me);
   const vorhanden=await _tlFetch();
   if(vorhanden===undefined){toast("Kein Netz – nimm den ⏱️ Stationstimer (läuft ohne Server)","err");return;}
-  if(vorhanden&&vorhanden.status!=="fertig"){ _tl.row=vorhanden; tlOverlayOpen(); _tlPollStart(); return; }
+  if(vorhanden&&vorhanden.status!=="fertig"){
+    if(vorhanden.status==="lobby"&&(vorhanden.slot||0)===0){
+      // BUGFIX (PO-Test): eine hängen gebliebene Lobby (z. B. alte Testrunde mit anderen
+      // Trainern) wartete ewig auf Leute, die gar nicht da sind. Ein neuer Start setzt
+      // Pflicht-Trainer und Plan frisch auf – solange noch keine Station gelaufen ist.
+      await _tlPatch({status:"lobby",slot:0,slot_start:null,bereit:{[me]:true},fertig:{},pflicht,plan:{slots:_tlSnapshot()}});
+      const neu=await _tlFetch(); if(neu)_tl.row=neu; else _tl.row=vorhanden;
+    }else{
+      _tl.row=vorhanden;
+    }
+    tlOverlayOpen(); _tlPollStart(); await _tlAdvance(); return;
+  }
   const body={datum:_tlHeute(),status:"lobby",slot:0,slot_start:null,bereit:{[me]:true},fertig:{},pflicht,plan:{slots:_tlSnapshot()}};
   try{
     const r=await fetch(`${SB_URL}/rest/v1/training_live?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(body)});
@@ -2140,6 +2176,14 @@ function tlOverlayOpen(){
   _tlRender();
 }
 function tlSchliessen(){ document.getElementById("tl-ov")?.remove(); _tlPollStop(); }
+// Lobby verwerfen (nur vor Station 1): Session löschen, dann oben Trainer anpassen + neu starten
+async function tlAbbrechen(){
+  if(!confirm("Diesen Trainingsstart verwerfen? Danach Trainer anhaken und neu starten."))return;
+  try{await fetch(`${SB_URL}/rest/v1/training_live?datum=eq.${_tlHeute()}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}
+  _tl.row=null;
+  tlSchliessen();
+  toast("Trainingsstart verworfen – Trainer oben anpassen und neu starten");
+}
 // Zustands-Übergänge, die JEDES Gerät erkennen darf (Guard über status=eq. verhindert Doppel)
 async function _tlAdvance(){
   const row=_tl.row; if(!row)return;
@@ -2235,6 +2279,7 @@ function _tlRender(){
       </div>
       ${binBereit?'<div style="font-size:14px;opacity:.8">Warten auf die anderen…</div>'
         :`<button onclick="tlBereit()" style="width:100%;max-width:340px;min-height:64px;border:none;border-radius:16px;background:#16a34a;color:#fff;font-size:20px;font-weight:900;font-family:inherit;cursor:pointer">✅ Bereit!</button>`}
+      ${row.slot===0?`<button onclick="tlAbbrechen()" style="display:block;margin:18px auto 0;min-height:44px;border:none;background:transparent;color:#94a3b8;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;text-decoration:underline">🔁 Abbrechen & neu aufsetzen (Trainer ändern)</button>`:""}
     </div>`;
     return;
   }

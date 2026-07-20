@@ -2525,10 +2525,8 @@ async function einheitDetailOpen(datum){
     ${ueHtml}
     ${kopf}Die Kinder <span style="font-weight:600;text-transform:none;color:var(--text3)">· 1–3 Sterne</span></div>
     ${spHtml}
-    <div style="display:flex;gap:8px;margin-top:14px">
-      <button class="btn btn-p btn-sm" onclick="einheitSave()"><i class="ti ti-device-floppy"></i>Alles speichern</button>
-      <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('eb-modal').remove()">Schließen</button>
-    </div>`;
+    <button onclick="einheitSave()" style="width:100%;min-height:56px;margin-top:14px;border:none;border-radius:14px;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;font-family:inherit;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 2px 10px rgba(37,99,235,.3)">💾 Nachbewertung speichern</button>
+    <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('eb-modal').remove()">Schließen</button>`;
 }
 
 function einheitSkipToggle(i){

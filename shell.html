@@ -438,21 +438,11 @@
   <!-- SUB: Planung -->
   <div id="train-sub-planung" class="train-sub">
     <div class="sl nt"><i class="ti ti-calendar-event"></i>Trainingseinheit planen</div>
-    <div class="mgrid" style="grid-template-columns:1fr 1fr">
-      <div class="mg"><label>Termin</label><select id="tp-date" onchange="tpRenderTimeline();tpPlanRestore(this.value)" style="width:100%;padding:8px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;background:var(--surface);font-family:inherit;color:var(--text)"><option>Lade Termine…</option></select></div>
-      <div id="tp-vorplan" style="margin:6px 0 8px"></div>
-      <!-- Uhrzeit kommt aus dem Termin (PO) – kein eigenes Feld mehr -->
-    </div>
-    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:10px 0 6px">Verfügbare Trainer</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="tp-trainer-checks"><!-- wird aus TRAINER befüllt (D2) --></div>
-    <div style="display:flex;align-items:center;gap:8px;margin:10px 0 6px">
-      <span style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">Zeitplan</span>
-      <select id="tp-dauer" onchange="tpRenderTimeline()" style="font-size:11px;padding:4px 8px;border:var(--border-s);border-radius:var(--r);font-family:inherit">
-        <option value="60">60 Min.</option>
-        <option value="75" selected>75 Min.</option>
-        <option value="90">90 Min.</option>
-      </select>
-    </div>
+    <!-- Kopf schlank (PO): Termin volle Breite, Trainer als EINE wischbare Chip-Zeile,
+         die Ziel-Dauer wandert in die „Gesamt“-Zeile unter dem Zeitplan. -->
+    <div class="mg"><label>Termin</label><select id="tp-date" onchange="tpRenderTimeline();tpPlanRestore(this.value)" style="width:100%;padding:10px 12px;border:var(--border-s);border-radius:var(--r);font-size:14px;background:var(--surface);font-family:inherit;color:var(--text);box-sizing:border-box"><option>Lade Termine…</option></select></div>
+    <div id="tp-vorplan" style="margin:6px 0 8px"></div>
+    <div style="display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 0 8px" id="tp-trainer-checks"><!-- wird aus TRAINER befüllt (D2) --></div>
     <div id="tp-diagnose"></div>
     <div id="tp-timeline"></div>
     <!-- Aktionen in Kachel-Logik (PO): große Flächen, kein Kleinkram. „Laden" entfällt
