@@ -71,12 +71,7 @@ function closeAddTraining(){
   document.getElementById('tf-kat').value='raute';
 }
 
-function setTF(f,btn){
-  activeTF=f;
-  document.querySelectorAll('#training-filter-row .ftag').forEach(function(b){b.classList.remove('active');});
-  btn.classList.add('active');
-  renderTraining();
-}
+/* setTF/ftag-Filter entfernt (PO-Umbau) – die Datenbank filtert über Gruppen-Kacheln (TF_GRUPPEN). */
 
 // Trainings-Periodisierung: Saison-Themenplan (ein Schwerpunkt je Monat) – zeigt oben im Trainings-Tab.
 const PERIOD_CATS={aufwaermen:'Aufwärmen',raute:'Raute & Grundordnung',passspiel:'Passspiel',wahrnehmung:'Wahrnehmung & IQ',technik:'Technik & Ball',pressing:'Pressing & Umschalten',spass:'Spass & Wettbewerb',torwart:'Torwart',individual:'Individual',mindset:'Mindset'};
@@ -86,6 +81,7 @@ async function periodLoad(){
   let cur=null;
   try{const r=await fetch(`${SB_URL}/rest/v1/periodisierung?monat=eq.${monat}&select=*`,{headers:sbAuthHeaders()});if(r.ok)cur=(await r.json())[0];}catch(e){}
   const monName=new Date().toLocaleDateString("de-DE",{month:"long",year:"numeric"});
+  window._periodKat=cur&&cur.kategorie?cur.kategorie:null; // fürs Schwerpunkt-Badge auf den Übungskarten
   if(cur){
     box.innerHTML=`<div style="display:flex;align-items:flex-start;gap:8px"><div style="flex:1"><strong>🎯 Schwerpunkt ${esc(monName)}: ${esc(cur.thema)}</strong>${cur.kategorie?`<div style="font-size:11px;margin-top:2px">Passende Übungen: <b>${esc(PERIOD_CATS[cur.kategorie]||cur.kategorie)}</b> – über die Kategorien unten filtern.</div>`:""}</div><button onclick="periodOpen()" class="btn btn-sm" style="flex:none">📅 Plan</button></div>`;
   }else{
@@ -142,68 +138,92 @@ async function periodDelete(monat){
   try{await fetch(`${SB_URL}/rest/v1/periodisierung?monat=eq.${encodeURIComponent(monat)}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}
   periodListRender();periodLoad();
 }
+/* PO-Umbau: Die Formen-Datenbank spricht dieselbe Sprache wie der Übungs-Picker in der
+   Planung – Gruppen-Kacheln statt Filter-Chips, Karten statt Klapplisten, ⭐-Schwierigkeit,
+   „lange nicht gemacht“-Filter und Übernahme direkt in den Trainingsplan. */
+const TF_GRUPPEN=[
+  {key:"aufwaermen",label:"🔥 Aufwärmen",kats:["aufwaermen"]},
+  {key:"technik",label:"⚽ Technik & Ballgefühl",kats:["technik","wahrnehmung"]},
+  {key:"passen",label:"🎯 Passen & Spielaufbau",kats:["passspiel","raute"]},
+  {key:"zweikampf",label:"🛡️ Zweikampf & Pressing",kats:["pressing"]},
+  {key:"kopf",label:"🎉 Spaß & Kopf",kats:["spass","mindset"]},
+  {key:"torwart",label:"🧤 Torwart",kats:["torwart"]},
+  {key:"individual",label:"🧍 Individual",kats:["individual"]},
+  {key:"custom",label:"🧪 Eigene & KI",kats:["custom"]}
+];
+let _tfDb={gruppe:null,stern:0,lange:false};
+function _tfGruppeVon(f,i){
+  if(f.custom||i>=(typeof TRAININGSFORMEN!=="undefined"?TRAININGSFORMEN.length:0))return "custom";
+  const g=TF_GRUPPEN.find(g2=>g2.kats.includes(f.kat));
+  return g?g.key:"custom";
+}
 function renderTraining(){
-  var wrap=document.getElementById('training-content');
-  if(!wrap)return;
-  if(!window._periodLoaded){window._periodLoaded=true;periodLoad();} // Saison-Schwerpunkt einmal laden
-  var search=(document.getElementById('training-search')||{value:''}).value.toLowerCase();
-  var catLabels={aufwaermen:'Aufwärmen & Aktivierung',raute:'Raute & Grundordnung',passspiel:'Passspiel & Freilaufen',wahrnehmung:'Wahrnehmung & IQ',technik:'Technik & Ball',pressing:'Pressing & Umschalten',spass:'Spass & Wettbewerb',torwart:'Torwart-Training',individual:'Individual-Training',mindset:'Mindset & Selbstvertrauen',custom:'Eigene Formen'};
-  var catCls={aufwaermen:'tf-cat-aufwaermen',raute:'tf-cat-raute',passspiel:'tf-cat-passspiel',wahrnehmung:'tf-cat-wahrnehmung',technik:'tf-cat-technik',pressing:'tf-cat-pressing',spass:'tf-cat-spass',torwart:'tf-cat-torwart',individual:'tf-cat-individual',mindset:'tf-cat-mindset',custom:'tf-cat-custom'};
-  var diffLbl={1:'Einfach',2:'Mittel',3:'Anspruchsvoll'};
-  // Ohne gewählte Kategorie UND ohne Suchbegriff: Hinweis statt 100+ aufgeklappter Übungen
-  if(!activeTF&&!search){
-    wrap.innerHTML='<div style="text-align:center;padding:2.2rem 1rem;color:var(--text2)"><div style="font-size:34px;margin-bottom:8px">🏃</div><div style="font-size:13.5px;font-weight:700;color:var(--text)">Kategorie wählen oder suchen</div><div style="font-size:12px;margin-top:4px">Tippe oben auf eine Kategorie – oder nutze die Suche. „Alle" zeigt die komplette Datenbank.</div></div>';
+  const wrap=document.getElementById('training-content'); if(!wrap)return;
+  if(!window._periodLoaded){window._periodLoaded=true;periodLoad();}
+  if(!window._uebungMeta)uebungMetaLoad().then(()=>renderTraining()); // ⭐-Overrides einmal nachladen
+  const search=((document.getElementById('training-search')||{}).value||"").trim().toLowerCase();
+  const alle=tpAllForms().map((f,i)=>({i,f,gr:_tfGruppeVon(f,i)}));
+  // Team-Schwäche einmal je Render bestimmen (Badge „stärkt …“ auf passenden Karten)
+  let weak=[];window._tfWeakLabel=null;
+  try{
+    const avg=(teamAggregate()||{}).avg||{};
+    const s=Object.entries(avg).filter(([,v])=>v!=null).sort((a,b)=>a[1]-b[1]);
+    if(s.length){window._tfWeakLabel=AUTOPLAN_DIMLABEL[s[0][0]]||null;weak=AUTOPLAN_DIMKAT[s[0][0]]||[];}
+  }catch(e){}
+  window._tfWeak=weak;
+  const kEl=document.getElementById("tf-kacheln");
+  if(kEl){
+    const counts={};alle.forEach(x=>{counts[x.gr]=(counts[x.gr]||0)+1;});
+    kEl.innerHTML=TF_GRUPPEN.filter(g=>counts[g.key]).map(g=>`<button onclick="_tfDb.gruppe=_tfDb.gruppe==='${g.key}'?null:'${g.key}';renderTraining()" style="min-height:64px;border:var(--border-s);${_tfDb.gruppe===g.key?"background:#16a34a;color:#fff;border-color:#16a34a;":"background:var(--surface);color:var(--text);"}border-top:3px solid #16a34a;border-radius:14px;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer;padding:8px 6px">${g.label}<span style="display:block;font-size:11px;font-weight:700;opacity:.7;margin-top:2px">${counts[g.key]} Übungen</span></button>`).join("");
+  }
+  const fEl=document.getElementById("tf-filter");
+  if(fEl)fEl.innerHTML=[0,1,2,3].map(s=>`<button onclick="_tfDb.stern=${s};renderTraining()" style="flex:1;min-height:44px;border:var(--border-s);${_tfDb.stern===s?"background:#16a34a;color:#fff;border-color:#16a34a;":"background:var(--surface2);color:var(--text2);"}border-radius:10px;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer">${s===0?"Alle":"⭐".repeat(s)}</button>`).join("")
+    +`<button onclick="_tfDb.lange=!_tfDb.lange;renderTraining()" title="Übungen, die 4+ Wochen nicht dran waren" style="flex:1.4;min-height:44px;border:var(--border-s);${_tfDb.lange?"background:#16a34a;color:#fff;border-color:#16a34a;":"background:var(--surface2);color:var(--text2);"}border-radius:10px;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer">🕘 lange her</button>`;
+  // Ohne Auswahl nur die Kacheln zeigen – keine 100-Übungen-Liste
+  if(!search&&!_tfDb.gruppe&&!_tfDb.stern&&!_tfDb.lange){
+    wrap.innerHTML='<div style="text-align:center;padding:1.6rem 1rem;color:var(--text2)"><div style="font-size:30px;margin-bottom:6px">📚</div><div style="font-size:13.5px;font-weight:700;color:var(--text)">Gruppe antippen oder suchen</div></div>';
     return;
   }
-  var all=TRAININGSFORMEN.concat((CUSTOM_FORMS||[]).map(function(f){return Object.assign({},f,{kat:f.kat||'custom'});}));
-  var filtered=all.filter(function(tf){
-    var kat=tf.custom?'custom':tf.kat;
-    var matchKat=(!activeTF||activeTF==='alle'||activeTF===kat); // null = keine Kategorie gewählt -> Suche läuft über alle
-    var matchSearch=!search||(tf.name||'').toLowerCase().indexOf(search)>=0||(tf.kurz||'').toLowerCase().indexOf(search)>=0;
-    return matchKat&&matchSearch;
-  });
-  if(!filtered.length){wrap.innerHTML='<div style="text-align:center;padding:2rem;color:#64748b">Keine Trainingsform gefunden</div>';return;}
-  var groups={};
-  filtered.forEach(function(tf){var k=tf.custom?'custom':tf.kat;if(!groups[k])groups[k]=[];groups[k].push(tf);});
-  var order=['aufwaermen','raute','passspiel','wahrnehmung','technik','pressing','spass','torwart','individual','mindset','custom'];
-  var html='';
-  order.forEach(function(kat){
-    var items=groups[kat];if(!items||!items.length)return;
-    if(!activeTF||activeTF==='alle'){ // auch bei kategorieloser Suche nach Kategorien gruppieren
-      html+='<div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin:1.2rem 0 .5rem;padding-top:.8rem;border-top:1px solid #e2e8f0">'+(catLabels[kat]||kat)+'</div>';
-    }
-    var sorted=items.filter(function(t){return t.focus;}).concat(items.filter(function(t){return !t.focus;}));
-    sorted.forEach(function(tf){
-      var tid=String(tf.id||tf.name).replace(/[^a-zA-Z0-9]/g,'_');
-      var stars='';for(var s=0;s<(tf.spass||3);s++)stars+='*';
-      var cat=tf.custom?'custom':tf.kat;
-      var h='<div class="tf-card" id="card-'+tid+'">';
-      h+='<div class="tf-head" onclick="toggleTF(\''+tid+'\')"><div style="flex:1">';
-      h+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
-      h+='<span class="tf-title">'+esc(tf.name)+'</span>';
-      if(tf.focus)h+='<span class="tf-focus-badge">* Fokus</span>';
-      h+='<span class="tf-cat-badge '+(catCls[cat]||'tf-cat-custom')+'">'+(catLabels[cat]||cat)+'</span>';
-      h+='</div><div style="font-size:11.5px;color:#64748b;margin-top:3px;line-height:1.4">'+esc(tf.kurz||'')+'</div>';
-      h+='<div class="tf-meta">';
-      h+='<span class="tf-meta-item">'+(tf.spieler||'?')+' Spieler</span>';
-      h+='<span class="tf-meta-item">'+(tf.feld||'?')+'</span>';
-      h+='<span class="tf-meta-item">'+(tf.dauer||'?')+' Min.</span>';
-      h+='<span style="color:#f59e0b;font-size:11px">'+stars+'</span>';
-      h+='<span class="tf-diff-badge tf-diff-'+(tf.diff||1)+'">'+(diffLbl[tf.diff||1]||'')+'</span>';
-      h+='</div></div><i class="ti ti-chevron-down" id="chev-'+tid+'" style="font-size:15px;color:#94a3b8;transition:transform .2s"></i></div>';
-      h+='<div class="tf-body" id="body-'+tid+'">';
-      if(tf.svg)h+='<div style="margin-bottom:10px">'+tf.svg+'</div>';
-      h+='<div class="tf-section"><div class="tf-section-title">Ablauf</div>';
-      h+='<div class="tf-section-text" style="white-space:pre-wrap">'+esc((tf.ablauf||'').replace(/\\n/g,'\n'))+'</div></div>';
-      if(tf.varianten){h+='<div class="tf-section"><div class="tf-section-title">Varianten</div>';
-        h+='<div class="tf-section-text" style="white-space:pre-wrap">'+esc(tf.varianten.replace(/\\n/g,'\n'))+'</div></div>';}
-      if(tf.coaching){h+='<div class="tf-section"><div class="tf-section-title">Coaching</div>';
-        h+='<div class="tf-section-text" style="white-space:pre-wrap">'+esc(tf.coaching.replace(/\\n/g,'\n'))+'</div></div>';}
-      h+='</div></div>';
-      html+=h;
-    });
-  });
-  wrap.innerHTML=html;
+  let items=alle;
+  if(search)items=items.filter(x=>((x.f.name||"")+" "+(x.f.kurz||"")+" "+(x.f.kat||"")).toLowerCase().includes(search));
+  else if(_tfDb.gruppe)items=items.filter(x=>x.gr===_tfDb.gruppe);
+  if(_tfDb.stern)items=items.filter(x=>_tpStern(x.f)===_tfDb.stern);
+  if(_tfDb.lange)items=items.filter(x=>{const d=tpLastUsedDays(x.i);return d===null||d>=28;});
+  if(!items.length){wrap.innerHTML='<div style="text-align:center;padding:2rem;color:var(--text3);font-size:13px">Keine Übung gefunden.</div>';return;}
+  items=items.filter(x=>x.f.focus).concat(items.filter(x=>!x.f.focus)); // Fokus-Übungen zuerst
+  wrap.innerHTML=`<div style="font-size:12px;font-weight:800;color:var(--text2);margin:2px 0 6px">${items.length} Übung${items.length===1?"":"en"}</div>`+items.map(_tfKarte).join("");
+}
+function _tfKarte(x){
+  const d=tpLastUsedDays(x.i);
+  const frische=d===null?'<span style="color:#16a34a">🆕 neu</span>':(d<14?`<span style="color:#b45309">vor ${d} T.</span>`:`vor ${d} T.`);
+  const stern=_tpStern(x.f);
+  const badges=[];
+  if(x.f.focus)badges.push('<span style="background:#fef3c7;color:#92400e;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:800;white-space:nowrap">⭐ Fokus</span>');
+  if(window._periodKat&&x.f.kat===window._periodKat)badges.push('<span style="background:#dbeafe;color:#1e40af;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:800;white-space:nowrap">🎯 Monats-Schwerpunkt</span>');
+  if((window._tfWeak||[]).includes(x.f.kat))badges.push(`<span style="background:#fee2e2;color:#991b1b;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:800;white-space:nowrap">📊 stärkt ${esc(window._tfWeakLabel||"Team-Schwäche")}</span>`);
+  return `<div style="display:flex;align-items:center;gap:8px;border:var(--border-s);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:var(--surface)">
+    <button onclick="tpShowExercise(${x.i})" style="flex:1;min-width:0;min-height:44px;border:none;background:transparent;color:var(--text);font-family:inherit;text-align:left;cursor:pointer;padding:0">
+      <span style="display:block;font-size:14px;font-weight:800">${esc(x.f.name)}${badges.length?" "+badges.join(" "):""}</span>
+      <span style="display:block;font-size:11.5px;color:var(--text2);margin-top:2px">${x.f.dauer||"?"} Min. · ${esc(String(x.f.spieler||"?"))} Sp. · ${esc(x.f.feld||"?")} · ${frische}</span>
+    </button>
+    <button onclick="tpSternTipp('${(x.f.name||"").replace(/'/g,"\\'")}')" title="Schwierigkeit antippen zum Ändern" style="min-width:48px;min-height:44px;border:none;background:transparent;color:#f59e0b;font-size:12px;cursor:pointer;letter-spacing:1px">${"⭐".repeat(stern)}</button>
+    <button onclick="tfInPlan(${x.i})" aria-label="In den Trainingsplan übernehmen" title="In den Trainingsplan übernehmen" style="min-width:44px;min-height:44px;border:none;border-radius:10px;background:#16a34a;color:#fff;font-size:17px;font-weight:900;cursor:pointer">➕</button>
+  </div>`;
+}
+// Übung aus der Datenbank in den nächsten freien, passenden Slot des Trainingsplans legen.
+// Passend = ein Slot, dessen (typ-gefiltertes) Auswahl-Select diese Übung überhaupt anbietet.
+function tfInPlan(i){
+  go("planung");
+  setTimeout(()=>{
+    const sels=[...document.querySelectorAll(".tp-form-sel")];
+    const ziel=sels.find(s=>!s.value&&[...s.options].some(o=>o.value===String(i)));
+    if(!ziel){toast("Kein freier passender Slot – erst Phase hinzufügen","err");return;}
+    ziel.value=String(i);
+    try{tpOnSelectChange(ziel);}catch(e){}
+    tpPickSync(ziel.id);
+    (ziel.closest(".tp-station")||ziel.closest(".tp-slot"))?.scrollIntoView({behavior:"smooth",block:"center"});
+    toast("Übung im Plan ✓");
+  },900);
 }
 
 function toggleTF(id){
@@ -847,6 +867,7 @@ function tpShowExercise(formIdx){
       <button onclick="this.closest('div[style*=fixed]').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2)">×</button>
     </div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">${f.kurz||""}</div>
+    ${f.svg?`<div style="margin-bottom:8px">${f.svg}</div>`:""}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
       <span style="font-size:10px;background:var(--surface);padding:2px 6px;border-radius:4px">⏱ ${f.dauer}</span>
       <span style="font-size:10px;background:var(--surface);padding:2px 6px;border-radius:4px">👥 ${f.spieler||"?"}</span>
@@ -2096,7 +2117,8 @@ async function tpSternTipp(name){
   const neu=(_tpStern(f)%3)+1;
   window._uebungMeta=window._uebungMeta||{};
   window._uebungMeta[name]=neu;
-  tpPickerRender();
+  // je nach Kontext neu zeichnen: Picker offen -> Picker, sonst Formen-Datenbank
+  if(document.getElementById("tp-pick-modal"))tpPickerRender();else renderTraining();
   try{
     if(window._uebungMetaId!=null)
       await fetch(`${SB_URL}/rest/v1/team_config?id=eq.${window._uebungMetaId}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({uebung_meta:window._uebungMeta})});

@@ -3570,3 +3570,94 @@ coaching:'Konzentration ist ein Muskel – man kann sie trainieren!\nWenn du abg
   svg:'',tags:['aufwaermen','wahrnehmung']
 }
 ];
+
+/* ── Skizzen-Generator ────────────────────────────────────────────────
+   55 Übungen kamen ohne Feld-Skizze. Statt 55 handgeschriebener SVGs erzeugt
+   _skz() sie aus kompakten Specs – im exakt gleichen Stil wie die 52 bestehenden
+   Inline-SVGs (viewBox 280×180, Feld #2d6a2d, Spieler grün/rot, Hütchen gelb).
+   Legende: z=Zonen, tor=[x,y,'h'|'v',breite], h=Hütchen[x,y,farbe], leiter, wand,
+   p=Pfeil[x1,y1,x2,y2,typ p(ass)|l(auf)|s(chuss)|d(ribbling)], s=Spieler[x,y,farbe,label],
+   b=Ball, tx=Text. Farben: g=grün(eigene) r=rot(Gegner/Fänger) b=blau(TW) w=weiß(Trainer). */
+function _skz(o){
+  const F={g:'#4ade80',r:'#f87171',b:'#60a5fa',y:'#fbbf24',w:'#fff'};
+  const S=['<rect width="280" height="180" rx="4" fill="#2d6a2d" stroke="#1a4a1a" stroke-width="1.5"/>',
+    '<rect x="4" y="4" width="272" height="172" rx="3" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1"/>',
+    '<defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="rgba(255,255,255,.8)"/></marker></defs>'];
+  (o.z||[]).forEach(z=>S.push('<rect x="'+z[0]+'" y="'+z[1]+'" width="'+z[2]+'" height="'+z[3]+'" rx="3" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.35)" stroke-width="1.5" stroke-dasharray="6,3"/>'));
+  (o.tor||[]).forEach(t=>{const w=t[3]||24;
+    S.push(t[2]==='v'?'<rect x="'+t[0]+'" y="'+t[1]+'" width="7" height="'+w+'" rx="2" fill="none" stroke="#fff" stroke-width="2.5"/>'
+                     :'<rect x="'+t[0]+'" y="'+t[1]+'" width="'+w+'" height="7" rx="2" fill="none" stroke="#fff" stroke-width="2.5"/>');});
+  (o.leiter||[]).forEach(l=>{const n=6,st=l[2]/n;
+    S.push('<rect x="'+l[0]+'" y="'+l[1]+'" width="'+(l[3]==='v'?16:l[2])+'" height="'+(l[3]==='v'?l[2]:16)+'" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="1.5"/>');
+    for(let i=1;i<n;i++)S.push(l[3]==='v'
+      ?'<line x1="'+l[0]+'" y1="'+(l[1]+i*st)+'" x2="'+(l[0]+16)+'" y2="'+(l[1]+i*st)+'" stroke="rgba(255,255,255,.6)" stroke-width="1.5"/>'
+      :'<line x1="'+(l[0]+i*st)+'" y1="'+l[1]+'" x2="'+(l[0]+i*st)+'" y2="'+(l[1]+16)+'" stroke="rgba(255,255,255,.6)" stroke-width="1.5"/>');});
+  (o.wand||[]).forEach(w=>S.push('<line x1="'+w[0]+'" y1="'+w[1]+'" x2="'+w[2]+'" y2="'+w[3]+'" stroke="#d1d5db" stroke-width="5" stroke-linecap="round"/>'));
+  (o.p||[]).forEach(p=>{const typ=p[4]||'p';
+    S.push('<line x1="'+p[0]+'" y1="'+p[1]+'" x2="'+p[2]+'" y2="'+p[3]+'" stroke="rgba(255,255,255,.8)" stroke-width="'+(typ==='s'?3:1.8)+'"'+(typ==='l'?' stroke-dasharray="5,4"':typ==='d'?' stroke-dasharray="2,3"':'')+' marker-end="url(#arr)"/>');});
+  (o.h||[]).forEach(h=>S.push('<path d="M'+h[0]+' '+(h[1]-6)+' L'+(h[0]+5)+' '+(h[1]+4)+' L'+(h[0]-5)+' '+(h[1]+4)+' Z" fill="'+(F[h[2]]||'#fbbf24')+'" stroke="rgba(0,0,0,.25)" stroke-width="1"/>'));
+  (o.s||[]).forEach(sp=>{S.push('<circle cx="'+sp[0]+'" cy="'+sp[1]+'" r="8" fill="'+(F[sp[2]]||'#4ade80')+'" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/>');
+    if(sp[3])S.push('<text x="'+sp[0]+'" y="'+(sp[1]+3)+'" text-anchor="middle" fill="rgba(0,0,0,.65)" font-size="8" font-family="sans-serif" font-weight="700">'+sp[3]+'</text>');});
+  (o.b||[]).forEach(b=>S.push('<circle cx="'+b[0]+'" cy="'+b[1]+'" r="4" fill="#fff" stroke="#333" stroke-width="1"/>'));
+  (o.tx||[]).forEach(t=>S.push('<text x="'+t[0]+'" y="'+t[1]+'" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="9" font-family="sans-serif" font-weight="600">'+t[2]+'</text>'));
+  return '<svg viewBox="0 0 280 180" width="100%" style="max-width:280px;display:block;margin:8px auto;border-radius:6px" xmlns="http://www.w3.org/2000/svg">'+S.join('')+'</svg>';
+}
+const TF_SKIZZEN={
+aw01:{s:[[60,60,'g'],[110,50,'g'],[175,70,'g'],[220,55,'g'],[80,120,'g'],[200,125,'g'],[150,140,'g'],[140,92,'r','H']],b:[[67,67],[117,57],[182,77],[87,127],[207,132],[157,147],[227,62]],p:[[147,86,170,74,'l']],tx:[[140,25,'Haie fangen – Fische schützen den Ball']]},
+aw02:{s:[[70,60,'g'],[150,55,'g'],[210,75,'g'],[90,115,'g'],[180,125,'g'],[30,30,'w','T']],b:[[77,67],[157,62],[217,82],[97,122],[187,132]],tx:[[140,165,'FEUER stoppen · WASSER hoch · STURM sitzen']]},
+aw03:{h:[[40,70],[40,110],[90,70],[90,110],[140,70],[140,110],[190,70],[190,110],[240,70],[240,110]],p:[[20,90,258,90,'l']],tx:[[40,52,'1'],[90,52,'2'],[140,52,'3'],[190,52,'4'],[240,52,'5'],[140,150,'Bär · Frosch · Krebs · Spinne · Känguru']]},
+aw04:{s:[[60,55,'g','1'],[200,50,'g','2'],[70,130,'g','3'],[210,125,'g','4'],[140,40,'g','5'],[140,90,'w','T']],b:[[67,62],[207,57],[77,137],[217,132],[147,47]],p:[[78,125,130,97,'l'],[133,85,85,122,'p']],tx:[[140,165,'Trainer ruft eine Nummer → Sprint + Doppelpass']]},
+aw05:{s:[[70,60,'g'],[160,50,'g'],[220,90,'g'],[90,125,'g'],[170,130,'g']],b:[[77,67],[167,57],[227,97],[97,132],[177,137]],p:[[100,128,40,150,'s'],[164,58,120,30,'s']],tx:[[140,165,'Eigenen Ball schützen – fremde Bälle rausschießen']]},
+aw06:{s:[[80,90,'g','A'],[55,112,'g','B']],b:[[88,97]],p:[[85,84,128,62,'d'],[132,64,178,98,'d'],[62,106,105,84,'l'],[109,86,155,120,'l']],tx:[[140,30,'B ist der Schatten – kopiert jede Bewegung'],[140,160,'nach 1 Min. wechseln']]},
+aw07:{s:[[62,58,'g'],[80,52,'g'],[72,72,'g'],[180,60,'g'],[220,100,'g'],[120,130,'g'],[190,140,'g']],z:[[46,38,52,48]],p:[[172,66,105,68,'l'],[128,124,90,85,'l']],tx:[[140,165,'Trainer ruft: 3! – sofort Dreiergruppen bilden']]},
+aw08:{s:[[80,60,'g'],[200,55,'g'],[150,100,'g'],[70,125,'r','Z']],b:[[110,80],[230,90],[150,140]],p:[[158,96,195,63,'p'],[145,135,85,127,'p']],tx:[[70,145,'Zombie'],[140,25,'Treffer unter der Hüfte = Zombie'],[140,165,'Ball zurollen befreit']]},
+aw09:{h:[[30,70],[74,70],[118,70],[162,70],[206,70],[250,70],[30,110],[74,110],[118,110],[162,110],[206,110],[250,110]],p:[[35,85,245,85,'l'],[245,97,35,97,'l']],b:[[30,90]],tx:[[140,40,'20-m-Gasse: hin und zurück'],[140,150,'Kniehub · Anfersen · Seitgalopp – Ball am Fuß']]},
+aw10:{h:[[22,22,'r'],[258,22,'b'],[22,158,'y'],[258,158,'g']],s:[[120,80,'g'],[165,95,'g'],[135,120,'g']],b:[[127,87],[172,102],[142,127]],p:[[113,74,35,32,'l'],[158,88,40,35,'l']],tx:[[140,165,'Trainer ruft: ROT! – alle dribbeln zum roten Hütchen']]},
+tw01:{tor:[[120,163,'h',40]],s:[[140,148,'b','TW']],h:[[60,105],[95,65],[140,48],[185,65],[220,105]],b:[[60,115],[95,75],[140,58],[185,75],[220,115]],p:[[66,112,130,143,'p'],[140,62,140,136,'p'],[214,112,150,143,'p']],tx:[[140,30,'5 Richtungen: flach · halbhoch · zentral']]},
+tw02:{z:[[85,65,110,65]],s:[[140,100,'b','TW'],[140,35,'w','T']],b:[[75,122],[205,122]],p:[[132,42,82,115,'p'],[148,42,198,115,'p']],tx:[[140,165,'seitlich fallen – Ball mit beiden Händen sichern']]},
+tw03:{tor:[[120,163,'h',40]],s:[[140,150,'b','TW'],[140,48,'w','T']],h:[[118,115],[162,115]],b:[[140,60]],p:[[140,64,140,140,'s']],tx:[[140,30,'Schuss durch das Hütchentor – blitzschnell reagieren']]},
+tw04:{tor:[[120,163,'h',40]],s:[[140,148,'b','TW'],[140,40,'r','S']],b:[[147,49]],p:[[140,52,140,92,'d'],[140,140,140,112,'l']],tx:[[70,105,'rauslaufen?'],[215,105,'oder warten?'],[140,25,'Winkel verkürzen – groß machen']]},
+tw05:{s:[[140,152,'b','TW']],b:[[148,160]],z:[[35,88,62,30],[109,58,62,30],[183,28,62,30]],p:[[132,146,60,122,'p'],[140,144,138,92,'l'],[150,146,210,62,'s']],tx:[[66,105,'10 m'],[140,75,'15 m'],[214,45,'20 m'],[140,172,'Abrollen · Abwurf · Abschlag']]},
+tw06:{tor:[[120,163,'h',40]],leiter:[[132,55,60,'v']],s:[[140,40,'b','TW'],[70,120,'w','T']],b:[[80,128]],p:[[140,50,140,128,'l'],[78,125,128,150,'s']],tx:[[140,25,'durch die Leiter – sofort Schuss halten']]},
+tw07:{wand:[[140,45,140,135]],z:[[55,60,70,60],[155,60,70,60]],s:[[75,90,'b','A'],[205,90,'b','B']],b:[[88,78]],p:[[92,74,195,74,'p']],tx:[[140,30,'über die Schnur werfen'],[140,160,'fangen, bevor der Ball den Boden berührt']]},
+tw08:{tor:[[120,163,'h',40]],s:[[140,138,'b','TW'],[140,38,'w','T']],b:[[150,47]],p:[[145,50,152,115,'p']],tx:[[200,80,'hoher Ball'],[140,25,'am höchsten Punkt mit beiden Händen fangen']]},
+tw09:{tor:[[30,22,'h',18],[131,14,'h',18],[232,22,'h',18]],s:[[39,45,'b'],[140,38,'b'],[241,45,'b'],[39,120,'g'],[140,130,'g'],[241,120,'g']],b:[[39,110],[140,120],[241,110]],p:[[39,112,39,55,'s'],[140,122,140,48,'s'],[241,112,241,55,'s']],tx:[[39,80,'flach'],[140,85,'halbhoch'],[241,80,'Volley'],[140,165,'alle 2 Min. rotieren']]},
+tw10:{s:[[140,150,'b','TW'],[60,60,'g'],[140,38,'g'],[220,60,'g']],b:[[68,68]],p:[[68,62,130,42,'p'],[148,42,212,56,'p'],[214,68,150,144,'p'],[132,146,70,70,'p']],tx:[[140,170,'Rückpass annehmen – flach weiterspielen']]},
+tw11:{tor:[[120,163,'h',40]],s:[[140,150,'b','TW'],[100,40,'r','A'],[180,40,'r','B']],b:[[107,49]],p:[[104,50,130,105,'d'],[186,48,212,105,'p'],[140,142,132,118,'l']],tx:[[140,25,'Situation lesen: rauslaufen oder im Tor bleiben?']]},
+tw12:{tor:[[120,163,'h',40]],s:[[140,157,'b','TW'],[140,72,'r','S']],b:[[140,96]],p:[[140,100,125,158,'s']],tx:[[140,30,'mittig stehen · 1 Schritt vor · auf den Ballen wippen']]},
+tw13:{h:[[30,90],[110,90]],s:[[140,48,'w','T'],[170,90,'b']],tor:[[228,78,'v',24]],p:[[38,90,100,90,'l'],[144,58,164,82,'p'],[178,88,222,88,'p']],tx:[[30,110,'Start'],[140,30,'werfen'],[140,165,'Sprint → fangen → ins Minitor treffen → zurück']]},
+tw14:{s:[[140,152,'b','TW'],[70,108,'g'],[180,75,'g'],[230,38,'g']],b:[[148,160]],p:[[131,148,78,115,'p'],[138,143,174,84,'l'],[149,145,224,47,'s']],tx:[[52,125,'abrollen'],[210,90,'Abwurf'],[255,55,'Abschlag'],[140,172,'Trainer ruft vorher die Zielzone']]},
+tw15:{tor:[[120,163,'h',40]],z:[[65,105,150,58]],s:[[140,150,'b','TW'],[140,58,'g','A'],[32,118,'g','B'],[225,75,'r','C']],b:[[147,67],[40,126],[232,84]],p:[[140,70,138,140,'s'],[42,122,118,142,'p'],[220,84,165,135,'d']],tx:[[140,25,'Trainer zeigt an: Schuss, Flanke oder 1 gegen 1']]},
+ind01:{h:[[60,50],[140,40],[220,55],[70,120],[150,130],[225,115]],s:[[35,90,'g']],b:[[43,97]],p:[[42,84,55,58,'d'],[66,54,133,44,'d'],[147,46,213,58,'d']],tx:[[140,165,'enge Ballführung – an jedem Hütchen eine Finte']]},
+ind02:{wand:[[45,22,235,22]],s:[[140,120,'g']],b:[[140,106]],p:[[137,103,133,30,'p'],[145,30,149,103,'p']],tx:[[140,45,'Wand'],[140,160,'Innenseite-Pass · Annahme mit der Sohle · beide Füße']]},
+ind03:{tor:[[120,163,'h',40]],b:[[80,80],[96,80],[112,80]],s:[[128,88,'g']],p:[[133,97,126,160,'s'],[136,96,152,160,'s']],tx:[[140,30,'Serien: flach ins Eck · Spannstoß · Direktschuss']]},
+ind04:{z:[[100,55,80,75]],s:[[140,92,'g']],b:[[140,105]],p:[[120,75,160,75,'d'],[160,112,120,112,'d']],tx:[[140,40,'kleiner Raum'],[140,160,'Jonglieren · Sohlenrollen · V-Ziehen']]},
+ind05:{h:[[140,135],[140,60],[80,60],[200,60]],s:[[140,155,'g']],b:[[148,162]],p:[[140,148,140,70,'l'],[132,60,88,60,'l'],[90,68,194,68,'l']],tx:[[140,30,'T-Lauf: vor – seitwärts – seitwärts – rückwärts'],[140,172,'dazu Slalom + Reaktions-Sprints mit Ball']]},
+ind06:{tor:[[216,163,'h',40]],h:[[55,105],[95,85],[135,105],[175,85]],s:[[25,120,'g']],b:[[33,127]],p:[[32,114,52,98,'d'],[60,100,92,90,'d'],[100,92,132,100,'d'],[142,100,172,90,'d'],[182,92,228,158,'s']],tx:[[140,35,'ALLES nur mit dem schwachen Fuß']]},
+ind07:{s:[[90,110,'g'],[220,48,'w','T']],b:[[98,117]],p:[[97,104,150,80,'d']],tx:[[220,25,'zeigt 3 Finger'],[140,165,'Kopf hoch: Zahl laut rufen und weiterdribbeln']]},
+ind08:{tor:[[122,14,'h',20]],h:[[228,58],[228,92]],s:[[140,90,'w','T'],[140,140,'g']],b:[[147,148]],p:[[132,132,114,40,'d'],[150,134,222,80,'p']],tx:[[62,80,'Weg frei = dribbeln'],[140,170,'Weg zu = abspielen aufs Hütchentor']]},
+ind09:{s:[[180,58,'w','T'],[80,130,'g']],b:[[190,66]],p:[[86,122,118,96,'l'],[122,92,166,70,'l']],tx:[[140,165,'im Bogen anlaufen – vor dem Gegner Tempo drosseln'],[80,40,'nicht gerade drauf!']]},
+ind10:{tor:[[120,163,'h',40]],s:[[140,88,'g'],[38,58,'g'],[38,80,'g'],[38,102,'g'],[38,124,'g']],b:[[140,100]],p:[[140,104,135,158,'s']],tx:[[54,42,'alle schauen zu'],[140,25,'1 Versuch – Körpersprache bleibt positiv']]},
+ind11:{s:[[140,95,'g']],b:[[140,36],[42,95],[222,148]],p:[[140,42,140,84,'p'],[50,95,128,95,'p'],[216,142,152,104,'p'],[147,88,178,60,'d']],tx:[[210,45,'Mitnahme nach VORN'],[140,170,'Bälle von vorn, von der Seite, von hinten']]},
+ind12:{s:[[200,58,'w','T'],[80,122,'g']],b:[[192,66]],p:[[86,116,128,88,'l'],[128,84,100,52,'l'],[192,62,108,52,'p']],tx:[[75,145,'hin – stoppen – scharf weg'],[140,25,'V-Lauf: lösen und Ball fordern']]},
+ind13:{s:[[140,92,'g']],b:[[147,100]],p:[[148,86,235,50,'l'],[132,88,62,118,'l']],tx:[[228,35,'ADLER = breit'],[62,138,'IGEL = eng'],[140,168,'auf das Kommando sofort umschalten']]},
+ind14:{tor:[[128,163,'h',24]],s:[[90,85,'g','A'],[180,60,'g','B']],b:[[98,93]],p:[[94,94,132,150,'l']],tx:[[90,65,'Augen zu'],[180,40,'ruft: LINKS! HIER!'],[140,30,'B dirigiert A nur mit der Stimme zum Tor']]},
+ind15:{h:[[22,22,'r'],[258,22,'b'],[22,158,'y'],[110,90],[140,108],[170,90]],s:[[70,120,'g'],[42,42,'w','T']],b:[[78,127]],p:[[78,114,106,98,'d'],[116,98,138,102,'d'],[148,100,166,96,'d']],tx:[[42,25,'7+3=?'],[140,168,'dribbeln + rechnen – Fokus trotz Ablenkung']]},
+tf093:{s:[[140,52,'g'],[183,72,'g'],[183,112,'g'],[140,132,'g'],[97,112,'g'],[97,72,'g']],tx:[[140,95,'NOCH!'],[140,25,'Kann ich nicht → Kann ich NOCH nicht'],[140,163,'alle rufen mit – Fehler sind Lernschritte']]},
+tf094:{z:[[20,42,72,92],[104,42,72,92],[188,42,72,92]],tor:[[48,46,'h',16],[132,46,'h',16],[216,46,'h',16]],s:[[56,115,'g'],[56,75,'r'],[140,115,'g'],[140,75,'r'],[224,115,'g'],[224,75,'r']],tx:[[56,30,'Level 1'],[140,30,'Level 2'],[224,30,'Level 3'],[140,158,'Kind wählt selbst – Erfolg = eine Stufe hoch']]},
+tf095:{s:[[45,130,'g']],b:[[53,137]],p:[[85,88,108,88,'l'],[172,88,196,88,'l']],tx:[[58,90,'1 Atemzug'],[140,90,'1× klatschen'],[228,90,'WEITER!'],[140,35,'feste 2-Sekunden-Routine nach jedem Fehler'],[140,160,'danach ist der Fehler gelöscht']]},
+tf096:{s:[[140,50,'g'],[175,62,'g'],[190,92,'g'],[175,122,'g'],[140,134,'g'],[105,122,'g'],[90,92,'g'],[105,62,'g']],tx:[[140,95,'3 gute Dinge'],[140,25,'Abschlusskreis'],[140,163,'jeder nennt, was einem MITSPIELER gut gelang']]},
+tf097:{s:[[140,58,'g','C'],[80,120,'g'],[110,132,'g'],[140,138,'g'],[170,132,'g'],[200,120,'g']],tx:[[140,35,'Kapitän des Tages'],[140,165,'sagt das Aufwärmen an – JEDES Kind kommt dran']]},
+tf098:{tor:[[120,163,'h',40]],s:[[140,152,'b','TW'],[140,80,'g','S'],[62,166,'g'],[84,171,'g'],[196,171,'g'],[218,166,'g']],b:[[140,105]],p:[[140,110,132,158,'s']],tx:[[140,30,'Publikum zählt: 5 – 4 – 3 – 2 – 1'],[140,60,'danach jubeln IMMER alle']]},
+tf099:{tor:[[14,78,'v',24],[259,78,'v',24]],s:[[80,60,'g'],[110,110,'g'],[85,140,'g'],[200,60,'r'],[170,110,'r'],[195,140,'r']],b:[[118,102]],p:[[118,104,155,95,'d']],tx:[[140,30,'Finte versucht = 2 Punkte · schwacher Fuß = 2 Punkte'],[140,165,'Mut zählt – egal ob es klappt']]},
+tf100:{tor:[[216,163,'h',40]],h:[[60,90],[100,110],[140,90]],s:[[28,105,'g','J']],b:[[36,112]],p:[[36,100,57,94,'d'],[66,96,97,104,'d'],[106,104,137,96,'d'],[147,96,228,158,'s']],tx:[[140,30,'Und Jonas zieht vorbei … was für ein Tempo!'],[140,172,'den eigenen Lauf laut und POSITIV kommentieren']]},
+tf101:{s:[[140,45,'w','T'],[140,120,'b','TW']],b:[[150,54]],p:[[133,52,128,88,'p'],[147,54,158,105,'p']],tx:[[85,75,'hoch = W-Griff'],[205,95,'flach = Korb'],[140,165,'aus 3–4 m zuwerfen – Ball vor dem Gesicht fangen']]},
+tf102:{h:[[140,92],[140,42],[192,92],[140,142],[88,92]],s:[[122,108,'b','TW']],p:[[140,84,140,52,'l'],[148,92,184,92,'l'],[140,100,140,134,'l'],[132,92,96,92,'l']],tx:[[140,25,'Sidesteps zum gezeigten Hütchen – nicht überkreuzen'],[140,168,'antippen, zurück zur Mitte, Grundstellung']]},
+tf103:{z:[[85,55,110,75]],s:[[140,85,'b','TW'],[48,130,'w','T']],b:[[58,137]],p:[[125,95,160,115,'d'],[56,128,105,112,'p']],tx:[[140,40,'weicher Boden / Matte'],[140,165,'Purzelbaum · rollen · erstes Hechten']]},
+tf104:{tor:[[120,163,'h',40]],s:[[140,150,'g','TW'],[100,30,'g'],[140,30,'g'],[180,30,'g']],h:[[140,62]],b:[[100,40],[140,40],[180,40]],p:[[140,68,140,108,'d'],[140,110,132,158,'s'],[152,146,186,40,'l']],tx:[[230,95,'Wechsel'],[140,20,'4–5 Schüsse, dann wechselt der Torwart']]},
+tf105:{z:[[70,38,140,104]],s:[[140,46,'g'],[78,90,'g'],[202,90,'g'],[140,134,'g'],[125,90,'r'],[157,90,'r']],b:[[130,52]],p:[[132,52,86,84,'p'],[82,98,132,130,'p'],[148,130,196,97,'p'],[196,84,148,50,'p']],tx:[[140,25,'Raute halten: Zentrum · Flitzer · Spitze'],[140,160,'nach dem Pass sofort rotieren']]},
+tf106:{tor:[[20,163,'h',16],[244,163,'h',16],[20,10,'h',16],[244,10,'h',16]],s:[[80,60,'r'],[140,50,'r'],[200,60,'r'],[140,80,'r'],[80,120,'g'],[140,130,'g'],[200,120,'g'],[140,105,'g']],b:[[148,112]],p:[[148,116,196,126,'p'],[208,124,240,152,'p']],tx:[[140,25,'kein Tor durch die Mitte'],[140,165,'nur breit über die Flitzer kommt man zum Abschluss']]},
+tf107:{h:[[100,16,'r'],[124,16,'r'],[264,78,'b'],[264,102,'b'],[100,166,'y'],[124,166,'y'],[16,78,'g'],[16,102,'g']],s:[[100,70,'g'],[170,90,'g'],[120,120,'g'],[200,55,'g']],b:[[107,77],[177,97],[127,127],[207,62]],p:[[104,62,110,28,'d'],[164,84,120,40,'d']],tx:[[140,150,'Farbe gerufen → mit Ball durchs passende Hütchentor']]}
+};
+// Fehlende Skizzen aus den Specs erzeugen – vorhandene, handgezeichnete SVGs bleiben unangetastet.
+TRAININGSFORMEN.forEach(f=>{if((!f.svg||f.svg.length<=10)&&f.id&&TF_SKIZZEN[f.id])f.svg=_skz(TF_SKIZZEN[f.id]);});

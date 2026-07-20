@@ -281,30 +281,21 @@
   <div id="train-sub-formen" class="train-sub">
   <div class="sl nt"><i class="ti ti-run"></i>Trainingsformen-Datenbank</div>
   <div id="period-banner" style="background:var(--blue-bg);border:1px solid #93c5fd;border-radius:var(--rl);padding:12px;margin-bottom:1rem;font-size:12px;color:#1e40af;line-height:1.6"><strong>Schwerpunkt jetzt: Grundordnung &amp; Raute aufbauen.</strong> 50 Spielformen auf Basis des 4-Phasen-Modells.</div>
-  <div id="autoplan-box" style="margin-bottom:1rem"></div>
   <input type="text" id="training-search" placeholder="🔍 Übung suchen (z. B. Passspiel, Funino) …" oninput="clearTimeout(window._tfDebounce);window._tfDebounce=setTimeout(renderTraining,200)"
     style="width:100%;box-sizing:border-box;padding:10px 14px;border:var(--border-s);border-radius:12px;font-size:13.5px;background:var(--surface);font-family:inherit;outline:none;margin-bottom:8px">
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-    <!-- Auto-Plan wohnt in der Planung (🪄 tpGenerate) – der doppelte Vorschlags-Button hier ist raus (PO) -->
-    <button class="btn btn-sm" onclick="openAddTraining()"><i class="ti ti-plus"></i>Eigene Form anlegen</button>
-  </div>
-  <div class="frow" id="training-filter-row">
-    <button class="ftag" onclick="setTF('aufwaermen',this)">Aufwärmen</button>
-    <button class="ftag" onclick="setTF('raute',this)">* Raute</button>
-    <button class="ftag" onclick="setTF('passspiel',this)">Passspiel</button>
-    <button class="ftag" onclick="setTF('wahrnehmung',this)">Wahrnehmung</button>
-    <button class="ftag" onclick="setTF('technik',this)">Technik</button>
-    <button class="ftag" onclick="setTF('pressing',this)">Pressing</button>
-    <button class="ftag" onclick="setTF('spass',this)">Spass</button>
-    <button class="ftag" onclick="setTF('torwart',this)">Torwart</button>
-    <button class="ftag" onclick="setTF('individual',this)">Individual</button>
-    <button class="ftag" onclick="setTF('mindset',this)">Mindset</button>
-    <button class="ftag" onclick="setTF('custom',this)">Eigene</button>
-    <button class="ftag" onclick="setTF('alle',this)">Alle anzeigen</button>
-  </div>
+  <!-- PO-Umbau: gleiche Sprache wie der Übungs-Picker – Gruppen-Kacheln + ⭐-Filter, gefüllt von renderTraining -->
+  <div id="tf-kacheln" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"></div>
+  <div id="tf-filter" style="display:flex;gap:6px;margin-bottom:10px"></div>
   <div id="training-content"><p style="padding:1rem;color:#64748b;font-size:13px">Lade...</p></div>
+  <div style="font-size:13.5px;font-weight:800;margin:16px 0 8px">🧰 Werkzeuge</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+    <button onclick="openAddTraining()" style="min-height:88px;border:var(--border-s);border-top:3px solid #16a34a;border-radius:14px;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:10px 6px"><span style="font-size:30px">➕</span><span style="font-size:14px;font-weight:800">Eigene Form</span></button>
+    <button onclick="kiCoachOpen()" style="min-height:88px;border:var(--border-s);border-top:3px solid #16a34a;border-radius:14px;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:10px 6px"><span style="font-size:30px">🤖</span><span style="font-size:14px;font-weight:800">KI-Coach</span></button>
+    <button onclick="periodOpen()" style="min-height:88px;border:var(--border-s);border-top:3px solid #16a34a;border-radius:14px;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:10px 6px"><span style="font-size:30px">📅</span><span style="font-size:14px;font-weight:800">Themenplan</span></button>
+    <button onclick="var d=document.getElementById('dfb-regal');d.open=true;d.scrollIntoView({behavior:'smooth'})" style="min-height:88px;border:var(--border-s);border-top:3px solid #16a34a;border-radius:14px;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:10px 6px"><span style="font-size:30px">📖</span><span style="font-size:14px;font-weight:800">DFB-Regal</span></button>
+  </div>
   <!-- I-D: DFB-Übungs-Regal – kuratierte Links in die offizielle, kostenlose DFB-Datenbank (kein Scraping, nur Verweise) -->
-  <details class="el-sect" style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:10px 14px;margin-top:12px">
+  <details id="dfb-regal" class="el-sect" style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:10px 14px;margin-top:12px">
     <summary style="font-size:13px;font-weight:800;cursor:pointer">📖 DFB „Training online" – offizielle Übungs-Datenbank (kostenlos)</summary>
     <div style="font-size:11.5px;color:var(--text2);margin:8px 0 10px">Alle 2 Wochen neue Einheiten von DFB-Trainern, über 100 F-Jugend-Einheiten im Archiv – gute Ergänzung zur eigenen Bibliothek und zum Auto-Plan.</div>
     <a href="https://training-service.fussball.de/trainer/f-juniorin/training-online/" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;border:var(--border-s);border-left:4px solid #1e3a8a;border-radius:12px;padding:11px 13px;margin-bottom:8px;text-decoration:none;color:var(--text)"><span style="font-size:18px">🗂️</span><span style="flex:1;min-width:0"><span style="display:block;font-size:13px;font-weight:700">F-Jugend-Einheiten (Archiv &amp; Suche)</span><span style="display:block;font-size:11px;color:var(--text2)">Komplette Trainingseinheiten, filterbar nach Schwerpunkt</span></span><span style="color:var(--text3)">↗</span></a>
