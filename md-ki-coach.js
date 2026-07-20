@@ -66,13 +66,15 @@ function kiCoachRender(uebungen,rest){
   if(!kiLastUebungen.length){out.innerHTML='<div style="padding:10px;color:var(--text3);font-size:13px">Keine Übungen erhalten – bitte anders formulieren.</div>';return;}
   out.innerHTML=kiLastUebungen.map((u,i)=>`<div style="border:var(--border-s);border-radius:12px;padding:12px;margin-bottom:10px">
     <div style="font-weight:800;font-size:14px">${esc(u.titel||"Übung")}</div>
-    <div style="font-size:11px;color:var(--text2);margin:2px 0 6px">${u.dauer?"⏱ "+esc(u.dauer):""}${u.material?" · 🎒 "+esc(u.material):""}</div>
+    <div style="font-size:11px;color:var(--text2);margin:2px 0 6px">${u.dauer?"⏱ "+esc(u.dauer):""}${u.spieler?" · 👥 "+esc(u.spieler):""}${u.feld?" · 📐 "+esc(u.feld):""}${u.material?" · 🎒 "+esc(u.material):""}</div>
+    ${u.skizze&&typeof _skz==="function"?_skz(u.skizze)+(typeof skzLegende==="function"?skzLegende():""):""}
     <div style="font-size:12.5px;line-height:1.5;white-space:pre-wrap">${esc(u.beschreibung||"")}</div>
     ${u.variante?`<div style="font-size:11.5px;color:var(--text2);margin-top:5px">➕ ${esc(u.variante)}</div>`:""}
+    ${u.coaching?`<div style="font-size:11.5px;color:var(--text2);margin-top:5px">📣 ${esc(u.coaching)}</div>`:""}
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px">
       <label style="font-size:11px;color:var(--text2)">Kategorie:
         <select id="ki-kat-${i}" style="padding:6px 8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text)">
-          ${KI_KATS.map(([k,l])=>`<option value="${k}"${k==="technik"?" selected":""}>${l}</option>`).join("")}
+          ${KI_KATS.map(([k,l])=>`<option value="${k}"${k===(u.kat||"technik")?" selected":""}>${l}</option>`).join("")}
         </select>
       </label>
       <button class="btn btn-sm btn-p" onclick="kiCoachSaveForm(${i})"><i class="ti ti-clipboard-list"></i>In Bibliothek übernehmen</button>
@@ -113,20 +115,21 @@ async function ttViewKi(id){
 // gewuenschte Stelle. Navigiert direkt in die Planung.
 async function kiCoachSaveForm(i){
   const u=kiLastUebungen[i]; if(!u)return;
-  const kat=document.getElementById("ki-kat-"+i)?.value||"technik"; // vom Trainer gewählte Kategorie
-  const ablauf=(u.beschreibung||"")+(u.variante?"\n\nVariante: "+u.variante:"");
+  const kat=document.getElementById("ki-kat-"+i)?.value||u.kat||"technik"; // vom Trainer gewählte Kategorie
+  const ablauf=(u.beschreibung||"")+(u.material?"\n\nMaterial: "+u.material:"")+(u.variante?"\n\nVariante: "+u.variante:"");
   if(!sbToken()){toast("Bitte als Trainer anmelden","err");return;}
-  // Spalten exakt wie in trainingsformen: KEIN svg (existiert nicht), tags ist text (kein Array).
+  // Spalten exakt wie in trainingsformen (skizze jsonb = Feld-Skizzen-Spec der KI); tags ist text.
   const form={
     name:(u.titel||"KI-Übung").slice(0,120),
     kat:kat,
     ablauf:ablauf,
     varianten:u.variante||"",
-    coaching:"Vom Adler-Coach (KI) vorgeschlagen – altersgerecht für U8/U9.",
-    spieler:"", feld:u.material||"", dauer:u.dauer||"",
-    spass:5, diff:2,
+    coaching:(u.coaching||"")+(u.coaching?"\n":"")+"(Vom Adler-Coach (KI) vorgeschlagen)",
+    spieler:u.spieler||"", feld:u.feld||"", dauer:u.dauer||"",
+    spass:5, diff:[1,2,3].includes(u.diff)?u.diff:2,
     custom:true, focus:false, tags:"KI-Coach",
-    kurz:(u.beschreibung||"").slice(0,80)
+    kurz:(u.beschreibung||"").replace(/^AUFBAU:\s*/i,"").slice(0,80),
+    skizze:u.skizze||null
   };
   try{
     // Trainer-Token (RLS: trainingsformen schreibbar nur fuer is_trainer, NICHT anon)

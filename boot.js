@@ -26,6 +26,14 @@ async function loadCustomForms(){
     });
     if(r.ok){CUSTOM_FORMS=await r.json()||[];}
   }catch(e){CUSTOM_FORMS=[];}
+  // PO: Eigene/KI-Übungen ohne Zeichnung – KI liefert jetzt eine skizze-Spec (Spalte
+  // trainingsformen.skizze), ältere und handangelegte bekommen die Kategorie-Symbolskizze.
+  try{
+    CUSTOM_FORMS.forEach(f=>{
+      if(f.svg&&f.svg.length>10)return;
+      f.svg=_skz(f.skizze&&typeof f.skizze==="object"?f.skizze:(SKZ_KAT[f.kat]||SKZ_KAT.technik));
+    });
+  }catch(e){}
   renderTraining();
 }
 
@@ -867,7 +875,7 @@ function tpShowExercise(formIdx){
       <button onclick="this.closest('div[style*=fixed]').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2)">×</button>
     </div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">${f.kurz||""}</div>
-    ${f.svg?`<div style="margin-bottom:8px">${f.svg}</div>`:""}
+    ${f.svg?`<div style="margin-bottom:2px">${f.svg}</div>${typeof skzLegende==="function"?skzLegende():""}`:""}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
       <span style="font-size:10px;background:var(--surface);padding:2px 6px;border-radius:4px">⏱ ${f.dauer}</span>
       <span style="font-size:10px;background:var(--surface);padding:2px 6px;border-radius:4px">👥 ${f.spieler||"?"}</span>
@@ -2029,6 +2037,9 @@ function _tpStern(f){
   if(!f)return 2;
   const ov=(window._uebungMeta||{})[f.name];
   if(ov>=1&&ov<=3)return ov;
+  // PO: echte Schwierigkeit je Übung (diff-Feld) statt Pauschalwert je Kategorie –
+  // sonst haben z. B. ALLE Pressing-Übungen 3 Sterne und der Filter läuft leer.
+  if(f.diff>=1&&f.diff<=3)return f.diff;
   return STERN_DEFAULT[f.kat]||2;
 }
 function _tpGruppeVon(f){
