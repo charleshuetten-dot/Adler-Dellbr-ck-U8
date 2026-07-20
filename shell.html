@@ -476,12 +476,13 @@
     <div id="aw-list"></div>
     <div class="brow" style="margin-top:12px">
       <button onclick="awSave()" style="flex:1;min-width:150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:none;border-radius:12px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.28)"><i class="ti ti-device-floppy"></i>Speichern</button>
-      <button class="btn btn-sm" onclick="buddyShuffle()" title="Anwesende Kinder in Zweier-Paare mischen">🎲 Buddy-Paare</button>
     </div>
-    <div id="buddy-result"></div>
-    <!-- Saison-Übersichten: einklappbar (Standard zu), damit die Tages-Liste im Fokus bleibt -->
-    <details class="el-sect" style="margin-top:16px"><summary>📊 Übersicht Spieler (Saison)</summary><div id="aw-stats"></div></details>
-    <details class="el-sect"><summary>🧑‍🏫 Übersicht Trainer (Saison)</summary><div id="aw-trainer-stats"></div></details>
+    <!-- Saison-Übersichten wohnen hinter EINER Kachel (PO: Erfassungs-Seite bleibt schlank);
+         Buddy-/Kleingruppen-Auslosung ist in die Trainings-Planung umgezogen. -->
+    <button onclick="awUebersichtOpen()" style="width:100%;min-height:88px;margin-top:14px;border:var(--border-s);border-top:3px solid #16a34a;border-radius:14px;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:12px 8px">
+      <span style="font-size:30px">📊</span>
+      <span style="font-size:14px;font-weight:800">Übersicht Spieler &amp; Trainer (Saison)</span>
+    </button>
   </div><!-- /train-sub-anwesenheit -->
 
   <!-- SUB: Quiz-Ergebnisse -->

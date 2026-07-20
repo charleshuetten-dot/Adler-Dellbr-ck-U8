@@ -421,9 +421,12 @@ async function _termineSelLoad(){
 async function terminSelectFill(selId, opt){
   opt=opt||{}; const sel=document.getElementById(selId); if(!sel)return;
   const types=opt.types||["training","spiel","turnier","event"], future=!!opt.future;
-  let rows=(await _termineSelLoad()).filter(t=>types.includes(t.typ));
-  if(future)rows=rows.slice().sort((a,b)=>(a.datum<b.datum?-1:a.datum>b.datum?1:0)); // künftig: aufsteigend
   const heute=new Date().toISOString().slice(0,10);
+  let rows=(await _termineSelLoad()).filter(t=>types.includes(t.typ));
+  // future: NUR heute + kommende (geplant wird nie für die Vergangenheit – PO);
+  // vonTagen: zusätzlich die letzten N Tage (Anwesenheits-Nachträge), Rest fliegt raus.
+  if(future)rows=rows.filter(t=>t.datum>=heute).slice().sort((a,b)=>(a.datum<b.datum?-1:a.datum>b.datum?1:0));
+  else if(opt.vonTagen){const min=new Date(Date.now()-opt.vonTagen*864e5).toISOString().slice(0,10);rows=rows.filter(t=>t.datum>=min);}
   if(!rows.length){ sel.innerHTML=`<option value="${heute}">Heute (${heute}) – noch kein Termin hinterlegt</option>`; if(opt.onReady)opt.onReady(); return; }
   sel.innerHTML=rows.map(t=>`<option value="${t.datum}">${terminOptionLabel(t)}</option>`).join("");
   let def;
@@ -443,23 +446,24 @@ function terminSelectEnsure(selId, datum){
   }
   sel.value=datum;
 }
-// Anwesenheit: Termine (alle 4 Typen), neueste zuerst, danach awLoad.
-async function awDatesLoad(){ return terminSelectFill("aw-date",{onReady:awLoad}); }
+// Anwesenheit: heute + kommende + die letzten 7 Tage (Nachträge) – ältere raus (PO).
+async function awDatesLoad(){ return terminSelectFill("aw-date",{vonTagen:7,onReady:awLoad}); }
 function awRenderList(){
   const wrap=document.getElementById("aw-list");
   if(!wrap)return;
   const de=document.getElementById("aw-date"); const datum=de?de.value:"";
   const existing=AW_DATA[datum]||{};
-  let html='<div class="card" style="overflow:hidden;margin-top:8px">';
-  // Die 3 Spieler-Sterne wurden nach "Einheit bewerten" verschoben (dort im Kontext der
-  // Einheit). Hier wird nur noch abgehakt, wer da war.
+  // PO-Umbau: statt langer Zeilenliste ein 3-spaltiges Kachel-Raster – ein Tipp pro Kind
+  // (grün = da). Die Sterne aus „Einheit bewerten" bleiben klein auf der Kachel sichtbar.
+  let html=`<button class="btn btn-sm" style="margin:8px 0" onclick="awAlleDa()">✅ Alle da (dann Fehlende abwählen)</button>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">`;
   KADER.forEach(k=>{
     const p=existing[k.name]||{da:false,qual:0};
-    html+=`<div class="aw-row">
-      <span class="aw-name">${esc(k.name)}</span>
-      <button class="aw-toggle${p.da?" on":""}" onclick="awToggle(this,'${k.name}')" data-player="${k.name}"></button>
-      ${p.qual?`<span class="aw-qual-ro" title="Bewertung aus „Einheit bewerten“" style="font-size:11px;color:#f59e0b;letter-spacing:1px">${"★".repeat(p.qual)}</span>`:""}
-    </div>`;
+    html+=`<button class="aw-tile${p.da?" on":""}" onclick="awToggle(this,'${k.name}')" data-player="${k.name}">
+      <span class="aw-ok">✓</span>
+      <span style="font-size:13px;font-weight:800;line-height:1.2">${esc(k.name)}</span>
+      ${p.qual?`<span title="Bewertung aus „Einheit bewerten“" style="font-size:9px;color:#f59e0b;letter-spacing:1px">${"★".repeat(p.qual)}</span>`:""}
+    </button>`;
   });
   html+='</div>';
   wrap.innerHTML=html;
@@ -469,6 +473,10 @@ function awRenderList(){
 function awToggle(btn,name){
   btn.classList.toggle("on");
 }
+function awAlleDa(){
+  document.querySelectorAll("#aw-list .aw-tile").forEach(b=>b.classList.add("on"));
+  try{navigator.vibrate&&navigator.vibrate(20);}catch(e){}
+}
 
 function awSave(){
   const datum=document.getElementById("aw-date").value;
@@ -477,7 +485,7 @@ function awSave(){
   const data={_trainers:trainers};
   const vorher=AW_DATA[datum]||{};
   KADER.forEach(k=>{
-    const toggle=document.querySelector(`.aw-toggle[data-player="${k.name}"]`);
+    const toggle=document.querySelector(`.aw-tile[data-player="${k.name}"]`);
     // qual wird hier NICHT mehr erfasst (steht in "Einheit bewerten") – bestehenden Wert
     // uebernehmen, sonst wuerde jedes Anwesenheits-Speichern die Sterne auf 0 setzen.
     data[k.name]={da:toggle?.classList.contains("on")||false,qual:(vorher[k.name]||{}).qual||0};
@@ -504,41 +512,89 @@ function awSave(){
    Anzeige zuerst (fürs Hochhalten am Platz), Persistenz best-effort
    in termine.buddies des Termins am gewählten Datum.
 ═══════════════════════════════════ */
-async function buddyShuffle(){
-  if(typeof pauseLoad==="function")await pauseLoad(); // C: pausierte Kinder nicht mitlosen
-  const anwesend=KADER.filter(k=>document.querySelector(`.aw-toggle[data-player="${k.name}"]`)?.classList.contains("on")).map(k=>k.name)
-    .filter(n=>!(typeof istPaused==="function"&&istPaused(n)));
-  if(anwesend.length<2){toast("Erst mindestens 2 Kinder als anwesend markieren","err");return;}
-  for(let i=anwesend.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[anwesend[i],anwesend[j]]=[anwesend[j],anwesend[i]];}
-  const paare=[];
-  for(let i=0;i+1<anwesend.length;i+=2)paare.push([anwesend[i],anwesend[i+1]]);
-  if(anwesend.length%2===1)paare[paare.length-1].push(anwesend[anwesend.length-1]);
-  buddyRender(paare);
-  buddyPersist(paare);
+/* FEAT V2: KLEINGRUPPEN-AUSLOSUNG – aus der Anwesenheit in die Trainings-Planung
+   umgezogen (PO). 2er/3er/4er-Gruppen, zufällig (Buddy-Charakter) oder ausgewogen
+   (nach Stärke, Schlangenlinie). Reste machen die letzten Gruppen größer – nie eine
+   Mini-Restgruppe (13 Kinder in 4ern = 4+4+5). Quelle: heutige Anwesenheit, sonst
+   der aktive Kader; pausierte Kinder bleiben außen vor. */
+let _kgGroesse=2;
+function _kgPool(){
+  const h=new Date(), d=h.getFullYear()+"-"+String(h.getMonth()+1).padStart(2,"0")+"-"+String(h.getDate()).padStart(2,"0");
+  const day=(AW_DATA||{})[d]||{};
+  const aktive=KADER.filter(k=>k.aktiv!==false).map(k=>k.name);
+  const da=aktive.filter(n=>day[n]&&day[n].da===true);
+  const basis=da.length>=2?da:aktive;
+  return {
+    namen:basis.filter(n=>!(typeof istPaused==="function"&&istPaused(n))),
+    ausAnwesenheit:da.length>=2
+  };
+}
+function kleingruppenOpen(){
+  document.getElementById("kg-modal")?.remove();
+  const m=document.createElement("div");m.id="kg-modal";
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Kleingruppen");
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
+    ${mdlHead("kg-modal","👥","Kleingruppen","Buddy-Auslosung für Übungen – 2er, 3er oder 4er","#16a34a")}
+    <div id="kg-chips" style="display:flex;gap:8px;margin-bottom:10px"></div>
+    <div id="kg-quelle" style="font-size:12px;margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <button class="btn btn-p" style="flex:1;min-height:52px" onclick="kgLos('zufall')">🎲 Zufällig losen</button>
+      <button class="btn" style="flex:1;min-height:52px" onclick="kgLos('ausgewogen')">⚖️ Ausgewogen</button>
+    </div>
+    <div id="kg-result"></div>
+  </div>`;
+  document.body.appendChild(m);
+  _kgChipsRender();
+  const p=_kgPool();
+  const q=document.getElementById("kg-quelle");
+  if(q)q.innerHTML=p.ausAnwesenheit
+    ?`<span style="color:#166534">Quelle: Anwesenheit heute – ${p.namen.length} Kinder.</span>`
+    :`<span style="color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:6px 10px;display:inline-block">Heute ist noch keine Anwesenheit erfasst – ich nehme den ganzen Kader (${p.namen.length} Kinder).</span>`;
+}
+function _kgChipsRender(){
+  const el=document.getElementById("kg-chips"); if(!el)return;
+  el.innerHTML=[2,3,4].map(n=>`<button onclick="kgGroesse(${n})" style="flex:1;min-height:48px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;background:${_kgGroesse===n?"#16a34a":"var(--surface2)"};color:${_kgGroesse===n?"#fff":"var(--text2)"}">${n}er-Gruppen</button>`).join("");
+}
+function kgGroesse(n){_kgGroesse=n;_kgChipsRender();}
+async function kgLos(modus){
+  if(typeof pauseLoad==="function")await pauseLoad();
+  const pool=_kgPool();
+  let namen=pool.namen.slice();
+  if(namen.length<2){toast("Mindestens 2 Kinder nötig","err");return;}
+  const gr=_kgGroesse, g=Math.max(1,Math.floor(namen.length/gr));
+  const gruppen=Array.from({length:g},()=>[]);
+  if(modus==="ausgewogen"){
+    const st=x=>(typeof teamStaerke==="function")?Math.max(0,teamStaerke(x)):0;
+    namen.sort((a,b)=>st(b)-st(a));
+    // Schlangenlinie: stark und weniger stark mischen sich gleichmäßig
+    namen.forEach((n,i)=>{const runde=Math.floor(i/g), pos=runde%2===0?(i%g):(g-1-(i%g));gruppen[pos].push(n);});
+  }else{
+    for(let i=namen.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[namen[i],namen[j]]=[namen[j],namen[i]];}
+    // Reste vergrößern die LETZTEN Gruppen (13 in 4ern = 4+4+5, keine Mini-Gruppe)
+    const rest=namen.length-g*gr;
+    let idx=0;
+    for(let gi=0;gi<g;gi++){const size=gr+(gi>=g-rest?1:0);for(let j=0;j<size;j++)gruppen[gi].push(namen[idx++]);}
+  }
+  const farben=["#eff6ff","#f0fdf4","#fef3c7","#fdf2f8","#f0f9ff","#f5f3ff","#fff7ed","#f0fdfa"];
+  const el=document.getElementById("kg-result");
+  if(el)el.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+    ${gruppen.map((p,i)=>`<div style="padding:14px;border-radius:12px;background:${farben[i%farben.length]};color:#1e293b;font-size:16px;font-weight:800;text-align:center">${p.map(esc).join(" 🤝 ")}</div>`).join("")}
+  </div>`;
+  _kgPersist(gruppen);
   try{navigator.vibrate&&navigator.vibrate([30,40,30]);}catch(e){}
 }
-function buddyRender(paare){
-  const el=document.getElementById("buddy-result");
-  if(!el)return;
-  el.innerHTML=`<div class="card" style="margin-top:12px;padding:14px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="font-weight:800;font-size:15px">🎲 Buddy-Paare</div>
-      <button class="btn btn-sm" onclick="buddyShuffle()">Neu mischen</button>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">
-      ${paare.map((p,i)=>`<div style="padding:12px;border-radius:10px;background:${["#eff6ff","#f0fdf4","#fef3c7","#fdf2f8","#f0f9ff","#f5f3ff","#fff7ed","#f0fdfa"][i%8]};font-size:16px;font-weight:800;text-align:center">${p.map(esc).join(" 🤝 ")}${p.length===3?' <span style="font-size:10px;font-weight:700;color:#92400e">(3er-Team)</span>':""}</div>`).join("")}
-    </div>
-  </div>`;
-}
-async function buddyPersist(paare){
-  const datum=document.getElementById("aw-date")?.value;
-  if(!datum)return;
+// Persistenz best effort am geplanten Termin (tp-date), sonst am heutigen Termin
+async function _kgPersist(gruppen){
+  const h=new Date(), heute=h.getFullYear()+"-"+String(h.getMonth()+1).padStart(2,"0")+"-"+String(h.getDate()).padStart(2,"0");
+  const datum=document.getElementById("tp-date")?.value||heute;
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine?datum=eq.${encodeURIComponent(datum)}&select=id&limit=1`,{headers:sbAuthHeaders()});
     if(!r.ok)return;
     const rows=await r.json();
     if(!rows.length)return; // kein Termin an dem Tag -> nur Anzeige, kein Fehler
-    await fetch(`${SB_URL}/rest/v1/termine?id=eq.${rows[0].id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({buddies:paare})});
+    await fetch(`${SB_URL}/rest/v1/termine?id=eq.${rows[0].id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({buddies:gruppen})});
   }catch(e){}
 }
 
@@ -570,6 +626,32 @@ async function awPrefillFromNomination(datum){
   if(n){ awRenderStats(); toast(`${n} nominierte Kinder vorgehakt – bitte prüfen & speichern`); }
 }
 
+/* Saison-Übersichten hinter EINER Kachel (PO): Modal mit zwei großen Kacheln,
+   die Inhalte rendern in die bekannten Container-IDs (aw-stats / aw-trainer-stats). */
+function awUebersichtOpen(){
+  document.getElementById("awueb-modal")?.remove();
+  const m=document.createElement("div");m.id="awueb-modal";
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Anwesenheits-Übersicht");
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
+    ${mdlHead("awueb-modal","📊","Übersicht (Saison)","Anwesenheit von Spielern und Trainern","#16a34a")}
+    <div id="awueb-tabs" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px"></div>
+    <div id="awueb-inhalt"></div>
+  </div>`;
+  document.body.appendChild(m);
+  awUebersichtZeig("spieler");
+}
+function awUebersichtZeig(art){
+  const tabs=document.getElementById("awueb-tabs");
+  if(tabs)tabs.innerHTML=[["spieler","🧒","Übersicht Spieler"],["trainer","🧑‍🏫","Übersicht Trainer"]].map(([k,emo,l])=>
+    `<button onclick="awUebersichtZeig('${k}')" style="min-height:72px;border:var(--border-s);${art===k?"border-top:3px solid #16a34a;background:var(--surface2);":"border-top:3px solid transparent;background:var(--surface);"}border-radius:14px;color:var(--text);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 6px">
+      <span style="font-size:26px">${emo}</span><span style="font-size:13.5px;font-weight:800">${l}</span>
+    </button>`).join("");
+  const wrap=document.getElementById("awueb-inhalt"); if(!wrap)return;
+  wrap.innerHTML=art==="spieler"?'<div id="aw-stats"></div>':'<div id="aw-trainer-stats"></div>';
+  art==="spieler"?awRenderStats():awRenderTrainerStats();
+}
 function awRenderTrainerStats(){
   const wrap=document.getElementById("aw-trainer-stats");
   if(!wrap)return;
@@ -801,7 +883,7 @@ function tpRenderTimeline(){
   const allForms=tpAllForms();
   let time=0;
   // F5: Stationstimer + G3: Anwesenheits-Prognose (async gefüllt).
-  let html='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span id="tp-prognose"></span><span style="display:flex;gap:6px"><button class="btn btn-sm" onclick="blitzOpen()" title="Schnelles Turnier zum Trainingsabschluss – Teams automatisch oder von Hand (auch Eltern-Team)">⚡ Blitzturnier</button><button class="btn btn-p btn-sm" onclick="stTimerStart()" title="Stationen am Platz mit Countdown durchlaufen">⏱️ Stationstimer</button></span></div><div id="ziel-uebungen-hint"></div>';
+  let html='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span id="tp-prognose"></span><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-sm" onclick="kleingruppenOpen()" title="2er/3er/4er-Gruppen für Übungen auslosen – zufällig oder ausgewogen">👥 Kleingruppen</button><button class="btn btn-sm" onclick="blitzOpen()" title="Schnelles Turnier zum Trainingsabschluss – Teams automatisch oder von Hand (auch Eltern-Team)">⚡ Blitzturnier</button><button class="btn btn-p btn-sm" onclick="stTimerStart()" title="Stationen am Platz mit Countdown durchlaufen">⏱️ Stationstimer</button></span></div><div id="ziel-uebungen-hint"></div>';
   tpSlots.forEach((slot,si)=>{
     const startMin=time;
     const endMin=time+slot.dauer;
