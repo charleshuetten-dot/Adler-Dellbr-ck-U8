@@ -279,7 +279,7 @@
 
   <!-- SUB: Formen -->
   <div id="train-sub-formen" class="train-sub">
-  <div class="sl nt"><i class="ti ti-run"></i>Trainingsformen-Datenbank</div>
+  <div class="sl nt"><i class="ti ti-ball-football"></i>Übungen</div>
   <div id="period-banner" style="background:var(--blue-bg);border:1px solid #93c5fd;border-radius:var(--rl);padding:12px;margin-bottom:1rem;font-size:12px;color:#1e40af;line-height:1.6"><strong>Schwerpunkt jetzt: Grundordnung &amp; Raute aufbauen.</strong> 50 Spielformen auf Basis des 4-Phasen-Modells.</div>
   <input type="text" id="training-search" placeholder="🔍 Übung suchen (z. B. Passspiel, Funino) …" oninput="clearTimeout(window._tfDebounce);window._tfDebounce=setTimeout(renderTraining,200)"
     style="width:100%;box-sizing:border-box;padding:10px 14px;border:var(--border-s);border-radius:12px;font-size:13.5px;background:var(--surface);font-family:inherit;outline:none;margin-bottom:8px">
@@ -428,7 +428,7 @@
 
   <!-- SUB: Planung -->
   <div id="train-sub-planung" class="train-sub">
-    <div class="sl nt"><i class="ti ti-calendar-event"></i>Trainingseinheit planen</div>
+    <div class="sl nt"><i class="ti ti-calendar-event"></i>Trainingsplan</div>
     <!-- Kopf schlank (PO): Termin volle Breite, Trainer als EINE wischbare Chip-Zeile,
          die Ziel-Dauer wandert in die „Gesamt“-Zeile unter dem Zeitplan. -->
     <div class="mg"><label>Termin</label><select id="tp-date" onchange="tpRenderTimeline();tpPlanRestore(this.value)" style="width:100%;padding:10px 12px;border:var(--border-s);border-radius:var(--r);font-size:14px;background:var(--surface);font-family:inherit;color:var(--text);box-sizing:border-box"><option>Lade Termine…</option></select></div>
@@ -450,8 +450,10 @@
 
   <!-- SUB: Anwesenheit -->
   <div id="train-sub-anwesenheit" class="train-sub">
-    <div class="sl nt"><i class="ti ti-checkbox"></i>Trainings-Anwesenheit</div>
+    <div class="sl nt"><i class="ti ti-checkbox"></i>Anwesenheit</div>
     <div class="mg"><label>Termin</label><select id="aw-date" onchange="awLoad()" style="width:100%;padding:8px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;background:var(--surface);font-family:inherit;color:var(--text)"><option>Lade Termine…</option></select></div>
+    <!-- Standard: heute + kommende Termine (PO). Vergessenes wird bewusst per Klick nachgetragen. -->
+    <div id="aw-nachtragen"></div>
     <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:10px 0 6px">Anwesende Trainer</div>
     <div id="aw-trainer-checks" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><!-- wird aus TRAINER befüllt (D2) --></div>
     <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:10px 0 6px">Spieler</div>

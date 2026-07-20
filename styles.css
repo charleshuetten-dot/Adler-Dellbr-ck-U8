@@ -333,9 +333,11 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 }
 
 /* SUB-TABS (Training) */
-.sub-tab{flex:1;padding:7px 4px;border:none;background:transparent;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;color:var(--text2);display:flex;align-items:center;justify-content:center;gap:4px;font-family:inherit;white-space:nowrap}
-.sub-tab.active{background:var(--blue);color:#fff;box-shadow:0 1px 4px rgba(26,86,219,.25)}
-.sub-tab i{font-size:14px}
+/* PO: die Reiter sollen sich wie die Kacheln anfassen – größer, fetter, Familienfarbe
+   (die Farbe setzt renderSubbar inline je Tab-Familie). */
+.sub-tab{flex:1;min-height:44px;padding:8px 6px;border:none;background:transparent;border-radius:10px;cursor:pointer;font-size:13px;font-weight:800;color:var(--text2);display:flex;align-items:center;justify-content:center;gap:5px;font-family:inherit;white-space:nowrap}
+.sub-tab.active{background:var(--blue);color:#fff}
+.sub-tab i{font-size:16px}
 @keyframes ptrspin{to{transform:rotate(360deg)}}
 .ptr-spin{animation:ptrspin .8s linear infinite}
 .train-sub{display:none}.train-sub.active{display:block}

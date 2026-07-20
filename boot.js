@@ -475,7 +475,18 @@ function terminSelectEnsure(selId, datum){
   sel.value=datum;
 }
 // Anwesenheit: heute + kommende + die letzten 7 Tage (Nachträge) – ältere raus (PO).
-async function awDatesLoad(){ return terminSelectFill("aw-date",{vonTagen:7,onReady:awLoad}); }
+/* PO: In der Auswahl stehen nur heute + kommende Termine – Anwesenheit wird am Platz
+   erfasst. Wer etwas vergessen hat, holt die letzten 3 Wochen bewusst per Klick dazu. */
+async function awDatesLoad(){
+  const hint=document.getElementById("aw-nachtragen");
+  if(hint)hint.innerHTML=`<button class="btn btn-sm" style="margin-top:6px" onclick="awNachtragen()">🕘 Vergangenes nachtragen</button>`;
+  return terminSelectFill("aw-date",{future:true,onReady:awLoad});
+}
+async function awNachtragen(){
+  const hint=document.getElementById("aw-nachtragen");
+  if(hint)hint.innerHTML=`<div style="font-size:11.5px;color:var(--text2);margin-top:6px">🕘 Auch vergangene Termine (3 Wochen) in der Liste</div>`;
+  return terminSelectFill("aw-date",{vonTagen:21,onReady:awLoad});
+}
 function awRenderList(){
   const wrap=document.getElementById("aw-list");
   if(!wrap)return;

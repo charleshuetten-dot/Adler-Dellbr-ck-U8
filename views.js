@@ -2033,9 +2033,10 @@ const TABS={
     {key:"verlauf", label:"Verlauf",  icon:"ti-chart-line"},
   ]},
   training:{sections:[
-    {key:"anwesenheit", label:"Anwesenheit", icon:"ti-checkbox"},
-    {key:"planung",     label:"Planung",     icon:"ti-calendar-event"},
-    {key:"formen",      label:"Formen",      icon:"ti-ball-football"},
+    // Beschriftung muss zur Training-Kachel passen (PO) – ein Name je Sache
+    {key:"anwesenheit", label:"Anwesenheit",   icon:"ti-checkbox"},
+    {key:"planung",     label:"Trainingsplan", icon:"ti-calendar-event"},
+    {key:"formen",      label:"Übungen",       icon:"ti-ball-football"},
     {key:"quizresults", label:"Quiz",        icon:"ti-brain", hidden:true}, // PO: wohnt jetzt unter Eltern & Kinder; go() braucht den Eintrag weiter
   ]},
   spieltag:{sections:[
@@ -2081,7 +2082,9 @@ function renderSubbar(tabId,activeKey){
   const secs=TABS[tabId].sections.filter(s=>!s.hidden);
   if(secs.length<=1){ bar.style.display="none"; bar.innerHTML=""; return; }
   bar.style.display="flex";
-  bar.innerHTML=secs.map(s=>`<button class="sub-tab${s.key===activeKey?' active':''}" onclick="go('${s.key}')"><i class="ti ${s.icon}"></i>${s.label}</button>`).join("");
+  // Aktiver Reiter trägt die Familienfarbe der Kachel (PO: gleiche Optik wie das Kachel-Menü)
+  const fam=(typeof KACHELN!=="undefined"&&KACHELN[tabId])?KACHELN[tabId].col:"var(--blue)";
+  bar.innerHTML=secs.map(s=>`<button class="sub-tab${s.key===activeKey?' active':''}"${s.key===activeKey?` style="background:${fam};box-shadow:none"`:""} onclick="go('${s.key}')"><i class="ti ${s.icon}"></i>${s.label}</button>`).join("");
 }
 function _open(key){
   const sec=SECS[key]; if(!sec)return;
@@ -3126,7 +3129,7 @@ const HELP=[
     {t:"Anwesenheits-Quote", d:"Quote je Kind über die Saison (Training + Spiele).", run:"anwesenheitOpen()"},
     {t:"Planung", d:"Zeitplan bauen, Übungen zuweisen, danach bewerten.", go:"planung"},
     {t:"Einheit bewerten", d:"Schnell-Sterne: Spaß, Umsetzung, Erfolg.", run:"einheitBewertenOpen()"},
-    {t:"Trainingsformen", d:"Bibliothek + Filter · KI-Coach · Saison-Periodisierung. Den Auto-Plan gibt es in der Planung (🪄).", go:"formen"},
+    {t:"Übungen", d:"Die Übungs-Datenbank: Gruppen-Kacheln, ⭐-Filter, Skizze je Übung, ➕ direkt in den Trainingsplan · KI-Coach · Themenplan.", go:"formen"},
     {t:"Blitzturnier", d:"Turnier zum Trainingsabschluss mit Zeitbudget-Automatik: Gesamtzeit (z. B. 40 Min.) und 1–4 Felder vorgeben, die Automatik wählt Format und Spielzeit (5–10 Min., Finale nur bei Restzeit) – reicht die Zeit fair nicht, sagt sie ehrlich, wie viele Minuten fehlen. Zwei Modi: Kinder-Turnier (Trainer spielen auf Wunsch in den Teams mit) oder Kinder gegen Eltern (1–4 Eltern-Teams, Duelle parallel auf den Feldern, Duell-Scoreboard, nie Kind gegen Kind). Spielform wählbar (FUNiño, 4+1, 5+1) mit Team-Vorschlag aus der Kinderzahl. Ein Pfiff für alle Felder.", run:"blitzOpen()"},
   ]},
   {cat:"⚽ Spieltag", items:[
@@ -3193,10 +3196,10 @@ function hilfeRender(q){
 }
 const TOUR=[
   {emo:"🦅", t:"Willkommen in der Adler-App", d:"Die Startseite ist bewusst schlank: Ganz oben erscheinen DEINE To-Dos (nur wenn etwas offen ist), darunter der nächste Termin mit Wetter, das Termin-Karussell – und sechs große Kacheln. Hinter jeder Kachel wartet wieder ein Kachel-Menü. Diese Tour findest du jederzeit über ❓ oben rechts."},
-  {emo:"🏃", t:"Kachel: Training", d:"Anwesenheit erfassen, Trainingsplan mit Stationen bauen (Auto-Plan, KI-Coach, DFB-Regal) und am Platz den Stationstimer laufen lassen. Neu: Das Abschlussspiel im Plan kann direkt als ⚡ Blitzturnier laufen – auch 2 gegen 2 ohne Torwart. Danach die Einheit mit Sternen bewerten."},
+  {emo:"🏃", t:"Kachel: Training", d:"Vier Wege: Anwesenheit (heute + kommende Termine), Trainingsplan mit Stationen und Trainingsstart, die Übungs-Datenbank und das ⚡ Blitzturnier für schnelle Turniere – auch Eltern gegen Kinder. Die Nachbewertung meldet sich nach dem Training von selbst als To-Do auf der Startseite."},
   {emo:"⚽", t:"Kachel: Spieltag", d:"Match-Zentrale mit Nominierung, fairer Auto-Aufstellung, Match-Uhr + Rotations-Timer, Liveticker und Analyse. Steht ein Turnier an, erscheint hier automatisch der Turnier-Bereich (Heimturnier ausrichten mit öffentlichem Link für die Gast-Trainer)."},
   {emo:"👥", t:"Kachel: Team", d:"Kader verwalten, Spieler alle 6 Wochen in 16 Kriterien bewerten (Live-Radar), Profil mit Sprachlob und Entwicklungs-Report, dazu Saison-Cockpit, Anwesenheits-Quote und Rollen-Matrix. Auch Notfallkarten und Probetraining wohnen hier."},
-  {emo:"🎯", t:"Kachel: Taktik", d:"Das Taktikboard: Formationen stellen, Laufwege und Pässe zeichnen, als Bild teilen – auf dem Tablet im großen Pro-Modus. Daneben die Spielformen-Bibliothek."},
+  {emo:"🎯", t:"Kachel: Taktik", d:"Das Taktikboard: Formationen stellen, Laufwege und Pässe zeichnen, als Bild teilen – auf dem Tablet im großen Pro-Modus. Daneben die Übungs-Datenbank."},
   {emo:"🪶", t:"Kachel: Eltern & Kinder", d:"Team-Ansage mit Gelesen-Status, Eltern einladen, Elterngespräche – und die ganze Adler-Welt der Kinder: Federn, Karten, Abzeichen, Kabinen-Wahl, Sammelalbum-Fotos, Team-Quests, Urkunden-Studio und das Adler Nest."},
   {emo:"📅", t:"Kachel: Orga", d:"Termine mit Serien und Endzeit (danach automatisch ins Archiv), Ferien-Radar, Mitbringlisten, Trainer-Meeting, Teamkasse, Ausrüstung und Fundbüro. Ganz unten: Push-Benachrichtigungen und dein Passwort."},
   {emo:"🧭", t:"Und unten?", d:"Die Leiste am unteren Rand führt zu denselben Bereichen – für den schnellen Daumen-Wechsel. Kacheln und Leiste sind dieselbe Logik, nur zwei Wege. Viel Spaß – auf geht's, Adler! 🎉"},
@@ -4205,16 +4208,14 @@ function kachelOpen(key){
 }
 function _kachelInhalt(key){
   const col=(KACHELN[key]||{}).col||"#1a56db";
-  if(key==="training")return kSec("Heute")
-    +kTiles([
+  /* PO: genau 4 Kacheln, Beschriftung IDENTISCH zur Unterseite (Anwesenheit,
+     Trainingsplan, Übungen, Blitzturnier). „Einheit bewerten" ist raus – das kommt
+     nach dem Training als To-Do auf der Startseite. */
+  if(key==="training")return kTiles([
       {emo:"✅",label:"Anwesenheit",fn:"go",arg:"anwesenheit"},
       {emo:"📋",label:"Trainingsplan",fn:"go",arg:"planung"},
+      {emo:"📚",label:"Übungen",fn:"go",arg:"formen"},
       {emo:"⚡",label:"Blitzturnier",fn:"blitzOpen"}
-    ],col)
-    +kSec("Vorbereiten & danach")
-    +kTiles([
-      {emo:"📚",label:"Trainingsformen",fn:"go",arg:"formen"},
-      {emo:"⭐",label:"Einheit bewerten",fn:"einheitBewertenOpen"}
     ],col);
   if(key==="spieltag")return kSec("Rund ums Spiel")
     +kTiles([
@@ -4255,7 +4256,7 @@ function _kachelInhalt(key){
   if(key==="taktik")return kSec("Am Brett")
     +kTiles([
       {emo:"🎯",label:"Taktikboard",fn:"go",arg:"taktik"},
-      {emo:"📚",label:"Spielformen",fn:"go",arg:"formen"}
+      {emo:"📚",label:"Übungen",fn:"go",arg:"formen"}
     ],col);
   if(key==="elki")return kSec("Kommunikation")
     +kTiles([
