@@ -561,7 +561,7 @@ function _blzDuellTeams(nKids){
   _blzTrainerVerteilen();
 }
 function blzElternAnzahl(m){if(!_blzPlanVerwerfen())return;BLZ.elternAnzahl=m;_blzDuellTeams(BLZ.anzahl);blzSave();blzRender();}
-const BLZ_SPIELFORM={funino:["FUNiño (3 gegen 3)",3],f4:["4+1",5],f5:["5+1",6],frei:["frei",0]};
+const BLZ_SPIELFORM={f2:["2 gegen 2 · ohne Torwart",2],funino:["FUNiño (3 gegen 3)",3],f4:["4+1",5],f5:["5+1",6],frei:["frei",0]};
 function blzSpielform(sf){BLZ.spielform=sf;blzSave();blzRender();}
 // Team-Größen-Vorschlag aus Kinderzahl + Spielform (13 Kinder, FUNiño → 4 Teams)
 function _blzTeamVorschlag(){
@@ -569,7 +569,8 @@ function _blzTeamVorschlag(){
   if(!groesse)return null;
   const pool=_blzPool().namen.length;
   if(!pool)return null;
-  return {pool,teams:Math.min(4,Math.max(BLZ.spielmodus==="duell"?1:2,Math.round(pool/groesse)))};
+  const max=BLZ.spielmodus==="duell"?4:6; // 2 gegen 2 braucht viele Teams (13 Kinder → 6)
+  return {pool,teams:Math.min(max,Math.max(BLZ.spielmodus==="duell"?1:2,Math.round(pool/groesse)))};
 }
 function blzModus(m){
   if(m===BLZ.spielmodus)return;
@@ -703,10 +704,12 @@ function _blzVorschauHtml(){
   if(p.hinweis>0)return `<div style="font-size:12px;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:8px 10px;margin-bottom:8px">⏰ Fair (min. ${BLZ_MIN} Min. je Spiel) braucht das kürzeste Format <b>${p.dauer} Min.</b> – das sind <b>${p.hinweis} Min. mehr</b> als geplant. Budget erhöhen, ein Feld dazu – oder bewusst überziehen und trotzdem starten.</div>`;
   return `<div style="font-size:12px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 10px;margin-bottom:8px">✅ Vorschlag: <b>${fmt}</b> à <b>${p.z} Min.</b> → ${p.ms.length} Spiele, ca. <b>${p.dauer} von ${BLZ.budget} Min.</b>${felderTxt}</div>`;
 }
-function blitzOpen(){
+function blitzOpen(vorgabeBudget){
   const alt=_blzLoad();
   if(alt){BLZ=alt;}
   else{const a=_blzAuto(2);BLZ={datum:_blzHeute(),phase:"setup",spielmodus:"kinder",anzahl:2,elternAnzahl:1,spielform:"frei",runde:8,budget:20,felder:1,modus:"rr",quelle:a.quelle,teams:a.teams,trainer:[],plan:[]};blzSave();}
+  // Aus dem Trainingsplan geöffnet: die Dauer des Abschluss-Slots wird zum Zeitbudget
+  if(vorgabeBudget>0&&BLZ.phase==="setup"){BLZ.budget=Math.round(vorgabeBudget);blzSave();}
   document.getElementById("blitz-modal")?.remove();
   const m=document.createElement("div");m.id="blitz-modal";
   m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Blitzturnier");
@@ -725,11 +728,11 @@ function blzRender(){
   el.innerHTML=(BLZ.phase==="setup")?_blzSetupHtml():_blzLiveHtml();
 }
 function _blzSetupHtml(){
-  const chip=(aktiv,label,onclick)=>`<button onclick="${onclick}" style="flex:1;min-height:44px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;background:${aktiv?"#d97706":"var(--surface2)"};color:${aktiv?"#fff":"var(--text2)"}">${label}</button>`;
+  const chip=(aktiv,label,onclick)=>`<button onclick="${onclick}" style="flex:1;min-width:30%;min-height:44px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;background:${aktiv?"#d97706":"var(--surface2)"};color:${aktiv?"#fff":"var(--text2)"}">${label}</button>`;
   const duell=BLZ.spielmodus==="duell";
   const vorschlag=_blzTeamVorschlag();
   const mChips=chip(!duell,"⚽ Kinder-Turnier","blzModus('kinder')")+chip(duell,"👨‍👩‍👧 Kinder gegen Eltern","blzModus('duell')");
-  const nChips=(duell?[1,2,3,4]:[2,3,4]).map(n=>chip(BLZ.anzahl===n,n+(duell?" Kinder-Team"+(n>1?"s":""):" Teams")+(vorschlag&&vorschlag.teams===n?" ✦":""),`blzAnzahl(${n})`)).join("");
+  const nChips=(duell?[1,2,3,4]:[2,3,4,5,6]).map(n=>chip(BLZ.anzahl===n,n+(duell?" Kinder-Team"+(n>1?"s":""):" Teams")+(vorschlag&&vorschlag.teams===n?" ✦":""),`blzAnzahl(${n})`)).join("");
   const eChips=[1,2,3,4].map(m=>chip((BLZ.elternAnzahl||1)===m,m+" Eltern-Team"+(m>1?"s":""),`blzElternAnzahl(${m})`)).join("");
   const sfChips=Object.entries(BLZ_SPIELFORM).map(([k,v])=>chip((BLZ.spielform||"frei")===k,v[0],`blzSpielform('${k}')`)).join("");
   const bChips=[15,20,30,40,0].map(b=>chip((BLZ.budget||0)===b,b?b+" Min.":"frei",`blzBudget(${b})`)).join("");

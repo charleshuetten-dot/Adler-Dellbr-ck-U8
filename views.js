@@ -3103,9 +3103,12 @@ async function saisonCockpitOpen(){
    TRAINER-HILFE + FEATURE-TOUR
 ═══════════════════════════════════ */
 const HELP=[
-  {cat:"🏠 Start & Team", items:[
-    {t:"Dashboard", d:"Deine To-Dos (Zusagen, Einheit, Sprachlob), nächster Termin mit Wetter, Schnellzugriffe, Ferien-Radar.", go:"home"},
+  {cat:"🏠 Start", items:[
+    {t:"Startseite", d:"To-Do-Banner (nur bei offenen Aufgaben), nächster Termin mit Wetter, Termin-Karussell und sechs große Kacheln – dahinter jeweils ein Kachel-Menü.", go:"home"},
+  ]},
+  {cat:"👥 Team", items:[
     {t:"Saison-Cockpit", d:"Torschützen, Anwesenheit, Rückmelde-Tempo der Familien, faire Einsätze, Kinder-Stimmung, Eltern-Puls – alles auf einen Blick.", run:"saisonCockpitOpen()"},
+    {t:"Probetraining", d:"Schnupperkinder verwalten – bewusst getrennt vom Kader, Auto-Löschung nach Entscheidung.", run:"probeOpen()"},
     {t:"Kader", d:"Spieler anlegen/bearbeiten, Trikotnummer, Foto, Kontakte, Foto-Freigabe.", go:"kader"},
     {t:"Bewerten", d:"Spieler in 16 Kriterien einschätzen – mit Live-Radar.", go:"bew"},
     {t:"Profil", d:"Spielerprofil, Stärken, Adler-Karte, Entwicklungs-Report drucken.", go:"profil"},
@@ -3123,26 +3126,25 @@ const HELP=[
     {t:"Match", d:"Nominierung, Match-Uhr, Live-Aktionen, Rotations-Timer für faire Zeiten.", go:"spieltag"},
     {t:"Aufstellung", d:"Auto-Aufstellung mit fairen Einsatzzeiten.", go:"kombi"},
     {t:"Analyse", d:"Auswertung nach dem Spiel.", go:"analyse"},
-    {t:"Taktikboard", d:"Formationen stellen, Laufwege/Pässe zeichnen, als Bild teilen.", go:"taktik"},
     {t:"Heimturnier ausrichten", d:"Eigenes Turnier: Teams aus der Gegner-DB (auch 2. Mannschaften), 2–4 Gruppen nach Meldezahl, 1–4 Felder parallel, Spielform (FUNiño, 4+1, 5+1 …) mit Regelwerk, Live-Ergebnisse, „Rest +5 Min.“-Verschieber, Live-Durchsage, Fair-Play-Pokal, Team-Urkunden- und Feld-Aushang-Druck – Zuschauer-Link/QR ohne Login (mit Team-Filter und Monitor-Modus), Helfer-Link fürs Ergebnis-Eintragen am Anzeigetisch.", run:"htOpen()"},
   ]},
-  {cat:"🪶 Adler-Welt (Kids)", items:[
+  {cat:"🎯 Taktik", items:[
+    {t:"Taktikboard", d:"Formationen stellen, Laufwege/Pässe zeichnen, als Bild teilen – auf dem Tablet im Pro-Modus.", go:"taktik"},
+  ]},
+  {cat:"🪶 Eltern & Kinder", items:[
+    {t:"Team-Ansage", d:"Wichtige Info an alle Eltern – mit Gelesen-Status (wer fehlt noch?).", run:"ansageTrainerOpen()"},
+    {t:"Adler Nest", d:"Digitales Stadionheft erstellen & drucken.", run:"stadionheftOpen()"},
+    {t:"Eltern-Bereich", d:"Eltern melden sich per Link/Einmal-Code an: RSVP, Karte, Quiz, Betreuung vor Ort."},
     {t:"Adler-Welt-Hub", d:"Federn je Kind, FUT-Karten, Technik-Abzeichen und Wochen-Challenge an einem Ort.", run:"adlerWeltOpen()"},
     {t:"Kabinen-Wahl", d:"Die Kinder stimmen ab (Song, Motto, Spielform) – du legst die Optionen fest.", run:"wahlTrainerOpen()"},
     {t:"Album-Karten-Fotos", d:"Bilder für die Trainer- und Vereins-Sticker im Panini-Sammelalbum.", run:"albumFotosOpen()"},
     {t:"Urkunden-Studio", d:"Saison-Urkunden für alle Kinder in einem Druck + freie Anlass-Urkunde.", run:"urkundenOpen()"},
     {t:"Quiz (Kinder)", d:"Kinder spielen über den Kids-Link (?quiz); Ergebnisse hier unter Training → Quiz.", go:"quizresults"},
   ]},
-  {cat:"📅 Orga & Eltern", items:[
-    {t:"Termine", d:"Anlegen/bearbeiten · Endzeit (danach automatisch ins Archiv) · Platz · Trainer-Verfügbarkeit · Wetter · Ferien-Warnung.", go:"termine"},
-    {t:"Team-Ansage", d:"Wichtige Info an alle Eltern – mit Gelesen-Status (wer fehlt noch?).", run:"ansageTrainerOpen()"},
-    {t:"Probetraining", d:"Schnupperkinder verwalten – bewusst getrennt vom Kader, Auto-Löschung nach Entscheidung.", run:"probeOpen()"},
+  {cat:"📅 Orga", items:[
+    {t:"Termine", d:"Anlegen/bearbeiten · Serien · Endzeit (danach automatisch ins Archiv) · Platz · Trainer-Verfügbarkeit · Wetter · Ferien-Warnung.", go:"termine"},
     {t:"Gegner-Datenbank", d:"Adresse, Ansprechpartner, Telefon/WhatsApp, bisherige Spiele.", run:"gegnerManageOpen()"},
-    {t:"Adler Nest", d:"Digitales Stadionheft erstellen & drucken.", run:"stadionheftOpen()"},
     {t:"Pinnwand", d:"Team-Notizen fürs Trainerteam.", go:"team"},
-    {t:"Eltern-Bereich", d:"Eltern melden sich per Link/Einmal-Code an: RSVP, Karte, Quiz, Betreuung vor Ort."},
-  ]},
-  {cat:"🧰 Extras", items:[
     {t:"Teamkasse", d:"Kassen-Link hinterlegen (kein Geld in der App).", run:"kasseOpen()"},
     {t:"Fundbüro", d:"Liegengebliebenes verwalten.", run:"fundbueroOpen()"},
     {t:"Team-Ausrüstung", d:"Wer hat welches Material.", run:"ausruestungGrid()"},
@@ -3183,13 +3185,14 @@ function hilfeRender(q){
   box.innerHTML=html||`<div style="font-size:12px;color:var(--text3);padding:10px 0">Nichts gefunden.</div>`;
 }
 const TOUR=[
-  {emo:"🦅", t:"Willkommen in der Adler-App", d:"Ein kurzer Rundgang durch die wichtigsten Bereiche. Ganz oben auf der Startseite warten übrigens DEINE To-Dos: Zusagen, Einheiten nachbereiten, Sprachlob. Alles hier findest du danach jederzeit über ❓ oben rechts."},
-  {emo:"📋", t:"Team & Bewertung", d:"Unter „Team\" legst du den Kader an, schätzt Spieler in 16 Kriterien ein (Live-Radar) und druckst pro Kind einen Entwicklungs-Report. Im Profil siehst du auch, wie sich das Kind SELBST sieht („Meine Stärken\" aus der Kabine)."},
-  {emo:"🏃", t:"Training", d:"Anwesenheit erfassen, Zeitplan bauen, per „Auto-Plan\" eine ganze Einheit vorschlagen lassen, KI-Coach für Übungen – danach die Einheit mit Sternen bewerten. Unter „Formen\" wartet zusätzlich das offizielle DFB-Übungs-Regal."},
-  {emo:"⚽", t:"Spieltag", d:"Nominierung, Auto-Aufstellung mit fairen Einsatzzeiten, Match-Uhr + Rotations-Timer, Live-Aktionen und Analyse. Tipp: Speichere die Aufstellung – die Kinder decken dann in der Kabine ihre Rolle auf! 🎁"},
-  {emo:"📣", t:"Eltern erreichen", d:"„Team-Ansage\" schickt wichtige Infos an alle Eltern – mit Gelesen-Status (wer fehlt noch?). Dazu: Elterngespräch-Termine, Helfer-Board am Termin und das Elternhelfer-Prinzip „Betreuung in den Pausen\"."},
-  {emo:"🪶", t:"Adler-Welt (Kids)", d:"Federn, FUT-Karten, Abzeichen, Wochen-Challenge, Kabinen-Wahl und das Panini-Sammelalbum mit Sticker-Tüten & Tauschbörse. Dort pflegst du auch Fotos für die Trainer- und Vereins-Karten."},
-  {emo:"📅", t:"Orga", d:"Termine mit Endzeit (danach wandern sie automatisch ins Archiv), Wetter, Ferien-Radar und Trainer-Verfügbarkeit. Dazu Gegner-Datenbank, Probetraining-Verwaltung und das Urkunden-Studio fürs Saisonende. Viel Spaß! 🎉"},
+  {emo:"🦅", t:"Willkommen in der Adler-App", d:"Die Startseite ist bewusst schlank: Ganz oben erscheinen DEINE To-Dos (nur wenn etwas offen ist), darunter der nächste Termin mit Wetter, das Termin-Karussell – und sechs große Kacheln. Hinter jeder Kachel wartet wieder ein Kachel-Menü. Diese Tour findest du jederzeit über ❓ oben rechts."},
+  {emo:"🏃", t:"Kachel: Training", d:"Anwesenheit erfassen, Trainingsplan mit Stationen bauen (Auto-Plan, KI-Coach, DFB-Regal) und am Platz den Stationstimer laufen lassen. Neu: Das Abschlussspiel im Plan kann direkt als ⚡ Blitzturnier laufen – auch 2 gegen 2 ohne Torwart. Danach die Einheit mit Sternen bewerten."},
+  {emo:"⚽", t:"Kachel: Spieltag", d:"Match-Zentrale mit Nominierung, fairer Auto-Aufstellung, Match-Uhr + Rotations-Timer, Liveticker und Analyse. Steht ein Turnier an, erscheint hier automatisch der Turnier-Bereich (Heimturnier ausrichten mit öffentlichem Link für die Gast-Trainer)."},
+  {emo:"👥", t:"Kachel: Team", d:"Kader verwalten, Spieler alle 6 Wochen in 16 Kriterien bewerten (Live-Radar), Profil mit Sprachlob und Entwicklungs-Report, dazu Saison-Cockpit, Anwesenheits-Quote und Rollen-Matrix. Auch Notfallkarten und Probetraining wohnen hier."},
+  {emo:"🎯", t:"Kachel: Taktik", d:"Das Taktikboard: Formationen stellen, Laufwege und Pässe zeichnen, als Bild teilen – auf dem Tablet im großen Pro-Modus. Daneben die Spielformen-Bibliothek."},
+  {emo:"🪶", t:"Kachel: Eltern & Kinder", d:"Team-Ansage mit Gelesen-Status, Eltern einladen, Elterngespräche – und die ganze Adler-Welt der Kinder: Federn, Karten, Abzeichen, Kabinen-Wahl, Sammelalbum-Fotos, Team-Quests, Urkunden-Studio und das Adler Nest."},
+  {emo:"📅", t:"Kachel: Orga", d:"Termine mit Serien und Endzeit (danach automatisch ins Archiv), Ferien-Radar, Mitbringlisten, Trainer-Meeting, Teamkasse, Ausrüstung und Fundbüro. Ganz unten: Push-Benachrichtigungen und dein Passwort."},
+  {emo:"🧭", t:"Und unten?", d:"Die Leiste am unteren Rand führt zu denselben Bereichen – für den schnellen Daumen-Wechsel. Kacheln und Leiste sind dieselbe Logik, nur zwei Wege. Viel Spaß – auf geht's, Adler! 🎉"},
 ];
 let tourIdx=0;
 // Nie im Kinder-Quiz: ?quiz laesst #home-content im DOM, renderHome laeuft also mit und

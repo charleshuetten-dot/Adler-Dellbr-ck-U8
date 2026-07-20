@@ -819,7 +819,10 @@ function tpRenderTimeline(){
         <button class="tp-remove" onclick="tpRemoveSlot(${si})"><i class="ti ti-trash"></i></button>
       </div>`;
     if(noSelect){
-      html+=`<div style="font-size:11px;color:var(--text2);padding:4px 0">Freies Spiel – alle Kinder zusammen</div>`;
+      // PO-Wunsch: das Abschlussspiel kann direkt als Blitzturnier laufen – die Slot-Dauer
+      // wird zum Zeitbudget (auch 2 gegen 2 ohne Torwart mit bis zu 6 Teams).
+      html+=`<div style="font-size:11px;color:var(--text2);padding:4px 0">Freies Spiel – alle Kinder zusammen</div>
+        <button class="btn btn-sm" style="margin-top:4px" onclick="blitzOpen(${Number(slot.dauer)||15})" title="Blitzturnier mit dieser Slot-Dauer als Zeitbudget – Spielform wählbar, z. B. 2 gegen 2 ohne Torwart">⚡ Als Blitzturnier spielen (${slot.dauer} Min.)</button>`;
     } else if(typ==="tw"){
       const twPlayers=KADER.filter(k=>k.tw);
       html+=`<div style="margin-top:6px">
