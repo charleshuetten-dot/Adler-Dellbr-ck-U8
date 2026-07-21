@@ -614,7 +614,9 @@ async function kgLos(modus){
     // Reste vergrößern die LETZTEN Gruppen (13 in 4ern = 4+4+5, keine Mini-Gruppe)
     const rest=namen.length-g*gr;
     let idx=0;
-    for(let gi=0;gi<g;gi++){const size=gr+(gi>=g-rest?1:0);for(let j=0;j<size;j++)gruppen[gi].push(namen[idx++]);}
+    // min(): bei weniger Kindern als Gruppengröße (3 Kinder, 4er-Gruppen) wäre rest
+    // negativ und die Schleife hätte über das Array hinaus gegriffen → "undefined" im Team.
+    for(let gi=0;gi<g;gi++){const size=Math.min(gr+(gi>=g-rest?1:0),namen.length-idx);for(let j=0;j<size;j++)gruppen[gi].push(namen[idx++]);}
   }
   const farben=["#eff6ff","#f0fdf4","#fef3c7","#fdf2f8","#f0f9ff","#f5f3ff","#fff7ed","#f0fdfa"];
   const el=document.getElementById("kg-result");
@@ -927,6 +929,13 @@ function tpRenderTimeline(){
     +'<div id="ziel-uebungen-hint"></div>';
   // Individual läuft PARALLEL zu einem Hauptteil (PO) – Alt-Slots ohne Zuordnung bekommen
   // automatisch den ersten Hauptteil; die Zeitfenster paralleler Slots kommen vom Ziel.
+  // Ungültige Ziele (gelöscht, kein Hauptteil, auf sich selbst) zuerst zurücksetzen,
+  // damit die Auto-Zuordnung darunter greifen kann.
+  tpSlots.forEach((s,i)=>{
+    if(s.parallelZu==null)return;
+    const z=tpSlots[s.parallelZu];
+    if(!z||s.parallelZu===i||(z.typ||"main")!=="main")s.parallelZu=null;
+  });
   tpSlots.forEach(s=>{if(s.typ==="individual"&&s.parallelZu==null){const mi=tpSlots.findIndex(x=>(x.typ||"main")==="main");if(mi>=0)s.parallelZu=mi;}});
   let acc=0; const startsArr=tpSlots.map(s=>{const st0=acc;if(!((s.typ||"main")==="individual"&&s.parallelZu!=null))acc+=s.dauer;return st0;});
   /* Render-Reihenfolge: parallele Einzeltrainings stehen direkt UNTER ihrem Ziel-Slot
@@ -946,7 +955,7 @@ function tpRenderTimeline(){
     const endMin=startMin+(parallel?tpSlots[slot.parallelZu].dauer:slot.dauer);
     const noGroups=typ==="warmup"||typ==="abschluss"||typ==="tw";
     const noSelect=typ==="abschluss";
-    const parallelSlots=noGroups?1:Math.min(trainerCount,5);
+    const parallelSlots=noGroups?1:Math.min(Math.max(1,trainerCount),5); // ohne angehakten Trainer sonst 0 Stationen = kein Uebungs-Picker
     const filtered=tpFilteredOpts(typ);
     const formOpts=filtered.map(x=>`<option value="${x.i}">${x.f.name} (${x.f.dauer})</option>`).join("");
 
@@ -1248,6 +1257,14 @@ function tpDoAddSlot(idx){
 
 function tpRemoveSlot(idx){
   tpSlots.splice(idx,1);
+  /* parallelZu zeigt auf einen ARRAY-INDEX – nach dem Splice verschiebt sich alles
+     dahinter. Ohne Nachziehen hing ein Einzeltraining plötzlich am falschen Hauptteil
+     (oder an einem gelöschten Slot, dann verschluckte _tlSnapshot es ganz). */
+  tpSlots.forEach(s=>{
+    if(s.parallelZu==null)return;
+    if(s.parallelZu===idx)s.parallelZu=null;      // Ziel wurde gelöscht → neu zuordnen
+    else if(s.parallelZu>idx)s.parallelZu--;
+  });
   tpRenderTimeline();
 }
 
@@ -1824,7 +1841,7 @@ function tpGenerate(){
       const typ=slot.typ||"main";
       if(typ==="abschluss")return;
       const noGroups=typ==="warmup"||typ==="abschluss"||typ==="tw";
-      const parallelSlots=noGroups?1:Math.min(trainerCount,5);
+      const parallelSlots=noGroups?1:Math.min(Math.max(1,trainerCount),5); // ohne angehakten Trainer sonst 0 Stationen = kein Uebungs-Picker
       for(let p=0;p<parallelSlots;p++){
         const sel=document.getElementById(`tp-form-${si}-${p}`);
         if(!sel)continue;
@@ -2173,6 +2190,8 @@ async function tlStart(){
   if(!me){toast("Bitte als Trainer anmelden","err");return;}
   const pflicht=tpGetCheckedTrainers();
   if(!pflicht.length){toast("Erst oben die Trainer von heute anhaken","err");return;}
+  // Ohne Stationen gibt es nichts zu starten – sonst hängt die Runde unaufhaltsam auf „läuft".
+  if(!_tlSnapshot().length){toast("Erst Stationen mit Übungen planen","err");return;}
   if(!pflicht.includes(me)&&pflicht.length)pflicht.push(me);
   const vorhanden=await _tlFetch();
   if(vorhanden===undefined){toast("Kein Netz – nimm den ⏱️ Stationstimer (läuft ohne Server)","err");return;}
@@ -2244,14 +2263,21 @@ async function _tlAdvance(){
   const row=_tl.row; if(!row)return;
   const slots=(row.plan&&row.plan.slots)||[];
   if(row.status==="lobby"){
-    const alleBereit=(row.pflicht||[]).every(t=>row.bereit&&row.bereit[t]);
-    if(alleBereit&&(row.pflicht||[]).length){
+    /* Es muss GENAU die Menge zählen, die die Lobby auch anzeigt: ab Station 2 sind das
+       nur die Trainer dieser Station. Vorher wartete der Übergang auf alle Pflicht-Trainer –
+       ein Kollege ohne Gruppe an dieser Station hat das Training stillschweigend blockiert. */
+    const noetig=row.slot===0?(row.pflicht||[]):_tlSlotTrainer(row,row.slot);
+    const alleBereit=noetig.every(t=>row.bereit&&row.bereit[t]);
+    if(alleBereit&&noetig.length){
       await _tlPatch({status:"laeuft",slot_start:new Date(Date.now()+10000).toISOString()},"lobby");
       const neu=await _tlFetch(); if(neu)_tl.row=neu;
     }
   }else if(row.status==="laeuft"){
     const st=slots[row.slot];
-    if(st){
+    // Ohne Station (leerer Plan / Index über dem Ende) gab es KEINEN Ausweg mehr: die
+    // Session blieb auf "laeuft" und riss auf jedem Handy das Vollbild auf.
+    if(!st){ await _tlPatch({status:"fertig"},"laeuft"); const n=await _tlFetch(); if(n)_tl.row=n; }
+    else{
       const noetig=_tlSlotTrainer(row,row.slot);
       const alleFertig=noetig.every(t=>((row.fertig||{})[t]||[]).includes(row.slot));
       if(alleFertig&&noetig.length){
