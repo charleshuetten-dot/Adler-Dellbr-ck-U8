@@ -821,12 +821,8 @@ function tpLastUsedDays(formIdx){
   const last=new Date(h[0]); if(isNaN(last))return null;
   return Math.max(0,Math.floor((Date.now()-last.getTime())/86400000));
 }
-function autoPlanFreshHint(formIdx){
-  const d=tpLastUsedDays(formIdx);
-  if(d===null)return '<span style="color:#16a34a">🆕 neu</span>';
-  if(d<14)return `<span style="color:#b45309">⚠️ vor ${d} T.</span>`;
-  return `<span style="color:var(--text3)">zuletzt vor ${d} T.</span>`;
-}
+/* autoPlanFreshHint entfernt (letzter Nutzer war autoPlanBuild) – die Uebungs-Datenbank
+   zeigt die Frische selbst in _tfKarte an. */
 
 function tpGetTrainerCount(){
   return document.querySelectorAll("#tp-trainer-checks input:checked").length;
@@ -1151,7 +1147,7 @@ async function rolleLos(lbl,emo){
   for(let i=namen.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[namen[i],namen[j]]=[namen[j],namen[i]];}
   const gezogen=namen.slice(0,_rolleAnzahl);
   const el=document.getElementById("rolle-result");
-  if(el)el.innerHTML=`<div style="background:#f0fdf4;border:2px solid #4ade80;border-radius:14px;padding:16px;text-align:center">
+  if(el)el.innerHTML=`<div style="background:#f0fdf4;color:#14532d;border:2px solid #4ade80;border-radius:14px;padding:16px;text-align:center">
       <div style="font-size:40px">${emo}</div>
       <div style="font-size:20px;font-weight:900;margin-top:6px">${gezogen.map(esc).join(" & ")}</div>
       <div style="font-size:12px;color:#166534;margin-top:4px">${gezogen.length===1?"startet":"starten"} als ${lbl}!</div>
@@ -1897,55 +1893,10 @@ function tpRenderTeamFokus(){
 // Reiner Vorschlag – keine Persistenz, „neu würfeln" mischt neu. Läuft im Trainer-Tab.
 const AUTOPLAN_DIMKAT={tech:["technik","passspiel"],raute:["raute","pressing","wahrnehmung"],phys:["aufwaermen","individual","spass"],mental:["mindset"],entw:["wahrnehmung","mindset"]};
 const AUTOPLAN_DIMLABEL={tech:"Technik & Ball",raute:"Rauten-IQ & Taktik",phys:"Physis & Motorik",mental:"Mentalität & Charakter",entw:"Entwicklung"};
-function autoPlanPick(kats,used){
-  const forms=tpAllForms().map((f,i)=>({i,f})).filter(x=>x.f&&kats.includes(x.f.kat)&&!used.has(x.i));
-  if(!forms.length)return null;
-  const focus=forms.filter(x=>x.f.focus), base=focus.length?focus:forms;
-  // Vielfalt: frische Übungen (nie oder >14 Tage nicht genutzt) bevorzugen
-  const fresh=base.filter(x=>{const d=tpLastUsedDays(x.i);return d===null||d>=14;});
-  const pool=fresh.length?fresh:base;
-  const pick=pool[Math.floor(Math.random()*pool.length)];
-  used.add(pick.i);
-  return pick;
-}
-async function autoPlanBuild(){
-  const box=document.getElementById("autoplan-box"); if(!box)return;
-  box.innerHTML=`<div style="padding:10px;color:var(--text3);font-size:12px">🪄 Baue Trainings-Ablauf…</div>`;
-  // Monats-Schwerpunkt aus der Periodisierung
-  const monat=new Date().toISOString().slice(0,7); let period=null;
-  try{const r=await fetch(`${SB_URL}/rest/v1/periodisierung?monat=eq.${monat}&select=*`,{headers:sbAuthHeaders()});if(r.ok)period=(await r.json())[0];}catch(e){}
-  const periodKat=period&&period.kategorie?period.kategorie:null;
-  // schwächster Team-Wert
-  let weakKats=[], weakLabel=null;
-  try{
-    const agg=teamAggregate()||{}, avg=agg.avg||{};
-    const sorted=Object.entries(avg).filter(([,v])=>v!=null).sort((a,b)=>a[1]-b[1]);
-    if(sorted.length){ weakLabel=AUTOPLAN_DIMLABEL[sorted[0][0]]||null; weakKats=AUTOPLAN_DIMKAT[sorted[0][0]]||[]; }
-  }catch(e){}
-  const used=new Set(), blocks=[];
-  const warm=autoPlanPick(["aufwaermen"],used); if(warm)blocks.push({label:"Aufwärmen & Aktivierung",min:10,pick:warm,tag:"🔥"});
-  if(periodKat){ const sp=autoPlanPick([periodKat],used); if(sp)blocks.push({label:"Monats-Schwerpunkt"+(period.thema?": "+period.thema:""),min:20,pick:sp,tag:"🎯"}); }
-  if(weakKats.length){ const wk=autoPlanPick(weakKats,used); if(wk)blocks.push({label:"Team-Schwäche"+(weakLabel?": "+weakLabel:""),min:15,pick:wk,tag:"📊"}); }
-  if(blocks.length<3){ const fill=autoPlanPick(["technik","passspiel","wahrnehmung"],used); if(fill)blocks.push({label:"Haupt-Block",min:20,pick:fill,tag:"⚽"}); }
-  const fin=autoPlanPick(["spass"],used); if(fin)blocks.push({label:"Abschlussspiel",min:15,pick:fin,tag:"🏆"});
-  if(!blocks.length){ box.innerHTML=`<div style="padding:10px;color:var(--text3);font-size:12px">Keine passenden Übungen gefunden.</div>`; return; }
-  const total=blocks.reduce((s,b)=>s+b.min,0);
-  box.innerHTML=`<div class="card" style="padding:12px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div style="font-size:12px;font-weight:800;color:var(--text)">🪄 Auto-Trainingsplan <span style="font-weight:600;color:var(--text3)">· ~${total} Min</span></div>
-      <button class="btn btn-sm" onclick="autoPlanBuild()"><i class="ti ti-refresh"></i>Neu würfeln</button>
-    </div>
-    ${blocks.map((b,n)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${n<blocks.length-1?"border-bottom:var(--border)":""}">
-      <div style="font-size:18px;width:24px;text-align:center">${b.tag}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3)">${esc(b.label)} · ${b.min} Min</div>
-        <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(b.pick.f.name)} <span style="font-size:10px;font-weight:600">${autoPlanFreshHint(b.pick.i)}</span></div>
-      </div>
-      <button class="btn btn-sm" onclick="tpShowExercise(${b.pick.i})"><i class="ti ti-eye"></i></button>
-    </div>`).join("")}
-    <div style="font-size:10px;color:var(--text3);margin-top:8px">Vorschlag aus Monats-Schwerpunkt + Team-Daten. Alles anpassbar – „neu würfeln\" für Alternativen.</div>
-  </div>`;
-}
+/* autoPlanPick/autoPlanBuild (alte Vorschlags-Box im Formen-Reiter) entfernt: der
+   Container #autoplan-box existiert seit dem Formen-Umbau nicht mehr, der Auto-Plan
+   der Planung ist tpGenerate(). AUTOPLAN_DIMKAT/-DIMLABEL bleiben – die Uebungs-
+   Datenbank markiert damit Uebungen zur schwaechsten Team-Dimension. */
 function tpRenderMindsetTip(){
   const allForms=tpAllForms();
   const rituale=["Die Kraft des NOCH","Reset-Knopf","Drei-gute-Dinge-Kreis"];
@@ -1960,7 +1911,7 @@ function tpRenderMindsetTip(){
     if(!timeline)return;
     timeline.insertAdjacentElement("afterend",box);
   }
-  box.innerHTML=`<div style="margin-top:10px;padding:10px 12px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:var(--rl)">
+  box.innerHTML=`<div style="margin-top:10px;padding:10px 12px;background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;border-radius:var(--rl)">
     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#047857;margin-bottom:4px">🧠 Mindset-Baustein des Tages</div>
     <div style="font-size:12.5px;font-weight:600;color:var(--text)">${esc(wahl.f.name)}</div>
     <div style="font-size:11px;color:var(--text2);margin:2px 0 6px">${esc(wahl.f.kurz||"")}</div>

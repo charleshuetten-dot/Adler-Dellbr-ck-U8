@@ -37,7 +37,7 @@ function computeMilestones(){
 function anRenderMeilensteine(){
   const box=document.getElementById("an-meilensteine");if(!box)return;
   const ms=computeMilestones();
-  box.innerHTML=ms.length?ms.slice(0,12).map(m=>`<div style="display:flex;gap:8px;align-items:center;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:var(--rl);padding:8px 10px;margin-bottom:6px">
+  box.innerHTML=ms.length?ms.slice(0,12).map(m=>`<div style="display:flex;gap:8px;align-items:center;background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;border-radius:var(--rl);padding:8px 10px;margin-bottom:6px">
     <span style="font-size:18px">💡</span>
     <div style="font-size:12.5px;color:var(--text)"><strong>${esc(m.name)}</strong>: ${esc(m.label)}${m.isTotal?` +${m.diff}% Niveau`:` von ${m.from} auf ${m.to}`} – heute loben! 🎉</div>
   </div>`).join(""):'<div style="font-size:11px;color:var(--text3)">Noch nicht genug Verlaufsdaten (mind. 2 Bewertungen mit ~2 Monaten Abstand pro Spieler).</div>';
@@ -89,7 +89,7 @@ function showMilestoneHint(){
   const m=ms[0];
   const bar=document.createElement("div");
   bar.style.cssText="position:fixed;left:12px;right:12px;bottom:12px;z-index:8000;background:#065f46;color:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 6px 24px rgba(0,0,0,.25);font-size:12.5px;display:flex;align-items:center;gap:10px";
-  bar.innerHTML=`<span style="font-size:20px">💡</span><div style="flex:1">Tipp: <strong>${esc(m.name)}</strong> hat sich bei „${esc(m.label)}" stark verbessert – heute loben!</div><button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:8px 10px;cursor:pointer;min-height:36px">OK</button>`;
+  bar.innerHTML=`<span style="font-size:20px">💡</span><div style="flex:1">Tipp: <strong>${esc(m.name)}</strong> hat sich bei „${esc(m.label)}" stark verbessert – heute loben!</div><button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:8px 10px;cursor:pointer;min-height:44px">OK</button>`;
   document.body.appendChild(bar);
   setTimeout(()=>{if(bar.parentElement)bar.remove();},14000);
 }

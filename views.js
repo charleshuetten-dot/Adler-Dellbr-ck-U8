@@ -1618,7 +1618,7 @@ function cardHoloSetTier(wrap,sk){
 // Selbst gemaltes Konfetti (keine externe Library → offline-tauglich).
 function confettiBurst(ms){
   const cv=document.createElement("canvas");
-  cv.style.cssText="position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:10009";
+  cv.style.cssText="position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:10072";
   cv.width=window.innerWidth;cv.height=window.innerHeight;
   document.body.appendChild(cv);
   const ctx=cv.getContext("2d");
@@ -1649,7 +1649,7 @@ function cardCelebrate(wrap,sk,label){
   const modal=document.getElementById("adler-card-modal");
   if(modal){
     const b=document.createElement("div");
-    b.style.cssText="position:fixed;top:12%;left:50%;z-index:10010;background:"+((sk&&sk.border)||"#facc15")+";color:#1a1205;font-weight:900;font-size:16px;padding:10px 18px;border-radius:30px;box-shadow:0 8px 30px rgba(0,0,0,.45);animation:cardBanner 2.8s ease-out forwards";
+    b.style.cssText="position:fixed;top:12%;left:50%;z-index:10073;background:"+((sk&&sk.border)||"#facc15")+";color:#1a1205;font-weight:900;font-size:16px;padding:10px 18px;border-radius:30px;box-shadow:0 8px 30px rgba(0,0,0,.45);animation:cardBanner 2.8s ease-out forwards";
     b.textContent=(sk&&sk.emo?sk.emo+" ":"🎉 ")+"Level-Up: "+label+"!";
     modal.appendChild(b);setTimeout(()=>b.remove(),2900);
   }
@@ -2201,8 +2201,8 @@ async function tpollRender(){
       const zstr=s.uhrzeit?" · "+String(s.uhrzeit).slice(0,5):"";
       const decided=p.decided_slot_id===s.id;
       const voteBtns=["ja","vielleicht","nein"].map(st=>{const on=mine===st;const emo=st==="ja"?"✓":st==="vielleicht"?"?":"✗";const col=st==="ja"?"#16a34a":st==="vielleicht"?"#ca8a04":"#dc2626";
-        return `<button onclick="tpollVote(${s.id},'${st}')" style="width:34px;height:34px;border-radius:8px;border:1.5px solid ${on?col:"#cbd5e1"};background:${on?col:"var(--surface)"};color:${on?"#fff":"var(--text2)"};cursor:pointer;font-weight:800">${emo}</button>`;}).join("");
-      return `<div style="border:var(--border-s);${decided?"border-color:#16a34a;background:#f0fdf4;":""}border-radius:10px;padding:8px 10px;margin-top:6px">
+        return `<button onclick="tpollVote(${s.id},'${st}')" style="min-width:44px;min-height:44px;border-radius:8px;border:1.5px solid ${on?col:"#cbd5e1"};background:${on?col:"var(--surface)"};color:${on?"#fff":"var(--text2)"};cursor:pointer;font-weight:800">${emo}</button>`;}).join("");
+      return `<div style="border:var(--border-s);${decided?"border-color:#16a34a;background:#f0fdf4;color:#14532d;":""}border-radius:10px;padding:8px 10px;margin-top:6px">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <div style="flex:1;min-width:110px;font-size:12.5px;font-weight:700">${dstr}${zstr}${decided?' <span style="color:#16a34a">✅ festgelegt</span>':""}</div>
           <div style="display:flex;gap:4px">${voteBtns}</div>
@@ -2298,7 +2298,7 @@ async function epollTrainerRender(prefillSpieler){
       const zstr=s.uhrzeit?" · "+String(s.uhrzeit).slice(0,5):"";
       const decided=p.decided_slot_id===s.id;
       const antwort=vs.length?`👍 ${ja} · 🤔 ${viel} · 👎 ${nein}`:'<span style="color:var(--text3)">noch keine Antwort</span>';
-      return `<div style="border:var(--border-s);${decided?"border-color:#16a34a;background:#f0fdf4;":""}border-radius:10px;padding:8px 10px;margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      return `<div style="border:var(--border-s);${decided?"border-color:#16a34a;background:#f0fdf4;color:#14532d;":""}border-radius:10px;padding:8px 10px;margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <div style="flex:1;min-width:110px;font-size:12.5px;font-weight:700">${dstr}${zstr}${decided?' <span style="color:#16a34a">✅</span>':""}</div>
         <div style="font-size:11px;color:var(--text2)">${antwort}</div>
         ${p.status!=="entschieden"?`<button onclick="epollDecide(${p.id},${s.id})" class="btn btn-sm">festlegen</button>`:""}
@@ -3612,16 +3612,11 @@ async function wetterInfoPush(id,titel,datum){
   if(typeof pushSendToParents==="function")await pushSendToParents("🌧️ Wetter-Update",`${titel} am ${ds}: Bitte in der App den Platz-Status prüfen.`,appRoot()+"?portal");
   else toast("Push nicht verfügbar","err");
 }
-// Team-Check auf der Startseite auf-/zuklappen. Der "Kein Kind übersehen"-Radar wird
-// erst beim ersten Aufklappen geladen (spart einen Query, wenn niemand hinschaut).
-function toggleTeamCheck(){
-  const body=document.getElementById("team-check-body"), caret=document.getElementById("tc-caret");
-  if(!body)return;
-  const auf=body.style.display==="none";
-  body.style.display=auf?"block":"none";
-  if(caret)caret.textContent=auf?"▴":"▾";
-  if(auf&&!window._radarLoaded){ window._radarLoaded=true; if(typeof homeRadarLoad==="function")homeRadarLoad(); }
-}
+/* Der einklappbare „Team-Check" der alten Startseite ist beim Kachel-Umbau weggefallen;
+   die Zahlen (Kader/bewertet/überfällig) leben in der Team-Kachel weiter. Nur der
+   „Kein Kind übersehen"-Radar hing an toggleTeamCheck und war damit unerreichbar –
+   er sitzt jetzt direkt in der Team-Kachel (#home-radar, lazy beim Öffnen). */
+function toggleTeamCheck(){ if(typeof homeRadarLoad==="function")homeRadarLoad(); }
 
 /* ── Trainer-To-Dos (PO-Wunsch, Muster wie die Eltern-To-Dos): persönliche offene Punkte
    des EINGELOGGTEN Trainers ganz oben auf der Startseite. Quellen: offene „Trainer dabei?"-
@@ -4233,7 +4228,7 @@ function _kachelInhalt(key){
     const stale=KADER.filter(x=>{const s=DB[x.name];if(!s||!s.length)return true;return (s[s.length-1].datum||"0000")<cutoff;}).length;
     const tile=(v,l,c,arg)=>`<button onclick="kachelRun('go','${arg}')" style="flex:1;min-width:90px;min-height:72px;border:var(--border-s);border-radius:14px;background:var(--surface);padding:10px;text-align:center;cursor:pointer;font-family:inherit"><div style="font-size:24px;font-weight:900;color:${c}">${v}</div><div style="font-size:12px;color:var(--text2);font-weight:700">${l}</div></button>`;
     return `<div style="display:flex;gap:10px;margin-bottom:4px">${tile(KADER.length,"Kader","var(--blue)","kader")}${tile(bewertet+"/"+KADER.length,"bewertet","#059669","bew")}${tile(stale,"überfällig","#dc2626","bew")}</div>
-      <div id="home-antifrust"></div><div id="home-birthday"></div>`
+      <div id="home-antifrust"></div><div id="home-birthday"></div><div id="home-radar"></div>`
       +kSec("Spieler")
       +kTiles([
         {emo:"👥",label:"Kader",fn:"go",arg:"kader"},
@@ -4307,7 +4302,7 @@ function _kachelInhalt(key){
 // Nachlader je Kachelseite: bestehende Slot-Renderer (schreiben in ihre bekannten IDs)
 function _kachelNachladen(key){
   try{
-    if(key==="team"){if(typeof homeAntiFrust==="function")homeAntiFrust();if(typeof homeBirthday==="function")homeBirthday();}
+    if(key==="team"){if(typeof homeAntiFrust==="function")homeAntiFrust();if(typeof homeBirthday==="function")homeBirthday();if(typeof homeRadarLoad==="function")homeRadarLoad();}
     if(key==="elki"&&typeof homeMilestone==="function")homeMilestone();
     if(key==="orga"){
       if(typeof homeRsvpNudge==="function")homeRsvpNudge();
