@@ -164,7 +164,7 @@
 
 <!-- PROFIL -->
 <div id="view-profil" class="view">
-  <div class="sl nt"><i class="ti ti-user-circle"></i>Spieler auswählen</div>
+  <div class="sl nt"><i class="ti ti-user-circle"></i>Profil</div>
   <select class="psel" id="psel-profil" onchange="renderProfil()"><option value="">— Spieler wählen —</option></select>
   <button class="print-btn" onclick="printView('profil')" style="display:none" id="print-profil-btn"><i class="ti ti-printer"></i>Profil drucken / als PDF</button>
   <button class="print-btn" onclick="printZertifikat()" style="display:none" id="zert-profil-btn"><i class="ti ti-award"></i>Saison-Zertifikat</button>
@@ -174,7 +174,7 @@
 
 <!-- KADER -->
 <div id="view-kader" class="view">
-  <div class="sl nt"><i class="ti ti-users"></i>Bewertungs-Übersicht – U9 I SV Adler Dellbrück</div>
+  <div class="sl nt"><i class="ti ti-users"></i>Kader</div>
   <button onclick="kaderEditOpen()" style="display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;margin-bottom:8px;border:none;border-radius:12px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.28)"><i class="ti ti-users"></i>Spieler verwalten</button>
   <div class="frow">
     <button class="ftag active" onclick="setF('all',this)">Alle</button>
@@ -198,7 +198,7 @@
 
 <!-- VERLAUF -->
 <div id="view-verlauf" class="view">
-  <div class="sl nt"><i class="ti ti-chart-line"></i>Spieler auswählen</div>
+  <div class="sl nt"><i class="ti ti-chart-line"></i>Entwicklung</div>
   <select class="psel" id="psel-verlauf" onchange="renderVerlauf()"><option value="">— Spieler wählen —</option></select>
   <button class="print-btn" onclick="printView('verlauf')" style="display:none" id="print-verlauf-btn"><i class="ti ti-printer"></i>Verlauf drucken / als PDF</button>
   <div id="verlauf-content"><div class="empty"><i class="ti ti-chart-line"></i>Spieler auswählen</div></div>
@@ -206,7 +206,7 @@
 
 <!-- KOMBI VIEW -->
 <div id="view-kombi" class="view">
-  <div class="sl nt"><i class="ti ti-users-group"></i>Aufstellungs-Kombinator</div>
+  <div class="sl nt"><i class="ti ti-users-group"></i>Aufstellung</div>
   <div style="background:var(--blue-bg);border:1px solid #93c5fd;border-radius:var(--rl);padding:12px;margin-bottom:1rem;font-size:12px;color:#1e40af;line-height:1.6">
     <strong>Wie funktioniert das?</strong> Der Algorithmus berechnet die beste Kombination aus dem Kader nach Rollenfit, Komplementaritat und sozialer Vertraglichkeit.
   </div>
@@ -222,7 +222,7 @@
 
 <!-- TAKTIK VIEW -->
 <div id="view-taktik" class="view">
-  <div class="sl nt"><i class="ti ti-arrows-move"></i>Taktik-Board – Live</div>
+  <div class="sl nt"><i class="ti ti-arrows-move"></i>Taktikboard</div>
   <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:2px 2px 5px">Spielform</div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px">
     <button class="btn btn-sm tb-form-btn" data-form="funino" onclick="taktikSetFormation('funino',this)"><i class="ti ti-triangle"></i>Funino</button>
@@ -471,7 +471,7 @@
 
   <!-- SUB: Quiz-Ergebnisse -->
   <div id="train-sub-quizresults" class="train-sub">
-    <div class="sl nt"><i class="ti ti-brain"></i>Quiz-Ergebnisse der Spieler</div>
+    <div class="sl nt"><i class="ti ti-brain"></i>Quiz-Ergebnisse</div>
     <!-- „Quiz teilen" entfernt (PO): die Kinder erreichen die Quizze über ihre Kabine -->
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       <button class="btn btn-sm" onclick="tqLoadProgressFromSupabase().then(()=>tqRenderTrainerView())"><i class="ti ti-refresh"></i>Aktualisieren</button>

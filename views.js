@@ -2026,18 +2026,19 @@ const TABS={
   home:    {sections:[
     {key:"home",    label:"Dashboard", icon:"ti-home"},
   ]},
+  // Reiter-Beschriftung = Kachel-Beschriftung = Seitenüberschrift (PO: ein Name je Sache)
   team:    {sections:[
-    {key:"kader",   label:"Übersicht", icon:"ti-users"},   // Bewertungs-Tabelle, nicht die Spielerverwaltung
-    {key:"profil",  label:"Profil",   icon:"ti-user"},
-    {key:"bew",     label:"Bewerten", icon:"ti-clipboard-list"},
-    {key:"verlauf", label:"Verlauf",  icon:"ti-chart-line"},
+    {key:"kader",   label:"Kader",       icon:"ti-users"},
+    {key:"profil",  label:"Profil",      icon:"ti-user"},
+    {key:"bew",     label:"Bewerten",    icon:"ti-clipboard-list"},
+    {key:"verlauf", label:"Entwicklung", icon:"ti-chart-line"},
   ]},
   training:{sections:[
     // Beschriftung muss zur Training-Kachel passen (PO) – ein Name je Sache
     {key:"anwesenheit", label:"Anwesenheit",   icon:"ti-checkbox"},
     {key:"planung",     label:"Trainingsplan", icon:"ti-calendar-event"},
     {key:"formen",      label:"Übungen",       icon:"ti-ball-football"},
-    {key:"quizresults", label:"Quiz",        icon:"ti-brain", hidden:true}, // PO: wohnt jetzt unter Eltern & Kinder; go() braucht den Eintrag weiter
+    {key:"quizresults", label:"Quiz-Ergebnisse", icon:"ti-brain", hidden:true}, // PO: wohnt jetzt unter Eltern & Kinder; go() braucht den Eintrag weiter
   ]},
   spieltag:{sections:[
     {key:"spieltag", label:"Match",       icon:"ti-ball-football"},
@@ -3122,12 +3123,12 @@ const HELP=[
     {t:"Kader", d:"Spieler anlegen/bearbeiten, Trikotnummer, Foto, Kontakte, Foto-Freigabe.", go:"kader"},
     {t:"Bewerten", d:"Spieler in 16 Kriterien einschätzen – mit Live-Radar.", go:"bew"},
     {t:"Profil", d:"Spielerprofil, Stärken, Adler-Karte, Entwicklungs-Report drucken.", go:"profil"},
-    {t:"Verlauf", d:"Entwicklung über die Zeit als Diagramm.", go:"verlauf"},
+    {t:"Entwicklung", d:"Entwicklung über die Zeit als Diagramm.", go:"verlauf"},
   ]},
   {cat:"🏃 Training", items:[
     {t:"Anwesenheit erfassen", d:"Wer war da – Haken je Kind; Trainer werden aus dem Termin vorausgefüllt.", go:"anwesenheit"},
     {t:"Anwesenheits-Quote", d:"Quote je Kind über die Saison (Training + Spiele).", run:"anwesenheitOpen()"},
-    {t:"Planung", d:"Zeitplan bauen, Übungen zuweisen, danach bewerten.", go:"planung"},
+    {t:"Trainingsplan", d:"Stationen bauen, Übungen zuweisen, Gruppen einteilen, Trainingsstart auf allen Handys.", go:"planung"},
     {t:"Einheit bewerten", d:"Schnell-Sterne: Spaß, Umsetzung, Erfolg.", run:"einheitBewertenOpen()"},
     {t:"Übungen", d:"Die Übungs-Datenbank: Gruppen-Kacheln, ⭐-Filter, Skizze je Übung, ➕ direkt in den Trainingsplan · KI-Coach · Themenplan.", go:"formen"},
     {t:"Blitzturnier", d:"Turnier zum Trainingsabschluss mit Zeitbudget-Automatik: Gesamtzeit (z. B. 40 Min.) und 1–4 Felder vorgeben, die Automatik wählt Format und Spielzeit (5–10 Min., Finale nur bei Restzeit) – reicht die Zeit fair nicht, sagt sie ehrlich, wie viele Minuten fehlen. Zwei Modi: Kinder-Turnier (Trainer spielen auf Wunsch in den Teams mit) oder Kinder gegen Eltern (1–4 Eltern-Teams, Duelle parallel auf den Feldern, Duell-Scoreboard, nie Kind gegen Kind). Spielform wählbar (FUNiño, 4+1, 5+1) mit Team-Vorschlag aus der Kinderzahl. Ein Pfiff für alle Felder.", run:"blitzOpen()"},
@@ -3197,11 +3198,11 @@ function hilfeRender(q){
 const TOUR=[
   {emo:"🦅", t:"Willkommen in der Adler-App", d:"Die Startseite ist bewusst schlank: Ganz oben erscheinen DEINE To-Dos (nur wenn etwas offen ist), darunter der nächste Termin mit Wetter, das Termin-Karussell – und sechs große Kacheln. Hinter jeder Kachel wartet wieder ein Kachel-Menü. Diese Tour findest du jederzeit über ❓ oben rechts."},
   {emo:"🏃", t:"Kachel: Training", d:"Vier Wege: Anwesenheit (heute + kommende Termine), Trainingsplan mit Stationen und Trainingsstart, die Übungs-Datenbank und das ⚡ Blitzturnier für schnelle Turniere – auch Eltern gegen Kinder. Die Nachbewertung meldet sich nach dem Training von selbst als To-Do auf der Startseite."},
-  {emo:"⚽", t:"Kachel: Spieltag", d:"Match-Zentrale mit Nominierung, fairer Auto-Aufstellung, Match-Uhr + Rotations-Timer, Liveticker und Analyse. Steht ein Turnier an, erscheint hier automatisch der Turnier-Bereich (Heimturnier ausrichten mit öffentlichem Link für die Gast-Trainer)."},
+  {emo:"⚽", t:"Kachel: Spieltag", d:"Match mit Nominierung, fairer Auto-Aufstellung, Match-Uhr + Rotations-Timer, Liveticker und Analyse. Steht ein Turnier an, erscheint hier automatisch der Turnier-Bereich (Heimturnier ausrichten mit öffentlichem Link für die Gast-Trainer)."},
   {emo:"👥", t:"Kachel: Team", d:"Kader verwalten, Spieler alle 6 Wochen in 16 Kriterien bewerten (Live-Radar), Profil mit Sprachlob und Entwicklungs-Report, dazu Saison-Cockpit, Anwesenheits-Quote und Rollen-Matrix. Auch Notfallkarten und Probetraining wohnen hier."},
   {emo:"🎯", t:"Kachel: Taktik", d:"Das Taktikboard: Formationen stellen, Laufwege und Pässe zeichnen, als Bild teilen – auf dem Tablet im großen Pro-Modus. Daneben die Übungs-Datenbank."},
   {emo:"🪶", t:"Kachel: Eltern & Kinder", d:"Team-Ansage mit Gelesen-Status, Eltern einladen, Elterngespräche – und die ganze Adler-Welt der Kinder: Federn, Karten, Abzeichen, Kabinen-Wahl, Sammelalbum-Fotos, Team-Quests, Urkunden-Studio und das Adler Nest."},
-  {emo:"📅", t:"Kachel: Orga", d:"Termine mit Serien und Endzeit (danach automatisch ins Archiv), Ferien-Radar, Mitbringlisten, Trainer-Meeting, Teamkasse, Ausrüstung und Fundbüro. Ganz unten: Push-Benachrichtigungen und dein Passwort."},
+  {emo:"📅", t:"Kachel: Orga", d:"Termine mit Serien und Endzeit (danach automatisch ins Archiv), Pinnwand fürs Trainerteam, Ferien-Radar, Mitbringlisten, Trainer-Meeting, Teamkasse, Ausrüstung und Fundbüro. Ganz unten: Push-Benachrichtigungen und dein Passwort."},
   {emo:"🧭", t:"Und unten?", d:"Die Leiste am unteren Rand führt zu denselben Bereichen – für den schnellen Daumen-Wechsel. Kacheln und Leiste sind dieselbe Logik, nur zwei Wege. Viel Spaß – auf geht's, Adler! 🎉"},
 ];
 let tourIdx=0;
@@ -4219,7 +4220,7 @@ function _kachelInhalt(key){
     ],col);
   if(key==="spieltag")return kSec("Rund ums Spiel")
     +kTiles([
-      {emo:"🎽",label:"Match-Zentrale",fn:"go",arg:"spieltag"},
+      {emo:"🎽",label:"Match",fn:"go",arg:"spieltag"},
       {emo:"🧩",label:"Aufstellung",fn:"go",arg:"kombi"},
       {emo:"✅",label:"Anwesenheit",fn:"go",arg:"anwesenheit"},
       {emo:"📊",label:"Analyse",fn:"go",arg:"analyse"}
@@ -4237,7 +4238,7 @@ function _kachelInhalt(key){
       +kTiles([
         {emo:"👥",label:"Kader",fn:"go",arg:"kader"},
         {emo:"📝",label:"Bewerten",fn:"go",arg:"bew"},
-        {emo:"🌟",label:"Profil & Sprachlob",fn:"go",arg:"profil"},
+        {emo:"🌟",label:"Profil",fn:"go",arg:"profil"},
         {emo:"📈",label:"Entwicklung",fn:"go",arg:"verlauf"},
         {emo:"⏸️",label:"Pausen-Status",fn:"pausenOpen"}
       ],col)
@@ -4283,7 +4284,8 @@ function _kachelInhalt(key){
   if(key==="orga")return `<div id="home-rsvp"></div><div id="home-ferien"></div>`
     +kSec("Termine")
     +kTiles([
-      {emo:"📅",label:"Termine & Serien",fn:"go",arg:"termine"}
+      {emo:"📅",label:"Termine",fn:"go",arg:"termine"},
+      {emo:"📌",label:"Pinnwand",fn:"go",arg:"team"} // war nur über die Reiterzeile erreichbar
     ],col)
     +kSec("Events & Team-Orga")
     +kTiles([
