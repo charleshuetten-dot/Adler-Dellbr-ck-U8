@@ -401,7 +401,7 @@ function tqStart(){
       <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Wähle deinen Namen, damit wir deinen Fortschritt speichern können!</div>
       <div class="tq-player-grid">`;
     auswahl.forEach(k=>{
-      html+=`<div class="tq-player-btn" onclick="tqSelectPlayer('${k.name}')">
+      html+=`<div class="tq-player-btn" onclick="tqSelectPlayer('${jsq(k.name)}')">
         <div class="tq-player-icon">⚽</div>
         <div class="tq-player-name">${esc(k.name)}</div>
         ${k.nr?`<div style="font-size:9px;color:var(--text3)">#${k.nr}</div>`:""}

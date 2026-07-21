@@ -468,7 +468,9 @@ function kontakteEditOpen(spielerId){
 /* Eltern-Einladung: vorbereitete Nachricht, kein Server-Versand. Der Portal-Link ist
    kein Geheimnis – anmelden kann sich nur, wessen E-Mail in eltern_kinder steht
    (is_email_whitelisted + Einmal-Code). Der Trainer sieht den Text und sendet selbst. */
-function jsq(s){ return String(s==null?"":s).replace(/\\/g,"\\\\").replace(/'/g,"\\'"); }
+/* Für Werte in onclick="fn('${jsq(x)}')": neben \ und ' muss auch " maskiert werden –
+   sonst bricht ein Anführungszeichen im Namen aus dem HTML-Attribut aus. */
+function jsq(s){ return String(s==null?"":s).replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/"/g,"&quot;"); }
 function elternPortalUrl(){ return appRoot()+"?portal"; }
 function inviteText(email,kind){
   return `Hallo! 🦅\n\nHier ist dein Zugang zum Eltern-Bereich der U9 vom SV Adler Dellbrück`
@@ -905,7 +907,14 @@ async function pauseEnd(id){
 async function notfallTrainerOpen(){
   let rows=null, offline=false;
   try{const r=await fetch(`${SB_URL}/rest/v1/kind_notfall?select=*`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok){rows=await r.json();try{localStorage.setItem("adler_nf_cache",JSON.stringify({at:Date.now(),rows}));}catch(e){}}}catch(e){}
-  if(!rows){ try{const c=JSON.parse(localStorage.getItem("adler_nf_cache")||"null");if(c&&c.rows){rows=c.rows;offline=true;}}catch(e){} }
+  /* Der Offline-Cache enthält Gesundheitsdaten von Kindern (Art. 9 DSGVO). Er gilt daher
+     nur 24 h und wird danach verworfen statt beliebig lange auf dem Gerät zu liegen;
+     beim Abmelden räumt sbClearToken ihn zusätzlich weg. */
+  if(!rows){ try{
+    const c=JSON.parse(localStorage.getItem("adler_nf_cache")||"null");
+    if(c&&c.rows&&c.at&&(Date.now()-c.at)<24*3600*1000){rows=c.rows;offline=true;}
+    else if(c)localStorage.removeItem("adler_nf_cache");
+  }catch(e){} }
   rows=rows||[];
   const nameById={}; (typeof KADER!=="undefined"?KADER:[]).forEach(k=>{nameById[k.id]=k.name;});
   const flds=[["notfall_tel","☎️ Notfall"],["notfallkontakt","👤 Kontakt"],["allergien","⚠️ Allergien"],["medikamente","💊 Medikamente"],["krankenversicherung","🏥 Versicherung"],["blutgruppe","🩸 Blutgruppe"],["arzt","🩺 Arzt"],["hinweise","📝 Hinweise"]];

@@ -498,7 +498,7 @@ function awRenderList(){
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">`;
   KADER.forEach(k=>{
     const p=existing[k.name]||{da:false,qual:0};
-    html+=`<button class="aw-tile${p.da?" on":""}" onclick="awToggle(this,'${k.name}')" data-player="${k.name}">
+    html+=`<button class="aw-tile${p.da?" on":""}" onclick="awToggle(this,'${jsq(k.name)}')" data-player="${esc(k.name)}">
       <span class="aw-ok">✓</span>
       <span style="font-size:13px;font-weight:800;line-height:1.2">${esc(k.name)}</span>
       ${p.qual?`<span title="Bewertung aus „Einheit bewerten“" style="font-size:9px;color:#f59e0b;letter-spacing:1px">${"★".repeat(p.qual)}</span>`:""}
@@ -880,18 +880,18 @@ function tpShowExercise(formIdx){
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   modal.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:380px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.25)">
     <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
-      <div style="font-size:14px;font-weight:700;color:var(--text)">${f.name}</div>
+      <div style="font-size:14px;font-weight:700;color:var(--text)">${esc(f.name)}</div>
       <button onclick="this.closest('div[style*=fixed]').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2)">×</button>
     </div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">${f.kurz||""}</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">${esc(f.kurz||"")}</div>
     ${f.svg?`<div style="margin-bottom:2px">${f.svg}</div>${typeof skzLegende==="function"?skzLegende():""}`:""}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
       <span style="font-size:10px;background:var(--surface);padding:2px 6px;border-radius:4px">⏱ ${f.dauer}</span>
       <span style="font-size:10px;background:var(--surface);padding:2px 6px;border-radius:4px">👥 ${f.spieler||"?"}</span>
       <span style="font-size:10px;background:var(--surface);padding:2px 6px;border-radius:4px">📐 ${f.feld||"?"}</span>
     </div>
-    <div style="font-size:11px;color:var(--text);white-space:pre-wrap;line-height:1.5;margin-bottom:8px">${f.ablauf||""}</div>
-    ${f.coaching?`<div style="font-size:10px;color:var(--text2);background:var(--surface);padding:8px;border-radius:6px;white-space:pre-wrap"><strong>🎯 Coaching-Tipps:</strong>\n${f.coaching}</div>`:""}
+    <div style="font-size:11px;color:var(--text);white-space:pre-wrap;line-height:1.5;margin-bottom:8px">${esc(f.ablauf||"")}</div>
+    ${f.coaching?`<div style="font-size:10px;color:var(--text2);background:var(--surface);padding:8px;border-radius:6px;white-space:pre-wrap"><strong>🎯 Coaching-Tipps:</strong>\n${esc(f.coaching)}</div>`:""}
     ${histHtml}
   </div>`;
   document.body.appendChild(modal);
@@ -955,7 +955,11 @@ function tpRenderTimeline(){
     const endMin=startMin+(parallel?tpSlots[slot.parallelZu].dauer:slot.dauer);
     const noGroups=typ==="warmup"||typ==="abschluss"||typ==="tw";
     const noSelect=typ==="abschluss";
-    const parallelSlots=noGroups?1:Math.min(Math.max(1,trainerCount),5); // ohne angehakten Trainer sonst 0 Stationen = kein Uebungs-Picker
+    /* Stationen = angehakte Trainer, MINDESTENS aber so viele, wie ausgeloste Gruppen
+       existieren. Sagt ein Trainer nach der Auslosung ab, fiel sonst eine komplette
+       Gruppe aus Anzeige und Trainingsstart – die Kinder tauchten nirgends mehr auf. */
+    const tgAnz=((typeof tgFor==="function"&&tgFor())||{}).gruppen?.length||0;
+    const parallelSlots=noGroups?1:Math.min(Math.max(1,trainerCount,tgAnz),5);
     const filtered=tpFilteredOpts(typ);
     const formOpts=filtered.map(x=>`<option value="${x.i}">${x.f.name} (${x.f.dauer})</option>`).join("");
 
@@ -982,7 +986,7 @@ function tpRenderTimeline(){
       html+=`<div style="margin-top:6px">
         <div style="font-size:10px;color:var(--text2);font-weight:600;margin-bottom:4px">Torwart-Spieler</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-          ${twPlayers.map(k=>`<label class="tp-check"><input type="checkbox" value="${k.name}" class="tp-tw-player" data-slot="${si}" checked><span>${k.name}${k.twPrio===1?" ⭐":""}</span></label>`).join("")}
+          ${twPlayers.map(k=>`<label class="tp-check"><input type="checkbox" value="${esc(k.name)}" class="tp-tw-player" data-slot="${si}" checked><span>${k.name}${k.twPrio===1?" ⭐":""}</span></label>`).join("")}
         </div>
         <div class="tp-feld"><label for="tp-form-${si}-0">Übung</label>
           <div class="tp-feld-zeile">
@@ -997,7 +1001,7 @@ function tpRenderTimeline(){
         <div id="tp-form-${si}-0-hist"></div>
       </div>`;
     } else if(typ==="individual"){
-      const playerOpts=KADER.map(k=>`<option value="${k.name}">${k.name}</option>`).join("");
+      const playerOpts=KADER.map(k=>`<option value="${esc(k.name)}">${esc(k.name)}</option>`).join("");
       html+=`<div class="tp-feld"><label for="tp-ind-player-${si}">Spieler</label>
         <select id="tp-ind-player-${si}" onchange="tpIndPlayerChange(${si})">
           <option value="">— Spieler wählen —</option>${playerOpts}
@@ -1793,11 +1797,11 @@ function evalRenderHistory(){
     html+=`<div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:4px">${new Date(d).toLocaleDateString("de-DE")}</div>`;
     items.forEach(it=>{
       const stars=k=>it[k]?"★".repeat(it[k])+"☆".repeat(5-it[k]):"–";
-      const trainerTag=it.trainer&&it.trainer!=="Alle"?` <span style="background:#e0e7ff;color:#3730a3;font-size:9px;padding:1px 4px;border-radius:3px">${it.trainer}</span>`:"";
+      const trainerTag=it.trainer&&it.trainer!=="Alle"?` <span style="background:#e0e7ff;color:#3730a3;font-size:9px;padding:1px 4px;border-radius:3px">${esc(it.trainer)}</span>`:"";
       html+=`<div style="font-size:11px;padding:2px 0;color:var(--text2)">
-        <strong style="color:var(--text)">${it.name}</strong>${trainerTag}:
+        <strong style="color:var(--text)">${esc(it.name)}</strong>${trainerTag}:
         ${it.skipped?'<em style="color:var(--text3)">übersprungen</em>':`Durchf. ${stars("Durchführung")} · Spaß ${stars("Spaßfaktor Kinder")} · Umgesetzt ${stars("Anforderung umgesetzt")}`}
-        ${it.notiz?`<br><em>${it.notiz}</em>`:""}
+        ${it.notiz?`<br><em>${esc(it.notiz)}</em>`:""}
       </div>`;
     });
     html+='</div>';
@@ -1841,7 +1845,8 @@ function tpGenerate(){
       const typ=slot.typ||"main";
       if(typ==="abschluss")return;
       const noGroups=typ==="warmup"||typ==="abschluss"||typ==="tw";
-      const parallelSlots=noGroups?1:Math.min(Math.max(1,trainerCount),5); // ohne angehakten Trainer sonst 0 Stationen = kein Uebungs-Picker
+      const tgAnz2=((typeof tgFor==="function"&&tgFor())||{}).gruppen?.length||0;
+      const parallelSlots=noGroups?1:Math.min(Math.max(1,trainerCount,tgAnz2),5); // wie tpRenderTimeline: ausgeloste Gruppen duerfen nicht wegfallen
       for(let p=0;p<parallelSlots;p++){
         const sel=document.getElementById(`tp-form-${si}-${p}`);
         if(!sel)continue;
@@ -1868,7 +1873,11 @@ function teamAggregate(){
   Object.keys(DB).forEach(n=>{
     const pd=getPlayerData(n);
     if(!pd)return;
-    dimKeys.forEach(k=>{if(pd.ds[k]!=null){sums[k]+=pd.ds[k];counts[k]++;}});
+    /* calcScores liefert für eine Dimension OHNE beantwortete Kriterien 0 (nicht null) –
+       z. B. bei Alt-Datensätzen mit inzwischen umbenannten Kriterien. Ohne diesen Filter
+       zog jeder solche Spieler den Team-Schnitt als „0 %"-Bewertung nach unten und
+       verfälschte damit die Schwerpunkt-Empfehlung. */
+    dimKeys.forEach(k=>{if(pd.ds[k]!=null&&pd.ds[k]>0){sums[k]+=pd.ds[k];counts[k]++;}});
   });
   const avg={},n=Object.keys(DB).length;
   dimKeys.forEach(k=>{avg[k]=counts[k]?Math.round(sums[k]/counts[k]):null;});
@@ -2258,6 +2267,22 @@ async function tlAbbrechen(){
   tlSchliessen();
   toast("Trainingsstart verworfen – Trainer oben anpassen und neu starten");
 }
+/* Einen Trainer aus der laufenden Runde nehmen (kam nicht, Handy leer …). Nimmt ihn aus
+   pflicht UND aus den Stations-Gruppen des Snapshots, damit auch _tlSlotTrainer ihn
+   nicht mehr erwartet – sonst hinge die nächste Station wieder. */
+async function tlOhne(name){
+  const row=_tl.row; if(!row)return;
+  if(!confirm(`Ohne ${name} weitermachen? ${name} wird aus dieser Trainingsrunde genommen.`))return;
+  const pflicht=(row.pflicht||[]).filter(t=>t!==name);
+  if(!pflicht.length){toast("Mindestens ein Trainer muss dabei bleiben","err");return;}
+  const plan=JSON.parse(JSON.stringify(row.plan||{slots:[]}));
+  (plan.slots||[]).forEach(st=>(st.gruppen||[]).forEach(g=>{if(g.trainer===name)g.trainer="Alle";}));
+  const bereit={...(row.bereit||{})}; delete bereit[name];
+  await _tlPatch({pflicht,plan,bereit});
+  const neu=await _tlFetch(); if(neu)_tl.row=neu;
+  toast(`${name} ist raus – weiter geht's`);
+  await _tlAdvance();
+}
 // Zustands-Übergänge, die JEDES Gerät erkennen darf (Guard über status=eq. verhindert Doppel)
 async function _tlAdvance(){
   const row=_tl.row; if(!row)return;
@@ -2294,21 +2319,43 @@ function _tlSlotTrainer(row,slotIdx){
   const namen=[...new Set(st.gruppen.map(g=>g.trainer))].filter(t=>(row.pflicht||[]).includes(t));
   return namen.length?namen:(row.pflicht||[]);
 }
+/* Meldungen laufen über die RPC training_live_mark: sie setzt NUR den eigenen Schlüssel
+   (jsonb-Merge) statt den ganzen Blob zurückzuschreiben. Vorher galt last-write-wins –
+   tippten zwei Trainer in derselben Poll-Lücke, verschwand eine der beiden Meldungen. */
+async function _tlMark(feld,slot){
+  const me=await trainerMe(); if(!me)return null;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/training_live_mark`,{method:"POST",
+      headers:{...sbAuthHeaders(),'Content-Type':'application/json'},
+      body:JSON.stringify({p_datum:_tlHeute(),p_feld:feld,p_trainer:me,p_slot:slot??null})});
+    if(!r.ok)return null;
+    const row=await r.json();
+    return (Array.isArray(row)?row[0]:row)||null;
+  }catch(e){ return null; }
+}
 async function tlBereit(){
   const me=await trainerMe(); if(!me)return;
-  const bereit={...(_tl.row&&_tl.row.bereit||{}),[me]:true};
-  await _tlPatch({bereit});
-  if(_tl.row)_tl.row.bereit=bereit;
+  const neu=await _tlMark("bereit",null);
+  if(neu)_tl.row=neu;
+  else if(_tl.row){ // Offline-Fallback: wenigstens lokal anzeigen
+    _tl.row.bereit={...(_tl.row.bereit||{}),[me]:true};
+    await _tlPatch({bereit:_tl.row.bereit});
+  }
   await _tlAdvance();
 }
 async function tlAbgeschlossen(){
   const me=await trainerMe(); if(!me||!_tl.row)return;
   // Meine Stoppuhr endet mit der Übung (PO) – der Stand bleibt bis zur nächsten Station sichtbar
   if(_tl.uhr.run){_tl.uhr.acc+=Date.now()-_tl.uhr.seit;_tl.uhr.run=false;}
-  const fertig={...(_tl.row.fertig||{})};
-  fertig[me]=[...new Set([...(fertig[me]||[]),_tl.row.slot])];
-  await _tlPatch({fertig});
-  _tl.row.fertig=fertig;
+  const slot=_tl.row.slot;
+  const neu=await _tlMark("fertig",slot);
+  if(neu)_tl.row=neu;
+  else{ // Offline-Fallback
+    const fertig={...(_tl.row.fertig||{})};
+    fertig[me]=[...new Set([...(fertig[me]||[]),slot])];
+    await _tlPatch({fertig});
+    _tl.row.fertig=fertig;
+  }
   try{navigator.vibrate&&navigator.vibrate(40);}catch(e){}
   await _tlAdvance();
 }
@@ -2358,7 +2405,12 @@ function _tlRender(){
       <div style="font-size:22px;font-weight:900;margin:8px 0">${row.slot===0?"Training startet":"Nächste Station"} – bereit?</div>
       <div style="font-size:14px;opacity:.85;margin-bottom:16px">${esc(st.label)} · ${st.dauer} Min.</div>
       <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:20px">
-        ${noetig.map(t=>`<span style="padding:8px 14px;border-radius:18px;font-size:13px;font-weight:800;background:${row.bereit&&row.bereit[t]?"#16a34a":"rgba(255,255,255,.12)"}">${row.bereit&&row.bereit[t]?"✅":"⏳"} ${esc(t)}</span>`).join("")}
+        ${noetig.map(t=>{
+          const da=row.bereit&&row.bereit[t];
+          // Wer nicht kommt (Handy weg, kurzfristig abgesagt), darf herausgenommen werden –
+          // sonst blockiert ein einziger fehlender Trainer die gesamte Runde.
+          return `<span style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:18px;font-size:13px;font-weight:800;background:${da?"#16a34a":"rgba(255,255,255,.12)"}">${da?"✅":"⏳"} ${esc(t)}${da?"":`<button onclick="tlOhne('${t.replace(/'/g,"\\'")}')" title="ohne ${esc(t)} weitermachen" aria-label="ohne ${esc(t)} weitermachen" style="min-width:24px;min-height:24px;border:none;border-radius:50%;background:rgba(255,255,255,.2);color:#fff;font-size:12px;font-weight:900;cursor:pointer;line-height:1">✕</button>`}</span>`;
+        }).join("")}
       </div>
       ${binBereit?'<div style="font-size:14px;opacity:.8">Warten auf die anderen…</div>'
         :`<button onclick="tlBereit()" style="width:100%;max-width:340px;min-height:64px;border:none;border-radius:16px;background:#16a34a;color:#fff;font-size:20px;font-weight:900;font-family:inherit;cursor:pointer">✅ Bereit!</button>`}

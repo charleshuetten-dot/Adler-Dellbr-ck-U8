@@ -17,11 +17,19 @@ const TICKER_PHRASES={
   gegentor:["Adler kämpfen weiter!","Kopf hoch, Team – weiter geht's!","Nächster Angriff, Adler!"],
   kapitaen:["©️ {name} führt die Adler heute als Kapitän aufs Feld!","©️ Heute trägt {name} die Kapitänsbinde – viel Erfolg!","©️ {name} ist heute unser Kapitän!"]
 };
+/* Der Ticker ist über ?ticker=<datum> OHNE Login lesbar, solange der Trainer ihn offen
+   hat. Deshalb wandert nur „Vorname + Initial" in den gespeicherten Text (Mika S.) –
+   dieselbe Linie wie im Stadionheft. Volle Namen stehen weiter im internen Spielbericht. */
+function tickerKurzName(name){
+  const t=String(name||"").trim(); if(!t)return "";
+  const teile=t.split(/\s+/);
+  return teile.length>1 ? `${teile[0]} ${teile[teile.length-1].charAt(0).toUpperCase()}.` : teile[0];
+}
 function tickerPhrase(typ,name){
   const arr=TICKER_PHRASES[typ]||["Die Adler waren aktiv!"];
   const p=arr[Math.floor(Math.random()*arr.length)];
   if(!p.includes("{name}"))return p;
-  return p.replace("{name}",name||"Die Adler");
+  return p.replace("{name}",tickerKurzName(name)||"Die Adler");
 }
 async function tickerPush(name,typ){
   if(mcTickerOpen===false)return; // Wolff-Fuss aktiv – nichts senden

@@ -53,7 +53,11 @@ function sbToken(){
   if(s&&(s.t.expires_at*1000)>Date.now()+60000)return s.t.access_token;
   return null;
 }
-function sbClearToken(){ const s=sbRead(); localStorage.removeItem(s?s.key:sbWriteKey()); }
+function sbClearToken(){
+  const s=sbRead(); localStorage.removeItem(s?s.key:sbWriteKey());
+  // Gesundheitsdaten der Notfallkarten nie über die Sitzung hinaus auf dem Gerät lassen
+  try{ localStorage.removeItem("adler_nf_cache"); }catch(e){}
+}
 // Eigene User-ID aus dem JWT (sub-Claim) – z. B. um "von mir reserviert" zu erkennen.
 function sbUserId(){
   const t=sbToken(); if(!t)return null;

@@ -447,7 +447,7 @@ function nomRender(){
       return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
         ${badge}
         <span style="flex:1;font-size:12.5px">${getKader(k.name)?.nr?getKader(k.name).nr+" ":""}${esc(k.name)}${(typeof istPaused==="function"&&istPaused(k.name))?` <span title="Pausiert – zählt nicht mit" style="font-size:10px;font-weight:700;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:1px 6px">⏸ bis ${pauseBisLabel(k.name)}</span>`:""}</span>
-        ${["dabei","nicht","verletzt"].map(s=>`<button onclick="nomSet('${k.name}','${s}')" style="min-height:44px;padding:5px 9px;font-size:11px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;background:${cur===s?stCfg[s].col:"var(--surface)"};color:${cur===s?"#fff":"var(--text2)"}">${stCfg[s].lbl}</button>`).join("")}
+        ${["dabei","nicht","verletzt"].map(s=>`<button onclick="nomSet('${jsq(k.name)}','${s}')" style="min-height:44px;padding:5px 9px;font-size:11px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;background:${cur===s?stCfg[s].col:"var(--surface)"};color:${cur===s?"#fff":"var(--text2)"}">${stCfg[s].lbl}</button>`).join("")}
       </div>`;
     }).join("");
 }
@@ -613,6 +613,9 @@ function _blzSlots(matches,felder){
    ms = fertige Spielliste (Finals als Platzhalter a/b=null, werden live aufgelöst),
    hinweis = fehlende Minuten, wenn selbst das kürzeste faire Format nicht passt. */
 function _blzPlanen(n,budget,felder,spielmodus,elternAnzahl){
+  /* Mit weniger als 2 Teams gibt es keine Begegnung. Ohne diesen Riegel rechnete zMax(0)
+     durch 0 und die Vorschau meldete grün „à 10 Min. → 0 Spiele" statt zu sagen, was fehlt. */
+  if(!(n>=2))return {ms:[],slots:0,z:null,modus:"rr",dauer:0,hinweis:null,fehler:"Mindestens 2 Teams nötig"};
   const dauer=(slots,z)=>slots*z+Math.max(0,slots-1)*BLZ_W;
   const zMax=slots=>Math.floor((budget-(slots-1)*BLZ_W)/slots);
   /* Duell-Modus (Kinder gegen Eltern): Teams 0..m-1 = Eltern-Teams, dahinter die
@@ -697,6 +700,7 @@ function _blzPlanen(n,budget,felder,spielmodus,elternAnzahl){
 function _blzVorschauHtml(){
   if(!BLZ.budget)return `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Freies Spiel: Du stellst die Spielzeit selbst ein – ohne Zeitbudget, ohne Automatik.</div>`;
   const p=_blzPlanen(BLZ.teams.length,BLZ.budget,BLZ.felder||1,BLZ.spielmodus,BLZ.teams.filter(t=>t.eltern).length);
+  if(p.fehler)return `<div style="background:#fef3c7;color:#92400e;border-radius:10px;padding:10px 12px;font-size:12.5px;font-weight:700;margin-bottom:8px">⚠️ ${esc(p.fehler)} – lege noch ein Team an.</div>`;
   const nKids=BLZ.teams.filter(t=>!t.eltern).length;
   const fmt=p.modus==="duell"?`Kinder gegen Eltern – ${Math.round(p.ms.length/Math.max(1,nKids))} Durchgang${p.ms.length/Math.max(1,nKids)>1?"e":""} je Kinder-Team`
     :p.modus==="gruppen"?"2 Los-Gruppen + kleines Finale + Finale":(BLZ.teams.length===2?(p.slots===1?"ein Spiel":"Hin- und Rückspiel"):"jeder gegen jeden"+(p.finaleBonus?" + Finale":""));
