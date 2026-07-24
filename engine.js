@@ -27,7 +27,7 @@ const getMeta=()=>({
   date:document.getElementById("p-date").value,
   foot:document.getElementById("p-foot").value,
   age:document.getElementById("p-age").value,
-  grp:document.getElementById("p-grp").value,
+  grp:(document.getElementById("p-grp")?.value)||"flex", // A/B-Label aus der UI entfernt (Evidenz: Streaming schadet 8-Jaehrigen)
   eltern:document.getElementById("p-eltern").value,
   att:document.getElementById("p-att")?.value||"2",
   notes:document.getElementById("p-notes").value,
@@ -46,19 +46,39 @@ function calcScores(v,dims){
     const vals=[...d.tier.map(t=>sc(v[t.n])),...d.mx.map(m=>sc(v[m.n]))].filter(x=>x!==null);
     ds[d.id]=vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):0;
   });
-  // Gesamtscore nur aus Feldspieler-Dimensionen (fair für TW-Spieler)
-  const feldDims=dims.filter(d=>!d.id.startsWith("tw_"));
+  /* Gesamtscore nur aus Feldspieler-Dimensionen (fair fuer TW-Spieler) und bewusst OHNE
+     "Persoenlichkeit & Charakter": Charakter-Ratings ueber 8-Jaehrige durch Laientrainer
+     sind die unzuverlaessigste Kriteriengruppe (Coach-Eye-Forschung) und messen eher
+     Temperament/Reife als Fussball. Die Dimension bleibt im Radar und in den Beobachtungen
+     sichtbar, zaehlt aber nicht in die Zahl. Gewichte renormieren sich ueber wsum. */
+  const feldDims=dims.filter(d=>!d.id.startsWith("tw_")&&d.id!=="mental");
   const wsum=feldDims.reduce((a,b)=>a+b.w,0);
   const total=wsum?Math.round(feldDims.reduce((s,d)=>s+(ds[d.id]||0)*d.w/wsum,0)):0;
   return{dims:ds,total};
 }
 
 function calcPotenzial(v,total,att,isTw){
-  // v2: Lernfähigkeit (f_coach) als Multiplikator, Spielfreude/Eigeninitiative (f_freude) als Bonus.
+  /* v3 – heisst in der App ueberall "Entwicklungstempo", nicht mehr "Potenzial":
+     Zukunftsprognosen fuer 8-Jaehrige sind wissenschaftlich nicht haltbar (Frontiers 2021:
+     nur mittlere Prognosevaliditaet auf Gruppenebene; Guellich 2014: 25-41% jaehrliche
+     Fluktuation in Foerdersystemen). Der Wert beschreibt das Lernverhalten JETZT:
+     Coachability als Multiplikator, Spielfreude als Bonus. Der fruehere Anwesenheits-
+     faktor ist raus - Anwesenheit misst Eltern-Logistik, nicht das Kind (ICOACHKIDS). */
   const lm={1:1.00,2:1.05,3:1.10,4:1.15}[v["f_coach"]||2]||1.05;
-  const am={1:0.97,2:1.00,3:1.04}[parseInt(att)]||1.00;
   const fb={1:0,2:3,3:6,4:9}[v["f_freude"]||1]||0;
-  return Math.min(100,Math.max(total,Math.round(total*lm*am+fb))); // Potenzial nie unter Niveau
+  return Math.min(100,Math.max(total,Math.round(total*lm+fb)));
+}
+/* Relative-Age-Effekt-Hinweis: bis zu 12 Monate Unterschied im selben Jahrgang sind bei
+   8-Jaehrigen >10% Lebenszeit. Das Badge korrigiert die Trainer-Wahrnehmung beim Bewerten,
+   ohne die Werte selbst zu verrechnen (Romann/Cobley, Science for Sport). */
+function raeInfo(geb){
+  if(!geb)return "";
+  const m=parseInt(String(geb).slice(5,7),10); if(!m)return "";
+  const q=Math.ceil(m/3);
+  if(q===4)return "🗓️ Geb. Okt–Dez: eines der jüngsten Kinder des Jahrgangs – Relative-Age-Effekt beim Vergleichen mitdenken";
+  if(q===3)return "🗓️ Geb. Jul–Sep: jüngere Jahrgangshälfte";
+  if(q===1)return "🗓️ Geb. Jan–Mär: gehört zu den Ältesten des Jahrgangs";
+  return "";
 }
 
 /* ═══════════════════════════════════
@@ -137,7 +157,7 @@ function generateFazitFeld(v,meta){
   else if(fokusSchwach)summary+=`Fokus und die Umsetzung von Hinweisen sind ausbaufähig. `;
   if(sozKrit)summary+=`Im sozialen Miteinander zeigt ${name} Verhalten, das die Teamdynamik erschwert – ein wichtiges Thema. `;
   else if(sozRaw>=3)summary+=`${name} ist ein echter Teamplayer, der Zusammenhalt aktiv fördert. `;
-  summary+=`Als ${typ} mit Tendenz zur Rolle ${rolle.primLabel}. Entwicklungsstand: ${total}% – Potenzial: ~${pot}%.`;
+  summary+=`Als ${typ} aktuell am stärksten in der Rolle ${rolle.primLabel} – in der U9 bewusst weiter alle Rollen durchspielen. Entwicklungsstand: ${total}% · Entwicklungstempo: ~${pot}%.`;
 
   // ── VOLLTEXT ──
   let r="";

@@ -169,6 +169,7 @@ async function vdListLoad(){
   </div>`).join("");
 }
 async function vdSave(datum){
+  if(vdSave._busy)return; vdSave._busy=true; setTimeout(()=>{vdSave._busy=false;},1500);
   const ta=document.getElementById("vd-text");
   const text=(ta&&ta.value||"").trim();
   if(!text){toast("Bitte erst etwas notieren","err");return;}

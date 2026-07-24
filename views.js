@@ -111,6 +111,19 @@ function onPlayerSelect(){
     document.querySelectorAll('#dims-wrap input[type="radio"]').forEach(r=>r.checked=false);
     if(wizOn){wizIdx=0;wizRender();}
   }
+  /* Stammdaten-Carry-Over-Falle: ohne diesen Block behielten Alter/Fuß/Umfeld/Beteiligung/
+     Notiz die Werte des VORHER bewerteten Kindes. Jetzt: letzter Snapshot DIESES Kindes,
+     sonst neutrale Defaults. */
+  try{
+    const last=(typeof DB!=="undefined"&&DB[name]&&DB[name].length)?DB[name][DB[name].length-1]:null;
+    const lm=last&&(last.meta||last)||{};
+    const setV=(id,val)=>{const el=document.getElementById(id);if(el)el.value=val;};
+    setV("p-age",lm.age||"8");
+    setV("p-foot",lm.foot||"R");
+    const seg=(hid,val)=>{const v=String(val||"2");setV(hid,v);document.querySelectorAll(`#${hid}-seg .seg-btn`).forEach(b=>b.classList.toggle("active",b.dataset.val===v));};
+    seg("p-eltern",lm.eltern);seg("p-att",lm.att);
+    setV("p-notes","");
+  }catch(e){}
   showBewSticky(name);
   updateRautePreview(null,tw);
   document.getElementById("raute-hint").textContent=tw?"Torwart + Feldspieler":"Bewertung ausfüllen";
@@ -255,11 +268,12 @@ function buildDims(isTw){
 
 /* Quick-Rate Fokus-Modus: eine Dimension pro Screen. Reine Sichtebene über dasselbe
    Formular – die Radio-Buttons bleiben im DOM, daher Speichern/Fortschritt unverändert. */
-let wizIdx=0, wizOn=false;
+let wizIdx=0, wizOn=(localStorage.getItem("adler_bew_fokus")==="1"); // Fokus-Modus bleibt an, einmal gewählt
 function wizToggle(){
   const blocks=document.querySelectorAll("#dims-wrap .dim-block");
   if(!blocks.length){toast("Erst einen Spieler wählen","err");return;}
   wizOn=!wizOn;
+  try{localStorage.setItem("adler_bew_fokus",wizOn?"1":"0");}catch(e){}
   const wrap=document.getElementById("dims-wrap");
   const nav=document.getElementById("wiz-nav");
   const btn=document.getElementById("wiz-toggle");
@@ -741,14 +755,16 @@ async function zieleAdd(spielerId){
   zieleRender(spielerId);
 }
 async function zieleToggle(id,newStatus,spielerId){
-  try{await fetch(`${SB_URL}/rest/v1/entwicklungsziele?id=eq.${id}`,{method:"PATCH",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({status:newStatus,erreicht_at:newStatus==="erreicht"?new Date().toISOString():null})});}catch(e){}
-  if(newStatus==="erreicht"){
+  let _zok=false;
+  try{const _zr=await fetch(`${SB_URL}/rest/v1/entwicklungsziele?id=eq.${id}`,{method:"PATCH",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({status:newStatus,erreicht_at:newStatus==="erreicht"?new Date().toISOString():null})});_zok=_zr.ok;}catch(e){}
+  if(newStatus==="erreicht"&&_zok){
     try{navigator.vibrate&&navigator.vibrate([40,50,90]);}catch(e){}
     toast("Stark – Ziel erreicht! 🎉");
     if(typeof confetti==="function")confetti(document.getElementById("ziele-modal")||document.body);
     // B-Etappe 3: Federn fürs Kind (idempotent pro Ziel), Punktwert bestimmt der Server.
     try{const d=await xpAward(spielerId,"ziel","z"+id); if(d>0)setTimeout(()=>toast(`${XP_ICON} +${d} ${XP_LABEL} fürs Kind!`),1200);}catch(e){}
   }
+  if(!_zok)toast("Konnte nicht gespeichert werden – bitte nochmal","err");
   zieleRender(spielerId);
 }
 async function zieleDelete(id,spielerId){
@@ -942,7 +958,6 @@ function renderKader(){
     const lat=DB[n][DB[n].length-1];
     if(activeFilter==="all")return true;
     if(activeFilter==="tw")return lat.tw===true||getKader(n)?.tw;
-    if(activeFilter==="A"||activeFilter==="B")return lat.grp===activeFilter;
     return lat.position===activeFilter;
   });
   if(!filtered.length){wrap.innerHTML='<div class="empty"><i class="ti ti-filter"></i>Kein Spieler für diesen Filter</div>';renderRauteMap(names);return;}
@@ -962,7 +977,7 @@ function renderKader(){
     const bMap={aufpasser:"rb-auf",jaeger:"rb-jaeg",flitzer_l:"rb-links",flitzer_r:"rb-rechts",flex:"rb-flex"};
     const lMap={aufpasser:"Aufpasser",jaeger:"Jäger",flitzer_l:"Flitzer L",flitzer_r:"Flitzer R",flex:"Flexibel"};
     const tot=lat.total_score||0,pot=lat.pot_score||0;
-    const grpB=lat.grp==="A"?'<span class="grp-a">A</span>':lat.grp==="B"?'<span class="grp-b">B</span>':'<span style="font-size:10px;color:var(--text3)">–</span>';
+    const grpB=""; // A/B-Label abgeschafft (Evidenz: keine Niveau-Etiketten bei 8-Jaehrigen)
     const mini=val=>{let s='<div class="sm">';for(let i=0;i<5;i++)s+=`<div class="sm-s${val>=(i+1)*20?" on":""}"></div>`;return s+'</div>';};
     const snBadge=DB[name].length>1?`<span title="${DB[name].length} Bewertungen – mehr = verlässlicher" style="font-size:9px;color:var(--teal);font-weight:600;margin-left:4px">×${DB[name].length}</span>`:"";
     const _tr=(typeof playerTrend==="function")?playerTrend(name):{delta:0,conf:0};
@@ -1085,7 +1100,7 @@ function renderProfil(){
   const dims=isTw?[...DIMS_FELD,...DIMS_TW]:DIMS_FELD;
   const prim=lat.prim_rolle||"–",sek=lat.sek_rolle||"–";
   const bMap={aufpasser:"rb-auf",jaeger:"rb-jaeg",flitzer_l:"rb-links",flitzer_r:"rb-rechts"};
-  const grpB=lat.grp==="A"?'<span class="grp-a">A-Gruppe</span>':lat.grp==="B"?'<span class="grp-b">B-Gruppe</span>':"";
+  const grpB=""; // A/B-Label abgeschafft
   const dl=dims.map(d=>d.label.split(" ")[0]);
   const cols=dims.map(d=>d.col);
   const scPad=dl.map((_,i)=>sc[i]||0);
@@ -1117,9 +1132,10 @@ function renderProfil(){
         </div>
       </div>
       <div style="text-align:right">
-        <div style="font-size:10px;color:var(--text2)">Niveau</div>
+        <div style="font-size:10px;color:var(--text2)">Entwicklungsstand</div>
         <div style="font-size:26px;font-weight:700;color:var(--blue)">${tot}%</div>
-        <div style="font-size:10.5px;color:var(--teal);font-weight:500">Potenzial ~${pot}%</div>
+        <div style="font-size:10.5px;color:var(--teal);font-weight:500">Entwicklungstempo ~${pot}%</div>
+        ${typeof raeInfo==="function"&&raeInfo(getKader(name)?.geb)?`<div style="font-size:9.5px;color:var(--text3);max-width:150px;margin-top:2px">${raeInfo(getKader(name)?.geb)}</div>`:""}
       </div>
     </div>
 
@@ -1369,7 +1385,7 @@ function _zertCardHtml(name,extra){
       </div>
       <div class="zert-badges">
         ${snaps.length?`<div class="zb">Entwicklungsstand<b>${tot}%</b></div>
-        <div class="zb">Potenzial<b>~${pot}%</b></div>`:""}
+        <div class="zb">Tempo<b>~${pot}%</b></div>`:""}
         ${extra.federn!=null?`<div class="zb">Federn gesammelt<b>🪶 ${extra.federn}</b></div>`:""}
       </div>`}
       <div class="zert-sign">
@@ -2113,7 +2129,7 @@ function go(key){
   // Nebenwirkungen (aus altem _svApply/switchTrainSub übernommen)
   if(key==="taktik")requestWakeLock();else releaseWakeLock();
   // Rotations-Timer/Match-Uhr-Tick stoppen beim Verlassen des Spieltags (try/catch: ggf. noch in TDZ beim Start)
-  try{ if(key!=="spieltag"&&rotTimerId){clearInterval(rotTimerId);rotTimerId=null;} }catch(e){}
+  try{ if(key!=="spieltag"&&rotTimerId&&typeof rotStop==="function")rotStop(); }catch(e){} // rotStop persistiert die Zeiten – blanker clearInterval verlor bis zu 30 s Fairness-Daten
   try{ if(key!=="spieltag"&&mcTickId){clearInterval(mcTickId);mcTickId=null;} }catch(e){}
   if(SECS[key].init)setTimeout(SECS[key].init,50);
   tabState[tabId]=key;

@@ -153,7 +153,7 @@ const TF_GRUPPEN=[
   {key:"aufwaermen",label:"🔥 Aufwärmen",kats:["aufwaermen"]},
   {key:"technik",label:"⚽ Technik & Ballgefühl",kats:["technik","wahrnehmung"]},
   {key:"passen",label:"🎯 Passen & Spielaufbau",kats:["passspiel","raute"]},
-  {key:"zweikampf",label:"🛡️ Zweikampf & Pressing",kats:["pressing"]},
+  {key:"zweikampf",label:"🛡️ 1 gegen 1 & Zweikampf",kats:["pressing"]},
   {key:"kopf",label:"🎉 Spaß & Kopf",kats:["spass","mindset"]},
   {key:"torwart",label:"🧤 Torwart",kats:["torwart"]},
   {key:"individual",label:"🧍 Individual",kats:["individual"]},
@@ -312,12 +312,18 @@ function sbTeamHeaders(){
 // G1: local-first Upsert (Fehler still schlucken – offline-fähig bleiben)
 async function teamSyncUpsert(table,datum,data,extra){
   try{
-    await fetch(`${SB_URL}/rest/v1/${table}?on_conflict=datum`,{
+    const r=await fetch(`${SB_URL}/rest/v1/${table}?on_conflict=datum`,{
       method:"POST",
       headers:{...sbTeamHeaders(),'Prefer':'resolution=merge-duplicates'},
       body:JSON.stringify(Object.assign({datum,data},extra||{})) // HOTFIX 3-FE: optional termin_id
     });
-  }catch(e){/* offline */}
+    /* Vorher wurde r.ok NIE geprueft: bei 403/500 glaubte der Trainer "gespeichert",
+       das Zweitgeraet sah aber nichts. Einmal pro Minute ehrlich Bescheid geben. */
+    if(!r.ok&&(!teamSyncUpsert._warnAt||Date.now()-teamSyncUpsert._warnAt>60000)){
+      teamSyncUpsert._warnAt=Date.now();
+      toast("⚠️ Nur lokal gespeichert – Team-Sync gerade nicht möglich","err");
+    }
+  }catch(e){/* offline: Daten liegen lokal, Sync folgt beim naechsten Speichern */}
 }
 // Schritt 6 (API-Debouncing): Netzwerk-Schutz. Bursts auf DIESELBE (table,datum)-Zeile
 // werden zu einem Write zusammengefasst (1,5 s). Lokal wird sofort gespeichert (local-first),
@@ -510,6 +516,7 @@ function awRenderList(){
 }
 
 function awToggle(btn,name){
+  window._awDirty=true; // Haken gesetzt, aber noch nicht gespeichert
   btn.classList.toggle("on");
 }
 function awAlleDa(){
@@ -541,7 +548,7 @@ function awSave(){
   awRenderStats();
   awRenderTrainerStats();
   try{navigator.vibrate&&navigator.vibrate(50);}catch(e){} // 1C: haptische Bestätigung
-  toast("Anwesenheit gespeichert ✓");
+  toast("Anwesenheit gespeichert ✓"); window._awDirty=false;
 }
 
 /* ═══════════════════════════════════
@@ -640,6 +647,8 @@ async function _kgPersist(gruppen){
 }
 
 function awLoad(){
+  if(window._awDirty&&!confirm("Ungespeicherte Anwesenheits-Haken verwerfen?"))return;
+  window._awDirty=false;
   const datum=document.getElementById("aw-date").value;
   const existing=AW_DATA[datum]||{};
   const savedTrainers=existing._trainers;
@@ -663,7 +672,7 @@ async function awPrefillFromNomination(datum){
     if(!sbCheck401(r)&&r.ok){const rows=await r.json(); data=rows[0]&&rows[0].data;} }catch(e){}
   if(!data)return;
   let n=0;
-  KADER.forEach(k=>{ if(data[k.name]==="dabei"){ const t=document.querySelector(`.aw-toggle[data-player="${k.name}"]`); if(t&&!t.classList.contains("on")){t.classList.add("on");n++;} } });
+  KADER.forEach(k=>{ if(data[k.name]==="dabei"){ const t=document.querySelector(`.aw-tile[data-player="${k.name}"]`); if(t&&!t.classList.contains("on")){t.classList.add("on");n++;} } });
   if(n){ awRenderStats(); toast(`${n} nominierte Kinder vorgehakt – bitte prüfen & speichern`); }
 }
 
@@ -799,11 +808,15 @@ function awRenderStats(){
 /* ═══════════════════════════════════
    TRAININGSPLANUNG
 ═══════════════════════════════════ */
+/* Standard-Einheit nach DFB-/FIFA-Linie: Ankommensspiele ab dem ersten Kind, zwei
+   Hauptteile (mit Variations-Hinweis nach ~10 Min – Aufmerksamkeitsspanne 7–9 J.),
+   Abschluss 20 statt 15 Min, weil das freie Spiel im Wettspielformat (3v3/FUNiño)
+   der wichtigste Teil der Einheit ist. 10+20+20+20 = 70 von 75 Min. */
 const TP_PHASEN=[
   {label:"Ankommen & Aufwärmen",dauer:10,farbe:"#059669",typ:"warmup"},
   {label:"Hauptteil 1",dauer:20,farbe:"#1a56db",typ:"main"},
   {label:"Hauptteil 2",dauer:20,farbe:"#7c3aed",typ:"main"},
-  {label:"Abschlussspiel",dauer:15,farbe:"#c2410c",typ:"abschluss"}
+  {label:"Abschlussspiel",dauer:20,farbe:"#c2410c",typ:"abschluss"}
 ];
 let tpSlots=[...TP_PHASEN];
 let tpExerciseLog={};
@@ -976,10 +989,16 @@ function tpRenderTimeline(){
           ${mains.map(x=>`<option value="${x.i2}"${slot.parallelZu===x.i2?" selected":""}>${x.s2.label}</option>`).join("")}
         </select></div>`;
     }
+    if(typ==="main"&&(slot.dauer||0)>=15){
+      html+=`<div style="font-size:10.5px;color:var(--text3);padding:2px 0 4px">💡 Nach ~10 Min. variieren oder steigern – 20 Min. dieselbe Übung überfordert die Aufmerksamkeit von 7–9-Jährigen</div>`;
+    }
+    if(typ==="warmup"){
+      html+=`<div style="font-size:10.5px;color:var(--text3);padding:2px 0 4px">🏃 Ankommensspiel wählen: ab dem ERSTEN Kind spielbar, Nachzügler docken einfach an – kein Warten, kein Laufen ohne Ball</div>`;
+    }
     if(noSelect){
       // PO-Wunsch: das Abschlussspiel kann direkt als Blitzturnier laufen – die Slot-Dauer
       // wird zum Zeitbudget (auch 2 gegen 2 ohne Torwart mit bis zu 6 Teams).
-      html+=`<div style="font-size:11px;color:var(--text2);padding:4px 0">Freies Spiel – alle Kinder zusammen</div>
+      html+=`<div style="font-size:11px;color:var(--text2);padding:4px 0">Freies Spiel – Standard: 3 gegen 3 auf 4 Minitore (FUNiño), ohne Torwart</div>
         <button class="btn btn-sm" style="margin-top:4px" onclick="blitzOpen(${Number(slot.dauer)||15})" title="Blitzturnier mit dieser Slot-Dauer als Zeitbudget – Spielform wählbar, z. B. 2 gegen 2 ohne Torwart">⚡ Als Blitzturnier spielen (${slot.dauer} Min.)</button>`;
     } else if(typ==="tw"){
       const twPlayers=KADER.filter(k=>k.tw);
@@ -1059,6 +1078,8 @@ function tpRenderTimeline(){
   const zielDauer=parseInt(document.getElementById("tp-dauer")?.value)||75; // H3 (Wert VOR dem Neuzeichnen gelesen)
   const passt=time<=zielDauer;
   // Ziel-Dauer wohnt jetzt HIER statt als eigene „Zeitplan"-Zeile im Kopf (PO: schlanker)
+  const sfq=(typeof tpSpielformQuote==="function")?null:null; // Quote wird nach dem DOM-Aufbau gefüllt (braucht die Selects)
+  html+=`<div id="tp-sfq" style="text-align:right;font-size:11px;color:var(--text2);margin-top:8px"></div>`;
   html+=`<div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:12px;font-weight:${passt?"600":"800"};color:${passt?"var(--text2)":"#dc2626"};margin-top:6px">Gesamt: ${time} von
     <select id="tp-dauer" onchange="tpRenderTimeline()" style="font-size:13px;min-height:40px;padding:4px 8px;border:var(--border-s);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">${[60,75,90].map(d=>`<option value="${d}"${zielDauer===d?" selected":""}>${d}</option>`).join("")}</select>
     Min.${passt?"":" – zu lang!"}</div>`;
@@ -1118,6 +1139,45 @@ function _kgRolle(f){
   if(/\bdieb/.test(txt))return {lbl:"Diebe",emo:"🕵️"};
   return null;
 }
+/* Spielform vs. Übungsform (FA: 70 % "ball rolling time", DFB: kleine Spielformen als
+   Schlüssel): grobe Text-Heuristik über die gewählten Übungen – die Quote unten im Plan
+   zeigt dem Trainer, ob die Einheit genug ECHTES Spielen enthält (Ziel: ≥ 50 %). */
+function _istSpielform(f){
+  if(!f)return false;
+  const kat=f.kat||"", t=((f.name||"")+" "+(f.kurz||"")+" "+(f.ablauf||"")).toLowerCase();
+  // Kategorien mit eingebautem Gegner + Ziel sind per Definition Spielformen
+  if(kat==="spass"||kat==="raute"||kat==="pressing")return true;
+  // Solo-/TW-Arbeit nur, wenn wirklich ein Duell beschrieben ist (1gg1 ja, 1gg0 nein)
+  if(kat==="individual"||kat==="torwart")return /\d\s*(gg|gegen)\s*[1-9]/.test(t);
+  // Aufwaermen: Fang-/Abwurfspiele haben Gegner + Entscheidungen, Laufschule nicht
+  if(kat==="aufwaermen")return /fangspiel|fänger|hai|dieb|zombie|abwurf/.test(t);
+  return /\d\s*(gg|gegen)\s*[1-9]|funino|turnier|wettbewerb|staffel|duell|zielspiel/.test(t);
+}
+
+function tpSpielformQuote(){
+  let spiel=0,gesamt=0;
+  document.querySelectorAll(".tp-form-sel").forEach(sel=>{
+    if(!sel.value)return;
+    const f=tpAllForms()[Number(sel.value)];
+    const slotEl=sel.closest(".tp-slot");
+    // Dauer des zugehörigen Slots grob über tpSlots ermitteln
+    const m=(sel.id||"").match(/^tp-form-(\d+)-/);
+    const d=m&&tpSlots[Number(m[1])]?(tpSlots[Number(m[1])].dauer||0):10;
+    gesamt+=d;
+    if(_istSpielform(f))spiel+=d;
+  });
+  // Abschluss zählt immer als Spiel (freies Spiel), auch ohne gewählte Übung
+  tpSlots.forEach(sl=>{if((sl.typ||"main")==="abschluss"){const belegt=document.querySelector(`[id^="tp-form-${tpSlots.indexOf(sl)}-"]`)?.value;if(!belegt){gesamt+=sl.dauer||0;spiel+=sl.dauer||0;}}});
+  if(!gesamt)return null;
+  return Math.round(spiel/gesamt*100);
+}
+function tpSfqRender(){
+  const el=document.getElementById("tp-sfq"); if(!el)return;
+  const q=tpSpielformQuote();
+  if(q==null){el.innerHTML="";return;}
+  const gut=q>=50;
+  el.innerHTML=`⚽ Spielform-Anteil: <b style="color:${gut?"#16a34a":"#b45309"}">${q}%</b>${gut?"":" – DFB/FIFA empfehlen ≥ 50% echtes Spielen (Tore + Gegner + Entscheidungen)"}`;
+}
 function tpKgHintAll(){
   document.querySelectorAll("[id^='tp-kg-']").forEach(slotEl=>{
     const si=slotEl.id.split("-")[2];
@@ -1129,6 +1189,7 @@ function tpKgHintAll(){
     if(rolle)html+=`<button class="btn btn-sm" style="margin-top:6px" onclick="rolleLosOpen('${rolle.lbl}','${rolle.emo}')">${rolle.emo} ${rolle.lbl} auslosen (1–2) – zu Beginn bestimmen</button>`;
     slotEl.innerHTML=html;
   });
+  tpSfqRender();
 }
 /* Rollen-Auslosung (z. B. 1–2 Haie bei „Hai & Fische“): zufällig aus den Anwesenden,
    Ergebnis groß zum Hochhalten, Neu-losen jederzeit. */
@@ -1242,10 +1303,10 @@ function tpAddSlot(){
 }
 const TP_ADD_OPTS=[
   {label:"Hauptteil",dauer:20,farbe:"#1a56db",typ:"main"},
-  {label:"Torwart-Training",dauer:15,farbe:"#854d0e",typ:"tw"},
+  {label:"Torwart-Spielen (rotierend)",dauer:15,farbe:"#854d0e",typ:"tw"},
   {label:"Individual-Training",dauer:15,farbe:"#0e7490",typ:"individual"},
   {label:"Aufwärmen",dauer:10,farbe:"#059669",typ:"warmup"},
-  {label:"Abschlussspiel",dauer:15,farbe:"#c2410c",typ:"abschluss"}
+  {label:"Abschlussspiel",dauer:20,farbe:"#c2410c",typ:"abschluss"}
 ];
 function tpDoAddSlot(idx){
   const o=TP_ADD_OPTS[idx];
@@ -2007,7 +2068,7 @@ function tpRenderMindsetTip(){
 const KAT_GRUPPEN=[
   {key:"technik",  label:"⚽ Technik & Ballgefühl",  kats:["technik","wahrnehmung"]},
   {key:"passen",   label:"🎯 Passen & Spielaufbau",  kats:["passspiel","raute"]},
-  {key:"zweikampf",label:"🛡️ Zweikampf & Pressing", kats:["pressing"]},
+  {key:"zweikampf",label:"🛡️ 1 gegen 1 & Zweikampf", kats:["pressing"]},
   {key:"kopf",     label:"🎉 Spaß & Kopf",           kats:["spass","mindset"]}
 ];
 const STERN_DEFAULT={aufwaermen:1,spass:1,technik:2,wahrnehmung:2,passspiel:2,individual:2,torwart:2,mindset:2,raute:3,pressing:3};
@@ -2044,7 +2105,7 @@ function tpPickerOpen(selId){
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
     ${mdlHead("tp-pick-modal","📚","Übung wählen","Suchen, Gruppe antippen oder aus „Zuletzt genutzt“","#16a34a")}
-    <input id="tp-pick-suche" type="text" placeholder="Suchen… (z. B. Dribbling)" oninput="_tpPick.suche=this.value;tpPickerRender()" style="width:100%;box-sizing:border-box;min-height:46px;padding:10px 12px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text)">
+    <input id="tp-pick-suche" type="text" placeholder="Suchen… (z. B. Dribbling)" oninput="_tpPick.suche=this.value;clearTimeout(window._tpPickDeb);window._tpPickDeb=setTimeout(tpPickerRender,160)" style="width:100%;box-sizing:border-box;min-height:46px;padding:10px 12px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text)">
     <div id="tp-pick-gruppen" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px"></div>
     <div id="tp-pick-sterne" style="display:flex;gap:6px;margin-top:8px"></div>
     <div id="tp-pick-liste" style="margin-top:10px"></div>
@@ -2262,7 +2323,9 @@ function tlSchliessen(){ document.getElementById("tl-ov")?.remove(); _tlPollStop
 // Lobby verwerfen (nur vor Station 1): Session löschen, dann oben Trainer anpassen + neu starten
 async function tlAbbrechen(){
   if(!confirm("Diesen Trainingsstart für ALLE Geräte verwerfen? Danach in der Planung anpassen und neu starten."))return;
-  try{await fetch(`${SB_URL}/rest/v1/training_live?datum=eq.${_tlHeute()}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}
+  let _delOk=false;
+  try{const r=await fetch(`${SB_URL}/rest/v1/training_live?datum=eq.${_tlHeute()}`,{method:"DELETE",headers:sbAuthHeaders()});_delOk=r.ok;}catch(e){}
+  if(!_delOk){toast("Konnte nicht verworfen werden – kein Netz? Nochmal versuchen","err");return;}
   _tl.row=null;
   tlSchliessen();
   toast("Trainingsstart verworfen – Trainer oben anpassen und neu starten");

@@ -1,3 +1,6 @@
+/* Init-Anmeldung, die auch beim dynamischen Nachladen funktioniert: die Skripte werden
+   nach DOMContentLoaded eingehaengt - ein reiner Event-Listener wuerde nie feuern. */
+function _adlerOnReady(fn){ if(document.readyState!=="loading"){try{fn();}catch(e){console.error(e);}} else document.addEventListener("DOMContentLoaded",fn); }
 /* ═══════════════════════════════════════════════════════════
    ADLER CORE LAYER (Modularisierung 3/8)
    Supabase-Konfiguration, Auth (Trainer-Login, Token-Refresh),
@@ -53,6 +56,19 @@ function sbToken(){
   if(s&&(s.t.expires_at*1000)>Date.now()+60000)return s.t.access_token;
   return null;
 }
+/* Datierte Wegwerf-Keys (Karten-Packs, Reveals, Tagesgruppen ...) sammelten sich
+   unbegrenzt an - nach einer Saison hunderte tote Eintraege. Einmal pro Start aufraeumen. */
+function lsHousekeeping(){
+  try{
+    const cut=new Date(Date.now()-45*864e5).toISOString().slice(0,10);
+    const re=/^adler_(reveal|pack|tuete_pack|tuete_kudos|tg)_.*?(\d{4}-\d{2}-\d{2})/;
+    Object.keys(localStorage).forEach(k=>{
+      const m=k.match(re);
+      if(m&&m[2]<cut)localStorage.removeItem(k);
+    });
+  }catch(e){}
+}
+try{lsHousekeeping();}catch(e){}
 function sbClearToken(){
   const s=sbRead(); localStorage.removeItem(s?s.key:sbWriteKey());
   // Gesundheitsdaten der Notfallkarten nie über die Sitzung hinaus auf dem Gerät lassen
@@ -290,7 +306,7 @@ async function loadDB(){
   if(document.getElementById("view-kombi")?.classList.contains("active"))renderKombi();
 }
 // L4: Antippen des Sync-Status zeigt Zeitstempel als Toast
-document.addEventListener("DOMContentLoaded",()=>{
+_adlerOnReady(()=>{
   const lbl=document.getElementById("clbl");
   if(lbl)lbl.addEventListener("click",()=>{
     toast(lastSyncTs?"Zuletzt synchronisiert: "+lastSyncTs.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}):"Offline – Daten vom Gerät");
@@ -743,7 +759,7 @@ function toggleTheme(){
   if(typeof hapticTap==="function")hapticTap(12);
 }
 (function(){ try{ applyTheme(localStorage.getItem("adler_theme")); }catch(e){} })(); // sofort (Anti-Flash)
-document.addEventListener("DOMContentLoaded",()=>{ try{ applyTheme(localStorage.getItem("adler_theme")); }catch(e){} }); // Button-Icon setzen
+_adlerOnReady(()=>{ try{ applyTheme(localStorage.getItem("adler_theme")); }catch(e){} }); // Button-Icon setzen
 if(window.matchMedia){ try{ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{ if(!localStorage.getItem("adler_theme"))applyTheme(null); }); }catch(e){} }
 
 /* ═══ Web-Push-Benachrichtigungen ═══

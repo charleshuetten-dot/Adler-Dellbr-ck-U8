@@ -39,28 +39,28 @@
 (async function(){
   const shell=await (await fetch("shell.html")).text();
   document.body.insertAdjacentHTML("afterbegin",shell);
-  const dateien=["data.js","core.js","engine.js","views.js","quiz.js",
-    "md-eltern-portal.js","md-abzeichen.js","md-carpool.js","md-fanfakten.js","md-teamkasse.js","md-kabine.js",
-    "md-aufstellung.js","md-print.js","md-taktikboard.js","md-taktik-draw.js","md-taktik-video.js","md-kalender.js","md-gegner.js","md-turnierplan.js",
-    "md-teams.js","md-matchuhr.js","md-liveticker.js","md-spielbericht.js",
-    "md-matchcard.js","md-analyse.js","md-quests.js","md-voice.js",
-    "md-live-vollbild.js","md-fundbuero.js","md-taktik-bib.js","md-ausruestung.js","md-galerie.js","md-kasse.js","md-ki-coach.js",
-    "boot.js"];
-  // Parallel laden, aber in Array-Reihenfolge AUSFUEHREN: dynamisch eingehaengte Skripte
-  // mit async=false behalten die Ausfuehrungsreihenfolge, laden aber gleichzeitig herunter
-  // (kein Round-Trip-Stau bei vielen kleinen Feature-Dateien). onload feuert nach der
-  // Ausfuehrung -> offen===0 heisst: alle geladen UND ausgefuehrt.
-  await new Promise((fertig,fehler)=>{
+  /* ZWEI-WELLEN-LADEN (Perf-Audit): Welle 1 (~940 KB) reicht fuer den ersten Screen –
+     Kern + Views + Boot. Die 28 Feature-Module (~980 KB) kommen direkt danach, waehrend
+     der Trainer schon die Startseite sieht. Alle Inits sind selbststartend
+     (_adlerOnReady/readyState) – ein synthetisches DOMContentLoaded ist nicht mehr noetig. */
+  const lade=(dateien)=>new Promise((fertig,fehler)=>{
     let offen=dateien.length;
     dateien.forEach(datei=>{
       const s=document.createElement("script");
-      s.src=datei; s.async=false;
+      s.src=datei; s.async=false;               // parallel laden, in Reihenfolge ausfuehren
       s.onload=()=>{ if(--offen===0)fertig(); };
       s.onerror=()=>fehler(new Error(datei));
       document.body.appendChild(s);
     });
   });
-  if(document.readyState!=="loading")document.dispatchEvent(new Event("DOMContentLoaded"));
+  await lade(["data.js","core.js","engine.js","views.js","boot.js"]);
+  lade(["quiz.js",
+    "md-eltern-portal.js","md-abzeichen.js","md-carpool.js","md-fanfakten.js","md-teamkasse.js","md-kabine.js",
+    "md-aufstellung.js","md-print.js","md-taktikboard.js","md-taktik-draw.js","md-taktik-video.js","md-kalender.js","md-gegner.js","md-turnierplan.js",
+    "md-teams.js","md-matchuhr.js","md-liveticker.js","md-spielbericht.js",
+    "md-matchcard.js","md-analyse.js","md-quests.js","md-voice.js",
+    "md-live-vollbild.js","md-fundbuero.js","md-taktik-bib.js","md-ausruestung.js","md-galerie.js","md-kasse.js","md-ki-coach.js"
+  ]).catch(e=>console.error("Welle 2:",e));
 })().catch(e=>{
   console.error(e);
   document.body.innerHTML='<div style="font-family:system-ui;padding:32px;text-align:center;color:#334155">'

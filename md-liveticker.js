@@ -33,6 +33,11 @@ function tickerPhrase(typ,name){
 }
 async function tickerPush(name,typ){
   if(mcTickerOpen===false)return; // Wolff-Fuss aktiv – nichts senden
+  // Doppel-Tap-Schutz: gleiches Kind + gleicher Typ innerhalb von 2 s = ein Ereignis
+  const _k=(name||"")+"|"+typ, _now=Date.now();
+  tickerPush._last=tickerPush._last||{};
+  if(tickerPush._last[_k]&&_now-tickerPush._last[_k]<2000)return;
+  tickerPush._last[_k]=_now;
   const datum=spieltagKey();
   const minute=mcState?mcMinuteLabel(mcState,mcSpieldauer,mcHalbzeiten):"";
   const text=tickerPhrase(typ,name);

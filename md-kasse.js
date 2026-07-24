@@ -377,7 +377,8 @@ async function elternMitbringLoad(kids){
     </div>`;
   }).join("");
 }
-async function mitbringAdd(terminId){
+async function mitbringAdd(_a,_b,_c){if(mitbringAdd._busy)return;mitbringAdd._busy=true;setTimeout(()=>{mitbringAdd._busy=false;},1500);return _mitbringAdd(_a,_b,_c);}
+async function _mitbringAdd(terminId){
   const inp=document.getElementById("mb-was-"+terminId);
   const was=(inp&&inp.value||"").trim();
   if(!was){toast("Bitte eintragen, was du mitbringst","err");return;}

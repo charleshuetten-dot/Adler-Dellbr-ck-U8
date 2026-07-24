@@ -1383,6 +1383,7 @@ const KADER=[
 const TRAINER=["Sandy","Charles","Finn","Kenneth","Peter"];
 function renderTrainerUI(){
   const sel=document.getElementById("p-trainer");
+  if(typeof trainerMe==="function")trainerMe().then(me=>{if(me&&sel&&[...sel.options].some(o=>o.value===me))sel.value=me;}).catch(()=>{}); // eingeloggter Trainer als Default (war: immer der erste)
   if(sel)sel.innerHTML=TRAINER.map(t=>`<option value="${t}">${t}</option>`).join("");
   const tp=document.getElementById("tp-trainer-checks");
   if(tp)tp.innerHTML=TRAINER.map(t=>`<label class="tp-check"><input type="checkbox" value="${t}"${(t==="Sandy"||t==="Charles")?" checked":""} onchange="tpRenderTimeline()"><span>${t}</span></label>`).join("");

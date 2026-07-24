@@ -265,7 +265,7 @@ async function renderTickerView(key){
   clearInterval(tickerViewMinuteTimer);
   if(!konf)tickerViewMinuteTimer=setInterval(()=>{const el=document.getElementById("tv-minute");if(el)el.textContent=minuteFor(key);},1000);
   clearInterval(tickerViewTimer);
-  tickerViewTimer=setInterval(async()=>{await loadClocks();await draw();},15000);
+  tickerViewTimer=setInterval(async()=>{if(document.hidden)return;await loadClocks();await draw();},15000); // Hintergrund-Tab pollt nicht weiter
 }
 
 // Eltern-Interaktion (anonym, nur Training): Anwesenheit + Fahrgemeinschaften

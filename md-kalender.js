@@ -52,7 +52,7 @@ function tmSetTyp(t,btn){
     tmSetHeim(true);                                      // Standard: Heimspiel → Vereinsadresse
   } else if(t==="event"){
     if(ort&&ort.value===VEREIN_ADRESSE)ort.value="";     // Event: übernommene Vereinsadresse nicht erzwingen
-  }
+  }  if(typeof tmEndeVorschlag==="function")tmEndeVorschlag(); // value= feuert kein onchange – Ende-Feld blieb sonst leer
 }
 // Heim/Auswärts umschalten. Heim → Vereinsadresse vorbelegen; Auswärts → freigeben.
 function tmSetHeim(isHeim,btn){
@@ -94,6 +94,8 @@ function tmSerieToggle(){
   if(on&&typeof ferienLoad==="function")ferienLoad(); // Ferien vorladen fürs Auslassen
 }
 async function tmAdd(){
+  if(tmAdd._busy)return; tmAdd._busy=true; // Doppel-Tap erzeugte doppelte Termine (bei Serien bis zu 30)
+  try{
   const datum=document.getElementById("tm-datum")?.value;
   if(!datum){toast("Bitte Datum wählen","err");return;}
   const zeit=document.getElementById("tm-zeit")?.value||"";
@@ -149,6 +151,7 @@ async function tmAdd(){
     }
     else toast("Fehler beim Anlegen","err");
   }catch(e){toast("Netzwerkfehler","err");}
+  }finally{ tmAdd._busy=false; }
 }
 // Gegner-Adresse per Name finden (OpenStreetMap). Trainer tippt Verein/Platz -> Vorschläge ->
 // Klick übernimmt die Adresse ins Ort-Feld (füttert auch das Termin-Wetter via Geocoding).

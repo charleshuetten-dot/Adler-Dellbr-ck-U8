@@ -512,6 +512,7 @@ async function elternAnsageAck(id,btn){
   toast("Danke! ✓");
 }
 async function elternDashLoad(){
+  try{if(typeof elTickerTimer!=="undefined"&&elTickerTimer){clearInterval(elTickerTimer);elTickerTimer=null;}}catch(e){} // Ticker-Poll endet beim Verlassen der Match-Ansicht
   const body=document.getElementById("ep-dash-body");
   if(!body)return;
   const card=(inner)=>`<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">${inner}</div>`;
@@ -975,7 +976,7 @@ async function tdPulsSaveText(terminId){
   const box=document.getElementById("td-puls"); const mood=box&&box.dataset.mood?Number(box.dataset.mood):0;
   if(!mood)return; // Stimmung zuerst wählen (mood ist Pflicht)
   const txt=(document.getElementById("td-puls-txt")?.value||"").trim().slice(0,200);
-  try{await fetch(`${SB_URL}/rest/v1/event_puls?on_conflict=termin_id,user_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({termin_id:terminId,mood,kommentar:txt||null})});}catch(e){}
+  try{await fetch(`${SB_URL}/rest/v1/event_puls?on_conflict=termin_id,user_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({termin_id:terminId,mood,kommentar:txt||null})});}catch(e){if(typeof toast==="function")toast("Kommentar konnte nicht gespeichert werden","err");}
 }
 
 /* „Erste Schritte"-Checkliste: führt neue Familien durch die Einrichtung (Push, Notfallkarte,
@@ -1135,16 +1136,17 @@ async function tdHelferLoad(t){
 }
 function _helferReload(terminId){ const t=(ELTERN_TERMINE||[]).find(x=>Number(x.id)===Number(terminId))||{id:terminId,datum:new Date().toISOString().slice(0,10)}; tdHelferLoad(t); }
 async function tdHelferAdd(terminId,task){
+  if(tdHelferAdd._busy)return; tdHelferAdd._busy=true; setTimeout(()=>{tdHelferAdd._busy=false;},1500); // Doppel-Tap = doppelter Helfer-Eintrag
   try{const r=await fetch(`${SB_URL}/rest/v1/event_helfer`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({termin_id:terminId,name:_helferName(),aufgabe:task})});if(!r.ok){toast("Konnte nicht eintragen","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
   try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
   _helferReload(terminId);
 }
 async function tdHelferDel(id,terminId){
-  try{await fetch(`${SB_URL}/rest/v1/event_helfer?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}
+  try{await fetch(`${SB_URL}/rest/v1/event_helfer?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){if(typeof toast==="function")toast("Austragen fehlgeschlagen – kein Netz?","err");}
   _helferReload(terminId);
 }
 async function tdHelferDelTask(terminId,task){
-  try{await fetch(`${SB_URL}/rest/v1/event_helfer?termin_id=eq.${terminId}&aufgabe=eq.${encodeURIComponent(task)}&user_id=eq.${_sbUid()}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){}
+  try{await fetch(`${SB_URL}/rest/v1/event_helfer?termin_id=eq.${terminId}&aufgabe=eq.${encodeURIComponent(task)}&user_id=eq.${_sbUid()}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){if(typeof toast==="function")toast("Austragen fehlgeschlagen – kein Netz?","err");}
   _helferReload(terminId);
 }
 /* F1: Notfall-/Gesundheitskarte (Art. 9 DSGVO – Gesundheitsdaten). Eltern pflegen sie fürs

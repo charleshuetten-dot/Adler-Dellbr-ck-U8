@@ -489,7 +489,11 @@ function tmCard(t){
   </div>`;
 }
 async function tmSetResult(id,val){
-  try{await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({ergebnis:val})});}catch(e){}
+  // Ergebnis fuettert das Saison-Cockpit – ein stiller Fehlschlag waere dort eine Luecke.
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({ergebnis:val})});
+    if(!r.ok)toast("Ergebnis konnte nicht gespeichert werden","err");
+  }catch(e){toast("Kein Netz – Ergebnis bitte gleich nochmal eintragen","err");}
 }
 /* ═══════════════════════════════════
    F6: VERTRETUNGS-/HANDOVER-PAKET – selbst-enthaltener Read-Only-Link.

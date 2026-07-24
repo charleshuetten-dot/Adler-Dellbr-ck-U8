@@ -29,7 +29,7 @@ let tqScenarios=[];
 let tqSelectedToken=null;
 let tqCurrentOpps=[];
 
-document.addEventListener("DOMContentLoaded",()=>{
+_adlerOnReady(()=>{
   const field=document.getElementById("taktik-field");
   if(field)field.addEventListener("click",function(e){
     if(e.target.closest(".tb-token"))return; // B4: Click nach Token-Selektion (Maus) nicht als Feld-Tap werten

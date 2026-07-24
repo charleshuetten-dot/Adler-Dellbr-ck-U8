@@ -73,14 +73,12 @@
     <div class="mg"><label>Termin</label><select id="p-date" style="width:100%;padding:8px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;background:var(--surface);font-family:inherit;color:var(--text)"><option>Lade Termine…</option></select></div>
     <div class="mg"><label>Alter</label>
       <select id="p-age">
-        <option value="7">7 Jahre</option><option value="8">8 Jahre</option><option value="9" selected>9 Jahre</option>
+        <option value="7">7 Jahre</option><option value="8" selected>8 Jahre</option><option value="9">9 Jahre</option>
       </select>
     </div>
-    <div class="mg"><label>Niveau-Gruppe</label>
-      <select id="p-grp">
-        <option value="A">A-Gruppe</option><option value="B">B-Gruppe</option><option value="flex" selected>Noch offen</option>
-      </select>
-    </div>
+    <!-- "Niveau-Gruppe A/B" entfernt: persistente Leistungslabels fuer 8-Jaehrige widersprechen
+         DFB-Reform/KNVB/US-Soccer und der Streaming-Evidenz (EEF). Gruppen werden tagesaktuell
+         in der Planung gelost (Trainingsgruppen), nie als Kind-Attribut gespeichert. -->
     <div class="mg s2"><label>Umfeld / Eltern</label>
       <div class="seg-ctrl" id="p-eltern-seg">
         <button type="button" class="seg-btn" data-val="1" onclick="segSet('p-eltern',1,this)">⚠️ Erhöhter Druck</button>
@@ -183,8 +181,6 @@
     <button class="ftag" onclick="setF('flitzer_l',this)">Flitzer L</button>
     <button class="ftag" onclick="setF('flitzer_r',this)">Flitzer R</button>
     <button class="ftag" onclick="setF('jaeger',this)">Jäger</button>
-    <button class="ftag" onclick="setF('A',this)">A-Gruppe</button>
-    <button class="ftag" onclick="setF('B',this)">B-Gruppe</button>
   </div>
   <div id="kader-content"><div class="empty"><i class="ti ti-users"></i>Noch keine Spieler bewertet</div></div>
   <div class="sl"><i class="ti ti-topology-star-3"></i>Rauten-Besetzung</div>
