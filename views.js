@@ -3178,7 +3178,7 @@ const HELP=[
     {t:"Quiz (Kinder)", d:"Kinder spielen über den Kids-Link (?quiz); Ergebnisse unter Eltern & Kinder → Quiz-Ergebnisse.", go:"quizresults"},
   ]},
   {cat:"📅 Orga", items:[
-    {t:"Termine", d:"Anlegen/bearbeiten · Serien · Endzeit (danach automatisch ins Archiv) · Platz · Trainer-Verfügbarkeit · Wetter · Ferien-Warnung.", go:"termine"},
+    {t:"Termine", d:"Treffzeit getrennt vom Anstoß (bei Spielen −45 Min. vorgeschlagen) · Anlegen/bearbeiten · Serien · Endzeit (danach automatisch ins Archiv) · Platz · Trainer-Verfügbarkeit · Wetter · Ferien-Warnung.", go:"termine"},
     {t:"Gegner-Datenbank", d:"Adresse, Ansprechpartner, Telefon/WhatsApp, bisherige Spiele.", run:"gegnerManageOpen()"},
     {t:"Pinnwand", d:"Team-Notizen fürs Trainerteam.", go:"team"},
     {t:"Teamkasse", d:"Kassen-Link hinterlegen (kein Geld in der App).", run:"kasseOpen()"},

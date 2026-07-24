@@ -81,6 +81,17 @@ function tmInit(){
    der Termin aus den aktiven Listen (terminVorbei in core.js). */
 function tmEndeVorschlag(){
   const z=document.getElementById("tm-zeit")?.value, e=document.getElementById("tm-ende");
+  // Spond-Muster: Treffzeit getrennt vom Anstoß – bei Spiel/Turnier 45 Min. vorher
+  // vorschlagen. Läuft VOR den Ende-Guards, damit ein bereits gefülltes Ende-Feld
+  // den Vorschlag nicht verschluckt.
+  try{
+    const tz=document.getElementById("tm-treff");
+    if(tz&&!tz.value&&z&&(tmTyp==="spiel"||tmTyp==="turnier")){
+      const [h2,m2]=z.split(":").map(Number);
+      const d2=new Date(2000,0,1,h2,m2-45);
+      tz.value=String(d2.getHours()).padStart(2,"0")+":"+String(d2.getMinutes()).padStart(2,"0");
+    }
+  }catch(_e){}
   if(!z||!e||e.value)return;
   const addMin={spiel:90,turnier:240,training:75}[typeof tmTyp!=="undefined"?tmTyp:""];
   if(!addMin)return;
@@ -129,6 +140,7 @@ async function tmAdd(){
     typ:tmTyp, datum, titel, ort,
     platz: (document.getElementById("tm-platz")?.value||"").trim()||null,
     uhrzeit: zeit||null,
+    treffzeit: (document.getElementById("tm-treff")?.value)||null,
     uhrzeit_ende: ende||null,
     saison: saisonForDate(datum),
     spielform: istSpiel?tmSpielform:null,

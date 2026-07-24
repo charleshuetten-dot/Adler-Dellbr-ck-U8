@@ -398,7 +398,10 @@ async function chronikOpen(){
    Adler News (seen-Baseline). KONVENTION: Bei eltern-sichtbaren neuen Features den key
    (sortierbares Datum) hochsetzen und die Punkte austauschen – sonst entdecken
    Bestandsfamilien neue Funktionen nie (die Tour läuft nur beim ersten Login). */
-const ELTERN_WHATSNEW={key:"2026-07-16b",titel:"Neu in eurer App",punkte:[
+const ELTERN_WHATSNEW={key:"2026-07-24",titel:"Neu in eurer App",punkte:[
+  "🕒 Treffzeit bei Spielen: Ihr seht jetzt getrennt, wann ihr da sein sollt und wann Anstoß ist",
+  "📰 Vorbericht: Bei Spielen gegen bekannte Gegner zeigt das Termin-Fenster die bisherigen Duelle",
+  "📬 Sanfte Auto-Erinnerung: Wer noch nicht geantwortet hat, bekommt automatisch zwei Tage vorher einen Hinweis",
   "🚸 „Wer holt ab?“ – tragt am Termin ein, wer euer Kind abholt; das Trainerteam sieht es am Platz",
   "📖 Panini-Sammelalbum mit Sticker-Tüten, Raritäten und Tauschbörse – in der Kabine",
   "🛡️ „So schützen wir eure Fotos & Daten“ – warum die Galerie sicherer ist als WhatsApp (unter Datenschutz & Freigaben)",
@@ -805,7 +808,7 @@ function elternTermineCarouselHtml(rows,kids,rsvpAll){
     const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"#1e3a8a"};
     const d=new Date(t.datum+"T00:00:00");
     const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
-    const zeit=t.uhrzeit?String(t.uhrzeit).slice(0,5)+" Uhr":"";
+    const zeit=t.treffzeit?("🕒 "+String(t.treffzeit).slice(0,5)+" Uhr (Treffen)"):(t.uhrzeit?String(t.uhrzeit).slice(0,5)+" Uhr":"");
     const rr=rsvpAll[t.id]||{};
     const kidRows=(kids||[]).map(k=>{
       const kd=k.kader||{}, st=rr[k.spieler_id]||null;
@@ -850,7 +853,8 @@ async function terminDetailOpen(id){
   const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"#1e3a8a"};
   const d=new Date(t.datum+"T00:00:00");
   const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
-  const zeit=t.uhrzeit?String(t.uhrzeit).slice(0,5)+" Uhr":"";
+  const tz=t.treffzeit?String(t.treffzeit).slice(0,5):"";
+  const zeit=t.uhrzeit?(tz?`🕒 Treffen ${tz} · ${t.typ==="spiel"||t.typ==="turnier"?"Anstoß":"Beginn"} ${String(t.uhrzeit).slice(0,5)} Uhr`:String(t.uhrzeit).slice(0,5)+" Uhr"):"";
   const istSpiel=(t.typ==="spiel"||t.typ==="turnier");
   const kidIds=kids.map(k=>k.spieler_id);
   let rsvp={};
@@ -888,6 +892,7 @@ async function terminDetailOpen(id){
       <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">✅ Rückmeldung</div>
       ${rsvpRows||'<div style="font-size:12px;color:#94a3b8">Kein Kind zugeordnet.</div>'}
     </div>
+    <div id="td-vorbericht"></div>
     <div id="td-nom"></div>
     <div id="td-betreuung"></div>
     <div id="td-abhol"></div>
@@ -898,6 +903,7 @@ async function terminDetailOpen(id){
     <button onclick="document.getElementById('td-modal').remove()" style="width:100%;margin-top:8px;padding:11px;border:none;border-radius:10px;background:#f1f5f9;color:#334155;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Schließen</button>`;
   modal.appendChild(c);document.body.appendChild(modal);
   window._tdTermin=t; // fürs Nachladen der Mitbringliste nach dem Eintragen
+  if(istSpiel&&(t.gegner||t.titel))tdVorberichtLoad(t);
   if(t.datum)wetterInto("td-wetter",t.datum,t.ort,t.uhrzeit);
   tdNomLoad(t,kids);
   if(t.typ==="training")tdBetreuungLoad(t,kids);
@@ -1528,4 +1534,29 @@ async function elternCardShow(d){
   // Federn-Stand → Karten-Skin (in render() gebacken) + Foil-Tier + Unboxing-Feier + Skin-Galerie
   if(d.spielerId){ xpTotal(d.spielerId).then(f=>{ if(document.getElementById("adler-card-modal")){ d.federn=f; render(); cardHoloSetTier(cardWrap,cardSkinFor(f)); cardTierCelebrateMaybe(cardWrap,d.spielerId,f); modal.appendChild(cardSkinGalleryEl(f)); } }).catch(()=>{}); }
   if(d.fotoPath){ const img=await fotoLoadImage(d.fotoPath); if(img&&document.getElementById("adler-card-modal")){ rawPhoto=img; render(); } }
+}
+
+/* Gegner-Vorbericht (Prematch-Muster): letzte Duelle + Bilanz aus der eigenen Termin-
+   Historie – nur Ergebnisse, keine Kindernamen. Ergebnis-Format "a:b" aus Adler-Sicht. */
+async function tdVorberichtLoad(t){
+  const box=document.getElementById("td-vorbericht"); if(!box)return;
+  const gegner=(t.gegner||t.titel||"").trim(); if(!gegner)return;
+  let rows=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?or=(gegner.eq.${encodeURIComponent(gegner)},titel.eq.${encodeURIComponent(gegner)})&typ=in.(spiel,turnier)&datum=lt.${t.datum}&ergebnis=not.is.null&select=datum,ergebnis,heim&order=datum.desc&limit=5`,{headers:elternHeaders()});
+    if(r.ok)rows=await r.json();
+  }catch(e){}
+  rows=rows.filter(x=>/^\d+\s*:\s*\d+/.test(String(x.ergebnis||"")));
+  if(!rows.length)return; // erstes Duell – keine Karte
+  let s1=0,u=0,n1=0;
+  rows.forEach(x=>{const m=String(x.ergebnis).match(/(\d+)\s*:\s*(\d+)/);const a=+m[1],b=+m[2];if(a>b)s1++;else if(a===b)u++;else n1++;});
+  const letzte=rows.slice(0,3).map(x=>{
+    const d=new Date(x.datum+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit"});
+    return `<span style="display:inline-block;background:#f1f5f9;border-radius:8px;padding:3px 8px;font-size:11.5px;font-weight:700;margin:2px 3px 0 0">${d}: ${elternEsc(String(x.ergebnis).trim())}</span>`;
+  }).join("");
+  box.innerHTML=`<div style="border:1.5px solid #bfdbfe;background:#eff6ff;border-radius:12px;padding:10px 12px;margin-top:12px">
+    <div style="font-weight:800;font-size:13px;color:#1e40af">📰 Vorbericht: ${rows.length+1}. Duell mit ${elternEsc(gegner)}</div>
+    <div style="font-size:12px;color:#334155;margin-top:2px">Bisher: ${s1} Sieg${s1===1?"":"e"} · ${u} Unentschieden · ${n1} Niederlage${n1===1?"":"n"} (aus Adler-Sicht)</div>
+    <div style="margin-top:4px">${letzte}</div>
+  </div>`;
 }

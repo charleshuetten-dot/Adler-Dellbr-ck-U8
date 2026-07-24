@@ -356,6 +356,7 @@
       <div class="mgrid" style="grid-template-columns:1fr 1fr;gap:8px">
         <div class="mg"><label>Datum</label><input type="date" id="tm-datum" onchange="ferienDatumHint(this,'tm-ferien-hint')"><div id="tm-ferien-hint"></div></div>
         <div class="mg"><label>Uhrzeit (optional)</label><input type="time" id="tm-zeit" onchange="tmEndeVorschlag()"></div>
+        <div class="mg"><label>🕒 Treffen (optional)</label><input type="time" id="tm-treff" title="Wann sollen die Kinder da sein? Bei Spielen meist 45 Min. vor Anstoß"></div>
         <div class="mg"><label id="tm-ende-lbl">Ende (bei Spiel/Turnier Pflicht)</label><input type="time" id="tm-ende"></div>
         <div class="mg" style="margin-top:8px"><label>🔁 Wiederholen</label>
           <select id="tm-serie" onchange="tmSerieToggle()" style="width:100%;padding:8px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;background:var(--surface);font-family:inherit;color:var(--text)">
