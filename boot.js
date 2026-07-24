@@ -1338,6 +1338,9 @@ function tpRemoveSlot(idx){
 ═══════════════════════════════════ */
 const PIN_HASH="2c1f3f5f6523af84fde4af934caa1126ae6bcebacd36e397fbddcb8a620c1d73"; // SHA-256("1922") – PIN ist nur UI-Sichtschutz, echte Zugriffskontrolle: Supabase RLS (Block I)
 const PIN_SESSION_KEY="adler_pin_ok";
+try{const d=document.getElementById("pin-diag");if(d){d.textContent="Bereit ✓";
+  if(window.caches)caches.keys().then(ks=>{const v=ks.find(k=>k.indexOf("u9i-adler")===0);if(v)d.textContent="Bereit ✓ · "+v.replace("u9i-adler-","");}).catch(()=>{});
+}}catch(e){}
 const PIN_SESSION_TTL=30*24*60*60*1000; // 30 Tage (B7)
 function pinSessionValid(){
   try{
@@ -1358,6 +1361,18 @@ async function hashPin(pin){
 }
 
 function pinNext(el,next){
+  /* iOS-/Android-Autofill und schnelles Tippen stecken gern MEHRERE Ziffern in EIN Feld
+     (maxlength schneidet erst nach dem input-Event). Alles einsammeln und sauber auf die
+     vier Felder verteilen – sonst blieb pinCheck still unter 4 Zeichen haengen. */
+  const roh=String(el.value||"").replace(/\D/g,"");
+  if(roh.length>1){
+    const felder=[1,2,3,4].map(i=>document.getElementById("pin"+i));
+    const start=felder.indexOf(el);
+    for(let k=0;k<roh.length&&start+k<4;k++)felder[start+k].value=roh[k];
+    const voll=felder.every(f=>f.value);
+    if(voll)pinCheck(); else felder.find(f=>!f.value)?.focus();
+    return;
+  }
   if(el.value.length===1){
     const n=document.getElementById("pin"+next);
     if(n)n.focus();
@@ -1372,9 +1387,21 @@ function pinBack(e,prev){ // Backspace bei leerem Feld springt zurück statt hä
 }
 
 async function pinCheck(){
-  const pin=[1,2,3,4].map(i=>document.getElementById("pin"+i).value).join("");
-  if(pin.length<4)return;
-  const h=await hashPin(pin);
+  const err=document.getElementById("pin-err");
+  const felder=[1,2,3,4].map(i=>document.getElementById("pin"+i));
+  const pin=felder.map(f=>f.value).join("");
+  if(pin.length<4){ // vorher STILLES return – "nichts passiert" war nicht diagnostizierbar
+    if(err)err.textContent="Bitte alle 4 Ziffern eingeben";
+    felder.find(f=>!f.value)?.focus();
+    return;
+  }
+  if(!(window.crypto&&crypto.subtle)){ // http statt https: subtle existiert nicht
+    if(err)err.textContent="Bitte die App über https öffnen (Adresszeile prüfen)";
+    return;
+  }
+  let h="";
+  try{ h=await hashPin(pin); }
+  catch(e){ if(err)err.textContent="Technischer Fehler – bitte Seite neu laden"; return; }
   if(h===PIN_HASH){
     pinSessionSet();
     document.getElementById("pin-gate").classList.add("hidden");
