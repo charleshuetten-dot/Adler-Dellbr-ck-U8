@@ -39,6 +39,8 @@
 /* Seitengeruest aus shell.html nachladen, dann die Skripte in genau der Reihenfolge
    wie frueher im <body>. Die Skripte haengen sich an DOMContentLoaded – das ist beim
    Nachladen laengst vorbei, deshalb loesen wir es am Ende einmal selbst aus. */
+window.pinNext=window.pinNext||function(el,n){if(el&&el.value.length===1){var x=document.getElementById("pin"+n);if(x)x.focus();}};
+window.pinBack=window.pinBack||function(){};window.pinCheck=window.pinCheck||function(){};
 (async function(){
   const shell=await (await fetch("shell.html")).text();
   document.body.insertAdjacentHTML("afterbegin",shell);

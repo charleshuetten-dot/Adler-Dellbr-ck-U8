@@ -1514,11 +1514,22 @@ async function pinCheck(){
     setTimeout(pwaInstallNudge,1800); // UX 1: Soft-Install-Nudge für die Kids
     return;
   }
+  /* Der ELTERN-Einstieg darf NIE das Trainer-PIN-Gate zeigen: unbekannte Routen
+     (z. B. ein verunglückter ?kabine-Link) landen sonst vor "Zugang zum Trainerstab-
+     Tool" - und der Kabinen-Code 1922 wirkt dort "kaputt". Immer ins Portal umleiten. */
+  if(location.pathname.includes("/eltern")){
+    const q=location.search&&location.search.length>1?location.search+"&portal":"?portal";
+    location.replace(location.pathname+q); return; // Query bleibt erhalten (Deep-Links)
+  }
   if(pinSessionValid()){
     document.getElementById("pin-gate").classList.add("hidden");
     document.getElementById("main-app").style.display="";
     ensureLogin(); // Block I
   }
+  /* Selbstheilung fuer schnelle Tipper: Wer den PIN eingibt, BEVOR boot.js geladen war
+     (Inline-Handler liefen ins Leere), hat 4 gefuellte Felder ohne Pruefung - jetzt,
+     wo pinCheck existiert, einmal nachpruefen. */
+  else if([1,2,3,4].every(i=>document.getElementById("pin"+i)?.value)){ pinCheck(); }
 })();
 
 /* ═══════════════════════════════════
