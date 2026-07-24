@@ -36,11 +36,30 @@
 /* Seitengeruest aus shell.html nachladen, dann die Skripte in genau der Reihenfolge
    wie frueher im <body>. Die Skripte haengen sich an DOMContentLoaded – das ist beim
    Nachladen laengst vorbei, deshalb loesen wir es am Ende einmal selbst aus. */
+window.addEventListener("error",function(e){try{var d=document.getElementById("pin-diag");if(d&&!d.dataset.err&&d.textContent.indexOf("Bereit")!==0){d.dataset.err="1";d.style.color="#fecaca";d.textContent="⚠️ "+(e.message||"Skript-Fehler")+" – "+String(e.filename||"").split("/").pop()+":"+(e.lineno||"?");}}catch(_){}},true);
+window.addEventListener("unhandledrejection",function(e){try{var m=String((e.reason&&e.reason.message)||e.reason||"");if(/Transition was aborted|AbortError|abort/i.test(m))return;var d=document.getElementById("pin-diag");if(d&&!d.dataset.err&&d.textContent.indexOf("Bereit")!==0){d.dataset.err="1";d.style.color="#fecaca";d.textContent="⚠️ "+(m||"Fehler").slice(0,120);}}catch(_){}});
 window.pinNext=window.pinNext||function(el,n){if(el&&el.value.length===1){var x=document.getElementById("pin"+n);if(x)x.focus();}};
 window.pinBack=window.pinBack||function(){};window.pinCheck=window.pinCheck||function(){};
 (async function(){
   const shell=await (await fetch("shell.html")).text();
   document.body.insertAdjacentHTML("afterbegin",shell);
+  // Haengt die Ladung (alter/kaputter Cache), bekommt der Nutzer nach 6 s einen
+  // Reparatur-Knopf: Service Worker + Caches wegraeumen und frisch laden.
+  setTimeout(function(){
+    var d=document.getElementById("pin-diag");
+    if(d&&d.textContent.indexOf("App lädt")===0&&!d.dataset.err){
+      d.innerHTML='⚠️ Die App lädt nicht fertig. <button id="pin-repair" style="margin-left:6px;padding:6px 12px;border:none;border-radius:8px;background:#fff;color:#1e3a8a;font-weight:800;cursor:pointer;font-family:inherit">🔧 App reparieren</button>';
+      document.getElementById("pin-repair").onclick=async function(){
+        this.textContent="Repariere…";
+        try{
+          if(navigator.serviceWorker){var rs=await navigator.serviceWorker.getRegistrations();for(var i=0;i<rs.length;i++)await rs[i].unregister();}
+          if(window.caches){var ks=await caches.keys();for(var j=0;j<ks.length;j++)await caches.delete(ks[j]);}
+        }catch(e){}
+        location.reload();
+      };
+    }
+  },6000);
+
   /* ZWEI-WELLEN-LADEN (Perf-Audit): Welle 1 (~940 KB) reicht fuer den ersten Screen –
      Kern + Views + Boot. Die 28 Feature-Module (~980 KB) kommen direkt danach, waehrend
      der Trainer schon die Startseite sieht. Alle Inits sind selbststartend
