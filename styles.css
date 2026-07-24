@@ -491,6 +491,14 @@ body.quiz-extern.tq-playing .tb-wrap{display:block}
 .tq-player-btn .tq-player-name{font-size:12px;font-weight:600;color:var(--text)}
 .quiz-extern .topbar,.quiz-extern #main-nav,.quiz-extern .sl.nt,.quiz-extern #view-taktik>div:nth-child(2),.quiz-extern .tb-bench-area,.quiz-extern .print-btn,.quiz-extern .tb-field+div,.quiz-extern .tb-bench-area+div,.quiz-extern .tb-wrap .tb-bench-area,.quiz-extern .tb-wrap>div:not(.tb-field){display:none!important}
 .quiz-extern #view-taktik{display:block!important}
+/* Kinder-Quiz (PO-Befund): ALLE Trainer-Werkzeuge des Taktikboards verstecken – die alte
+   nth-child(2)-Regel brach mit jeder neu dazugekommenen Werkzeugleiste (Formationen,
+   BOARD, ÜBUNGEN blieben für die Kinder sichtbar). Whitelist statt Einzelverstecke:
+   nur das Quiz-Panel, und im Spielmodus zusätzlich das Feld. */
+body.quiz-extern #view-taktik>*{display:none!important}
+body.quiz-extern #view-taktik>#tq-panel{display:block!important}
+body.quiz-extern.tq-playing #view-taktik>#tq-panel{display:none!important}
+body.quiz-extern.tq-playing #view-taktik>.tb-wrap{display:block!important}
 .tb-role-labels{position:absolute;inset:0;pointer-events:none;z-index:5}
 .tb-role-lbl{position:absolute;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:rgba(255,255,255,.45);transform:translate(-50%,-50%);pointer-events:none}
 
