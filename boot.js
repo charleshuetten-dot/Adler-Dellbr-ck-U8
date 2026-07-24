@@ -252,7 +252,14 @@ function toggleTF(id){
 loadKader().then(()=>loadDB()).then(()=>{if(curSection==="home")renderHome();}).then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500)); // Kader (Supabase) zuerst, dann G1 + KI-Light + Home-Stats
 loadCustomForms();
 openTab("home"); // Start auf dem Trainer-Dashboard + Sub-Tab-Leiste initial rendern
-if(sbToken())loadTeamConfig().then(()=>{if(typeof curSection!=="undefined"&&curSection==="home")renderHome();}); // editierbare Quests früh laden
+/* loadTeamConfig lebt in md-quests.js = Welle 2. Seit dem Zwei-Wellen-Laden ist es hier
+   (Welle 1, boot.js-Top-Level) noch NICHT definiert -> ReferenceError killte den ganzen
+   Startup und das PIN-Gate blieb taub. Erst rufen, wenn Welle 2 die Funktion bereitstellt. */
+(function waitTeamConfig(n){
+  if(typeof loadTeamConfig==="function"){
+    if(sbToken())loadTeamConfig().then(()=>{if(typeof curSection!=="undefined"&&curSection==="home")renderHome();}).catch(()=>{});
+  }else if(n<40){ setTimeout(()=>waitTeamConfig(n+1),100); }
+})(0);
 
 /* Pull-to-Refresh (Schritt 6): am Listenanfang nach unten wischen -> Daten still neu laden. */
 async function appRefresh(){

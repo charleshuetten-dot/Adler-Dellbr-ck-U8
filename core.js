@@ -176,7 +176,7 @@ async function doLogin(){
     await sbLogin(email,pw);
     document.getElementById("login-gate")?.remove();
     toast("Angemeldet ✓");
-    loadKader().then(()=>loadDB()).then(()=>loadTeamConfig()).then(()=>{if(curSection==="home")renderHome();}).then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500));
+    loadKader().then(()=>loadDB()).then(()=>{if(typeof loadTeamConfig==="function")return loadTeamConfig();}).then(()=>{if(curSection==="home")renderHome();}).then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500));
   }catch(e){if(err)err.textContent=e.message;}
 }
 // Nach dem PIN-Gate aufrufen (nicht im Quiz-Modus)
