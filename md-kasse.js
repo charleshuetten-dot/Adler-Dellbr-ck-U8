@@ -637,6 +637,7 @@ function fairplayQuizNext(){
   else fairplayQuizResult();
 }
 async function fairplayQuizResult(){
+  try{localStorage.setItem("adler_fpq_done","1");}catch(e){} // Kachel im Hub wird danach als erledigt gezeigt
   const ov=document.getElementById("fq-ov"); if(!ov)return;
   ov.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:60px 18px;text-align:center;opacity:.85">Federn werden gutgeschrieben …</div>`;
   // Federn fürs eigene Kind – genau einmal (Server dedupliziert). Bei mehreren Kindern jedes.

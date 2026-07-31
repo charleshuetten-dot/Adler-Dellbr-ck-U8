@@ -604,7 +604,7 @@ async function elternDashLoad(){
         </div>
         <div style="display:flex;gap:6px">${btns}</div>
         ${cur&&cur.kommentar?`<div style="font-size:11px;color:#64748b;margin-top:3px">„${esc(cur.kommentar)}"</div>`:""}
-        ${st==="zugesagt"?`<button onclick="elternCarpoolOpen(${k.spieler_id},${termin.id})" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🚗 Fahrgemeinschaft</button>`:""}
+        ${(st==="zugesagt"&&(termin.typ==="spiel"||termin.typ==="turnier")&&termin.heim===false)?`<button onclick="elternCarpoolOpen(${k.spieler_id},${termin.id})" style="width:100%;margin-top:8px;padding:9px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🚗 Fahrgemeinschaft</button>`:""}
       </div>`;
     }).join("");
     // J5: Rückmelde-Frist – ab dem Vortag wird eine offene Rückmeldung rot & dringlich
@@ -627,7 +627,7 @@ async function elternDashLoad(){
       ${(termin.datum===heute&&(termin.typ==="spiel"||termin.typ==="turnier"))?elternTickerHtml(termin):""}
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
         <button onclick="galerieOpen(${termin.id},'${(termin.titel||termin.gegner||m.label).replace(/'/g,'')}')" style="flex:1;min-width:130px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 Event-Fotos</button>
-        <button onclick="elternTermineOpen()" style="flex:1;min-width:130px;padding:9px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📅 Alle Termine</button>
+        <!-- „Alle Termine" entfernt: die Kachel „Alle Termine & Kalender-Abo" darunter kann dasselbe + mehr (PO) -->
       </div>
     </div>`;
   }
@@ -709,7 +709,15 @@ async function elternDashLoad(){
   html+=elRow("🤝","Fairplay-Codex ansehen","Die Regeln für den Spielfeldrand – kurz &amp; klar","fairplayOpen()","#15803d");
   html+=`<div id="fp-commit-slot" style="margin-bottom:8px"></div>`;
   html+=elRow("📖",esc(LEITFADEN_NAME),"Pünktlichkeit, Aufsicht, Büdchen, App &amp; mehr – zum Nachlesen","leitfadenOpen()","#059669");
-  html+=elRow("🏅","Fairplay-Quiz spielen",`${XP_ICON} 50 Federn fürs Kind – kurze Fragen zum Codex`,"fairplayQuizStart(window._elternKids||[])","#16a34a"); // bewusst ganz unten (PO)
+  const fpqDone=(function(){try{return localStorage.getItem("adler_fpq_done")==="1";}catch(e){return false;}})();
+  // PO: einmal gespielt = erledigt. Die Federn vergibt der Server ohnehin nur einmal
+  // (xp_award_event ist idempotent) – die Kachel sagt das jetzt auch ehrlich.
+  html+=fpqDone
+    ? `<div style="display:flex;align-items:center;gap:12px;width:100%;padding:14px;margin-bottom:8px;border-radius:14px;background:#f1f5f9;color:#94a3b8">
+        <span style="font-size:22px;line-height:1;opacity:.6">🏅</span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:800">Fairplay-Quiz</span><span style="display:block;font-size:11.5px;margin-top:1px">✓ Schon gespielt – die ${XP_LABEL} sind beim Kind angekommen</span></span>
+      </div>`
+    : elRow("🏅","Fairplay-Quiz spielen",`${XP_ICON} 50 ${XP_LABEL} fürs Kind – kurze Fragen zum Codex`,"fairplayQuizStart(window._elternKids)","#15803d");
   html+=`</div>`; // /cat-regeln
   // ── DATENSCHUTZ & FREIGABEN (NEU): Foto/Video + Notfallkarte pro Kind + Datenexport ──
   html+=`<div id="cat-datenschutz" class="el-cat-panel" style="display:none">`;
@@ -1238,7 +1246,7 @@ async function notfallClear(spielerId){
 const FOTO_STUFEN=[
   {k:"intern",   emo:"🖼️", t:"App-intern (geschlossene Gruppe)", d:"Team-Galerie, Sammelkarte, „Die Kabine“ und das „Adler Nest“. Sichtbar nur für eingeloggte Eltern und das Trainerteam dieses Teams.", risk:"gering"},
   {k:"video",    emo:"🎥", t:"Trainingsvideos zur Analyse",       d:"Kurze Videoclips zur Technik-/Taktik-Analyse. Ausschließlich für das Trainerteam, nicht öffentlich, nach der Saison gelöscht.", risk:"mittel"},
-  {k:"public_ok",emo:"🌍", t:"Öffentlich",                        d:"Vereins-Website, Social Media (z. B. Instagram) und öffentliche Aushänge. Achtung: verlässt die App und kann im Netz dauerhaft auffindbar bleiben.", risk:"hoch"}
+  {k:"public_ok",emo:"🌍", t:"Öffentlich",                        d:"Vereins-Website, Social Media (z. B. Instagram) und Aushänge. Diese Bilder sind auch außerhalb der App sichtbar und im Netz auffindbar – deshalb fragen wir hier extra nach. Du kannst die Freigabe jederzeit wieder zurücknehmen.", risk:"hoch"}
 ];
 const FOTO_CONSENT_DEFAULT="Wir bitten um deine Einwilligung, Foto- und Videoaufnahmen deines Kindes im Rahmen des Vereinssports zu verwenden. Du entscheidest für jede der drei Stufen getrennt und kannst jede Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen. Die Teilnahme deines Kindes am Training und an Spielen ist unabhängig von dieser Einwilligung – ein „Nein“ hat keinerlei Nachteile. Rechtsgrundlage: Art. 6 Abs. 1 lit. a DSGVO sowie §§ 22, 23 KunstUrhG.";
 async function elternFotoConsentTextLoad(){
@@ -1254,11 +1262,15 @@ async function elternFotoConsentOpen(spielerId,name){
   const modal=document.createElement("div"); modal.id="fc-modal";
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10050;display:flex;padding:14px;overflow-y:auto";
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
-  const riskCol={gering:"#16a34a",mittel:"#d97706",hoch:"#dc2626"};
+  /* PO: „Risiko gering/mittel/hoch" klang wie eine Warnung und schreckte ab. Wir benennen
+     jetzt die REICHWEITE (sachlich, ohne Alarmfarben) – die Aufklärung bleibt vollständig,
+     nur der Ton ist einladend statt abschreckend. */
+  const riskCol={gering:"#0f766e",mittel:"#1d4ed8",hoch:"#b45309"};
+  const riskTxt={gering:"nur im Team",mittel:"nur fürs Trainerteam",hoch:"auch außerhalb der App"};
   const row=s=>`<label style="display:flex;gap:10px;align-items:flex-start;padding:11px;border:1px solid #e2e8f0;border-radius:10px;margin-top:8px;cursor:pointer">
     <input id="fc-${s.k}" type="checkbox" ${cur[s.k]?"checked":""} style="margin-top:2px;width:20px;height:20px;flex:none;accent-color:#7c3aed">
     <span style="flex:1">
-      <span style="font-weight:700;font-size:13.5px">${s.emo} ${s.t} <span style="font-size:10.5px;font-weight:700;color:${riskCol[s.risk]}">· Risiko ${s.risk}</span></span>
+      <span style="font-weight:700;font-size:13.5px">${s.emo} ${s.t} <span style="font-size:10.5px;font-weight:700;color:${riskCol[s.risk]}">· ${riskTxt[s.risk]}</span></span>
       <span style="display:block;font-size:11.5px;color:#64748b;margin-top:2px;line-height:1.5">${s.d}</span>
     </span></label>`;
   const upd=cur.updated_at?`<div style="font-size:10.5px;color:#94a3b8;margin-top:10px">Zuletzt aktualisiert: ${new Date(cur.updated_at).toLocaleDateString("de-DE")}${cur.updated_by?" · "+esc(cur.updated_by):""}</div>`:"";
