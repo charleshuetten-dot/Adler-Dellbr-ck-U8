@@ -5,8 +5,16 @@
    die RLS: die Eltern-Session kann ohnehin nur das eigene Kind schreiben.
 ═══════════════════════════════════ */
 let isKidsMode=false, kabineGalleryData=[], kabineIdx=0;
+const KABINE_AKTIV_KEY="adler_kabine_aktiv";
+/* Der Kids-Modus ueberlebt jetzt Reload UND App-Neustart: ein Kind, das die Seite neu
+   laedt, landete vorher wieder im Eltern-Hub (PO-Befund). Raus geht es nur ueber den
+   Code - genau das ist der Sinn des Schlosses. */
+function kabineAktiv(){ try{return localStorage.getItem(KABINE_AKTIV_KEY)==="1";}catch(e){return false;} }
+function kabineAktivSet(an){ try{ an?localStorage.setItem(KABINE_AKTIV_KEY,"1"):localStorage.removeItem(KABINE_AKTIV_KEY); }catch(e){} }
 async function kabineOpen(){
   isKidsMode=true;
+  kabineAktivSet(true);
+  document.getElementById("kabine-splash")?.remove(); // Vorhang gegen Dashboard-Aufblitzen
   document.getElementById("kabine")?.remove();
   const m=document.createElement("div");m.id="kabine";
   m.style.cssText="position:fixed;inset:0;z-index:10050;background:linear-gradient(160deg,#0f172a,#1e3a8a);color:#fff;display:flex;flex-direction:column;overflow:hidden";
@@ -1334,12 +1342,56 @@ async function kabineCodeHash(){
   try{ const c=localStorage.getItem(KABINE_HASH_KEY); if(c)return c; }catch(e){}
   return KABINE_HASH_FALLBACK;
 }
-async function kabineExit(){
-  const ans=prompt("Nur für Erwachsene 🔒\nBitte den Code eingeben:");
-  if(ans===null)return;
-  const [eingabe,soll]=await Promise.all([hashPin(String(ans).trim()),kabineCodeHash()]);
-  if(eingabe===soll){ isKidsMode=false; kabSubConsume(); document.getElementById("kabine")?.remove(); }
-  else { toast("Falscher Code – die Kabine bleibt zu.","err"); }
+/* Code-Eingabe direkt in der App statt per System-Dialog (PO): eigenes grosses Zahlenfeld,
+   damit es auf jedem Geraet gleich aussieht und die Tasten kindersicher gross sind - die
+   Handy-Tastatur oeffnet sich bei prompt() unzuverlaessig und verdeckt den Dialog. */
+let _kabCode="";
+function kabineExit(){
+  _kabCode="";
+  document.getElementById("kabexit")?.remove();
+  const m=document.createElement("div"); m.id="kabexit";
+  m.setAttribute("role","dialog"); m.setAttribute("aria-modal","true"); m.setAttribute("aria-label","Code eingeben");
+  m.style.cssText="position:fixed;inset:0;z-index:10065;background:rgba(8,15,35,.92);display:flex;align-items:center;justify-content:center;padding:16px";
+  const taste=(t)=>`<button onclick="kabineCodeTip('${t}')" style="min-height:64px;border:none;border-radius:16px;background:rgba(255,255,255,.14);color:#fff;font-family:inherit;font-size:26px;font-weight:800;cursor:pointer">${t}</button>`;
+  m.innerHTML=`<div style="width:100%;max-width:320px;text-align:center;color:#fff">
+    <div style="font-size:40px">🔒</div>
+    <div style="font-size:19px;font-weight:900;margin-top:4px">Nur für Erwachsene</div>
+    <div style="font-size:13px;opacity:.75;margin-bottom:14px">Code eingeben, um die Kabine zu verlassen</div>
+    <div id="kabexit-dots" style="display:flex;gap:12px;justify-content:center;margin-bottom:6px"></div>
+    <div id="kabexit-err" style="min-height:18px;font-size:12.5px;color:#fca5a5;font-weight:700;margin-bottom:10px"></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      ${[1,2,3,4,5,6,7,8,9].map(taste).join("")}
+      <button onclick="kabineCodeTip('del')" aria-label="Löschen" style="min-height:64px;border:none;border-radius:16px;background:rgba(255,255,255,.08);color:#fff;font-size:22px;cursor:pointer">⌫</button>
+      ${taste(0)}
+      <button onclick="document.getElementById('kabexit').remove()" aria-label="Abbrechen" style="min-height:64px;border:none;border-radius:16px;background:rgba(255,255,255,.08);color:#fff;font-size:22px;cursor:pointer">✕</button>
+    </div>
+  </div>`;
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  document.body.appendChild(m);
+  kabineCodeDots();
+}
+function kabineCodeDots(){
+  const d=document.getElementById("kabexit-dots"); if(!d)return;
+  d.innerHTML=[0,1,2,3].map(i=>`<span style="width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.5);background:${i<_kabCode.length?"#fff":"transparent"}"></span>`).join("");
+}
+async function kabineCodeTip(t){
+  const err=document.getElementById("kabexit-err"); if(err)err.textContent="";
+  if(t==="del"){ _kabCode=_kabCode.slice(0,-1); kabineCodeDots(); return; }
+  if(_kabCode.length>=4)return;
+  _kabCode+=String(t);
+  kabineCodeDots();
+  try{navigator.vibrate&&navigator.vibrate(12);}catch(e){}
+  if(_kabCode.length<4)return;
+  const [eingabe,soll]=await Promise.all([hashPin(_kabCode),kabineCodeHash()]);
+  if(eingabe===soll){
+    isKidsMode=false; kabineAktivSet(false); kabSubConsume();
+    document.getElementById("kabexit")?.remove();
+    document.getElementById("kabine")?.remove();
+  }else{
+    _kabCode=""; kabineCodeDots();
+    if(err)err.textContent="Falscher Code - die Kabine bleibt zu.";
+    try{navigator.vibrate&&navigator.vibrate([40,60,40]);}catch(e){}
+  }
 }
 /* Alle Kabinen-Unterseiten setzen beim Öffnen einen History-Eintrag (kabSubMark), damit die
    Smartphone-Zurück-Taste zur Kabinen-Startseite führt. Wrapper statt 15 Einzel-Edits –

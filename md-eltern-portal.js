@@ -42,6 +42,18 @@ async function authRole(){
 }
 let epEmail="";
 async function renderElternPortal(){
+  /* War die Kabine aktiv (Kids-Modus), legt sich sofort ein Vorhang darueber: sonst sieht
+     das Kind nach einem Reload eine Sekunde lang das Eltern-Dashboard. kabineOpen entfernt
+     ihn; die Sicherung raeumt ihn weg, falls doch der Login erscheint. */
+  try{
+    if(localStorage.getItem("adler_kabine_aktiv")==="1"&&sbToken()&&!document.getElementById("kabine-splash")){
+      const sp=document.createElement("div"); sp.id="kabine-splash";
+      sp.style.cssText="position:fixed;inset:0;z-index:10052;background:linear-gradient(160deg,#0f172a,#1e3a8a);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-family:inherit";
+      sp.innerHTML='<div style="font-size:52px">🦅</div><div style="font-size:16px;font-weight:800">Kabine wird geöffnet…</div>';
+      document.body.appendChild(sp);
+      setTimeout(()=>{document.getElementById("kabine-splash")?.remove();},12000);
+    }
+  }catch(e){}
   let root=document.getElementById("eltern-portal");
   if(!root){root=document.createElement("div");root.id="eltern-portal";root.style.cssText="min-height:100vh;background:#f1f5f9;font-family:inherit;padding:16px";document.body.appendChild(root);}
   // UX 5 (Forever-Login): access_token abgelaufen, aber refresh_token noch gültig? Still erneuern,
@@ -747,7 +759,10 @@ async function elternDashLoad(){
   elternNewsLoad(kids);    // 📣 Adler News: Neues seit letztem Blick + roter Badge
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
   let backToKabine=false; try{backToKabine=sessionStorage.getItem("adler_open_kabine")==="1";sessionStorage.removeItem("adler_open_kabine");}catch(e){}
-  if(backToKabine)setTimeout(kabineOpen,50);
+  // PO: Reload in der Kabine warf das Kind zurueck in den Eltern-Hub. Der Kids-Modus ist
+  // jetzt ein gemerkter Zustand (localStorage) - Ausgang nur ueber den Code.
+  if(typeof kabineAktiv==="function"&&kabineAktiv())backToKabine=true;
+  if(backToKabine)setTimeout(kabineOpen,50); else document.getElementById("kabine-splash")?.remove();
   // FEAT S: XP-Chips async füllen (RPC xp_total – Eltern sehen nur das eigene Kind)
   kids.forEach(k=>{xpTotal(k.spieler_id).then(t=>{const el=document.getElementById("xp-chip-"+k.spieler_id);if(el){const b=xpBadge(t);el.textContent=`${XP_ICON} ${t} ${XP_LABEL} · ${b.emo} ${b.t}`;}}).catch(()=>{});});
   // UX 3: Deep-Link-Intent genau einmal abarbeiten – zur Termin-Karte scrollen + kurz pulsen lassen
