@@ -706,9 +706,7 @@ async function elternDashLoad(){
   html+=`<div id="ak-slot"></div>`; // FEAT Z: Adler-Kasse (async, nur wenn Link gesetzt)
   html+=`</div>`; // /cat-mehr
   html+=`<div id="cat-regeln" class="el-cat-panel" style="display:none">`;
-  html+=elRow("🤝","Fairplay-Codex ansehen","Die Regeln für den Spielfeldrand – kurz &amp; klar","fairplayOpen()","#15803d");
-  html+=`<div id="fp-commit-slot" style="margin-bottom:8px"></div>`;
-  html+=elRow("📖",esc(LEITFADEN_NAME),"Pünktlichkeit, Aufsicht, Büdchen, App &amp; mehr – zum Nachlesen","leitfadenOpen()","#059669");
+  html+=elRow("🤝","Unsere Vereinbarung","Fairplay-Codex zum Bestätigen + alles Praktische in 5 Rubriken","vereinbarungOpen()","#15803d");
   const fpqDone=(function(){try{return localStorage.getItem("adler_fpq_done")==="1";}catch(e){return false;}})();
   // PO: einmal gespielt = erledigt. Die Federn vergibt der Server ohnehin nur einmal
   // (xp_award_event ist idempotent) – die Kachel sagt das jetzt auch ehrlich.
@@ -784,10 +782,44 @@ async function elternDashLoad(){
     }
   }
 }
+
+/* Grund zur Ab-/Krankmeldung: Chips fuer die haeufigsten Faelle + freies Feld.
+   Aufloesung immer mit einem Wert (auch bei Ueberspringen), damit die Rueckmeldung
+   selbst nie an diesem Fenster haengen bleibt. */
+function rsvpGrundFragen(status){
+  return new Promise(res=>{
+    document.getElementById("rg-ov")?.remove();
+    const chips=status==="krank"
+      ? ["Erkältung","Fieber","Verletzung","Arzttermin"]
+      : ["Urlaub","Familientermin","Schule/Hausaufgaben","Anderer Termin"];
+    const ov=document.createElement("div"); ov.id="rg-ov";
+    ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true");
+    ov.style.cssText="position:fixed;inset:0;z-index:10060;background:rgba(15,23,42,.55);display:flex;align-items:flex-end;justify-content:center;padding:0";
+    const fertig=v=>{ov.remove();res(v||null);};
+    ov.onclick=e=>{if(e.target===ov)fertig(null);};
+    ov.innerHTML=`<div style="background:#fff;color:#1a1a2e;width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))">
+      <div style="font-size:16px;font-weight:800">${status==="krank"?"🤒 Kurzer Hinweis":"📝 Grund der Absage"}</div>
+      <div style="font-size:12.5px;color:#64748b;margin:3px 0 12px">Freiwillig – hilft dem Trainerteam beim Planen.</div>
+      <div id="rg-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        ${chips.map(c=>`<button data-c="${esc(c)}" style="min-height:44px;padding:8px 14px;border:1.5px solid #cbd5e1;border-radius:22px;background:#fff;color:#334155;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">${esc(c)}</button>`).join("")}
+      </div>
+      <input id="rg-txt" type="text" maxlength="120" placeholder="oder kurz selbst schreiben…" style="width:100%;box-sizing:border-box;min-height:46px;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:12px;font-family:inherit;font-size:14px">
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button id="rg-skip" style="flex:1;min-height:48px;border:1.5px solid #cbd5e1;border-radius:12px;background:#fff;color:#64748b;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Ohne Grund</button>
+        <button id="rg-ok" style="flex:1.4;min-height:48px;border:none;border-radius:12px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">Speichern</button>
+      </div>
+    </div>`;
+    document.body.appendChild(ov);
+    ov.querySelectorAll("#rg-chips button").forEach(b=>b.onclick=()=>fertig(b.dataset.c));
+    ov.querySelector("#rg-skip").onclick=()=>fertig(null);
+    ov.querySelector("#rg-ok").onclick=()=>fertig((document.getElementById("rg-txt").value||"").trim()||null);
+  });
+}
 async function elternRsvp(terminId,spielerId,status){
   let kommentar=null;
-  if(status==="abgesagt")kommentar=(prompt("Grund der Absage (optional):","")||"").trim()||null;
-  else if(status==="krank")kommentar=(prompt("Kurzer Hinweis (optional):","")||"").trim()||null;
+  // Der System-Dialog (prompt) sah fremd aus und riss aus der App heraus (PO) – jetzt ein
+  // eigenes Fenster mit Schnellauswahl. Abbrechen = Rueckmeldung trotzdem speichern.
+  if(status==="abgesagt"||status==="krank")kommentar=await rsvpGrundFragen(status);
   try{
     const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?on_conflict=termin_id,spieler_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({termin_id:terminId,spieler_id:spielerId,status,kommentar,updated_at:new Date().toISOString()})});
     if(!r.ok){toast("Konnte nicht speichern","err");return;}

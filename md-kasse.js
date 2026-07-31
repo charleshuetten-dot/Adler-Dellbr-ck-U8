@@ -730,31 +730,7 @@ function fairplayModalCommitRender(committed){
       <button onclick="document.getElementById('fairplay-ov').remove()" style="width:100%;min-height:48px;margin-top:10px;border:1.5px solid rgba(255,255,255,.6);border-radius:14px;background:transparent;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Später</button>`;
   }
 }
-async function fairplayOpen(){
-  document.getElementById("fairplay-ov")?.remove();
-  const ov=document.createElement("div");
-  ov.id="fairplay-ov";
-  ov.style.cssText="position:fixed;inset:0;z-index:10050;background:linear-gradient(160deg,#065f46,#064e3b);color:#fff;overflow-y:auto;font-family:inherit;-webkit-overflow-scrolling:touch";
-  ov.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:80px 18px;text-align:center;opacity:.85">Lade Codex …</div>`;
-  document.body.appendChild(ov);
-  const regeln=await fairplayRegelnLaden();
-  if(!document.getElementById("fairplay-ov"))return; // zwischenzeitlich geschlossen
-  ov.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:24px 18px 40px">
-    <div style="text-align:center;margin-bottom:6px;font-size:40px">🦅</div>
-    <div style="text-align:center;font-size:22px;font-weight:900;letter-spacing:.3px">Unser Fairplay-Codex</div>
-    <div style="text-align:center;font-size:13px;opacity:.9;margin:6px 0 20px">SV Adler Dellbrück · U9 – für einen guten Spielfeldrand</div>
-    ${regeln.map((r,i)=>`<div style="display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:16px;margin-bottom:12px">
-      <div style="font-size:30px;line-height:1">${esc(r.emo)}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:16px;font-weight:800">${i+1}. ${esc(r.t)}</div>
-        <div style="font-size:13.5px;opacity:.95;line-height:1.55;margin-top:3px">${esc(r.d)}</div>
-      </div>
-    </div>`).join("")}
-    <div style="text-align:center;font-size:13px;opacity:.9;margin:16px 0 14px">Danke, dass ihr das mittragt. 💚</div>
-    <div id="fp-modal-commit"></div>
-  </div>`;
-  fairplayCommitCheck().then(c=>fairplayModalCommitRender(!!c));
-}
+async function fairplayOpen(){ return vereinbarungOpen(); } // Codex lebt jetzt in der gemeinsamen Vereinbarung
 
 /* Trainer-Editor für den Fairplay-Codex. Der Trainer pflegt die Regeln, die Eltern
    sehen sie im Overlay. Gespeichert wird als komplette Liste (delete-all + insert) –
@@ -826,47 +802,67 @@ async function fairplayEditSave(btn){
    Gleiches Muster wie der Fairplay-Codex (Tabelle eltern_leitfaden, Default = Offline-Fallback). ── */
 async function leitfadenLaden(){
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/eltern_leitfaden?select=emoji,titel,text&aktiv=eq.true&order=sort.asc,id.asc`,{headers:sbAuthHeaders()});
-    if(r.ok){const rows=await r.json(); if(rows.length)return rows.map(x=>({emo:x.emoji||"•",t:x.titel||"",d:x.text||""}));}
+    const r=await fetch(`${SB_URL}/rest/v1/eltern_leitfaden?select=emoji,titel,text,kategorie&aktiv=eq.true&order=sort.asc,id.asc`,{headers:sbAuthHeaders()});
+    if(r.ok){const rows=await r.json(); if(rows.length)return rows.map(x=>({emo:x.emoji||"•",t:x.titel||"",d:x.text||"",kat:x.kategorie||"wir"}));}
   }catch(e){}
   return ELTERN_LEITFADEN;
 }
-async function leitfadenOpen(){
-  document.getElementById("leitfaden-ov")?.remove();
+async function leitfadenOpen(){ return vereinbarungOpen(); } // Alt-Einstieg
+/* EINE Vereinbarung statt zwei Dokumenten (PO-Entscheid): oben der Fairplay-Codex zum
+   Bekennen (kurz, Haltung, mit Haekchen), darunter der Leitfaden als Nachschlagewerk in
+   fuenf aufklappbaren Rubriken. Haltungs-Punkte, die schon im Codex stehen, sind in der
+   DB als kategorie='codex' markiert und erscheinen unten NICHT mehr doppelt - die Rubrik
+   "Am Spielfeldrand" verweist stattdessen nach oben. */
+const VB_RUBRIKEN=[
+  {k:"termin",     emo:"🕒", t:"Rund um den Termin"},
+  {k:"gesundheit", emo:"🎒", t:"Ausrüstung & Gesundheit"},
+  {k:"rand",       emo:"📣", t:"Am Spielfeldrand"},
+  {k:"wir",        emo:"🤝", t:"Miteinander & Kommunikation"},
+  {k:"helfen",     emo:"🧃", t:"Mithelfen & Gemeinschaft"}
+];
+async function vereinbarungOpen(){
+  document.getElementById("vb-ov")?.remove();
   const ov=document.createElement("div");
-  ov.id="leitfaden-ov";
-  ov.style.cssText="position:fixed;inset:0;z-index:10050;background:linear-gradient(160deg,#0c4a6e,#082f49);color:#fff;overflow-y:auto;font-family:inherit;-webkit-overflow-scrolling:touch";
-  ov.innerHTML=`<div style="max-width:560px;margin:0 auto;padding:80px 18px;text-align:center;opacity:.85">Lade ${esc(LEITFADEN_NAME)} …</div>`;
+  ov.id="vb-ov";
+  ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true"); ov.setAttribute("aria-label","Unsere Vereinbarung");
+  ov.style.cssText="position:fixed;inset:0;z-index:10050;background:linear-gradient(160deg,#065f46,#064e3b);color:#fff;overflow-y:auto;font-family:inherit;-webkit-overflow-scrolling:touch";
+  ov.innerHTML='<div style="max-width:560px;margin:0 auto;padding:80px 18px;text-align:center;opacity:.85">Lade …</div>';
   document.body.appendChild(ov);
-  const teile=await leitfadenLaden();
-  if(!document.getElementById("leitfaden-ov"))return;
-  // In thematische Abschnitte gruppieren (reine Ansicht). Zuordnung ueber den Titel.
-  const byT={}; teile.forEach(r=>{ if(!(r.t in byT))byT[r.t]=r; });
-  const used=new Set(); let n=0;
-  const itemHtml=r=>`<div style="display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:16px;margin-bottom:12px">
-      <div style="font-size:28px;line-height:1">${esc(r.emo)}</div>
+  const [regeln,teile]=await Promise.all([fairplayRegelnLaden(),leitfadenLaden()]);
+  if(!document.getElementById("vb-ov"))return; // zwischenzeitlich geschlossen
+  const karte=(emo,titel,text,nr)=>`<div style="display:flex;gap:13px;align-items:flex-start;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:15px;margin-bottom:10px">
+      <div style="font-size:27px;line-height:1">${esc(emo)}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:16px;font-weight:800">${++n}. ${esc(r.t)}</div>
-        ${r.d?`<div style="font-size:13.5px;opacity:.95;line-height:1.6;margin-top:4px">${esc(r.d)}</div>`:""}
+        <div style="font-size:15.5px;font-weight:800">${nr?nr+". ":""}${esc(titel)}</div>
+        ${text?`<div style="font-size:13.5px;opacity:.95;line-height:1.6;margin-top:4px">${esc(text)}</div>`:""}
       </div>
     </div>`;
-  const secHtml=t=>`<div style="font-size:12.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;opacity:.85;margin:24px 2px 12px;border-bottom:1px solid rgba(255,255,255,.22);padding-bottom:6px">${esc(t)}</div>`;
-  let body="";
-  LEITFADEN_SEKTIONEN.forEach(sec=>{
-    const items=sec.p.map(t=>byT[t]).filter(Boolean);
-    if(!items.length)return;
-    body+=secHtml(sec.t)+items.map(r=>{used.add(r.t);return itemHtml(r);}).join("");
-  });
-  const rest=teile.filter(r=>!used.has(r.t));
-  if(rest.length)body+=secHtml("Weiteres")+rest.map(itemHtml).join("");
+  const rubrikHtml=(r)=>{
+    const items=teile.filter(x=>x.kat===r.k);
+    if(!items.length&&r.k!=="rand")return "";
+    const verweis=r.k==="rand"?`<div style="font-size:12.5px;opacity:.9;line-height:1.6;background:rgba(255,255,255,.07);border-radius:12px;padding:12px;margin-bottom:10px">👆 Wie wir uns am Spielfeldrand verhalten, steht oben im <b>Fairplay-Codex</b>. Hier nur die praktischen Ergänzungen.</div>`:"";
+    return `<details style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:4px 14px;margin-bottom:10px">
+      <summary style="cursor:pointer;padding:12px 0;font-size:15.5px;font-weight:800;list-style:none">${r.emo} ${esc(r.t)} <span style="font-weight:600;opacity:.7;font-size:12.5px">· ${items.length}</span></summary>
+      <div style="padding-bottom:10px">${verweis}${items.map(x=>karte(x.emo,x.t,x.d,0)).join("")}</div>
+    </details>`;
+  };
   ov.innerHTML=`<div style="max-width:560px;margin:0 auto;padding:24px 18px 40px">
-    <div style="text-align:center;margin-bottom:6px;font-size:40px">📖</div>
-    <div style="text-align:center;font-size:22px;font-weight:900;letter-spacing:.3px">${esc(LEITFADEN_NAME)}</div>
-    <div style="text-align:center;font-size:13px;opacity:.9;margin:6px 0 20px">SV Adler Dellbrück · U9 – damit unser Miteinander gelingt</div>
-    ${body}
-    <div style="text-align:center;font-size:13px;opacity:.9;margin:16px 0 20px">Danke, dass ihr das mittragt. 💙</div>
-    <button onclick="document.getElementById('leitfaden-ov').remove()" style="width:100%;min-height:52px;border:none;border-radius:14px;background:#fff;color:#0c4a6e;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer">Verstanden 👍</button>
+    <div style="text-align:center;font-size:40px">🦅</div>
+    <div style="text-align:center;font-size:22px;font-weight:900;letter-spacing:.3px">Unsere Vereinbarung</div>
+    <div style="text-align:center;font-size:13px;opacity:.9;margin:6px 0 20px">SV Adler Dellbrück · U9 – wofür wir als Team stehen</div>
+
+    <div style="font-size:12.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;opacity:.85;margin:6px 2px 10px">🤝 Unser Fairplay-Codex</div>
+    <div style="font-size:12.5px;opacity:.9;line-height:1.6;margin-bottom:12px">Die Haltung, auf die wir uns alle verlassen – kurz und klar.</div>
+    ${regeln.map((r,i)=>karte(r.emo,r.t,r.d,i+1)).join("")}
+    <div id="fp-commit-slot" style="margin:14px 0 6px"></div>
+
+    <div style="font-size:12.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;opacity:.85;margin:26px 2px 10px;border-top:1px solid rgba(255,255,255,.18);padding-top:20px">📖 ${esc(typeof LEITFADEN_NAME!=="undefined"?LEITFADEN_NAME:"Eltern-Leitfaden")}</div>
+    <div style="font-size:12.5px;opacity:.9;line-height:1.6;margin-bottom:12px">Das Praktische zum Nachschlagen – tippe auf eine Rubrik.</div>
+    ${VB_RUBRIKEN.map(rubrikHtml).join("")}
+
+    <button onclick="document.getElementById('vb-ov').remove()" style="width:100%;min-height:52px;margin-top:18px;border:none;border-radius:14px;background:#fff;color:#065f46;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">Schließen</button>
   </div>`;
+  if(typeof fairplayCommitLoad==="function")fairplayCommitLoad(); // Häkchen-Zusage nachladen
 }
 // Trainer-Editor (spiegelt den Fairplay-Editor).
 let LF_EDIT=[];

@@ -11,9 +11,41 @@ const KABINE_AKTIV_KEY="adler_kabine_aktiv";
    Code - genau das ist der Sinn des Schlosses. */
 function kabineAktiv(){ try{return localStorage.getItem(KABINE_AKTIV_KEY)==="1";}catch(e){return false;} }
 function kabineAktivSet(an){ try{ an?localStorage.setItem(KABINE_AKTIV_KEY,"1"):localStorage.removeItem(KABINE_AKTIV_KEY); }catch(e){} }
+const KABINE_MAX_MIN=60;               // PO: nach einer Stunde ist Kabinen-Zeit vorbei
+const KABINE_START_KEY="adler_kabine_start";
+/* Die Uhr laeuft ueber einen gespeicherten Startzeitpunkt, nicht ueber einen Timer im
+   Speicher: so wirkt das Limit auch nach einem Reload (der Kids-Modus ueberlebt den ja). */
+function kabineZeitRestMin(){
+  try{
+    const t0=parseInt(localStorage.getItem(KABINE_START_KEY)||"0",10);
+    if(!t0)return KABINE_MAX_MIN;
+    return KABINE_MAX_MIN-Math.floor((Date.now()-t0)/60000);
+  }catch(e){return KABINE_MAX_MIN;}
+}
+function kabineZeitEnde(){
+  clearInterval(window._kabZeitTimer); window._kabZeitTimer=null;
+  isKidsMode=false; kabineAktivSet(false);
+  try{localStorage.removeItem(KABINE_START_KEY);}catch(e){}
+  document.getElementById("kabexit")?.remove();
+  document.getElementById("kabine")?.remove();
+  if(typeof toast==="function")toast("⏰ Kabinen-Zeit vorbei – bis zum nächsten Mal!");
+  if(typeof elternDashLoad==="function")elternDashLoad(); // zurück in den Eltern-Bereich
+}
+function kabineZeitTick(){
+  const rest=kabineZeitRestMin();
+  if(rest<=0){ kabineZeitEnde(); return; }
+  const el=document.getElementById("kab-zeit");
+  if(el)el.innerHTML=rest<=10
+    ? `<div style="background:rgba(251,191,36,.22);border:1px solid rgba(251,191,36,.5);border-radius:12px;padding:9px 12px;margin:0 16px 10px;font-size:12.5px;font-weight:700">⏰ Noch ${rest} Min. Kabinen-Zeit</div>`
+    : "";
+}
 async function kabineOpen(){
   isKidsMode=true;
   kabineAktivSet(true);
+  try{ if(!localStorage.getItem(KABINE_START_KEY))localStorage.setItem(KABINE_START_KEY,String(Date.now())); }catch(e){}
+  if(kabineZeitRestMin()<=0){ kabineZeitEnde(); return; }   // abgelaufen: gar nicht erst oeffnen
+  clearInterval(window._kabZeitTimer);
+  window._kabZeitTimer=setInterval(kabineZeitTick,30000);
   document.getElementById("kabine-splash")?.remove(); // Vorhang gegen Dashboard-Aufblitzen
   document.getElementById("kabine")?.remove();
   const m=document.createElement("div");m.id="kabine";
@@ -613,7 +645,8 @@ function kabineHome(){
     <div id="kab-pack"></div>
     <div id="kab-post"></div>
     <div id="kab-wahl"></div>
-    <div id="kab-stimmung"></div>
+    <div id="kab-zeit"></div>
+    <!-- Stimmungs-Check („Wie war das Training?") vorerst ausgeblendet (PO) -->
     <div id="kab-milestone"></div>
     <div id="kab-arena" style="padding:0 16px 4px"></div>
     ${(function(){
@@ -650,7 +683,8 @@ function kabineHome(){
   kabinePackLoad();                                             // H3: Spieltag-Packliste
   kabinePostLoad();                                             // I-A: 📬 Adler-Post (Kudos + Genesungsgrüße)
   kabineWahlLoad();                                             // I-A: 🗳️ Kabinen-Wahl
-  kabineStimmungLoad();                                         // H2: Kinder-Stimmungs-Check
+  kabineZeitTick();                                             // Restzeit-Hinweis
+  // kabineStimmungLoad();  // H2 – vom PO vorerst ausgeblendet                                         // H2: Kinder-Stimmungs-Check
   kabineMilestoneLoad();                                        // H7: frische Team-Meilensteine feiern
 }
 // G6: „Noch X× schlafen bis zum nächsten Spiel!" – Motivation im Kinder-Modus.
@@ -1385,6 +1419,8 @@ async function kabineCodeTip(t){
   const [eingabe,soll]=await Promise.all([hashPin(_kabCode),kabineCodeHash()]);
   if(eingabe===soll){
     isKidsMode=false; kabineAktivSet(false); kabSubConsume();
+    clearInterval(window._kabZeitTimer); window._kabZeitTimer=null;
+    try{localStorage.removeItem(KABINE_START_KEY);}catch(e){}
     document.getElementById("kabexit")?.remove();
     document.getElementById("kabine")?.remove();
   }else{
