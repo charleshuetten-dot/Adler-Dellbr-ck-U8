@@ -64,6 +64,23 @@ window.pinBack=window.pinBack||function(){};window.pinCheck=window.pinCheck||fun
      Kern + Views + Boot. Die 28 Feature-Module (~980 KB) kommen direkt danach, waehrend
      der Trainer schon die Startseite sieht. Alle Inits sind selbststartend
      (_adlerOnReady/readyState) – ein synthetisches DOMContentLoaded ist nicht mehr noetig. */
+  /* Modul-Selbstpruefung: ein SyntaxError in einer Datei laesst den script-onerror
+     KALT - der Loader meldet "fertig", waehrend die Datei nie ausgefuehrt wurde
+     (so blieb md-gegner.js zehn Versionen lang tot). Darum nach Welle 2 je Modul
+     einen Namen abfragen, der ganz unten in der Datei steht. Fehlt er, ist die
+     Datei unterwegs gestorben. */
+  const MODUL_WACHE={"md-abzeichen.js":"abzeichenAward","md-analyse.js":"atActionsFor","md-aufstellung.js":"kombiShareLineup","md-ausruestung.js":"ausruestungGridRender","md-carpool.js":"elternCarpoolPatch","md-eltern-portal.js":"tdVorberichtLoad","md-fanfakten.js":"elternFotoUpload","md-fundbuero.js":"fundbueroDelete","md-galerie.js":"galerieDelete","md-gegner.js":"turnierRender","md-kabine.js":"renderTrainerUI","md-kalender.js":"gegnerAddrPick","md-kasse.js":"elternTickerLoad","md-ki-coach.js":"kiCoachSaveForm","md-live-vollbild.js":"teamBackupDownload","md-liveticker.js":"tickerDelete","md-matchcard.js":"rotReset","md-matchuhr.js":"mcRenderLive","md-print.js":"_printNow","md-quests.js":"questSave","md-spielbericht.js":"kindRsvp","md-taktik-bib.js":"ttDelete","md-taktik-draw.js":"dwClear","md-taktik-video.js":"tbAddDrag","md-taktikboard.js":"taktikRender","md-teamkasse.js":"kasseDelUmlage","md-teams.js":"nomApplyToTools","md-turnierplan.js":"_htMonRender","md-voice.js":"atPick","quiz.js":"kidsIntroClose"};
+  function modulWache(geladen){
+    const kaputt=geladen.filter(d=>MODUL_WACHE[d]&&typeof window[MODUL_WACHE[d]]!=="function");
+    if(!kaputt.length)return;
+    console.error("Modul-Wache: geladen, aber nicht ausgefuehrt:",kaputt);
+    const w=document.createElement("div");
+    w.setAttribute("role","alert");
+    w.style.cssText="position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;background:#7f1d1d;color:#fff;border-radius:12px;padding:10px 14px;font:600 12px/1.4 system-ui;box-shadow:0 4px 16px rgba(0,0,0,.35)";
+    w.innerHTML='\u26a0\ufe0f Teile der App sind nicht gestartet ('+kaputt.length+'). Bitte neu laden \u2013 wenn es bleibt, dem Entwickler melden: '+kaputt.join(", ")+
+      ' <button onclick="this.parentElement.remove()" style="float:right;min-height:28px;padding:2px 10px;border:none;border-radius:8px;background:#fff;color:#7f1d1d;font-weight:800">OK</button>';
+    document.body.appendChild(w);
+  }
   const lade=(dateien)=>new Promise((fertig,fehler)=>{
     let offen=dateien.length;
     dateien.forEach(datei=>{
@@ -75,13 +92,14 @@ window.pinBack=window.pinBack||function(){};window.pinCheck=window.pinCheck||fun
     });
   });
   await lade(["data.js","core.js","engine.js","views.js","boot.js"]);
-  lade(["quiz.js",
+  const WELLE2=["quiz.js",
     "md-eltern-portal.js","md-abzeichen.js","md-carpool.js","md-fanfakten.js","md-teamkasse.js","md-kabine.js",
     "md-aufstellung.js","md-print.js","md-taktikboard.js","md-taktik-draw.js","md-taktik-video.js","md-kalender.js","md-gegner.js","md-turnierplan.js",
     "md-teams.js","md-matchuhr.js","md-liveticker.js","md-spielbericht.js",
     "md-matchcard.js","md-analyse.js","md-quests.js","md-voice.js",
     "md-live-vollbild.js","md-fundbuero.js","md-taktik-bib.js","md-ausruestung.js","md-galerie.js","md-kasse.js","md-ki-coach.js"
-  ]).catch(e=>console.error("Welle 2:",e));
+  ];
+  lade(WELLE2).then(()=>modulWache(WELLE2)).catch(e=>console.error("Welle 2:",e));
 })().catch(e=>{
   console.error(e);
   document.body.innerHTML='<div style="font-family:system-ui;padding:32px;text-align:center;color:#334155">'

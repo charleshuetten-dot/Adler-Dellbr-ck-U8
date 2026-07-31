@@ -48,14 +48,6 @@ const LEITFADEN_NAME="Eltern-Leitfaden";
 /* Thematische Gliederung NUR fuer die Ansicht (leitfadenOpen). Zuordnung ueber den exakten
    Titel; der Trainer-Editor bleibt eine flache Liste. Punkte ohne Treffer landen unter
    „Weiteres", damit nie etwas verschwindet, wenn ein Titel umbenannt/ergaenzt wird. */
-const LEITFADEN_SEKTIONEN=[
-  {t:"🕒 Rund ums Kommen & Gehen", p:["Pünktlichkeit","Immer ein Elternteil vor Ort","Bringen & Abholen","Rücksichtsvoll parken & Kinder im Blick","Die Adler-App nutzen – zu- & absagen","Zusage ist Zusage – besonders bei Turnieren","Krank oder verletzt?","Kontaktdaten aktuell & am Spieltag erreichbar"]},
-  {t:"🎒 Ausrüstung & Sicherheit", p:["Die richtige Ausrüstung","Training in kompletter Adler-Ausstattung","Schmuck ab vor dem Spielen","Bei (fast) jedem Wetter","Notfallkarte & Allergien aktuell halten","Fotos & Datenschutz"]},
-  {t:"📣 Am Spielfeldrand & im Training", p:["Verhalten beim Training – etwas Abstand","Verhalten am Spielfeldrand","Wenig reinrufen – der Verband bittet darum","Vorbild auch abseits des Balls","Geschwister, Hunde & Zuschauer hinter der Bande"]},
-  {t:"⚽ Aufstellung, Einsatz & Trainer-Entscheidungen", p:["Aufstellung & Einsatz – wir vertrauen dem Trainerteam","Wenn ein Kind mal auf die Bank muss","Behandlung & Auswechslung entscheidet das Trainerteam","Jede Position gehört dazu","Dabei sein lohnt sich","Eine Linie zeigen","Erziehung bleibt bei euch, Orientierung geben wir am Platz"]},
-  {t:"🌱 Werte & Umgang mit den Kindern", p:["Entwicklung vor Ergebnis","Zu Hause der sichere Hafen","Gleiche Maßstäbe für alle","Neue & schüchterne Kinder aufnehmen","Ausgeruht & gut versorgt zum Spieltag","Kleine Konflikte erst mal den Kindern lassen","Sorgen? Sprecht uns direkt an"]},
-  {t:"🤝 Gemeinschaft & Verein", p:["Büdchen- & Helferdienste","Betreuung bei Spielen & Turnieren","Gemeinschaft & Feiern","Rituale & Wir-Gefühl mittragen","Sauberkeit & Sorgfalt","Ehrenamt wertschätzen"]}
-];
 const ELTERN_LEITFADEN=[
   {emo:"🕒", t:"Pünktlichkeit", kat:"termin", d:"Beim Training seid bitte rund 10 Minuten vor Beginn da. Bei Spielen und Turnieren gilt immer die Treffzeit, die am Termin in der App steht – meist 45 Minuten vor Anstoß. Dann kommen die Kinder in Ruhe an, ziehen sich um und starten gemeinsam ins Aufwärmen. Wer zu spät kommt, verpasst genau das – und Aufwärmen schützt vor Verletzungen."},
   {emo:"👨‍👩‍👧", t:"Immer ein Elternteil vor Ort", kat:"termin", d:"Bei jedem Training bleibt mindestens ein Elternteil (oder eine feste Vertretung) auf dem Gelände. Die Trainer sind fürs Fußballspielen da, nicht für die Aufsicht bei Toilettengang, Schürfwunde oder Heimweh. So ist immer jemand ansprechbar, wenn ein Kind etwas braucht."},
@@ -715,22 +707,6 @@ async function fairplayCommitDo(cb){
   toast("Danke – dein Ja zum Fairplay-Codex ist notiert! 💚");
   try{navigator.vibrate&&navigator.vibrate([20,30,20]);}catch(e){}
   fairplayCommitLoad(); // Karte im Eltern-Bereich auf die Bestätigung umschalten
-  if(document.getElementById("fp-modal-commit"))fairplayModalCommitRender(true); // Codex-Fenster mitziehen
-}
-// Commitment-Block im Codex-Fenster (unter den Regeln) – Häkchen + „ich bin dabei".
-function fairplayModalCommitRender(committed){
-  const box=document.getElementById("fp-modal-commit"); if(!box)return;
-  if(committed){
-    box.innerHTML=`<div style="display:flex;align-items:center;gap:10px;justify-content:center;padding:14px;border-radius:14px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28)">
-      <span style="font-size:22px">✅</span><span style="font-size:14px;font-weight:800">Du bist dabei – danke! 💚</span></div>
-      <button onclick="document.getElementById('fairplay-ov').remove()" style="width:100%;min-height:52px;margin-top:12px;border:none;border-radius:14px;background:#fff;color:#065f46;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer">Schließen</button>`;
-  }else{
-    box.innerHTML=`<label style="display:flex;align-items:flex-start;gap:12px;padding:14px;border-radius:14px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);cursor:pointer;text-align:left">
-        <input type="checkbox" id="fp-modal-cb" onchange="fairplayCommitDo(this)" style="margin-top:2px;flex:none;width:24px;height:24px">
-        <span style="font-size:14.5px;font-weight:700;line-height:1.4">Ich habe den Codex gelesen – <u>verstanden und ich bin dabei.</u></span>
-      </label>
-      <button onclick="document.getElementById('fairplay-ov').remove()" style="width:100%;min-height:48px;margin-top:10px;border:1.5px solid rgba(255,255,255,.6);border-radius:14px;background:transparent;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Später</button>`;
-  }
 }
 async function fairplayOpen(){ return vereinbarungOpen(); } // Codex lebt jetzt in der gemeinsamen Vereinbarung
 

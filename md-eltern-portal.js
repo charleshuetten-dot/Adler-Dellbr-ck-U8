@@ -766,7 +766,6 @@ async function elternDashLoad(){
   elternBuedchenLoad(termineListe,kids);       // Büdchen-Einteilung bei Heimspielen
   elternGespraechStatus();                     // laufende Elterngespräch-Anfrage anzeigen
   elternPollLoad();                            // Terminvorschläge des Trainers (Elterngespräch-Doodle)
-  fairplayCommitLoad();                        // Fairplay-Codex: Commitment-Status / Bestätigung
   if(termin)elternTickerLoad(termin);          // Liveticker: Team des Kindes automatisch erkennen
   if(typeof pushRenderInto==="function")pushRenderInto("push-slot-eltern","parent"); // Push-An/Aus
   elternMatchGrussLoad(kids);                   // A1/A2: Nach-dem-Spiel-Gruß pro Kind
