@@ -59,11 +59,11 @@ function elternCarpoolDriverForm(spielerId,terminId){
   const body=document.getElementById("carpool-body"); if(!body)return;
   const inp="width:100%;padding:9px;margin:4px 0 10px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font-family:inherit;font-size:13px";
   body.innerHTML=`<div style="font-weight:700;margin-bottom:8px">🚗 Wir fahren selbst</div>
-    <label style="font-size:12px;color:#475569">Freie Plätze</label>
+    <label for="cp-seats" style="font-size:12px;color:#475569">Freie Plätze</label>
     <input id="cp-seats" type="number" min="1" max="8" value="2" style="${inp}">
-    <label style="font-size:12px;color:#475569">Bereich / Startpunkt (optional)</label>
+    <label for="cp-area" style="font-size:12px;color:#475569">Bereich / Startpunkt (optional)</label>
     <input id="cp-area" placeholder="z. B. Dellbrück Nord" style="${inp}">
-    <label style="font-size:12px;color:#475569">Notiz: Treffpunkt / Zeit (optional)</label>
+    <label for="cp-note" style="font-size:12px;color:#475569">Notiz: Treffpunkt / Zeit (optional)</label>
     <input id="cp-note" placeholder="z. B. Treff Netto-Parkplatz 16:15" style="${inp}">
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button onclick="elternCarpoolRender(${spielerId},${terminId})" style="border:none;background:none;color:#64748b;font-size:13px;cursor:pointer">Abbrechen</button>

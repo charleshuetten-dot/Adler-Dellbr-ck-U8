@@ -72,7 +72,7 @@
       <select id="p-trainer"><!-- wird aus TRAINER befüllt (D2) --></select>
     </div>
     <div class="mg"><label>Termin</label><select id="p-date" style="width:100%;padding:8px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;background:var(--surface);font-family:inherit;color:var(--text)"><option>Lade Termine…</option></select></div>
-    <div class="mg"><label>Alter</label>
+    <div class="mg"><label for="p-age">Alter</label>
       <select id="p-age">
         <option value="7">7 Jahre</option><option value="8" selected>8 Jahre</option><option value="9">9 Jahre</option>
       </select>
@@ -101,7 +101,7 @@
         <option value="R">Rechtsfüßer</option><option value="L">Linksfüßer</option><option value="B">Beidfüßig</option>
       </select>
     </div>
-    <div class="mg s3"><label>Trainer-Notiz (optional)</label>
+    <div class="mg s3"><label for="p-notes">Trainer-Notiz (optional)</label>
       <textarea id="p-notes" rows="2" placeholder="Besondere Beobachtungen aus Training oder Spiel..." style="resize:none"></textarea>
     </div>
   </div>
@@ -306,20 +306,20 @@
         <button onclick="closeAddTraining()" style="background:none;border:none;font-size:20px;cursor:pointer">x</button>
       </div>
       <div class="mgrid" style="grid-template-columns:1fr 1fr">
-        <div class="mg s2"><label>Name</label><input type="text" id="tf-name" placeholder="Name der Form"></div>
-        <div class="mg"><label>Kategorie</label>
+        <div class="mg s2"><label for="tf-name">Name</label><input type="text" id="tf-name" placeholder="Name der Form"></div>
+        <div class="mg"><label for="tf-kat">Kategorie</label>
           <select id="tf-kat">
             <option value="aufwaermen">Aufwärmen</option>
             <option value="raute">Raute</option><option value="passspiel">Passspiel</option>
             <option value="wahrnehmung">Wahrnehmung</option><option value="technik">Technik</option>
-            <option value="pressing">Pressing</option><option value="spass">Spass</option>
+            <option value="pressing">Pressing</option><option value="spass">Spaß</option>
             <option value="torwart">Torwart</option><option value="individual">Individual</option>
             <option value="mindset">Mindset & Selbstvertrauen</option>
           </select>
         </div>
-        <div class="mg"><label>Spieleranzahl</label><input type="text" id="tf-spieler" placeholder="z.B. 6-10"></div>
-        <div class="mg"><label>Feldgröße</label><input type="text" id="tf-feld" placeholder="z.B. 20x15m"></div>
-        <div class="mg"><label>Dauer (Min)</label><input type="text" id="tf-dauer" placeholder="z.B. 10-15"></div>
+        <div class="mg"><label for="tf-spieler">Spieleranzahl</label><input type="text" id="tf-spieler" placeholder="z.B. 6-10"></div>
+        <div class="mg"><label for="tf-feld">Feldgröße</label><input type="text" id="tf-feld" placeholder="z.B. 20x15m"></div>
+        <div class="mg"><label for="tf-dauer">Dauer (Min)</label><input type="text" id="tf-dauer" placeholder="z.B. 10-15"></div>
         <div class="mg"><label>Spaßfaktor</label>
           <select id="tf-spass"><option value="3">Mittel</option><option value="4">Hoch</option><option value="5" selected>Sehr hoch</option></select>
         </div>
@@ -332,7 +332,7 @@
         <div class="mg" style="grid-column:span 2"><label>Varianten</label>
           <textarea id="tf-varianten" rows="2" style="resize:none" placeholder="Varianten"></textarea>
         </div>
-        <div class="mg" style="grid-column:span 2"><label>Coaching-Punkte</label>
+        <div class="mg" style="grid-column:span 2"><label for="tf-coaching">Coaching-Punkte</label>
           <textarea id="tf-coaching" rows="2" style="resize:none" placeholder="Was soll der Trainer beobachten?"></textarea>
         </div>
       </div>
@@ -355,11 +355,11 @@
         <button type="button" class="seg-btn" data-val="event" onclick="tmSetTyp('event',this)">🎉 Event</button>
       </div>
       <div class="mgrid" style="grid-template-columns:1fr 1fr;gap:8px">
-        <div class="mg"><label>Datum</label><input type="date" id="tm-datum" onchange="ferienDatumHint(this,'tm-ferien-hint')"><div id="tm-ferien-hint"></div></div>
-        <div class="mg"><label>Uhrzeit (optional)</label><input type="time" id="tm-zeit" onchange="tmEndeVorschlag()"></div>
-        <div class="mg"><label>🕒 Treffen (optional)</label><input type="time" id="tm-treff" title="Wann sollen die Kinder da sein? Bei Spielen meist 45 Min. vor Anstoß"></div>
-        <div class="mg"><label id="tm-ende-lbl">Ende (bei Spiel/Turnier Pflicht)</label><input type="time" id="tm-ende"></div>
-        <div class="mg" style="margin-top:8px"><label>🔁 Wiederholen</label>
+        <div class="mg"><label for="tm-datum">Datum</label><input type="date" id="tm-datum" onchange="ferienDatumHint(this,'tm-ferien-hint')"><div id="tm-ferien-hint"></div></div>
+        <div class="mg"><label for="tm-zeit">Uhrzeit (optional)</label><input type="time" id="tm-zeit" onchange="tmEndeVorschlag()"></div>
+        <div class="mg"><label for="tm-treff">🕒 Treffen (optional)</label><input type="time" id="tm-treff" title="Wann sollen die Kinder da sein? Bei Spielen meist 45 Min. vor Anstoß"></div>
+        <div class="mg"><label for="tm-ende" id="tm-ende-lbl">Ende (bei Spiel/Turnier Pflicht)</label><input type="time" id="tm-ende"></div>
+        <div class="mg" style="margin-top:8px"><label for="tm-serie">🔁 Wiederholen</label>
           <select id="tm-serie" onchange="tmSerieToggle()" style="width:100%;padding:8px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;background:var(--surface);font-family:inherit;color:var(--text)">
             <option value="">nicht wiederholen</option>
             <option value="woche">jede Woche</option>
@@ -377,7 +377,7 @@
           <button type="button" class="seg-btn" data-val="5+1" onclick="tmSetSpielform('5+1',this)">5+1</button>
         </div>
       </div>
-      <div class="mg" id="tm-dauer-row" style="margin-top:8px;display:none"><label>Spieldauer</label>
+      <div class="mg" id="tm-dauer-row" style="margin-top:8px;display:none"><label for="tm-halbzeiten">Spieldauer</label>
         <div style="display:flex;gap:6px">
           <select id="tm-halbzeiten" style="flex:1">
             <option value="1" selected>1 Spielzeit</option>
@@ -394,21 +394,21 @@
           </select>
         </div>
       </div>
-      <div class="mg" id="tm-titel-row" style="margin-top:8px;display:none"><label id="tm-titel-lbl">Gegner / Titel</label><input type="text" id="tm-titel" placeholder="z. B. Heimspiel gegen FC..." list="gegner-datalist" onchange="gegnerAutofill()"><datalist id="gegner-datalist"></datalist></div>
+      <div class="mg" id="tm-titel-row" style="margin-top:8px;display:none"><label for="tm-titel" id="tm-titel-lbl">Gegner / Titel</label><input type="text" id="tm-titel" placeholder="z. B. Heimspiel gegen FC..." list="gegner-datalist" onchange="gegnerAutofill()"><datalist id="gegner-datalist"></datalist></div>
       <div class="mg" id="tm-heim-row" style="margin-top:8px;display:none"><label>Heim oder Auswärts?</label>
         <div class="seg-ctrl" id="tm-heim-seg">
           <button type="button" class="seg-btn active" data-val="heim" onclick="tmSetHeim(true,this)">🏠 Heimspiel</button>
           <button type="button" class="seg-btn" data-val="ausw" onclick="tmSetHeim(false,this)">✈️ Auswärts</button>
         </div>
       </div>
-      <div class="mg" style="margin-top:8px"><label>Ort / Adresse (optional)</label>
+      <div class="mg" style="margin-top:8px"><label for="tm-ort">Ort / Adresse (optional)</label>
         <div style="display:flex;gap:6px">
           <input type="text" id="tm-ort" placeholder="Sportplatz..." style="flex:1">
           <button type="button" class="btn btn-sm" onclick="gegnerAddrSearch()" title="Adresse per Vereins-/Platzname finden (OpenStreetMap)"><i class="ti ti-map-search"></i>Finden</button>
         </div>
         <div id="tm-addr-results"></div>
       </div>
-      <div class="mg" style="margin-top:8px"><label id="tm-platz-lbl">Platz (Training)</label>
+      <div class="mg" style="margin-top:8px"><label for="tm-platz" id="tm-platz-lbl">Platz (Training)</label>
         <select id="tm-platz" style="width:100%;padding:8px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;background:var(--surface);font-family:inherit;color:var(--text)">
           <option value="">– kein Platz –</option>
           <option>Käfig</option><option>vorne links</option><option>vorne rechts</option><option>hinten links</option><option>hinten rechts</option><option>Halle</option>
@@ -429,7 +429,7 @@
     <div class="sl nt"><i class="ti ti-calendar-event"></i>Trainingsplan</div>
     <!-- Kopf schlank (PO): Termin volle Breite, Trainer als EINE wischbare Chip-Zeile,
          die Ziel-Dauer wandert in die „Gesamt“-Zeile unter dem Zeitplan. -->
-    <div class="mg"><label>Termin</label><select id="tp-date" onchange="tpRenderTimeline();tpPlanRestore(this.value)" style="width:100%;padding:10px 12px;border:var(--border-s);border-radius:var(--r);font-size:14px;background:var(--surface);font-family:inherit;color:var(--text);box-sizing:border-box"><option>Lade Termine…</option></select></div>
+    <div class="mg"><label for="tp-date">Termin</label><select id="tp-date" onchange="tpRenderTimeline();tpPlanRestore(this.value)" style="width:100%;padding:10px 12px;border:var(--border-s);border-radius:var(--r);font-size:14px;background:var(--surface);font-family:inherit;color:var(--text);box-sizing:border-box"><option>Lade Termine…</option></select></div>
     <div id="tp-vorplan" style="margin:6px 0 8px"></div>
     <div style="display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 0 8px" id="tp-trainer-checks"><!-- wird aus TRAINER befüllt (D2) --></div>
     <div id="tp-diagnose"></div>
@@ -449,7 +449,7 @@
   <!-- SUB: Anwesenheit -->
   <div id="train-sub-anwesenheit" class="train-sub">
     <div class="sl nt"><i class="ti ti-checkbox"></i>Anwesenheit</div>
-    <div class="mg"><label>Termin</label><select id="aw-date" onchange="awLoad()" style="width:100%;padding:8px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;background:var(--surface);font-family:inherit;color:var(--text)"><option>Lade Termine…</option></select></div>
+    <div class="mg"><label for="aw-date">Termin</label><select id="aw-date" onchange="awLoad()" style="width:100%;padding:8px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;background:var(--surface);font-family:inherit;color:var(--text)"><option>Lade Termine…</option></select></div>
     <!-- Standard: heute + kommende Termine (PO). Vergessenes wird bewusst per Klick nachgetragen. -->
     <div id="aw-nachtragen"></div>
     <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:10px 0 6px">Anwesende Trainer</div>

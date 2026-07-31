@@ -173,7 +173,7 @@ function questEditorOpen(){
         <span style="font-size:12px;color:var(--text2)">${XP_ICON} pro Kind</span>
       </div>
     </div>
-    <label style="font-size:11px;color:var(--text2)">🎁 Zusätzliche Belohnung (Freitext, optional)</label>
+    <label for="qe-belohnung" style="font-size:11px;color:var(--text2)">🎁 Zusätzliche Belohnung (Freitext, optional)</label>
     <textarea id="qe-belohnung" rows="2" placeholder="z. B. Eis für alle beim nächsten Training!" style="width:100%;padding:8px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px;margin:4px 0 12px;box-sizing:border-box">${esc(teamBelohnung)}</textarea>
     <div style="margin:0 0 12px;padding:10px;border:1.5px dashed #f59e0b;border-radius:10px;background:#fffbeb">
       <div style="font-weight:700;font-size:12.5px;color:#92400e;margin-bottom:2px">⚡ Doppel-${XP_LABEL}-Booster</div>

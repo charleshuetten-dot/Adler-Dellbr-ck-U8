@@ -50,7 +50,7 @@ async function saveCustomTraining(){
     dauer:document.getElementById('tf-dauer').value,
     spass:parseInt(document.getElementById('tf-spass').value),
     diff:parseInt(document.getElementById('tf-diff').value),
-    custom:true,focus:false,tags:'Eigene Form',
+    custom:true,focus:false,tags:'Eigene Übung',
     kurz:document.getElementById('tf-ablauf').value.slice(0,80)
   };
   try{

@@ -159,8 +159,8 @@ function showLoginGate(){
   gate.innerHTML=`<div class="card" style="padding:24px;max-width:340px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.15)">
     <div style="font-size:16px;font-weight:700;margin-bottom:4px">🔐 Trainer-Anmeldung</div>
     <div style="font-size:11.5px;color:var(--text2);margin-bottom:14px">Spielerdaten sind geschützt – bitte mit deinem Trainer-Account anmelden.</div>
-    <div class="mg" style="margin-bottom:8px"><label>E-Mail</label><input type="email" id="login-email" autocomplete="username" style="width:100%"></div>
-    <div class="mg" style="margin-bottom:12px"><label>Passwort</label><input type="password" id="login-pw" autocomplete="current-password" style="width:100%"></div>
+    <div class="mg" style="margin-bottom:8px"><label for="login-email">E-Mail</label><input type="email" id="login-email" autocomplete="username" style="width:100%"></div>
+    <div class="mg" style="margin-bottom:12px"><label for="login-pw">Passwort</label><input type="password" id="login-pw" autocomplete="current-password" style="width:100%"></div>
     <div id="login-err" style="font-size:11px;color:#dc2626;margin-bottom:8px;min-height:14px"></div>
     <button class="btn btn-p" style="width:100%;min-height:44px" onclick="doLogin()"><i class="ti ti-login"></i>Anmelden</button>
   </div>`;

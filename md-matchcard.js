@@ -365,7 +365,7 @@ async function mdOpen(datum,typ){
   const f=(id,lbl,val,ph)=>`<div class="mg" style="margin-bottom:8px"><label>${lbl}</label><input type="text" id="md-${id}" value="${esc(val||"")}" placeholder="${ph||""}"></div>`;
   const spielFelder=`
     ${f("gegner","Gegner",cur.gegner,"z. B. FC Musterstadt")}
-    <div class="mg" style="margin-bottom:8px"><label>Adresse des Gegners</label>
+    <div class="mg" style="margin-bottom:8px"><label for="md-gegner_adresse">Adresse des Gegners</label>
       <div style="display:flex;gap:6px">
         <input type="text" id="md-gegner_adresse" value="${esc(cur.gegner_adresse||"")}" placeholder="Straße, Ort..." style="flex:1">
         <button class="btn btn-sm" onclick="mdMapsSearch()" title="Auf Karte suchen"><i class="ti ti-map-search"></i></button>
@@ -379,7 +379,7 @@ async function mdOpen(datum,typ){
     ${f("ort","Ort / Sportplatz",cur.ort,"z. B. Sportplatz Dellbrück")}
     ${f("treffpunkt","Treffpunkt (Zeit/Ort)",cur.treffpunkt,"z. B. 9:15 Uhr am Platz")}
     ${f("anpfiff",typ==="training"?"Trainingszeit":"Anpfiff",cur.anpfiff,typ==="training"?"z. B. 17:00–18:15":"z. B. 10:00 Uhr")}
-    <div class="mg" style="margin-bottom:10px"><label>Infos (frei)</label><textarea id="md-infos" rows="2" style="resize:none">${esc(cur.infos||"")}</textarea></div>
+    <div class="mg" style="margin-bottom:10px"><label for="md-infos">Infos (frei)</label><textarea id="md-infos" rows="2" style="resize:none">${esc(cur.infos||"")}</textarea></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-p" onclick="mdSave('${datum}','${typ}',this)"><i class="ti ti-device-floppy"></i>Speichern</button>
       <button class="btn" onclick="mdShareLink('${datum}')"><i class="ti ti-share"></i>Eltern-Link</button>

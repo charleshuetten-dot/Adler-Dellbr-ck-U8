@@ -20,16 +20,16 @@ async function elternFanfactsOpen(spielerId,kindName){
       <input type="file" accept="image/jpeg,image/png,image/webp" onchange="elternFotoUpload(${spielerId},this)" style="font-size:11px;flex:1">
       ${f.foto_path?'<span style="font-size:10px;color:#059669">✓ vorhanden</span>':''}
     </div>
-    <label style="font-size:12px;color:#475569">Spitzname</label>
+    <label for="ff-spitz" style="font-size:12px;color:#475569">Spitzname</label>
     <input id="ff-spitz" value="${esc(f.spitzname||'')}" placeholder="z. B. Mimi" style="${inp}">
-    <label style="font-size:12px;color:#475569">Lieblingsverein</label>
+    <label for="ff-verein" style="font-size:12px;color:#475569">Lieblingsverein</label>
     <input id="ff-verein" value="${esc(f.lieblingsverein||'')}" placeholder="z. B. 1. FC Köln" style="${inp}">
-    <label style="font-size:12px;color:#475569">Lieblingsspieler</label>
+    <label for="ff-spieler" style="font-size:12px;color:#475569">Lieblingsspieler</label>
     <input id="ff-spieler" value="${esc(f.lieblingsspieler||'')}" placeholder="z. B. Musiala" style="${inp}">
     <div style="font-size:11px;font-weight:700;color:#475569;margin:6px 0 4px">👕 Ausrüstung <span style="font-weight:400;color:#94a3b8">(hilft dem Trainer bei Sammelbestellungen)</span></div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
-      <div style="flex:1"><label style="font-size:11px;color:#64748b">Trikot-Größe</label><input id="ff-trikot" value="${esc(f.trikot_groesse||'')}" placeholder="z. B. 128" style="${half}"></div>
-      <div style="flex:1"><label style="font-size:11px;color:#64748b">Schuh-Größe</label><input id="ff-schuh" value="${esc(f.schuh_groesse||'')}" placeholder="z. B. 31" style="${half}"></div>
+      <div style="flex:1"><label for="ff-trikot" style="font-size:11px;color:#64748b">Trikot-Größe</label><input id="ff-trikot" value="${esc(f.trikot_groesse||'')}" placeholder="z. B. 128" style="${half}"></div>
+      <div style="flex:1"><label for="ff-schuh" style="font-size:11px;color:#64748b">Schuh-Größe</label><input id="ff-schuh" value="${esc(f.schuh_groesse||'')}" placeholder="z. B. 31" style="${half}"></div>
     </div>
     <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#475569;margin:6px 0 14px">
       <input id="ff-gallery" type="checkbox" ${f.gallery_optin?"checked":""}> Foto in der Team-Galerie zeigen (Opt-in)

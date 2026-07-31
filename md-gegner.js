@@ -523,7 +523,7 @@ async function handoverOpen(id){
   c.innerHTML=`
     ${mdlHead("handover-modal","🧑‍🏫","Vertretungs-Paket",`${m.icon} ${esc(t.titel||m.label)} · ${datumStr}`,"#64748b")}
     <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Erzeugt einen <b>Read-Only-Link</b> für eine Ersatz-Betreuung. Zusagen, ${t.typ==="training"?"Trainingsplan":"Spielinfos"} und deine Notiz stecken direkt im Link – kein Login, nichts wird gespeichert.</div>
-    <label style="font-size:12px;font-weight:700">Kurz-Notiz für die Vertretung</label>
+    <label for="handover-notiz" style="font-size:12px;font-weight:700">Kurz-Notiz für die Vertretung</label>
     <textarea id="handover-notiz" rows="3" placeholder="z. B. Torwart heute Max · Ball-Beutel im Vereinsheim · Abschluss 4+1 …" style="width:100%;margin-top:4px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;resize:vertical;box-sizing:border-box"></textarea>
     <div style="font-size:11px;color:var(--text3);margin:6px 0 12px">Zusagen: ${grp.zugesagt.length} · offen: ${grp.offen.length} · ab/krank: ${grp.abgesagt.length+grp.krank.length}${plan.length?` · Plan: ${plan.length} Stationen`:""}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
