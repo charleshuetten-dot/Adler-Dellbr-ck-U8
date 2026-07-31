@@ -837,6 +837,11 @@ async function vereinbarungOpen(){
         ${text?`<div style="font-size:13.5px;opacity:.95;line-height:1.6;margin-top:4px">${esc(text)}</div>`:""}
       </div>
     </div>`;
+  /* Auffang: Der Offline-Fallback ELTERN_LEITFADEN kennt keine Kategorien, und ein
+     frisch angelegter Punkt kann eine unbekannte haben. Ohne diesen Eimer waeren dann
+     ALLE Rubriken leer und der Leitfaden unsichtbar. */
+  const bekannt=new Set(VB_RUBRIKEN.map(x=>x.k).concat(["codex"]));
+  const rest=teile.filter(x=>!bekannt.has(x.kat));
   const rubrikHtml=(r)=>{
     const items=teile.filter(x=>x.kat===r.k);
     if(!items.length&&r.k!=="rand")return "";
@@ -859,6 +864,10 @@ async function vereinbarungOpen(){
     <div style="font-size:12.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;opacity:.85;margin:26px 2px 10px;border-top:1px solid rgba(255,255,255,.18);padding-top:20px">📖 ${esc(typeof LEITFADEN_NAME!=="undefined"?LEITFADEN_NAME:"Eltern-Leitfaden")}</div>
     <div style="font-size:12.5px;opacity:.9;line-height:1.6;margin-bottom:12px">Das Praktische zum Nachschlagen – tippe auf eine Rubrik.</div>
     ${VB_RUBRIKEN.map(rubrikHtml).join("")}
+    ${rest.length?`<details style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:4px 14px;margin-bottom:10px">
+      <summary style="cursor:pointer;padding:12px 0;font-size:15.5px;font-weight:800;list-style:none">📌 Weitere Punkte <span style="font-weight:600;opacity:.7;font-size:12.5px">· ${rest.length}</span></summary>
+      <div style="padding-bottom:10px">${rest.map(x=>karte(x.emo,x.t,x.d,0)).join("")}</div>
+    </details>`:""}
 
     <button onclick="document.getElementById('vb-ov').remove()" style="width:100%;min-height:52px;margin-top:18px;border:none;border-radius:14px;background:#fff;color:#065f46;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">Schließen</button>
   </div>`;
