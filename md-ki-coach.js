@@ -139,6 +139,6 @@ async function kiCoachSaveForm(i){
   }catch(e){toast("Netzwerkfehler","err");return;}
   if(typeof CUSTOM_FORMS!=="undefined")CUSTOM_FORMS.push(form);
   document.getElementById("ki-modal")?.remove();
-  toast("🏃 In Trainings-Bibliothek – jetzt in der Planung wählbar ✓");
+  toast("🏃 Gespeichert – jetzt im Trainingsplan wählbar ✓");
   if(typeof go==="function")go("planung"); // direkt zur Planung, dort in gewünschte Phase setzen
 }

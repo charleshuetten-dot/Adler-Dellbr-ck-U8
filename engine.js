@@ -220,7 +220,7 @@ function generateFazitFeld(v,meta){
   }
 
   r+="\n\n━━ ENTWICKLUNGSPROGNOSE ━━━━━━━━━━━━━━━━━━━━━━━\n";
-  r+=`Aktuell: ${total}% · Potenzial: ~${pot}%\n`;
+  r+=`Aktuell: ${total}% · Entwicklungstempo: ~${pot}%\n`;
   if(total>=70) r+=`${name} ist überdurchschnittlich für U9 I. Mit erhöhtem Anforderungsgrad fördern – Unterforderung vermeiden.`;
   else if(total>=48) r+=`${name} entwickelt sich altersgerecht auf gutem Kurs. Struktur und positive Wiederholung bringen den nächsten Sprung.`;
   else r+=`${name} ist im Aufbau. Spaßbetonte Grundlagen, Erfolge feiern – keine Leistungsorientierung in diesem Stand.`;

@@ -61,11 +61,11 @@ async function saveCustomTraining(){
       body:JSON.stringify(form)
     });
     if(!res.ok){toast("Cloud-Speicherung fehlgeschlagen – nur lokal gespeichert","info");}
-  }catch(e){toast("Offline – Form nur lokal gespeichert","info");}
+  }catch(e){toast("Offline – Übung nur lokal gespeichert","info");}
   CUSTOM_FORMS.push(form);
   closeAddTraining();
   renderTraining();
-  toast("Trainingsform gespeichert ✓");
+  toast("Übung gespeichert ✓");
 }
 
 function openAddTraining(){document.getElementById('training-modal').style.display='block';}
@@ -1470,7 +1470,7 @@ async function pinCheck(){
     document.getElementById("pin-gate")?.remove();
     document.getElementById("main-app")?.remove();
     if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
-    renderTickerView(params.get("ticker")||"");
+    routeRender("renderTickerView",params.get("ticker")||"");
     setTimeout(pwaInstallNudge,1800);
     return;
   }
@@ -1481,7 +1481,7 @@ async function pinCheck(){
     document.getElementById("pin-gate")?.remove();
     document.getElementById("main-app")?.remove();
     if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
-    renderKindView(params.get("kind")||"");
+    routeRender("renderKindView",params.get("kind")||"");
     setTimeout(pwaInstallNudge,1800);
     return;
   }
@@ -1491,7 +1491,7 @@ async function pinCheck(){
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#1e3a8a");
     document.getElementById("pin-gate")?.remove();
     document.getElementById("main-app")?.remove();
-    renderHandoverView();
+    routeRender("renderHandoverView");
     return;
   }
   // M3: Öffentliche Heimturnier-Seite (?turnier=<slug>) – für Gast-Trainer, kein Login.
@@ -1501,7 +1501,7 @@ async function pinCheck(){
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#b45309");
     document.getElementById("pin-gate")?.remove();
     document.getElementById("main-app")?.remove();
-    renderHeimturnierView(params.get("turnier")||"");
+    routeRender("renderHeimturnierView",params.get("turnier")||"");
     return;
   }
   // Digitales Stadionheft: Nur-Ansehen fuer alle Eltern (?heft), kein Login. Namen maskiert, Fotos nur bei Einwilligung.
@@ -1534,6 +1534,17 @@ async function pinCheck(){
       // Zurueck in den KINDER-Modus, nicht ins Eltern-Dashboard: das Flag ueberlebt das
       // replaceState der ?portal-Route, elternDashLoad oeffnet danach direkt die Kabine.
       back.onclick=()=>{try{sessionStorage.setItem("adler_open_kabine","1");}catch(e){} location.href=location.pathname+"?portal";};
+      // Das 60-Minuten-Limit der Kabine muss auch hier greifen - sonst haette ein Kind
+      // ueber den Quiz-Umweg unbegrenzt Zeit.
+      const kabLimit=setInterval(()=>{
+        if(typeof kabineZeitRestMin!=="function")return;
+        if(kabineZeitRestMin()<=0){
+          clearInterval(kabLimit);
+          if(typeof kabineAktivSet==="function")kabineAktivSet(false);
+          try{localStorage.removeItem("adler_kabine_start");}catch(e){}
+          location.href=location.pathname+"?portal";
+        }
+      },30000);
       back.style.cssText="position:fixed;bottom:12px;left:12px;z-index:9990;padding:10px 14px;border:none;border-radius:12px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.35)";
       document.body.appendChild(back);
     }
@@ -1613,7 +1624,7 @@ function renderTeamDiagnose(){
     <div style="font-size:14px;font-weight:700;margin:6px 0 2px">Schwerpunkt heute: ${esc(top.label)} <span style="font-size:12px;color:#dc2626">Ø ${top.mean}%</span></div>
     <div style="font-size:11px;color:var(--text2)">Danach: ${weakest.slice(1,3).map(w=>`${esc(w.label)} (${w.mean}%)`).join(" · ")||"–"}</div>
     ${reco.length?`<div style="margin-top:8px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:2px">Passende Übungen</div>${reco.slice(0,4).map(chip).join("")}</div>`
-      :`<div style="font-size:11px;color:var(--text3);margin-top:8px">Keine getaggte Übung für „${esc(top.label)}" – im Formen-Tab passende Form wählen.</div>`}
+      :`<div style="font-size:11px;color:var(--text3);margin-top:8px">Keine getaggte Übung für „${esc(top.label)}" – im Reiter „Übungen“ eine auswählen.</div>`}
   </div>`;
 }
 // Empfohlene Uebung in eine kompatible Planer-Station uebernehmen (nur wo sie als Option existiert).
@@ -2309,7 +2320,7 @@ async function tlStart(){
   if(!_tlSnapshot().length){toast("Erst Stationen mit Übungen planen","err");return;}
   if(!pflicht.includes(me)&&pflicht.length)pflicht.push(me);
   const vorhanden=await _tlFetch();
-  if(vorhanden===undefined){toast("Kein Netz – nimm den ⏱️ Stationstimer (läuft ohne Server)","err");return;}
+  if(vorhanden===undefined){toast("Kein Netz – nimm den ⏱️ Solo-Timer (läuft ohne Server)","err");return;}
   if(vorhanden&&vorhanden.status!=="fertig"){
     if(vorhanden.status==="lobby"&&(vorhanden.slot||0)===0){
       // BUGFIX (PO-Test): eine hängen gebliebene Lobby (z. B. alte Testrunde mit anderen
@@ -2367,7 +2378,7 @@ function tlOverlayOpen(){
 function tlSchliessen(){ document.getElementById("tl-ov")?.remove(); _tlPollStop(); }
 // Lobby verwerfen (nur vor Station 1): Session löschen, dann oben Trainer anpassen + neu starten
 async function tlAbbrechen(){
-  if(!confirm("Diesen Trainingsstart für ALLE Geräte verwerfen? Danach in der Planung anpassen und neu starten."))return;
+  if(!confirm("Diesen Trainingsstart für ALLE Geräte verwerfen? Danach im Trainingsplan anpassen und neu starten."))return;
   let _delOk=false;
   try{const r=await fetch(`${SB_URL}/rest/v1/training_live?datum=eq.${_tlHeute()}`,{method:"DELETE",headers:sbAuthHeaders()});_delOk=r.ok;}catch(e){}
   if(!_delOk){toast("Konnte nicht verworfen werden – kein Netz? Nochmal versuchen","err");return;}
@@ -2705,4 +2716,24 @@ function tpPickerInfo(idx){
   tpShowExercise(idx);
   const m=document.body.lastElementChild;
   if(m&&m.id!=="tp-pick-modal")m.style.zIndex="10006";
+}
+
+/* Deep-Link-Router-Helfer: die Render-Funktionen der Sonderrouten (Ticker, Kind-Link,
+   Vertretung, Turnier) leben in Welle-2-Dateien. Im Eltern-Ordner laedt bei Sonderrouten
+   alles in EINER Welle, ein Direktlink auf trainer/?handover traefe sie aber leer an.
+   Darum kurz warten statt hart aufrufen - und nach 4 s ehrlich Bescheid sagen. */
+function routeRender(name,arg){
+  if(typeof window[name]==="function"){window[name](arg);return;}
+  let n=0;
+  const iv=setInterval(()=>{
+    if(typeof window[name]==="function"){clearInterval(iv);window[name](arg);return;}
+    if(++n>40){
+      clearInterval(iv);
+      document.body.innerHTML='<div style="font-family:system-ui;text-align:center;padding:48px;color:#334155">'+
+        '<div style="font-size:34px;margin-bottom:10px">📡</div>'+
+        '<div style="font-weight:700;margin-bottom:6px">Diese Ansicht konnte nicht geladen werden</div>'+
+        '<div style="font-size:13px;color:#64748b;margin-bottom:16px">Die Verbindung war zu langsam oder ist abgebrochen.</div>'+
+        '<button onclick="location.reload()" style="min-height:44px;padding:10px 20px;border:0;border-radius:10px;background:#1e3a8a;color:#fff;font-size:15px;font-weight:600">Neu laden</button></div>';
+    }
+  },100);
 }

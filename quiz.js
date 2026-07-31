@@ -13,14 +13,14 @@
 const TQ_BLOCKS=[
   {name:"Grundlagen der Raute",icon:"ti-diamond",col:"#2563eb"},
   {name:"ADLER & IGEL",icon:"ti-arrows-exchange",col:"#7c3aed"},
-  {name:"Umschalten & Pressing",icon:"ti-bolt",col:"#dc2626"},
+  {name:"Umschalten – Ball weg, Ball da",icon:"ti-bolt",col:"#dc2626"},
   {name:"Spielaufbau",icon:"ti-arrow-up-right",col:"#0891b2"},
   {name:"Flügel & Konter",icon:"ti-run",col:"#ea580c"},
-  {name:"Standards & Spielsituationen",icon:"ti-star",col:"#ca8a04"},
+  {name:"Ecken, Einwürfe & Freistöße",icon:"ti-star",col:"#ca8a04"},
   {name:"Torwartspiel",icon:"ti-shield-check",col:"#059669"},
   {name:"Ballbesitz & Geduld",icon:"ti-clock",col:"#0d9488"},
   {name:"Verteidigen als Team",icon:"ti-shield",col:"#4f46e5"},
-  {name:"Spielverständnis",icon:"ti-brain",col:"#db2777"}
+  {name:"Spiel lesen",icon:"ti-brain",col:"#db2777"}
 ];
 const TQ_PROGRESS_KEY="adler_quiz_progress";
 let tqActive=false,tqIdx=0,tqScore=0,tqTotal=0,tqChecked=false;
@@ -401,11 +401,11 @@ function tqStart(){
       <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Wähle deinen Namen, damit wir deinen Fortschritt speichern können!</div>
       <div class="tq-player-grid">`;
     auswahl.forEach(k=>{
-      html+=`<div class="tq-player-btn" onclick="tqSelectPlayer('${jsq(k.name)}')">
-        <div class="tq-player-icon">⚽</div>
+      html+=`<button type="button" class="tq-player-btn" onclick="tqSelectPlayer('${jsq(k.name)}')">
+        <div class="tq-player-icon" aria-hidden="true">⚽</div>
         <div class="tq-player-name">${esc(k.name)}</div>
         ${k.nr?`<div style="font-size:9px;color:var(--text3)">#${k.nr}</div>`:""}
-      </div>`;
+      </button>`;
     });
     html+=`</div>${extern?"":'<button class="btn btn-sm" onclick="tqStop()" style="margin-top:8px"><i class="ti ti-x"></i>Abbrechen</button>'}`;
   } else {
@@ -601,7 +601,7 @@ function tqLoadScenario(idx){
       <div class="tq-hint">${tqPersonalize(sc.desc)}</div>
       <div class="tq-task">📋 ${esc(pName)}, ${sc.task.charAt(0).toLowerCase()+sc.task.slice(1)}</div>
       <div style="font-size:10px;color:var(--text3);margin-top:4px">💡 ${sc.hint}</div>
-      <div style="font-size:12px;color:var(--text3);margin-top:2px;line-height:1.5">👆 Tippe Spieler an, dann tippe aufs Feld um ihn zu bewegen</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px;line-height:1.5">👆 Tippe Spieler an, dann tippe aufs Feld, um ihn dorthin zu bewegen</div>
       <div style="display:flex;gap:6px;margin-top:10px">
         <button class="btn btn-p btn-sm" onclick="tqCheck()"><i class="ti ti-check"></i>Prüfen</button>
         <button class="btn btn-sm" id="tq-skip-btn" onclick="tqSkip()">Überspringen</button>
@@ -843,7 +843,7 @@ const WQ_QUESTIONS=[
   // ── Regeln ──
   {id:"reg_elf",cat:"regeln",q:"Wie viele Spieler stehen bei den Großen pro Team auf dem Feld?",opts:["11","7","9","15"],correct:0,fun:"11 Spieler pro Team – einer davon ist der Torwart."},
   {id:"reg_dauer",cat:"regeln",q:"Wie lange dauert ein Profi-Spiel insgesamt?",opts:["90 Minuten","30 Minuten","60 Minuten","120 Minuten"],correct:0,fun:"2 × 45 Minuten = 90 Minuten."},
-  {id:"reg_hand",cat:"regeln",q:"Wer darf den Ball mit der Hand fangen?",opts:["Der Torwart","Jeder Spieler","Der Trainer","Niemand"],correct:0,fun:"Nur der Torwart darf im Strafraum die Hände nehmen."},
+  {id:"reg_hand",cat:"regeln",q:"Wer darf den Ball mit der Hand fangen?",opts:["Der Torwart","Jeder Spieler","Der Trainer","Niemand"],correct:0,fun:"Nur der Torwart darf den Ball im Strafraum in die Hand nehmen."},
   {id:"reg_rot",cat:"regeln",q:"Welche Karte bedeutet: Der Spieler muss vom Platz?",opts:["Rote Karte 🟥","Gelbe Karte 🟨","Grüne Karte 🟩","Blaue Karte 🟦"],correct:0,fun:"Rote Karte = raus! Gelb ist nur eine Warnung."},
   {id:"reg_einwurf",cat:"regeln",q:"Der Ball rollt über die Seitenlinie. Was gibt es?",opts:["Einwurf","Elfmeter","Tor","Ecke"],correct:0,fun:"Einwurf – mit beiden Händen über dem Kopf."},
   {id:"reg_elfmeter",cat:"regeln",q:"Was gibt der Schiedsrichter bei einem Foul im Strafraum?",opts:["Elfmeter","Einwurf","Anstoß","Abstoß"],correct:0,fun:"Elfmeter – ein Schuss allein gegen den Torwart."},
@@ -1313,8 +1313,9 @@ function wqAnswer(el){
   const ok=el.dataset.ok==="1";
   el.parentElement.querySelectorAll(".wq-opt").forEach(b=>{
     b.disabled=true; b.style.pointerEvents="none";
-    if(b.dataset.ok==="1")b.classList.add("wq-correct");
-    else if(b===el)b.classList.add("wq-wrong");
+    const roh=b.textContent.trim();   // vor dem Anhaengen lesen, sonst steht das Zeichen doppelt im Label
+    if(b.dataset.ok==="1"){ b.classList.add("wq-correct"); b.setAttribute("aria-label",roh+" – richtige Antwort"); b.insertAdjacentHTML("beforeend",' <span aria-hidden="true">✓</span>'); }
+    else if(b===el){ b.classList.add("wq-wrong"); b.setAttribute("aria-label",roh+" – deine Antwort, leider falsch"); b.insertAdjacentHTML("beforeend",' <span aria-hidden="true">✗</span>'); }
   });
   const fb=document.getElementById("wq-feedback");
   if(ok){

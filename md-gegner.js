@@ -649,8 +649,7 @@ async function tmEditSave(id){
   const datum=g("te-datum")?.value;
   if(!datum){toast("Bitte Datum wählen","err");return;}
   if(isSpiel&&!(g("te-ende")?.value)){toast("Bitte eine Endzeit eintragen – danach wandert der Termin ins Archiv","err");return;}
-  const body={datum, uhrzeit:(g("te-zeit")?.value||"")||null, uhrzeit_ende:(g("te-ende")?.value||"")||null, ort:(g("te-ort")?.value||"").trim()||null};
-    treffzeit:(document.getElementById("te-treff")?.value)||null,
+  const body={datum, uhrzeit:(g("te-zeit")?.value||"")||null, uhrzeit_ende:(g("te-ende")?.value||"")||null, ort:(g("te-ort")?.value||"").trim()||null, treffzeit:(g("te-treff")?.value||"")||null};
   if(g("te-titel")){const tt=(g("te-titel").value||"").trim()||null; body.titel=tt; body.gegner=isSpiel?tt:null;}
   if(g("te-platz"))body.platz=(g("te-platz").value||"").trim()||null;
   if(g("te-sf"))body.spielform=g("te-sf").value||null;

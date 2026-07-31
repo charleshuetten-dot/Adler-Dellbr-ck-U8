@@ -43,7 +43,7 @@ window.pinBack=window.pinBack||function(){};window.pinCheck=window.pinCheck||fun
 (async function(){
   const shell=await (await fetch("shell.html")).text();
   document.body.insertAdjacentHTML("afterbegin",shell);
-  // Haengt die Ladung (alter/kaputter Cache), bekommt der Nutzer nach 6 s einen
+  // Haengt die Ladung (alter/kaputter Cache), bekommt der Nutzer nach 16 s einen
   // Reparatur-Knopf: Service Worker + Caches wegraeumen und frisch laden.
   setTimeout(function(){
     var d=document.getElementById("pin-diag");
@@ -58,7 +58,7 @@ window.pinBack=window.pinBack||function(){};window.pinCheck=window.pinCheck||fun
         location.reload();
       };
     }
-  },6000);
+  },16000);
 
   /* ZWEI-WELLEN-LADEN (Perf-Audit): Welle 1 (~940 KB) reicht fuer den ersten Screen –
      Kern + Views + Boot. Die 28 Feature-Module (~980 KB) kommen direkt danach, waehrend

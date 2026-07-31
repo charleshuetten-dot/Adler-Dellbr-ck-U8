@@ -9,7 +9,7 @@
   --teal:#0e7490;--teal-bg:#ecfeff;
   --orange:#c2410c;--orange-bg:#fff7ed;
   --yellow:#854d0e;--yellow-bg:#fef9c3;
-  --text:#1a1a2e;--text2:#64748b;--text3:#94a3b8;
+  --text:#1a1a2e;--text2:#475569;--text3:#64748b;
   --bg:#f1f5f9;--surface:#fff;--surface2:#f8fafc;
   --border:1px solid #e2e8f0;--border-s:1px solid #cbd5e1;
   --r:8px;--rl:12px;
@@ -18,14 +18,14 @@
 }
 /* Dark Mode: automatisch nach OS + manueller Toggle (data-theme). Wirkt in der Trainer-App (CSS-Variablen). */
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --text:#e6eaf2;--text2:#9aa6ba;--text3:#6d7a8f;
+  --text:#e6eaf2;--text2:#aab5c6;--text3:#8b98ac;
   --bg:#0f172a;--surface:#1e293b;--surface2:#152033;
   --border:1px solid #334155;--border-s:1px solid #475569;
   --blue-bg:#172554;--green-bg:#052e1a;--amber-bg:#3a2a08;--red-bg:#3a1010;--purple-bg:#241247;--yellow-bg:#332905;--teal-bg:#082f36;--orange-bg:#3a1e08;
   --shadow:0 1px 3px rgba(0,0,0,.4);--shadow-md:0 4px 14px rgba(0,0,0,.5);
 }}
 :root[data-theme="dark"]{
-  --text:#e6eaf2;--text2:#9aa6ba;--text3:#6d7a8f;
+  --text:#e6eaf2;--text2:#aab5c6;--text3:#8b98ac;
   --bg:#0f172a;--surface:#1e293b;--surface2:#152033;
   --border:1px solid #334155;--border-s:1px solid #475569;
   --blue-bg:#172554;--green-bg:#052e1a;--amber-bg:#3a2a08;--red-bg:#3a1010;--purple-bg:#241247;--yellow-bg:#332905;--teal-bg:#082f36;--orange-bg:#3a1e08;
@@ -118,7 +118,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .topt label:last-child{border-bottom:none}
 .topt label:hover{background:var(--surface2)}
 .topt label.sel{background:linear-gradient(90deg,rgba(37,99,235,.12),rgba(37,99,235,.03))!important;border-left:4px solid #2563eb;color:#1e3a8a;font-weight:600}
-.topt input[type=radio]{display:none}
+/* display:none haette die Radios auch aus Tastatur und Screenreader entfernt - stattdessen nur optisch verstecken und den Fokus am Label zeigen. */
+.topt input[type=radio]{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
+.topt input[type=radio]:focus-visible+.lb{outline:2px solid #2563eb;outline-offset:2px}
 .lb{font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;flex-shrink:0;margin-top:2px}
 .lb1{background:#fee2e2;color:#991b1b}.lb2{background:#fef3c7;color:#92400e}.lb3{background:#dcfce7;color:#166534}.lb4{background:#dbeafe;color:#1e40af}
 .ltitle{font-weight:600;display:block;font-size:11.5px;color:var(--text)}
@@ -346,12 +348,12 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .aw-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:var(--border);font-size:13px}
 .aw-row:last-child{border-bottom:none}
 .aw-name{flex:1;font-weight:600;color:var(--text)}
-.aw-toggle{width:52px;height:28px;border-radius:14px;background:#cbd5e1;border:none;cursor:pointer;position:relative;transition:background .2s}
+.aw-toggle{width:52px;height:28px;border-radius:14px;background:#7c8ba1;border:none;cursor:pointer;position:relative;transition:background .2s}
 .aw-toggle.on{background:linear-gradient(135deg,#16a34a,#059669);box-shadow:0 1px 6px rgba(22,163,74,.35)}
 .aw-toggle::after{content:'';position:absolute;width:24px;height:24px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .aw-toggle.on::after{left:26px}
 .aw-qual{display:flex;gap:2px}
-.aw-star{width:24px;height:24px;border:none;background:none;cursor:pointer;font-size:16px;color:#cbd5e1;transition:color .15s}
+.aw-star{width:24px;height:24px;border:none;background:none;cursor:pointer;font-size:16px;color:#7c8ba1;transition:color .15s}
 .aw-star.on{color:#f59e0b}
 
 /* TRAININGSPLANUNG */
@@ -484,7 +486,7 @@ body.quiz-extern.tq-playing .tb-wrap{display:block}
 .wq-federn{margin-top:2px;margin-bottom:6px;font-weight:800;color:#b45309;font-size:15px;text-align:center}
 .tq-block-done .tq-block-title::after{content:" ✅";font-size:11px}
 .tq-player-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin:10px 0}
-.tq-player-btn{background:var(--surface);border:2px solid var(--border);border-radius:var(--rl);padding:10px 8px;text-align:center;cursor:pointer;transition:all .15s}
+.tq-player-btn{background:var(--surface);border:2px solid var(--border);border-radius:var(--rl);padding:10px 8px;text-align:center;cursor:pointer;transition:all .15s;font-family:inherit;width:100%;display:block;color:var(--text)}
 .tq-player-btn:hover{border-color:var(--blue);background:var(--blue-bg)}
 .tq-player-btn.selected{border-color:var(--blue);background:var(--blue-bg);box-shadow:0 0 0 2px rgba(26,86,219,.2)}
 .tq-player-btn .tq-player-icon{font-size:24px;margin-bottom:4px}

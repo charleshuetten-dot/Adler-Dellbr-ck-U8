@@ -238,7 +238,8 @@ function buildDims(isTw){
     d.mx.forEach(m=>{
       const tr=document.createElement("tr");tr.id=`mxr-${m.n}`;
       let h=`<td class="mc">${m.l}<small>${m.h}</small></td>`;
-      for(let i=1;i<=5;i++)h+=`<td><input type="radio" class="mxr" name="${m.n}" value="${i}" onchange="onChange()"></td>`;
+      const MX_STUFE=["","Noch nicht","Ansatz","Solide","Gut","Stark"];
+      for(let i=1;i<=5;i++)h+=`<td><input type="radio" class="mxr" name="${m.n}" value="${i}" aria-label="${esc(m.l)}: ${MX_STUFE[i]}" onchange="onChange()"></td>`;
       tr.innerHTML=h;mb.appendChild(tr);
     });
     mx.appendChild(mb);// wrap mx for mobile scroll
@@ -2121,8 +2122,9 @@ function _open(key){
 }
 function go(key){
   const tabId=sectionTab(key); if(!tabId||!SECS[key])return;
-  document.querySelectorAll("#main-nav .nb").forEach(b=>b.classList.remove("active"));
-  document.getElementById("nb-"+tabId)?.classList.add("active");
+  document.querySelectorAll("#main-nav .nb").forEach(b=>{b.classList.remove("active");b.removeAttribute("aria-current");});
+  const nbAktiv=document.getElementById("nb-"+tabId);
+  if(nbAktiv){nbAktiv.classList.add("active");nbAktiv.setAttribute("aria-current","page");} // sonst ist der aktive Bereich nur farblich erkennbar
   renderSubbar(tabId,key);
   const reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if(document.startViewTransition&&!reduce)document.startViewTransition(()=>_open(key));else _open(key);
@@ -3143,7 +3145,7 @@ const HELP=[
     {t:"Startseite", d:"To-Do-Banner (nur bei offenen Aufgaben), nächster Termin mit Wetter, Termin-Karussell und sechs große Kacheln – dahinter jeweils ein Kachel-Menü.", go:"home"},
   ]},
   {cat:"👥 Team", items:[
-    {t:"Saison-Cockpit", d:"Torschützen, Anwesenheit, Rückmelde-Tempo der Familien, faire Einsätze, Kinder-Stimmung, Eltern-Puls – alles auf einen Blick.", run:"saisonCockpitOpen()"},
+    {t:"Saison-Cockpit", d:"Torschützen, Anwesenheit, Rückmelde-Tempo der Familien, faire Einsätze, Eltern-Puls, Rückmelde-Tempo – alles auf einen Blick.", run:"saisonCockpitOpen()"},
     {t:"Probetraining", d:"Schnupperkinder verwalten – bewusst getrennt vom Kader, Auto-Löschung nach Entscheidung.", run:"probeOpen()"},
     {t:"Kader", d:"Spieler anlegen/bearbeiten, Trikotnummer, Foto, Kontakte, Foto-Freigabe.", go:"kader"},
     {t:"Bewerten", d:"Spieler in 16 Kriterien einschätzen – mit Live-Radar.", go:"bew"},
@@ -3170,7 +3172,7 @@ const HELP=[
   {cat:"🪶 Eltern & Kinder", items:[
     {t:"Team-Ansage", d:"Wichtige Info an alle Eltern – mit Gelesen-Status (wer fehlt noch?).", run:"ansageTrainerOpen()"},
     {t:"Adler Nest", d:"Digitales Stadionheft erstellen & drucken.", run:"stadionheftOpen()"},
-    {t:"Eltern-Bereich", d:"Eltern melden sich per Link/Einmal-Code an: RSVP, Karte, Quiz, Betreuung vor Ort."},
+    {t:"Eltern-Bereich", d:"Eltern melden sich per Link/Einmal-Code an: Zu- und Absagen, Karte, Quiz, Betreuung vor Ort."},
     {t:"Adler-Welt-Hub", d:"Federn je Kind, FUT-Karten, Technik-Abzeichen und Wochen-Challenge an einem Ort.", run:"adlerWeltOpen()"},
     {t:"Kabinen-Wahl", d:"Die Kinder stimmen ab (Song, Motto, Spielform) – du legst die Optionen fest.", run:"wahlTrainerOpen()"},
     {t:"Album-Karten-Fotos", d:"Bilder für die Trainer- und Vereins-Sticker im Panini-Sammelalbum.", run:"albumFotosOpen()"},
@@ -3295,12 +3297,10 @@ async function adlerWeltOpen(){
       <input id="aw-kabinencode" type="text" inputmode="numeric" autocomplete="off" placeholder="Neuer Code (min. 4 Zeichen)" style="flex:1;min-width:150px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text)">
       <button class="btn btn-sm" onclick="kabineCodeSave(this)"><i class="ti ti-device-floppy"></i>Code ändern</button>
     </div>
-    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🤝 Fairplay-Codex</div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Die Regeln für den Spielfeldrand, die die Eltern in ihrem Bereich sehen.</div>
-    <button class="btn btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();fairplayEditOpen()"><i class="ti ti-edit"></i>Codex bearbeiten</button>
-    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">📖 Eltern-Leitfaden</div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Die ausformulierten Vereinbarungen (Pünktlichkeit, Aufsicht, Büdchen, App …), die die Eltern nachlesen können.</div>
-    <button class="btn btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();leitfadenEditOpen()"><i class="ti ti-edit"></i>Leitfaden bearbeiten</button>
+    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🤝 Unsere Vereinbarung</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Die Eltern sehen beides in EINEM Dokument: oben die kurzen Fairplay-Regeln, darunter die ausformulierten Punkte nach Rubriken.</div>
+    <button class="btn btn-sm" style="width:100%;margin-bottom:6px" onclick="document.getElementById('aw-modal').remove();fairplayEditOpen()"><i class="ti ti-edit"></i>Fairplay-Regeln bearbeiten (oberer Teil)</button>
+    <button class="btn btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();leitfadenEditOpen()"><i class="ti ti-edit"></i>Praktische Punkte bearbeiten (Rubriken)</button>
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🏟️ Team-Arena</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Schlachtruf & Einlauf-Song, die die Kinder in der Kabine sehen.</div>
     <button class="btn btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();arenaEditOpen()"><i class="ti ti-flag"></i>Arena bearbeiten</button>
@@ -3345,7 +3345,7 @@ function qrAushangOpen(){
    Dateien liegen im spielerfotos-Bucket unter album_<key>; Zuordnung in album_fotos. ── */
 function _albumFotoSlots(){
   const s=[]; ((typeof TRAINER!=="undefined"&&TRAINER)||[]).forEach(t=>s.push({key:"tr_"+t,label:"🧢 "+t+" (Trainer)"}));
-  [["sp_ball","⚽ Der Spielball"],["sp_kaefig","🥅 Der Käfig"],["sp_buedchen","🍿 Das Büdchen"],["sp_platz","🏟️ Thurner Kamp"],["sp_trikot","👕 Adler-Trikot"],["sp_adler","🦅 Der Adler"],["sp_kurve","📣 Die Eltern-Kurve"],["sp_nest","🪺 Der Adlerhorst"],["sp_pokal","🏆 Der Pokal"],["sp_horst","🦅 Horst der Adler"],["sp_feder","🪶 Die Goldene Feder"]].forEach(([k,l])=>s.push({key:k,label:l}));
+  [["sp_ball","⚽ Der Spielball"],["sp_kaefig","🥅 Der Käfig"],["sp_buedchen","🍿 Das Büdchen"],["sp_platz","🏟️ Thurner Kamp"],["sp_trikot","👕 Adler-Trikot"],["sp_adler","🦅 Der Adler"],["sp_kurve","📣 Die Eltern-Kurve"],["sp_nest","🪺 Das Adler Nest"],["sp_pokal","🏆 Der Pokal"],["sp_horst","🦅 Horst der Adler"],["sp_feder","🪶 Die Goldene Feder"]].forEach(([k,l])=>s.push({key:k,label:l}));
   return s;
 }
 async function albumFotosOpen(){
@@ -3601,7 +3601,7 @@ async function renderHome(){
       <div id="gegner-contact-home"></div>`,m.col);
     wetterInto("wetter-home",t.datum,t.ort,t.uhrzeit); // Wetter am Termin-Ort + Uhrzeit (stundengenau)
     if(t.typ!=="event")wetterWarnHome(t); // Wetter-Warnung + Schnellaktion (nur Outdoor-Events)
-    if(istSpiel)gegnerContactInto("gegner-contact-home",t.titel||t.gegner); // Ansprechpartner aus Gegner-DB
+    if(istSpiel&&typeof gegnerContactInto==="function")gegnerContactInto("gegner-contact-home",t.titel||t.gegner); // Ansprechpartner aus Gegner-DB (Welle 2 – guarden, sonst faellt die ganze Karte in den Offline-Zweig)
   }catch(e){
     const slot=document.getElementById("home-next");
     if(slot)slot.innerHTML=card('<div style="font-size:12px;color:var(--text3)">Offline – kein Terminabruf.</div>');

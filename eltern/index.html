@@ -46,7 +46,7 @@ window.pinBack=window.pinBack||function(){};window.pinCheck=window.pinCheck||fun
 (async function(){
   const shell=await (await fetch("shell.html")).text();
   document.body.insertAdjacentHTML("afterbegin",shell);
-  // Haengt die Ladung (alter/kaputter Cache), bekommt der Nutzer nach 6 s einen
+  // Haengt die Ladung (alter/kaputter Cache), bekommt der Nutzer nach 16 s einen
   // Reparatur-Knopf: Service Worker + Caches wegraeumen und frisch laden.
   setTimeout(function(){
     var d=document.getElementById("pin-diag");
@@ -61,29 +61,44 @@ window.pinBack=window.pinBack||function(){};window.pinCheck=window.pinCheck||fun
         location.reload();
       };
     }
-  },6000);
+  },16000);
 
-  const dateien=["data.js","core.js","engine.js","views.js","quiz.js",
+  const ALLE=["data.js","core.js","engine.js","views.js","quiz.js",
     "md-eltern-portal.js","md-abzeichen.js","md-carpool.js","md-fanfakten.js","md-teamkasse.js","md-kabine.js",
     "md-aufstellung.js","md-print.js","md-taktikboard.js","md-taktik-draw.js","md-taktik-video.js","md-kalender.js","md-gegner.js","md-turnierplan.js",
     "md-teams.js","md-matchuhr.js","md-liveticker.js","md-spielbericht.js",
     "md-matchcard.js","md-analyse.js","md-quests.js","md-voice.js",
     "md-live-vollbild.js","md-fundbuero.js","md-taktik-bib.js","md-ausruestung.js","md-galerie.js","md-kasse.js","md-ki-coach.js",
     "boot.js"];
-  // Parallel laden, aber in Array-Reihenfolge AUSFUEHREN: dynamisch eingehaengte Skripte
-  // mit async=false behalten die Ausfuehrungsreihenfolge, laden aber gleichzeitig herunter
-  // (kein Round-Trip-Stau bei vielen kleinen Feature-Dateien). onload feuert nach der
-  // Ausfuehrung -> offen===0 heisst: alle geladen UND ausgefuehrt.
-  await new Promise((fertig,fehler)=>{
-    let offen=dateien.length;
-    dateien.forEach(datei=>{
-      const s=document.createElement("script");
-      s.src=datei; s.async=false;
-      s.onload=()=>{ if(--offen===0)fertig(); };
-      s.onerror=()=>fehler(new Error(datei));
-      document.body.appendChild(s);
+  /* Der Eltern-Hub brauchte bisher ALLE 35 Dateien (1,9 MB) - inklusive Turnierverwaltung,
+     Taktikboard und KI-Coach, die Eltern nie sehen. Fuer den Dashboard-Fall laedt jetzt
+     erst der Kern (Welle 1), der Rest kommt danach im Hintergrund.
+     WICHTIG: Sonderrouten (Quiz, Ticker, Heft, Turnier, Handover ...) laden weiterhin
+     alles in EINER Welle - dort haengen Module am sofortigen Start und ein falscher
+     Schnitt wuerde sie zerstoeren. */
+  const _p=new URLSearchParams(location.search);
+  const SONDER=["quiz","ticker","heft","turnier","handover","kind","delegate","match","eltern"];
+  const istDashboard=!SONDER.some(k=>_p.has(k));
+  const KERN=["data.js","core.js","engine.js","views.js","md-eltern-portal.js","md-kasse.js",
+    "md-kabine.js","md-kalender.js","md-galerie.js","md-carpool.js","md-fanfakten.js",
+    "md-abzeichen.js","md-fundbuero.js","boot.js"];
+  const lade=(liste)=>new Promise((fertig,fehler)=>{
+    if(!liste.length){fertig();return;}
+    let offen=liste.length;
+    liste.forEach(datei=>{
+      const sc=document.createElement("script");
+      sc.src=datei; sc.async=false;              // parallel laden, in Reihenfolge ausfuehren
+      sc.onload=()=>{ if(--offen===0)fertig(); };
+      sc.onerror=()=>fehler(new Error(datei));
+      document.body.appendChild(sc);
     });
   });
+  if(istDashboard){
+    await lade(KERN);
+    lade(ALLE.filter(f=>KERN.indexOf(f)<0)).catch(e=>console.error("Welle 2:",e));
+  }else{
+    await lade(ALLE);
+  }
   if(document.readyState!=="loading")document.dispatchEvent(new Event("DOMContentLoaded"));
 })().catch(e=>{
   console.error(e);

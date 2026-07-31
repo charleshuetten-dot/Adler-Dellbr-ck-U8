@@ -358,12 +358,17 @@ async function savePlayer(){
 
 function showSt(id,msg,type){
   const el=document.getElementById(id);
+  // Fehler drangvoll ansagen, Erfolgsmeldungen hoeflich - sonst unterbricht jede Bestaetigung den Screenreader.
+  el.setAttribute("role",type==="err"?"alert":"status");
+  el.setAttribute("aria-live",type==="err"?"assertive":"polite");
   el.className=`status s-${type} show`;el.textContent=msg;
   setTimeout(()=>el.classList.remove("show"),6000);
 }
 function toast(msg,type="ok"){
   let t=document.getElementById("app-toast");
   if(!t){t=document.createElement("div");t.id="app-toast";t.className="toast";document.body.appendChild(t);}
+  t.setAttribute("role",type==="err"?"alert":"status");
+  t.setAttribute("aria-live",type==="err"?"assertive":"polite");
   t.className=`toast toast-${type} show`;t.textContent=msg;
   clearTimeout(t._tid);t._tid=setTimeout(()=>t.classList.remove("show"),3000);
 }
@@ -372,6 +377,7 @@ function toastUndo(msg,undoFn,ms){
   ms=ms||6000;
   document.getElementById("undo-toast")?.remove();
   const el=document.createElement("div");el.id="undo-toast";
+  el.setAttribute("role","status");el.setAttribute("aria-live","polite");
   el.style.cssText="position:fixed;left:12px;right:12px;bottom:78px;z-index:10060;max-width:460px;margin:0 auto;background:#1e293b;color:#fff;border-radius:12px;padding:11px 12px;box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;align-items:center;gap:10px;font-size:13px;font-family:inherit";
   const span=document.createElement("span");span.style.flex="1";span.textContent=msg;
   const btn=document.createElement("button");btn.textContent="↶ Rückgängig";
@@ -898,3 +904,36 @@ window._mdlSuppress=0;
     if(id){ const el=document.getElementById(id); if(el)el.remove(); }
   });
 })();
+
+/* ── Fokus in Dialogen halten ───────────────────────────────────────────────
+   Die App legt ihre Overlays als <div role="dialog" aria-modal="true"> ueber die
+   Seite, ohne den Hintergrund inert zu schalten. Mit der Tastatur wanderte der
+   Fokus deshalb hinter das Overlay weiter. Ein einziger delegierter Listener
+   haelt ihn im obersten Dialog - neue Modals profitieren automatisch, sobald sie
+   role="dialog" tragen. */
+const FOKUSSIERBAR='a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function _obersterDialog(){
+  const alle=[...document.querySelectorAll('[role="dialog"][aria-modal="true"]')]
+    .filter(d=>d.offsetParent!==null||getComputedStyle(d).position==="fixed");
+  return alle.length?alle[alle.length-1]:null;   // zuletzt geoeffnet liegt oben
+}
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Tab")return;
+  const dlg=_obersterDialog(); if(!dlg)return;
+  const ziele=[...dlg.querySelectorAll(FOKUSSIERBAR)].filter(el=>el.offsetParent!==null);
+  if(!ziele.length)return;
+  const erste=ziele[0], letzte=ziele[ziele.length-1];
+  if(e.shiftKey&&(document.activeElement===erste||!dlg.contains(document.activeElement))){e.preventDefault();letzte.focus();}
+  else if(!e.shiftKey&&(document.activeElement===letzte||!dlg.contains(document.activeElement))){e.preventDefault();erste.focus();}
+},true);
+/* Beim Oeffnen den Fokus in den Dialog setzen - bewusst auf den Container und
+   nicht aufs erste Eingabefeld, sonst springt auf dem Handy die Tastatur auf. */
+_adlerOnReady(()=>{
+  new MutationObserver(muts=>{
+    for(const m of muts)for(const n of m.addedNodes){
+      if(n.nodeType!==1)continue;
+      const dlg=n.matches&&n.matches('[role="dialog"][aria-modal="true"]')?n:(n.querySelector&&n.querySelector('[role="dialog"][aria-modal="true"]'));
+      if(dlg&&!dlg._fokusGesetzt){dlg._fokusGesetzt=true;if(!dlg.hasAttribute("tabindex"))dlg.setAttribute("tabindex","-1");try{dlg.focus({preventScroll:true});}catch(err){}}
+    }
+  }).observe(document.body,{childList:true,subtree:true});
+});

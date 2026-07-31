@@ -190,7 +190,7 @@ async function _albumPool(){
   pool.push({key:"sp_trikot",label:"Adler-Trikot",sub:"Unsere Farben",emo:"👕",rar:"episch"});
   pool.push({key:"sp_adler",label:"Der Adler",sub:"Unser Wappentier",emo:"🦅",rar:"episch"});
   pool.push({key:"sp_kurve",label:"Die Eltern-Kurve",sub:"Unsere Fans",emo:"📣",rar:"episch"});
-  pool.push({key:"sp_nest",label:"Der Adlerhorst",sub:"Unser Nest",emo:"🪺",rar:"episch"});
+  pool.push({key:"sp_nest",label:"Das Adler Nest",sub:"Unser Vereinsheft",emo:"🪺",rar:"episch"});
   // LEGENDÄR
   pool.push({key:"sp_pokal",label:"Der Pokal",sub:"Für große Träume",emo:"🏆",rar:"legendaer"});
   pool.push({key:"sp_horst",label:"Horst der Adler",sub:"Unser Maskottchen",emo:"🦅",rar:"legendaer"});
@@ -341,7 +341,7 @@ async function kabineAlbumFor(sid,name){
     <div style="margin:0 16px 10px;background:rgba(255,255,255,.12);border-radius:16px;padding:12px 14px;text-align:center">
       <div style="font-size:14px;font-weight:900">🎁 Sticker-Tüten: ${t}</div>
       <button onclick="kabineAlbumPack()" ${t<1||!pool.length?"disabled":""} style="width:100%;margin-top:8px;border:none;border-radius:14px;padding:14px;font-family:inherit;font-size:16px;font-weight:900;cursor:${t<1?"default":"pointer"};${t<1?"background:rgba(255,255,255,.10);color:rgba(255,255,255,.5)":"background:linear-gradient(135deg,#f59e0b,#ec4899);color:#fff;box-shadow:0 4px 14px rgba(236,72,153,.4)"}">${t<1?"Keine Tüte übrig":"Tüte aufreißen! ✂️"}</button>
-      <div style="font-size:10.5px;opacity:.8;margin-top:6px">Neue Tüten gibt's für: jeden Kabinen-Tag · Stimmung abgeben · Tasche packen · Kompliment schenken</div>
+      <div style="font-size:10.5px;opacity:.8;margin-top:6px">Neue Tüten gibt's für: jeden Kabinen-Tag · Tasche packen · Kompliment schenken</div>
     </div>
     <button onclick="kabineTausch()" style="display:flex;align-items:center;gap:10px;margin:0 16px 10px;border:1px solid rgba(255,255,255,.18);border-radius:16px;background:linear-gradient(135deg,rgba(56,189,248,.45),rgba(2,132,199,.3));color:#fff;font-family:inherit;cursor:pointer;padding:12px 14px;text-align:left">
       <span style="font-size:24px">🔁</span>
@@ -1416,7 +1416,11 @@ async function kabineCodeTip(t){
   kabineCodeDots();
   try{navigator.vibrate&&navigator.vibrate(12);}catch(e){}
   if(_kabCode.length<4)return;
-  const [eingabe,soll]=await Promise.all([hashPin(_kabCode),kabineCodeHash()]);
+  // hashPin braucht crypto.subtle. Faellt das aus (kein sicherer Kontext), muss das
+  // Kind trotzdem erfahren, warum nichts passiert - sonst haengt es in der Kabine fest.
+  let eingabe,soll;
+  try{ [eingabe,soll]=await Promise.all([hashPin(_kabCode),kabineCodeHash()]); }
+  catch(e){ _kabCode=""; kabineCodeDots(); if(err)err.textContent="Der Code lässt sich gerade nicht prüfen. Bitte die Seite neu laden."; return; }
   if(eingabe===soll){
     isKidsMode=false; kabineAktivSet(false); kabSubConsume();
     clearInterval(window._kabZeitTimer); window._kabZeitTimer=null;

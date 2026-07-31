@@ -86,7 +86,7 @@ function elternPortalLogin(root){
       <button onclick="elternPortalLogin(document.getElementById('eltern-portal'))" style="width:100%;padding:9px;margin-top:8px;border:none;background:none;color:#64748b;font-size:12px;cursor:pointer">← andere E-Mail</button>
     </div>
     <div id="ep-err" style="font-size:12px;color:#dc2626;min-height:16px;margin-top:10px;text-align:center"></div>
-    <div style="font-size:10.5px;color:#94a3b8;text-align:center;margin-top:14px">Nur E-Mail-Adressen, die dein Trainer hinterlegt hat, sehen die Daten ihres Kindes.</div>
+    <div style="font-size:10.5px;color:#94a3b8;text-align:center;margin-top:14px">Anmelden kann sich nur, wessen E-Mail-Adresse das Trainerteam hinterlegt hat – und du siehst dort ausschließlich die Daten deines eigenen Kindes.</div>
   </div>`;
   if(typeof elternThemeInit==="function"){ elternThemeInit(); elternThemeSweep(root); } // Login-Screen dem Theme folgen lassen
 }
@@ -157,6 +157,15 @@ async function dsgvoEnsureConsent(onOk){
   if(has){onOk();return;}
   dsgvoRenderGate(onOk);
 }
+/* Pflichtangaben fuers Einwilligungs-Gate. Mail und Link sind bewusst leer:
+   sie werden nur angezeigt, wenn der Verein sie hier eintraegt - lieber ein
+   Satz weniger als ein sichtbarer Platzhalter im Einwilligungstext. */
+const VEREIN_DS={
+  name:"SV Adler Dellbrück e. V.",
+  anschrift:"Thurner Kamp 97, 51069 Köln",
+  mail:"",   // z. B. "datenschutz@adler-dellbrueck.de"
+  link:""    // z. B. "https://…/datenschutz"
+};
 function dsgvoRenderGate(onOk){
   const body=document.getElementById("ep-dash-body"); if(!body){onOk();return;}
   window._dsgvoOnOk=onOk;
@@ -165,13 +174,17 @@ function dsgvoRenderGate(onOk){
     <p style="margin:0 0 8px">Bevor du den Eltern-Bereich nutzt, bitten wir um deine Einwilligung. So gehen wir mit euren Daten um:</p>
     <ul style="margin:0 0 8px 18px;padding:0">
       <li><b>Wozu:</b> Organisation des Trainings- und Spielbetriebs der U9 (Termine, Rückmeldungen, Aufstellung, altersgerechte Förderung).</li>
-      <li><b>Sicherheit:</b> Zugang nur per persönlichem Login (Einmal-Code an eure E-Mail, kein Passwort). Du siehst ausschließlich die Daten deines eigenen Kindes – technisch per Zugriffsregeln (Row-Level-Security) erzwungen.</li>
+      <li><b>Sicherheit:</b> Zugang nur per persönlichem Login (Einmal-Code an eure E-Mail, kein Passwort). Du siehst ausschließlich die Daten deines eigenen Kindes – das stellt die App technisch sicher: Jeder Zugang ist fest mit dem eigenen Kind verknüpft.</li>
       <li><b>Fotos:</b> Kinderfotos liegen in einem privaten, zugriffsgeschützten Speicher und werden nur mit ausdrücklicher, kindbezogener Freigabe verwendet (Standard: aus).</li>
       <li><b>Keine Weitergabe:</b> keine Nutzung zu Werbezwecken, kein Verkauf; keine Zahlungs-/Kontodaten in der App.</li>
       <li><b>Technik:</b> Hosting/Datenbank über Supabase (EU); Wetter über open-meteo, Karten über OpenStreetMap – dorthin gehen nur Orts-/Termindaten, keine personenbezogenen Daten.</li>
     </ul>
-    <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;font-size:11.5px;color:#92400e;margin:8px 0">
-      <b>Vom Verein auszufüllen:</b> Verantwortlicher: [Name/Anschrift] · Datenschutz-Kontakt: [E-Mail] · Rechtsgrundlage: [z. B. Einwilligung Art. 6/9 DSGVO] · Speicherdauer: [z. B. bis Saisonende/Austritt] · Rechte (Auskunft, Löschung, Widerruf) über den Kontakt · Vollständige Datenschutzerklärung: [Link].
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:11.5px;color:#475569;margin:8px 0">
+      <b>Verantwortlich:</b> ${esc(VEREIN_DS.name)}, ${esc(VEREIN_DS.anschrift)}.
+      <b>Rechtsgrundlage:</b> deine Einwilligung (Art. 6 Abs. 1 lit. a DSGVO, bei Fotos zusätzlich Art. 9).
+      <b>Speicherdauer:</b> bis zum Saisonende bzw. bis dein Kind das Team verlässt.
+      Auskunft, Löschung und Widerruf sind jederzeit möglich – sprich das Trainerteam an${VEREIN_DS.mail?` oder schreib an <a href="mailto:${esc(VEREIN_DS.mail)}" style="color:#1d4ed8">${esc(VEREIN_DS.mail)}</a>`:""}.
+      ${VEREIN_DS.link?`<a href="${esc(VEREIN_DS.link)}" target="_blank" rel="noopener" style="color:#1d4ed8">Vollständige Datenschutzerklärung</a>.`:""}
     </div>
     <label style="display:flex;align-items:flex-start;gap:8px;margin:10px 0;font-size:12.5px;cursor:pointer">
       <input type="checkbox" id="dsgvo-cb" style="margin-top:3px" onchange="var b=document.getElementById('dsgvo-ok');b.disabled=!this.checked;b.style.opacity=this.checked?'1':'.5'">
@@ -661,7 +674,7 @@ async function elternDashLoad(){
   const catBtn=(id,emoji,title,desc,grad)=>`<button onclick="elternCatOpen('${id}')" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:8px;border:none;border-radius:14px;background:${grad};color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.08)"><span style="font-size:22px;line-height:1">${emoji}</span><span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:800">${title}</span><span style="display:block;font-size:11.5px;opacity:.92;margin-top:1px">${desc}</span></span><span style="font-size:18px;opacity:.85">›</span></button>`;
   html+=sec("Mehr");
   html+=catBtn('mehr','📰','Mehr vom Team','Adler Nest, Börse, Fundbüro, Kasse','linear-gradient(135deg,#1e3a8a,#2563eb)');
-  html+=catBtn('regeln','📋','Regeln &amp; Vereinbarungen','Fairplay-Codex &amp; Eltern-Leitfaden','linear-gradient(135deg,#16a34a,#059669)');
+  html+=catBtn('regeln','📋','Regeln &amp; Vereinbarungen','Unsere Vereinbarung &amp; das Fairplay-Quiz','linear-gradient(135deg,#16a34a,#059669)');
   html+=catBtn('datenschutz','🔒','Datenschutz &amp; Freigaben','Foto/Video, Notfallkarte, Datenexport','linear-gradient(135deg,#0d9488,#0f766e)');
   html+=catBtn('kontakt','⚙️','Kontakt &amp; Benachrichtigungen','Elterngespräch, Push, Einstellungen','linear-gradient(135deg,#475569,#334155)');
   html+=`<div id="el-cat-overlay" style="display:none;position:fixed;inset:0;z-index:10000;background:var(--bg,#f1f5f9);overflow-y:auto"><div style="max-width:560px;margin:0 auto;padding:12px 16px 40px">
@@ -930,7 +943,10 @@ async function terminDetailOpen(id){
     return `<div style="margin-top:8px"><div style="font-size:13px;font-weight:700;margin-bottom:4px">${esc(kd.name||"Kind")}</div><div style="display:flex;gap:6px">${btns}</div></div>`;
   }).join("");
   const infoRow=(icon,label,val)=> val?`<div style="display:flex;gap:8px;font-size:13px;padding:4px 0"><span style="width:20px">${icon}</span><span style="color:#64748b;min-width:72px">${label}</span><span style="flex:1;font-weight:600;min-width:0">${val}</span></div>`:"";
-  const spielformLbl = (istSpiel&&t.spielform)?`${esc(t.spielform)}${t.spieldauer_min?` · ${t.halbzeiten||1}× ${t.spieldauer_min} Min`:""}`:"";
+  // Rohwerte aus dem Termin ("funino"/"4+1"/"5+1") sagen Eltern nichts - deshalb ausschreiben.
+  const SF_KLARTEXT={funino:"FUNiño (3 gegen 3 auf 4 Minitore, ohne Torwart)","4+1":"4+1 (vier Feldspieler + Torwart)","5+1":"5+1 (fünf Feldspieler + Torwart)"};
+  const sfRoh=(t.spielform||"").toLowerCase();
+  const spielformLbl = (istSpiel&&t.spielform)?`${esc(SF_KLARTEXT[sfRoh]||t.spielform)}${t.spieldauer_min?` · ${t.halbzeiten||1}× ${t.spieldauer_min} Min`:""}`:"";
   c.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px">
       <div style="font-size:17px;font-weight:800;min-width:0">${m.icon} ${esc(t.titel||t.gegner||m.label)}</div>
@@ -1058,7 +1074,7 @@ async function elternChecklistLoad(kids){
     {done:pushOn,     icon:"🔔", label:"Benachrichtigungen aktivieren", act:`pushSubscribe('parent').then(ok=>{if(ok)elternChecklistLoad(window._elternKids||[]);})`},
     {done:notfallAll, icon:"🚑", label:"Notfallkarte hinterlegen",       act:`notfallOpen(${k0.spieler_id},'${n0}')`},
     {done:fotoAll,    icon:"📸", label:"Foto-Freigabe klären",           act:`elternFotoConsentOpen(${k0.spieler_id},'${n0}')`},
-    {done:committed,  icon:"🤝", label:"Fairplay-Codex bestätigen",       act:`fairplayOpen()`}
+    {done:committed,  icon:"🤝", label:"Unsere Vereinbarung bestätigen",  act:`vereinbarungOpen()`}
   ];
   const open=items.filter(i=>!i.done).length;
   if(open===0){ slot.innerHTML=""; return; }
@@ -1514,7 +1530,7 @@ const ELTERN_TOUR=[
   {emo:"📌", t:"Zu erledigen & Adler News", d:"Ganz oben sammeln sich deine offenen Punkte: Rückmeldungen, Mitbringlisten, Büdchen-Dienst und die „Wie war's?\"-Frage nach Spielen. Erledigt = verschwindet. Direkt darunter: Adler News mit allem Neuen – und wichtige 📣 Ansagen vom Trainerteam, die du kurz mit „Gelesen\" bestätigst."},
   {emo:"👍", t:"Zu- & Absagen", d:"Melde dein Kind am nächsten Termin oder im Termin-Karussell zu oder ab – ein Tipp genügt, nochmal tippen entfernt die Antwort. Über „Alle Termine\" lädst du alles in deinen Kalender."},
   {emo:"🙋", t:"Alles rund um den Termin", d:"Im Termin-Detail: Wetter, Adresse mit Route, Fahrgemeinschaft, Mitbringliste bei Events und „Wer hilft mit?\" (Aufbau, Fotos, Live-Ticker, Betreuung in den Pausen). Beim Training gibst du an, ob du vor Ort bleibst."},
-  {emo:"🎮", t:"Die Kabine (Kinder-Modus)", d:"Gib dein Handy bedenkenlos weiter: Quiz, Missionen, Galerie – und jetzt auch das Panini-Sammelalbum mit Sticker-Tüten & Tauschbörse, Komplimente an Mitspieler, die eigene Adler-Post und der Stimmungs-Smiley nach dem Training. Zurück geht es nur mit Code."},
+  {emo:"🎮", t:"Die Kabine (Kinder-Modus)", d:"Gib dein Handy bedenkenlos weiter: Quiz, Missionen, Galerie – und jetzt auch das Panini-Sammelalbum mit Sticker-Tüten & Tauschbörse, Komplimente an Mitspieler, die eigene Adler-Post und das Sammelalbum. Zurück geht es nur mit Code."},
   {emo:"🃏", t:"Für dein Kind", d:"Sammelkarte, Technik-Abzeichen (die hakst du zuhause ab), Saison-Statistik und Fan-Fakten. Foto- & Video-Freigaben und die Notfallkarte pflegst du unter „🔒 Datenschutz &amp; Freigaben\" – dort erklärt „🛡️ So schützen wir eure Fotos &amp; Daten\" auch, warum die App sicherer ist als jede WhatsApp-Gruppe."},
   {emo:"📰", t:"Team, Heft & Adler-Kasse", d:"Das „Adler Nest\" ist unser digitales Stadionheft – jetzt mit der Kabinen-Reporter-Rubrik der Kinder. Und über „Fan-Link teilen\" schickst du Oma, Opa und Fans den Spenden-Link. Viel Spaß! 🎉"},
 ];
