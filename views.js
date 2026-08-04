@@ -3647,13 +3647,22 @@ function toggleTeamCheck(){ if(typeof homeRadarLoad==="function")homeRadarLoad()
    des EINGELOGGTEN Trainers ganz oben auf der Startseite. Quellen: offene „Trainer dabei?"-
    Antworten, Einheit-Nachbewertung (wenn laut Trainingsplan eingeteilt), rollierendes
    Sprachlob nach Spielen (deterministisch: termin.id % Trainerzahl). ── */
-const TRAINER_MAILS={"charleshuetten@gmail.com":"Charles","sandy.m.dahm@gmail.com":"Sandy","kenneth@ktevents.de":"Kenneth","peterlemm@gmx.de":"Peter","zassfinn18@gmail.com":"Finn"};
+/* Der Anzeigename kommt aus profiles.anzeigename. Frueher stand hier eine Map von
+   E-Mail auf Vorname - damit lagen fuenf private Adressen im Quelltext einer
+   oeffentlichen App und wurden an jeden Besucher ausgeliefert. Die RLS auf profiles
+   gibt jedem genau seine eigene Zeile, deshalb reicht der Filter auf die eigene id. */
 let _meTrainer=null;
 async function trainerMe(){
   if(_meTrainer!==null)return _meTrainer;
   try{
     const r=await fetch(`${SB_URL}/auth/v1/user`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+sbToken()}});
-    if(r.ok){const u=await r.json();_meTrainer=TRAINER_MAILS[String(u.email||"").toLowerCase()]||"";}
+    if(r.ok){
+      const u=await r.json();
+      if(u&&u.id){
+        const p=await fetch(`${SB_URL}/rest/v1/profiles?select=anzeigename&id=eq.${encodeURIComponent(u.id)}`,{headers:sbAuthHeaders()});
+        if(p.ok){const zeilen=await p.json(); _meTrainer=((zeilen&&zeilen[0]&&zeilen[0].anzeigename)||"");}
+      }
+    }
   }catch(e){}
   if(_meTrainer===null)_meTrainer="";
   return _meTrainer;
