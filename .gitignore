@@ -1,0 +1,19 @@
+# Dieses Repo ist oeffentlich. Was hier steht, sieht jeder.
+
+# Das private Projektgedaechtnis wird in Cloud-Sitzungen hierher geklont
+# (siehe CLAUDE.md). Es enthaelt Adressen und Zugangswege und darf niemals
+# im oeffentlichen Repo landen.
+.wissen/
+
+# Zugangsdaten und Schluessel gehoeren in die Edge Functions, nicht hierher.
+.env
+.env.*
+*.key
+*.pem
+
+# Werkzeug-Reste
+.DS_Store
+Thumbs.db
+node_modules/
+*.bak
+*.log
