@@ -75,6 +75,20 @@ function sbClearToken(){
   try{ localStorage.removeItem("adler_nf_cache"); }catch(e){}
   if(typeof trainerMeReset==="function")trainerMeReset(); // Name gehört zum Konto, nicht zum Gerät
 }
+/* „Wer gehört zum Trainerstab" – im Gegensatz zu TRAINER (data.js), das nur sagt,
+   WER MITTRAINIERT. Zum Stab kann jemand gehören, der vollen Zugriff hat, aber
+   keinen Trainingsdienst leistet; sein Zugriff hängt an profiles.role, nicht an
+   einer Liste im Code, und sein Name steht bewusst NICHT hier.
+   Deshalb wird der Stab aus den Daten abgeleitet: TRAINER plus jeder, der in den
+   übergebenen Antworten schon auftaucht (z. B. termine.trainer_status). Wer neu
+   dazukommt, erscheint nach seiner ersten Antwort – ohne Codeänderung.
+   Verwenden, wo es um Zugehörigkeit geht (Verfügbarkeit, Anzeige). NICHT verwenden,
+   wo es um Trainingsdienst geht – dort gilt TRAINER. */
+function trainerstabNamen(antworten){
+  const basis=(typeof TRAINER!=="undefined"&&Array.isArray(TRAINER))?TRAINER.slice():[];
+  const weitere=Object.keys(antworten||{}).filter(n=>n&&basis.indexOf(n)<0).sort();
+  return basis.concat(weitere);
+}
 // Eigene User-ID aus dem JWT (sub-Claim) – z. B. um "von mir reserviert" zu erkennen.
 function sbUserId(){
   const t=sbToken(); if(!t)return null;

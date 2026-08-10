@@ -4,6 +4,33 @@
    Wird VOR dem Haupt-Skript geladen; keine Ausfuehrung, keine DOM-Zugriffe.
    ═══════════════════════════════════════════════════════════ */
 
+/* ═══ TRAINER ═══
+   DIESE LISTE IST „WER TRAINIERT MIT" – NICHT „wer gehört zum Trainerstab".
+
+   Der Unterschied ist keine Wortklauberei, er hat schon einmal Schaden angerichtet
+   (v384): Zum Stab kann jemand gehören, der vollen Zugriff hat, aber keinen
+   Trainingsdienst leistet – ein Betreuer. Wer hier steht, taucht auf in
+     · den Trainer-Chips im Trainingsplan (wer ist heute da)
+     · der Anwesenheitserfassung der Trainer
+     · der rollierenden Sprachlob-Zuteilung nach Spielen
+     · „Trainer spielen mit" beim Blitzturnier
+     · den Sammelkarten der Kinder in der Kabine (je Trainer eine Karte!)
+     · Ausdruck-Kopf, Urkunden-Unterschrift und Stadionheft-Fuß
+   Ein Betreuer ohne Trainingsdienst gehört in NICHTS davon.
+
+   ZUGRIFF hängt NICHT an dieser Liste, sondern an profiles.role='trainer' plus
+   profiles.anzeigename in Supabase. Wer dazukommen soll, braucht dort einen
+   Eintrag – und NUR wenn er auch mittrainiert, zusätzlich hier einen Namen.
+
+   Wer „alle, die dazugehören" braucht (z. B. Verfügbarkeit am Termin), nimmt
+   trainerstabNamen() aus core.js – nicht diese Liste.
+
+   Wohnt in data.js (Welle 1), damit Stadionheft, Urkunden und Kinder-Album nicht
+   davon abhängen, dass md-kabine.js aus Welle 2 schon geladen ist. Frueher lag sie
+   dort, und drei Stellen trugen deshalb eine hartkodierte Notfall-Kopie mit sich
+   herum – vier Namenslisten, die auseinanderlaufen konnten. */
+const TRAINER=["Sandy","Charles","Finn","Kenneth","Peter"];
+
 /* ═══ KRITERIEN FELDSPIELER (DIMS_FELD) ═══ */
 const DIMS_FELD=[
 {id:"tech",label:"Technik & Ball",icon:"ti-ball-football",col:"#1a56db",w:0.24,
