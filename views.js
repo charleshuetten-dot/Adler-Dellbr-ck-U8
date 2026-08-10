@@ -2122,9 +2122,15 @@ function _open(key){
 }
 function go(key){
   const tabId=sectionTab(key); if(!tabId||!SECS[key])return;
-  document.querySelectorAll("#main-nav .nb").forEach(b=>{b.classList.remove("active");b.removeAttribute("aria-current");});
+  document.querySelectorAll("#main-nav .nb").forEach(b=>{b.classList.remove("active");b.removeAttribute("aria-current");b.style.background="";});
   const nbAktiv=document.getElementById("nb-"+tabId);
-  if(nbAktiv){nbAktiv.classList.add("active");nbAktiv.setAttribute("aria-current","page");} // sonst ist der aktive Bereich nur farblich erkennbar
+  if(nbAktiv){
+    nbAktiv.classList.add("active");
+    nbAktiv.setAttribute("aria-current","page"); // sonst ist der aktive Bereich nur farblich erkennbar
+    // Gleiche Familienfarbe wie Kachel und Unterreiter; ohne Eintrag (Home) bleibt Vereinsblau aus dem CSS
+    const fam=(typeof KACHELN!=="undefined"&&KACHELN[tabId])?KACHELN[tabId].col:"";
+    if(fam)nbAktiv.style.background=fam;
+  }
   renderSubbar(tabId,key);
   const reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if(document.startViewTransition&&!reduce)document.startViewTransition(()=>_open(key));else _open(key);
@@ -3545,12 +3551,12 @@ async function renderHome(){
     <div id="home-next">${card('<div style="font-size:12px;color:var(--text3)">Lade nächsten Termin...</div>')}</div>
     <div id="home-carousel"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
-      ${kachelTile("training","🏃","Training","#16a34a","#15803d")}
-      ${kachelTile("spieltag","⚽","Spieltag","#1e3a8a","#2563eb")}
-      ${kachelTile("team","👥","Team","#0f766e","#14b8a6")}
-      ${kachelTile("taktik","🎯","Taktik","#c2410c","#ea580c")}
-      ${kachelTile("elki","🪶","Eltern & Kinder","#6d28d9","#8b5cf6")}
-      ${kachelTile("orga","📅","Orga","#1d4ed8","#3b82f6")}
+      ${kachelTile("training","🏃","Training","var(--fam-training)","var(--fam-training-2)")}
+      ${kachelTile("spieltag","⚽","Spieltag","var(--fam-spieltag)","var(--fam-spieltag-2)")}
+      ${kachelTile("team","👥","Team","var(--fam-team)","var(--fam-team-2)")}
+      ${kachelTile("taktik","🎯","Taktik","var(--fam-taktik)","var(--fam-taktik-2)")}
+      ${kachelTile("elki","🪶","Eltern & Kinder","var(--fam-elki)","var(--fam-elki-2)")}
+      ${kachelTile("orga","📅","Orga","var(--fam-orga)","var(--fam-orga-2)")}
     </div>`;
   elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche (handeln nötig → bleibt oben)
   trainerTodoLoad();             // To-Do-Banner (leer = unsichtbar)
@@ -4187,11 +4193,15 @@ async function renderStadionheftView(){
    Alle Aktionen laufen über kachelRun (schließt die Seite, ruft die bestehende Funktion).
 ═══════════════════════════════════ */
 function kachelTile(key,emo,label,c1,c2){
-  return `<button onclick="kachelOpen('${key}')" style="min-height:104px;border:none;border-radius:16px;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,${c1},${c2});color:#fff;padding:14px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;box-shadow:0 2px 10px ${c1}44;text-align:left">
+  /* c1/c2 sind Farbvariablen (--fam-*), keine Hexwerte – der Schatten kann deshalb
+     nicht mehr aus der Farbe gebaut werden (frueher `${c1}44`) und ist jetzt neutral.
+     Das Badge traegt volle Deckkraft: mit opacity .9 fiel es auf 4.38:1 und lag damit
+     unter den geforderten 4.5:1. Die Abstufung macht die Schriftgroesse. */
+  return `<button onclick="kachelOpen('${key}')" style="min-height:104px;border:none;border-radius:16px;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,${c1},${c2});color:#fff;padding:14px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;box-shadow:var(--shadow-md);text-align:left">
     <span style="font-size:30px">${emo}</span>
     <span style="min-width:0">
       <span style="display:block;font-size:15.5px;font-weight:900">${label}</span>
-      <span id="kb-${key}" style="display:block;font-size:12px;opacity:.9;min-height:15px"></span>
+      <span id="kb-${key}" style="display:block;font-size:12px;min-height:15px"></span>
     </span>
   </button>`;
 }
@@ -4215,12 +4225,12 @@ function kTiles(items,col){
 }
 function kSec(t){return `<div style="font-size:13.5px;font-weight:800;color:var(--text);margin:16px 0 8px">${t}</div>`;}
 const KACHELN={
-  training:{emo:"🏃",titel:"Training",sub:"Vom Plan bis zum Abpfiff",col:"#16a34a"},
-  spieltag:{emo:"⚽",titel:"Spieltag",sub:"Vorher, während, danach",col:"#1e3a8a"},
-  team:{emo:"👥",titel:"Team",sub:"Spieler, Entwicklung, Überblick",col:"#0f766e"},
-  taktik:{emo:"🎯",titel:"Taktik",sub:"Brett, Zeichnen, Bibliothek",col:"#c2410c"},
-  elki:{emo:"🪶",titel:"Eltern & Kinder",sub:"Kommunikation und Adler-Welt",col:"#6d28d9"},
-  orga:{emo:"📅",titel:"Orga",sub:"Termine, Events, Verwaltung",col:"#1d4ed8"}
+  training:{emo:"🏃",titel:"Training",sub:"Vom Plan bis zum Abpfiff",col:"var(--fam-training)"},
+  spieltag:{emo:"⚽",titel:"Spieltag",sub:"Vorher, während, danach",col:"var(--fam-spieltag)"},
+  team:{emo:"👥",titel:"Team",sub:"Spieler, Entwicklung, Überblick",col:"var(--fam-team)"},
+  taktik:{emo:"🎯",titel:"Taktik",sub:"Brett, Zeichnen, Bibliothek",col:"var(--fam-taktik)"},
+  elki:{emo:"🪶",titel:"Eltern & Kinder",sub:"Kommunikation und Adler-Welt",col:"var(--fam-elki)"},
+  orga:{emo:"📅",titel:"Orga",sub:"Termine, Events, Verwaltung",col:"var(--fam-orga)"}
 };
 function kachelOpen(key){
   const k=KACHELN[key]; if(!k)return;
@@ -4237,7 +4247,7 @@ function kachelOpen(key){
   _kachelNachladen(key);
 }
 function _kachelInhalt(key){
-  const col=(KACHELN[key]||{}).col||"#1a56db";
+  const col=(KACHELN[key]||{}).col||"var(--blue)";
   /* PO: genau 4 Kacheln, Beschriftung IDENTISCH zur Unterseite (Anwesenheit,
      Trainingsplan, Übungen, Blitzturnier). „Einheit bewerten" ist raus – das kommt
      nach dem Training als To-Do auf der Startseite. */
@@ -4360,5 +4370,5 @@ async function _kachelTurnierCheck(){
     +kTiles([
       (heimAngelegt||(terminTurnier&&terminTurnier.heim))?{emo:"🏆",label:"Heimturnier ausrichten",fn:"htOpen"}:null,
       {emo:"📋",label:"Turnierplan (auswärts)",fn:"go",arg:"spieltag"}
-    ],(KACHELN.spieltag||{}).col||"#1e3a8a");
+    ],(KACHELN.spieltag||{}).col||"var(--fam-spieltag)");
 }
