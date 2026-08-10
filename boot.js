@@ -870,6 +870,15 @@ function tpFilteredOpts(typ,kat){
   if(kat) return mainForms.filter(x=>x.f.kat===kat);
   return mainForms;
 }
+/* Torwart- UND Individual-Training laufen NEBEN einem Hauptteil, nicht dahinter: die
+   Torhüter bzw. das eine Kind sind während dieser Station weg, die Einheit wird dadurch
+   nicht länger. Bis v382 galt das nur für „individual" – ein Torwart-Block wurde hinten
+   angehängt und zählte voll auf die Gesamtzeit („85 von 75 Min. – zu lang!"), obwohl
+   parallel trainiert wird. Beide Typen laufen jetzt durch dieselben Weichen. */
+const TP_PARALLEL_TYPEN=["individual","tw"];
+function tpKannParallel(typ){return TP_PARALLEL_TYPEN.includes(typ||"main");}
+function tpIstParallel(slot){return !!(slot&&tpKannParallel(slot.typ)&&slot.parallelZu!=null&&tpSlots[slot.parallelZu]);}
+function tpParallelIcon(typ){return typ==="tw"?"🧤 ":"🎯 ";}
 function tpGetCheckedTrainers(){
   return Array.from(document.querySelectorAll("#tp-trainer-checks input:checked")).map(c=>c.value);
 }
@@ -967,21 +976,23 @@ function tpRenderTimeline(){
     const z=tpSlots[s.parallelZu];
     if(!z||s.parallelZu===i||(z.typ||"main")!=="main")s.parallelZu=null;
   });
-  tpSlots.forEach(s=>{if(s.typ==="individual"&&s.parallelZu==null){const mi=tpSlots.findIndex(x=>(x.typ||"main")==="main");if(mi>=0)s.parallelZu=mi;}});
-  let acc=0; const startsArr=tpSlots.map(s=>{const st0=acc;if(!((s.typ||"main")==="individual"&&s.parallelZu!=null))acc+=s.dauer;return st0;});
-  /* Render-Reihenfolge: parallele Einzeltrainings stehen direkt UNTER ihrem Ziel-Slot
+  // Altbestand + neu angelegte Blöcke ohne Ziel: an den ersten Hauptteil hängen (umstellbar
+  // über „Läuft parallel zu"). Gilt seit v383 auch für Torwart-Blöcke.
+  tpSlots.forEach(s=>{if(tpKannParallel(s.typ)&&s.parallelZu==null){const mi=tpSlots.findIndex(x=>(x.typ||"main")==="main");if(mi>=0)s.parallelZu=mi;}});
+  let acc=0; const startsArr=tpSlots.map(s=>{const st0=acc;if(!tpIstParallel(s))acc+=s.dauer;return st0;});
+  /* Render-Reihenfolge: parallele Blöcke stehen direkt UNTER ihrem Ziel-Slot
      (PO: „zeitlich vor dem Abschluss, aber optisch dahinter eingereiht"). si bleibt der
      echte Array-Index – alle IDs/Handler zeigen weiter auf tpSlots[si]. */
   const renderOrder=[];
   tpSlots.forEach((s,i)=>{
-    if((s.typ||"main")==="individual"&&s.parallelZu!=null&&tpSlots[s.parallelZu])return;
+    if(tpIstParallel(s))return;
     renderOrder.push(i);
-    tpSlots.forEach((s2,i2)=>{if((s2.typ||"main")==="individual"&&s2.parallelZu===i)renderOrder.push(i2);});
+    tpSlots.forEach((s2,i2)=>{if(tpKannParallel(s2.typ)&&s2.parallelZu===i)renderOrder.push(i2);});
   });
   tpSlots.forEach((s,i)=>{if(!renderOrder.includes(i))renderOrder.push(i);});
   renderOrder.forEach(si=>{ const slot=tpSlots[si];
     const typ=slot.typ||"main";
-    const parallel=typ==="individual"&&slot.parallelZu!=null&&tpSlots[slot.parallelZu];
+    const parallel=tpIstParallel(slot);
     const startMin=parallel?startsArr[slot.parallelZu]:time;
     const endMin=startMin+(parallel?tpSlots[slot.parallelZu].dauer:slot.dauer);
     const noGroups=typ==="warmup"||typ==="abschluss"||typ==="tw";
@@ -996,7 +1007,7 @@ function tpRenderTimeline(){
 
     html+=`<div class="tp-slot" style="border-left:3px solid ${slot.farbe};${parallel?"margin-left:14px;":""}">
       <div class="tp-slot-head">
-        <span class="tp-slot-label">${parallel?"🎯 ":""}${slot.label}</span>
+        <span class="tp-slot-label">${parallel?tpParallelIcon(typ):""}${slot.label}</span>
         <span class="tp-slot-time">${startMin}' – ${endMin}'${parallel?` · parallel zu ${tpSlots[slot.parallelZu].label}`:` (${slot.dauer} Min.)`}</span>
         <button class="tp-remove" onclick="tpRemoveSlot(${si})"><i class="ti ti-trash"></i></button>
       </div>`;
@@ -1091,7 +1102,7 @@ function tpRenderTimeline(){
       if(typ==="warmup")html+=`<div id="tp-kg-${si}"></div>`;
     }
     html+='</div>';
-    if(!(typ==="individual"&&slot.parallelZu!=null))time+=slot.dauer; // parallele Einzeltrainings zählen nicht doppelt
+    if(!parallel)time+=slot.dauer; // parallele Blöcke (Torwart/Individual) zählen nicht doppelt
   });
   const zielDauer=parseInt(document.getElementById("tp-dauer")?.value)||75; // H3 (Wert VOR dem Neuzeichnen gelesen)
   const passt=time<=zielDauer;
@@ -1329,8 +1340,8 @@ const TP_ADD_OPTS=[
 function tpDoAddSlot(idx){
   const o=TP_ADD_OPTS[idx];
   const neu={...o};
-  // Individual hängt sich parallel an den letzten Hauptteil (PO: nie ans Ende der Kette)
-  if(neu.typ==="individual"){
+  // Torwart/Individual hängen sich parallel an den letzten Hauptteil (PO: nie ans Ende der Kette)
+  if(tpKannParallel(neu.typ)){
     let mi=-1; tpSlots.forEach((s,i)=>{if((s.typ||"main")==="main")mi=i;});
     if(mi>=0)neu.parallelZu=mi;
   }
@@ -2281,7 +2292,7 @@ function _tlSnapshot(){
   const tg=(typeof tgFor==="function")?tgFor():null;
   const stationen=[];
   tpSlots.forEach((slot,si)=>{
-    if((slot.typ||"main")==="individual"&&slot.parallelZu!=null)return; // dockt unten an
+    if(tpIstParallel(slot))return; // dockt unten an
     const gruppen=[];
     document.querySelectorAll(`.tp-form-sel[id^="tp-form-${si}-"]`).forEach((s,p)=>{
       const f=s.value?forms[Number(s.value)]:null;
@@ -2296,14 +2307,23 @@ function _tlSnapshot(){
     if(!gruppen.length)gruppen.push({trainer:"Alle",uebung:(slot.typ==="abschluss")?"Freies Spiel / Blitzturnier":"(frei)",gruppe:null,kinder:null});
     stationen.push({si,label:slot.label||("Station "+(si+1)),dauer:Math.max(1,slot.dauer||10),farbe:slot.farbe||"#16a34a",gruppen});
   });
+  /* Parallele Blöcke docken an ihre Ziel-Station an. Die beteiligten Kinder werden dort
+     aus den Feldgruppen entfernt – sie sind ja weg. Beim Torwart-Block sind das die
+     angehakten Torhüter (mehrere), beim Individual-Block das eine gewählte Kind. */
   tpSlots.forEach((slot,si)=>{
-    if(!((slot.typ||"main")==="individual"&&slot.parallelZu!=null))return;
+    if(!tpIstParallel(slot))return;
     const ziel=stationen.find(st=>st.si===slot.parallelZu); if(!ziel)return;
     const sel=document.querySelector(`.tp-form-sel[id^="tp-form-${si}-"]`);
     const f=(sel&&sel.value)?forms[Number(sel.value)]:null;
-    const kind=document.getElementById(`tp-ind-player-${si}`)?.value||"";
-    ziel.gruppen.forEach(g=>{if(kind&&g.kinder)g.kinder=g.kinder.filter(k=>k!==kind);});
-    ziel.gruppen.push({trainer:(sel&&tpCoaches[sel.id])||"?",uebung:`🎯 Einzeltraining${kind?" mit "+kind:""}: ${f?f.name:"(Übung wählen)"}`,gruppe:null,kinder:kind?[kind]:null,einzel:true});
+    const twBlock=(slot.typ||"main")==="tw";
+    const kinder=twBlock
+      ? Array.from(document.querySelectorAll(`.tp-tw-player[data-slot="${si}"]:checked`)).map(c=>c.value)
+      : [document.getElementById(`tp-ind-player-${si}`)?.value||""].filter(Boolean);
+    ziel.gruppen.forEach(g=>{if(g.kinder&&kinder.length)g.kinder=g.kinder.filter(k=>!kinder.includes(k));});
+    const titel=twBlock
+      ? `🧤 Torwart-Training${kinder.length?" mit "+kinder.join(", "):""}: ${f?f.name:"(Übung wählen)"}`
+      : `🎯 Einzeltraining${kinder.length?" mit "+kinder[0]:""}: ${f?f.name:"(Übung wählen)"}`;
+    ziel.gruppen.push({trainer:(sel&&tpCoaches[sel.id])||"?",uebung:titel,gruppe:null,kinder:kinder.length?kinder:null,einzel:true});
   });
   return stationen.map(({si,...rest})=>rest);
 }
