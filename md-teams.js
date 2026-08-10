@@ -311,11 +311,15 @@ function teamsRender(){
   const form=((typeof FORMATIONS!=="undefined"&&FORMATIONS[tbFormation])||{label:"4+1 Raute"}).label;
   const segBtn=(n)=>`<button class="seg-btn${TEAM_ANZAHL===n?" active":""}" onclick="teamSetAnzahl(${n})">${n}</button>`;
 
-  let html=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+  /* Der Container hiess frueher class="seg" – die Klasse gibt es im CSS nicht (ueberall
+     sonst heisst sie seg-ctrl). Dadurch griff weder das Flex-Layout noch die Breite:
+     die drei Knoepfe schrumpften auf Textbreite und waren kaum zu treffen. Jetzt volle
+     Breite in eigener Zeile, die 44px aus .seg-btn kommen damit auch zur Geltung. */
+  let html=`<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px">
       <span style="font-size:12px;font-weight:600">Anzahl Teams</span>
-      <div class="seg" style="flex:none;min-width:150px">${segBtn(1)}${segBtn(2)}${segBtn(3)}</div>
-      <span style="font-size:11px;color:var(--text3)">Vorschlag: ${vorschlag}</span>
+      <span style="font-size:11px;color:var(--text3);margin-left:auto">Vorschlag: ${vorschlag}</span>
     </div>
+    <div class="seg-ctrl" style="margin-bottom:8px">${segBtn(1)}${segBtn(2)}${segBtn(3)}</div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${esc(form)}: ${kd.tw?"1 Torwart + ":""}${kd.feld} Feldspieler = ${kd.gesamt} pro Team · ${pool.length} Zusage${pool.length===1?"":"n"}${teamPlatzProTeam()>kd.gesamt?" · ein Team nimmt ein Kind mehr auf, damit niemand zusehen muss":""}</div>`;
 
   if(!pool.length){
@@ -323,10 +327,15 @@ function teamsRender(){
     return;
   }
 
-  html+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-      <button class="btn btn-sm" onclick="teamsAuto()"><i class="ti ti-wand"></i>Automatisch einteilen</button>
-      <button class="btn btn-sm btn-p" onclick="teamsAnwenden()"><i class="ti ti-arrow-right"></i>In die Nominierungen übertragen</button>
-      <button class="btn btn-sm" onclick="rollenMatrixOpen()" title="Wer stand wie oft in welcher Rolle?"><i class="ti ti-layout-grid"></i>Rollen-Erfahrung</button>
+  /* Drei gleichrangige Knoepfe nebeneinander – der Bildschirm war falsch geschnitten
+     (Hausregel: genau EINE Hauptaktion). Jetzt in der Reihenfolge des Arbeitsschritts:
+     erst einteilen (Vorbereitung), dann uebertragen (die eine Hauptaktion, volle Breite).
+     „Rollen-Erfahrung" ist gar keine Aktion am Spieltag, sondern eine Auswertung – die
+     wohnt in der Team-Kachel unter „Ueberblick" und ist dort ueber rollenMatrixOpen
+     erreichbar. Hier war sie doppelt und hat die Hauptaktion verdeckt. */
+  html+=`<div style="margin-bottom:10px">
+      <button class="btn btn-sm" onclick="teamsAuto()" style="width:100%;margin-bottom:8px"><i class="ti ti-wand"></i>Automatisch einteilen</button>
+      <button class="btn btn-p" onclick="teamsAnwenden()" style="width:100%"><i class="ti ti-arrow-right"></i>In die Nominierungen übertragen</button>
     </div>
     <div id="team-rollen-hint"></div>`;
   setTimeout(()=>{try{rollenHintFill();}catch(e){}},0); // A-lite: „noch nie im Tor"-Hinweis nachladen
@@ -398,7 +407,7 @@ function nomApplyRsvp(){
   nomOvr.clear();
   Object.keys(nomRsvp).forEach(name=>{ nomStatus[name]=nomRsvp[name].status==="zugesagt"?"dabei":"nicht"; });
   nomRender();nomApplyToTools();nomSave();
-  toast("Nominierung auf Eltern-RSVP zurückgesetzt ✓");
+  toast("Nominierung folgt wieder den Eltern ✓");
 }
 function nomApplyToTools(){
   const squad=nominierteSpieler();

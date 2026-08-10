@@ -800,6 +800,17 @@ label:has(> input[type="checkbox"]){min-height:44px;display:flex;align-items:cen
 .aw-toggle::before{content:'';position:absolute;top:-11px;bottom:-11px;left:-4px;right:-4px}
 
 /* Einklappbare Abschnitte im Eltern-Bereich (weniger Scrollen) */
+/* Das hidden-Attribut verliert gegen ein inline gesetztes display: – und in dieser App
+   tragen viele Bauteile ihr Layout inline. Das Turnier-Banner blieb deshalb trotz
+   hidden="" sichtbar (im Browser aufgefallen, die Eigenschaft meldete korrekt „true").
+   Darum erzwingen. Einziger Träger des Attributs heute ist genau dieses Banner. */
+[hidden]{display:none!important}
+/* Abschnitts-Karte: fasst EIN Thema samt Überschrift sichtbar zusammen. Die Themen einer
+   Spieltag-Phase standen vorher als lose Textzeilen untereinander – Team-Einteilung,
+   Nominierung und Rollen liefen optisch ineinander („unaufgeräumt und unsortiert", PO).
+   Die .sl-Überschrift verliert in der Karte ihren Trennstrich; die Kartenkante trennt schon
+   (greift automatisch über .sl:first-child bzw. .sl.nt). */
+.abschnitt{background:var(--surface);border:var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:12px;box-shadow:var(--shadow)}
 details.el-sect{margin-bottom:12px}
 details.el-sect>summary{cursor:pointer;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;padding:8px 4px;min-height:44px;display:flex;align-items:center;gap:6px}
 details.el-sect>summary::-webkit-details-marker{display:none}

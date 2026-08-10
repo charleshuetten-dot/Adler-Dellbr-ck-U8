@@ -243,6 +243,17 @@ async function turnierDelete(id){
 }
 // Spieltags-Nominierung: wer ist dabei / nicht / verletzt – speist Rotations-Timer + Blitz
 let nomStatus={};
+/* Turnier-Banner im Spieltag: erscheint NUR, wenn der gewählte Spieltag ein Turnier ist.
+   PO: „Ein Turnier kommt nur selten vor und wird dann vorab in der Termin-Anlage schon
+   organisiert" – als Dauergast über jedem normalen Spiel war es Ballast. Dieselbe
+   Kontext-Logik wie die Turnier-Gruppe im Kachel-Menü (_kachelTurnierCheck, v346).
+   Der Typ kommt aus derselben Abfrage, die die Auswahlliste füllt – keine zweite Runde. */
+let _spieltagTypen={};
+function _spieltagTurnierBanner(){
+  const b=document.getElementById("spieltag-turnier-banner"); if(!b)return;
+  const d=document.getElementById("spieltag-date")?.value||"";
+  b.hidden=(_spieltagTypen[d]!=="turnier");
+}
 // Match-Datum nur aus hinterlegten Spieltagen (termine typ spiel/turnier) wählbar – kein Freitext.
 async function spieltagDatesLoad(preferDatum){
   const sel=document.getElementById("spieltag-date"); if(!sel)return;
@@ -255,6 +266,9 @@ async function spieltagDatesLoad(preferDatum){
   const def=(preferDatum&&seen.has(preferDatum))?preferDatum:((items.find(t=>t.datum>=heute)||{}).datum||items[items.length-1].datum);
   const fmt=(t)=>{const d=new Date(t.datum+"T00:00:00");const wd=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];const ds=d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit"});const g=t.typ==="turnier"?"🏆 Turnier":(t.gegner?"vs "+t.gegner:"Spiel");return `${wd} ${ds} · ${g}`;};
   sel.innerHTML=items.map(t=>`<option value="${esc(t.datum)}"${t.datum===def?" selected":""}>${esc(fmt(t))}</option>`).join("");
+  // Typ je Spieltag merken – das Turnier-Banner haengt daran (siehe _spieltagTurnierBanner)
+  _spieltagTypen={}; items.forEach(t=>{ _spieltagTypen[t.datum]=t.typ; });
+  _spieltagTurnierBanner();
   nomLoad();
 }
 function nomInit(){
@@ -435,8 +449,8 @@ function nomRender(){
     const c={zugesagt:0,abgesagt:0,krank:0};
     Object.values(nomRsvp).forEach(x=>{if(c[x.status]!=null)c[x.status]++;});
     sum=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding:8px 10px;background:var(--surface2);border-radius:var(--r);font-size:11.5px">
-      <span style="font-weight:600">Eltern-RSVP</span><span style="color:var(--text3)">(auto übernommen)</span><span>✅ ${c.zugesagt}</span><span>❌ ${c.abgesagt}</span><span>🤒 ${c.krank}</span><span style="color:var(--text3)">offen ${KADER.length-Object.keys(nomRsvp).length}</span>
-      <button class="btn btn-sm" onclick="nomApplyRsvp()" style="margin-left:auto" title="Verwirft manuelle Trainer-Änderungen und koppelt wieder komplett an die Eltern-Zusagen"><i class="ti ti-refresh"></i>Auf RSVP zurücksetzen</button>
+      <span style="font-weight:600">Rückmeldung der Eltern</span><span style="color:var(--text3)">(auto übernommen)</span><span>✅ ${c.zugesagt}</span><span>❌ ${c.abgesagt}</span><span>🤒 ${c.krank}</span><span style="color:var(--text3)">offen ${KADER.length-Object.keys(nomRsvp).length}</span>
+      <button class="btn btn-sm" onclick="nomApplyRsvp()" style="margin-left:auto" title="Verwirft manuelle Trainer-Änderungen und koppelt wieder komplett an die Eltern-Zusagen"><i class="ti ti-refresh"></i>Wieder den Eltern folgen</button>
     </div>`;
   }
   box.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">${nominierteSpieler().length} von ${KADER.length} dabei</div>`+sum+
