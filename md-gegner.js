@@ -475,7 +475,7 @@ function tmCard(t){
     ${(t.datum>=new Date().toISOString().slice(0,10)&&["training","spiel","turnier"].includes(t.typ))?`<div id="abhol-tm-${t.id}" style="font-size:11.5px;color:var(--text2);margin-top:4px"></div>`:""}
     ${t.datum>=new Date().toISOString().slice(0,10)?`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px">
       <span style="font-size:10px;color:var(--text3);font-weight:700">Trainer dabei?</span>
-      ${tmTrainerNamen(t).map(tn=>{const stt=(t.trainer_status||{})[tn];const bg=stt==="ja"?"#16a34a":stt==="unsicher"?"#ca8a04":stt==="nein"?"#dc2626":"var(--surface2)";const col=stt?"#fff":"var(--text2)";const mk=stt==="ja"?" ✓":stt==="unsicher"?" 🤔":stt==="nein"?" ✕":"";return `<button onclick="tmTrainerToggle(${Number(t.id)},'${tn.replace(/'/g,"")}')" title="Tippen wechselt: dabei → unsicher → nicht dabei → offen" style="border:var(--border-s);border-radius:12px;padding:2px 8px;font-size:10.5px;font-weight:700;background:${bg};color:${col};cursor:pointer;font-family:inherit">${esc(tn)}${mk}</button>`;}).join("")}
+      ${trainerstabNamen(t.trainer_status).map(tn=>{const stt=(t.trainer_status||{})[tn];const bg=stt==="ja"?"#16a34a":stt==="unsicher"?"#ca8a04":stt==="nein"?"#dc2626":"var(--surface2)";const col=stt?"#fff":"var(--text2)";const mk=stt==="ja"?" ✓":stt==="unsicher"?" 🤔":stt==="nein"?" ✕":"";return `<button onclick="tmTrainerToggle(${Number(t.id)},'${tn.replace(/'/g,"")}')" title="Tippen wechselt: dabei → unsicher → nicht dabei → offen" style="border:var(--border-s);border-radius:12px;padding:2px 8px;font-size:10.5px;font-weight:700;background:${bg};color:${col};cursor:pointer;font-family:inherit">${esc(tn)}${mk}</button>`;}).join("")}
     </div>`:""}
     ${notizClean?`<div style="font-size:11px;color:var(--text3)">${esc(notizClean)}</div>`:""}
     ${istSpiel?`<div style="display:flex;align-items:center;gap:6px;margin:6px 0"><span style="font-size:11px;color:var(--text2)">Ergebnis:</span><input type="text" value="${esc(t.ergebnis||"")}" placeholder="z. B. 3:2" onchange="tmSetResult(${Number(t.id)},this.value)" style="width:90px;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:12px;font-family:inherit"></div>`:""}
@@ -661,20 +661,6 @@ async function tmEditSave(id){
     if(r.ok){toast("Termin aktualisiert ✓");terminIdCacheClear();document.getElementById("tm-edit-modal")?.remove();tmLoad();}
     else toast("Speichern fehlgeschlagen","err");
   }catch(e){toast("Netzwerkfehler","err");}
-}
-/* Wer erscheint in der „Trainer dabei?"-Reihe eines Termins?
-   TRAINER ist die Liste derer, die MITTRAINIEREN – sie steuert Trainingsplan, Anwesenheit,
-   Sprachlob-Rotation und die Sammelkarten in der Kabine. Zum Trainerstab gehören aber auch
-   Leute ohne Trainingsdienst (Betreuer mit vollem Zugriff). Die werden auf der Startseite
-   nach ihrer Verfügbarkeit gefragt – die Rückfrage hängt am Anzeigenamen aus profiles,
-   nicht an dieser Liste. Ohne die Ergänzung hier verschwand ihre Antwort spurlos: gespeichert,
-   aber nirgends sichtbar und für die Kollegen nicht umstellbar.
-   Deshalb: TRAINER plus jeder, der zu diesem Termin bereits geantwortet hat. Selbstheilend –
-   ein neuer Betreuer taucht auf, sobald er einmal antwortet, ohne Namen im Quelltext. */
-function tmTrainerNamen(t){
-  const basis=(typeof TRAINER!=="undefined"&&Array.isArray(TRAINER))?TRAINER.slice():[];
-  const weitere=Object.keys(t&&t.trainer_status||{}).filter(n=>n&&basis.indexOf(n)<0).sort();
-  return basis.concat(weitere);
 }
 // Trainer-Verfügbarkeit am Termin togglen: neutral → dabei (ja) → nicht (nein) → neutral.
 async function tmTrainerToggle(id,name){

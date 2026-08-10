@@ -1471,8 +1471,9 @@ const KADER=[
   {name:"Fabio",  tw:false, twPrio:0, nr:2}
 ];
 
-// D2: Trainerliste zentral – speist Select + beide Checkbox-Leisten (Finn neu)
-const TRAINER=["Sandy","Charles","Finn","Kenneth","Peter"];
+// D2: Trainerliste speist Select + beide Checkbox-Leisten.
+// TRAINER steht seit v386 in data.js (Welle 1) – hier NICHT erneut definieren,
+// ein globaler Name darf nicht in beiden Wellen leben.
 function renderTrainerUI(){
   const sel=document.getElementById("p-trainer");
   if(typeof trainerMe==="function")trainerMe().then(me=>{if(me&&sel&&[...sel.options].some(o=>o.value===me))sel.value=me;}).catch(()=>{}); // eingeloggter Trainer als Default (war: immer der erste)

@@ -1390,7 +1390,7 @@ function _zertCardHtml(name,extra){
         ${extra.federn!=null?`<div class="zb">Federn gesammelt<b>🪶 ${extra.federn}</b></div>`:""}
       </div>`}
       <div class="zert-sign">
-        <div>Trainerteam<br>${(typeof TRAINER!=="undefined"?TRAINER:["Sandy","Charles","Finn","Kenneth","Peter"]).join(" · ")}</div>
+        <div>Trainerteam<br>${((typeof TRAINER!=="undefined"&&TRAINER)||[]).join(" · ")}</div>
         <div>Dellbrück, ${new Date().toLocaleDateString("de-DE",{day:"2-digit",month:"long",year:"numeric"})}</div>
       </div>
     </div>`;
@@ -3989,7 +3989,7 @@ function heftBuildHtml(cfg,opts){
     <div class="heft-grid">${cards}</div>
     ${repHtml}
     ${komm}
-    <div class="heft-foot">Auf geht's, Adler! 🦅 · Trainerteam ${(typeof TRAINER!=="undefined"?TRAINER:["Sandy","Charles","Finn","Kenneth","Peter"]).join(" · ")}</div>
+    <div class="heft-foot">Auf geht's, Adler! 🦅 · Trainerteam ${((typeof TRAINER!=="undefined"&&TRAINER)||[]).join(" · ")}</div>
   </div>`;
 }
 async function stadionheftOpen(){
