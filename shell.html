@@ -39,17 +39,21 @@
   </div>
 </div>
 
-<nav id="main-nav" role="navigation" aria-label="Hauptbereiche" style="position:fixed;left:0;right:0;bottom:0;z-index:50;display:grid;grid-template-columns:repeat(6,1fr);gap:2px;background:#fff;padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-top:1px solid #e2e8f0;box-shadow:0 -2px 12px rgba(0,0,0,.08)">
-  <!-- Reihenfolge ab v381 = Reihenfolge der Startseiten-Kacheln (Training, Spieltag, Team,
-       Taktik, Orga), mit Home davor. „Eltern & Kinder" hat bewusst KEINEN Platz hier –
-       sechs Plätze, sieben Ziele; der Bereich bleibt über seine Kachel erreichbar.
-       Wer eine Kachel ergänzt, muss hier nicht zwingend mitziehen, aber die Reihenfolge
-       der vorhandenen Einträge muss zur Startseite passen. -->
+<nav id="main-nav" role="navigation" aria-label="Hauptbereiche">
+  <!-- Reihenfolge = Reihenfolge der Startseiten-Kacheln, mit Home davor. Ab v382 sind ALLE
+       sechs Bereiche vertreten (PO: „Taktik brauch ich in der App", also kein Tausch) –
+       daher sieben Plätze. Auf Handys sind die Beschriftungen ohnehin ausgeblendet
+       (@media max-width:680px), es zählen die Icons.
+       „Eltern & Kinder" ist KEIN Reiter (kein TABS-Eintrag), sondern nur eine Kachel –
+       der Knopf ruft deshalb kachelOpen statt openTab, und die Leiste markiert ihn nicht
+       als aktiv: das Kachel-Menü liegt als Fenster über dem bisherigen Bereich.
+       Wer eine Kachel ergänzt, zieht hier mit. -->
   <button class="nb active" id="nb-home" aria-label="Startseite" onclick="openTab('home')"><i class="ti ti-home"></i><span>Home</span></button>
   <button class="nb" id="nb-training" aria-label="Training" onclick="openTab('training')"><i class="ti ti-run"></i><span>Training</span></button>
   <button class="nb" id="nb-spieltag" aria-label="Spieltag" onclick="openTab('spieltag')"><i class="ti ti-ball-football"></i><span>Spieltag</span></button>
   <button class="nb" id="nb-team" aria-label="Team" onclick="openTab('team')"><i class="ti ti-users"></i><span>Team</span></button>
   <button class="nb" id="nb-taktik" aria-label="Taktik" onclick="openTab('taktik')"><i class="ti ti-target-arrow"></i><span>Taktik</span></button>
+  <button class="nb" id="nb-elki" aria-label="Eltern und Kinder" onclick="kachelOpen('elki')"><i class="ti ti-users-group"></i><span>Eltern</span></button>
   <button class="nb" id="nb-orga" aria-label="Orga" onclick="openTab('orga')"><i class="ti ti-calendar"></i><span>Orga</span></button>
 </nav>
 
