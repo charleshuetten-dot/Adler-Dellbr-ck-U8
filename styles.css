@@ -1,6 +1,10 @@
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --blue:#1a56db;--blue-bg:#eff6ff;--blue-dark:#1447b8;
+  /* --blue trägt weiße Schrift auf Flächen (.btn-p, .nb.active, .logo-badge) und darf
+     im dunklen Modus deshalb NICHT aufgehellt werden. Für Blau als Schriftfarbe gibt es
+     diesen Zweitnamen – hell identisch, dunkel aufgehellt. */
+  --blue-text:var(--blue);
   --club-accent:var(--blue); /* L7: Charles kann hier später Vereinsfarbe eintragen */
   --green:#15803d;--green-bg:#f0fdf4;
   --amber:#b45309;--amber-bg:#fffbeb;
@@ -33,6 +37,12 @@
   --bg:#0f172a;--surface:#1e293b;--surface2:#152033;
   --border:1px solid #334155;--border-s:1px solid #475569;
   --blue-bg:#172554;--green-bg:#052e1a;--amber-bg:#3a2a08;--red-bg:#3a1010;--purple-bg:#241247;--yellow-bg:#332905;--teal-bg:#082f36;--orange-bg:#3a1e08;
+  /* Die Statusfarben selbst waren im dunklen Modus nie angepasst – nur ihre hellen
+     Flächen. Als Schrift auf dunklem Grund kamen sie auf 2,3–3,0:1, also unlesbar.
+     Diese Töne halten mindestens 4,5:1 auf --surface UND auf --bg (nachgerechnet:
+     Rot 5,29/6,45 · Grün 8,40/10,25 · Bernstein 8,76/10,69 · Blau 5,75/7,02).
+     --blue selbst bleibt unverändert: es ist Fläche unter weißer Schrift. */
+  --red:#f87171;--green:#4ade80;--amber:#fbbf24;--blue-text:#60a5fa;
   --shadow:0 1px 3px rgba(0,0,0,.4);--shadow-md:0 4px 14px rgba(0,0,0,.5);
 }}
 :root[data-theme="dark"]{
@@ -40,6 +50,12 @@
   --bg:#0f172a;--surface:#1e293b;--surface2:#152033;
   --border:1px solid #334155;--border-s:1px solid #475569;
   --blue-bg:#172554;--green-bg:#052e1a;--amber-bg:#3a2a08;--red-bg:#3a1010;--purple-bg:#241247;--yellow-bg:#332905;--teal-bg:#082f36;--orange-bg:#3a1e08;
+  /* Die Statusfarben selbst waren im dunklen Modus nie angepasst – nur ihre hellen
+     Flächen. Als Schrift auf dunklem Grund kamen sie auf 2,3–3,0:1, also unlesbar.
+     Diese Töne halten mindestens 4,5:1 auf --surface UND auf --bg (nachgerechnet:
+     Rot 5,29/6,45 · Grün 8,40/10,25 · Bernstein 8,76/10,69 · Blau 5,75/7,02).
+     --blue selbst bleibt unverändert: es ist Fläche unter weißer Schrift. */
+  --red:#f87171;--green:#4ade80;--amber:#fbbf24;--blue-text:#60a5fa;
   --shadow:0 1px 3px rgba(0,0,0,.4);--shadow-md:0 4px 14px rgba(0,0,0,.5);
 }
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
