@@ -2200,6 +2200,19 @@ function _tpPickItems(){
     return f?{i,f,label:o.textContent}:null;
   }).filter(Boolean);
 }
+/* Der Picker zeigt immer nur die Übungen, die zum Typ des Zeitplan-Blocks passen
+   (tpFilteredOpts). Die Überschrift sagte trotzdem „Alle Übungen (65)" – als wäre das
+   der ganze Bestand. Tatsächlich sind aus dem Hauptteil 45 Übungen ausgeblendet
+   (Aufwärmen, Torwart, Einzeltraining). Der PO hat deshalb nachgefragt, wo die
+   Torwart- und Einzeltraining-Übungen sind. Jetzt nennt die Überschrift den Block,
+   und ein Hinweis sagt, wie viele woanders liegen und wie man dorthin kommt. */
+const TP_PICK_TITEL={main:"Übungen für den Hauptteil",warmup:"Aufwärm-Übungen",tw:"Torwart-Übungen",individual:"Übungen fürs Einzeltraining",abschluss:"Übungen für den Abschluss"};
+const TP_PICK_ANDERE={main:"Aufwärmen, Torwart, Einzeltraining",warmup:"Hauptteil, Torwart, Einzeltraining",tw:"Hauptteil, Aufwärmen, Einzeltraining",individual:"Hauptteil, Aufwärmen, Torwart"};
+function _tpPickTyp(){
+  const m=/^tp-form-(\d+)-/.exec(_tpPick.selId||"");
+  const slot=(m&&typeof tpSlots!=="undefined")?tpSlots[Number(m[1])]:null;
+  return slot?(slot.typ||"main"):"main";
+}
 function tpPickerRender(){
   const alle=_tpPickItems();
   // Gruppen-Kacheln nur zeigen, wenn die Liste gemischt ist (Aufwärmen/Torwart sind eh vorgefiltert)
@@ -2223,7 +2236,11 @@ function tpPickerRender(){
   if(!q&&!_tpPick.gruppe&&!_tpPick.stern){
     const zuletzt=alle.map(x=>({...x,d:tpLastUsedDays(x.i)})).filter(x=>x.d!==null&&x.d<28).sort((a,b)=>a.d-b.d).slice(0,4);
     if(zuletzt.length)html+=`<div style="font-size:12px;font-weight:800;color:var(--text2);margin:2px 0 6px">🕘 Zuletzt genutzt</div>`+zuletzt.map(_tpPickKarte).join("");
-    html+=`<div style="font-size:12px;font-weight:800;color:var(--text2);margin:10px 0 6px">Alle Übungen (${items.length})</div>`;
+    const typ=_tpPickTyp();
+    const versteckt=Math.max(0,((typeof tpAllForms==="function"?tpAllForms():[]).length)-alle.length);
+    html+=`<div style="font-size:12px;font-weight:800;color:var(--text2);margin:10px 0 6px">${TP_PICK_TITEL[typ]||"Übungen"} (${items.length})</div>`;
+    if(versteckt&&TP_PICK_ANDERE[typ])
+      html+=`<div style="font-size:11.5px;color:var(--text3);line-height:1.5;margin:-2px 0 8px">Nur Übungen für diesen Block – die übrigen ${versteckt} liegen in anderen Blöcken (${TP_PICK_ANDERE[typ]}), anzulegen über „➕ Phase hinzufügen".</div>`;
   }else{
     html+=`<div style="font-size:12px;font-weight:800;color:var(--text2);margin:2px 0 6px">${items.length} Übung${items.length===1?"":"en"}</div>`;
   }
