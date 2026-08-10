@@ -184,7 +184,7 @@ function bewRundeBarRender(){
   const pos=BEW_RUNDE.idx+1, tot=BEW_RUNDE.queue.length, name=BEW_RUNDE.queue[BEW_RUNDE.idx];
   bar.innerHTML=`<div style="flex:1;min-width:150px;font-size:12.5px;font-weight:800;color:var(--club-accent)">📋 Runde · Spieler ${pos}/${tot}: ${esc(name)}</div>
     <button class="btn btn-sm" onclick="bewRundeSkip()">Überspringen ›</button>
-    <button class="btn btn-sm" onclick="bewRundeStop()" style="color:#dc2626">Beenden</button>`;
+    <button class="btn btn-sm" onclick="bewRundeStop()" style="color:var(--red)">Beenden</button>`;
 }
 
 /* ═══════════════════════════════════
@@ -404,7 +404,7 @@ function kaderEditRow(k,i){
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
       <span style="font-size:11px;color:var(--text2)">Foto (Karte):</span>
       <input type="file" accept="image/jpeg,image/png,image/webp" onchange="kaderRowFoto(this)" style="font-size:11px;flex:1">
-      ${k.foto_path?'<span style="font-size:10px;color:#059669">✓ vorhanden</span>':''}
+      ${k.foto_path?'<span style="font-size:10px;color:var(--green)">✓ vorhanden</span>':''}
     </div>
     <label style="display:flex;align-items:flex-start;gap:6px;margin-bottom:6px;font-size:11px;color:var(--text2)" title="Nur mit ausdrücklicher Eltern-Zustimmung. Ohne Häkchen erscheinen überall nur die Initialen.">
       <input class="ke-fotook" type="checkbox" ${k.foto_stadionheft_ok?"checked":""} style="margin-top:1px">
@@ -640,7 +640,7 @@ async function wochenChallengeOpen(){
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const card=document.createElement("div");
   card.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  card.innerHTML=`${mdlHead("wc-modal","🏆","Wochen-Challenge","Heim-Aufgabe der Woche · geschafft = 🪶 20 Federn","#d97706")}
+  card.innerHTML=`${mdlHead("wc-modal","🏆","Wochen-Challenge","Heim-Aufgabe der Woche · geschafft = 🪶 20 Federn","var(--amber)")}
     <textarea id="wc-input" rows="3" placeholder="z. B. „Diese Woche: 50 Ballkontakte im Garten – jeden Tag ein bisschen!&quot;" style="width:100%;padding:9px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box;resize:vertical">${esc(cur)}</textarea>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
       <button class="btn btn-p" onclick="wochenChallengeSave()"><i class="ti ti-trophy"></i>Challenge aktiv setzen</button>
@@ -705,7 +705,7 @@ async function zieleOpen(spielerId){
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const card=document.createElement("div");
   card.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  card.innerHTML=`${mdlHead("ziele-modal","🎯","Entwicklungs-Ziele",`${esc(k?.name||"Spieler")} · 1–2 Förderziele für die Saison`,"#d97706")}
+  card.innerHTML=`${mdlHead("ziele-modal","🎯","Entwicklungs-Ziele",`${esc(k?.name||"Spieler")} · 1–2 Förderziele für die Saison`,"var(--amber)")}
     <div id="ziele-list" style="margin-bottom:12px"><div style="color:var(--text3);font-size:12px">Lade…</div></div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Vorlage antippen (verknüpft passende Übungen) – oder unten frei formulieren:</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${ZIEL_VORLAGEN.map((v,i)=>`<button onclick="zieleAddVorlage(${spielerId},${i})" style="padding:6px 10px;border:1.5px solid #c7d2fe;border-radius:16px;background:#eef2ff;color:#3730a3;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer">🎯 ${esc(v.ziel)}</button>`).join("")}</div>
@@ -734,14 +734,14 @@ async function zieleRender(spielerId){
       const last=snaps[snaps.length-1];
       if(base&&last&&last!==base&&last.total_score!=null&&base.total_score!=null){
         const d=last.total_score-base.total_score;
-        trend=`<span style="color:${d>0?"#16a34a":d<0?"#dc2626":"var(--text3)"};font-weight:700">Gesamt ${base.total_score}% → ${last.total_score}% ${d>0?"↗":d<0?"↘":"→"}</span>`;
+        trend=`<span style="color:${d>0?"var(--green)":d<0?"var(--red)":"var(--text3)"};font-weight:700">Gesamt ${base.total_score}% → ${last.total_score}% ${d>0?"↗":d<0?"↘":"→"}</span>`;
       }
     }
     return `<div style="padding:8px 0;border-bottom:1px solid var(--surface2)">
       <div style="display:flex;align-items:flex-start;gap:8px">
         <button onclick="zieleToggle(${z.id},'${done?'offen':'erreicht'}',${spielerId})" title="${done?'wieder offen':'als erreicht markieren'}" style="border:none;background:transparent;cursor:pointer;font-size:18px;line-height:1;padding:0">${done?'✅':'⬜'}</button>
         <span style="flex:1;font-size:13px;${done?'text-decoration:line-through;color:var(--text3)':''}">${esc(z.ziel)}</span>
-        <button onclick="zieleDelete(${z.id},${spielerId})" title="löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:13px;padding:2px 4px"><i class="ti ti-trash"></i></button>
+        <button onclick="zieleDelete(${z.id},${spielerId})" title="löschen" style="border:none;background:transparent;color:var(--red);cursor:pointer;font-size:13px;padding:2px 4px"><i class="ti ti-trash"></i></button>
       </div>
       ${(!done&&ex.length)?`<div style="font-size:11px;color:var(--text2);margin:2px 0 0 26px">🏃 Passende Übungen: ${ex.map(esc).join(" · ")}</div>`:""}
       ${trend?`<div style="font-size:11px;margin:3px 0 0 26px">📈 ${trend} <span style="color:var(--text3)">seit Zielsetzung</span></div>`:""}
@@ -859,7 +859,7 @@ async function setupTrainerOpen(){
     <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Offen: 📸 ${missIntern} ohne interne Foto-Freigabe · 🚑 ${missNf} ohne Notfallkarte. Foto-Spalten: 🖼️ intern · 🎥 Video · 🌍 öffentlich.</div>
     <div style="display:grid;grid-template-columns:1fr 34px 34px 34px 34px;gap:2px;font-size:10px;font-weight:700;color:var(--text2);padding:0 4px 4px"><div>Kind</div><div style="text-align:center" title="app-intern">🖼️</div><div style="text-align:center" title="Trainingsvideo">🎥</div><div style="text-align:center" title="öffentlich">🌍</div><div style="text-align:center" title="Notfallkarte">🚑</div></div>
     ${rows.map(r=>`<div style="display:grid;grid-template-columns:1fr 34px 34px 34px 34px;gap:2px;align-items:center;padding:5px 4px;border-top:var(--border);font-size:13px"><div>${esc(r.name)}</div><div style="text-align:center">${cell(r.intern)}</div><div style="text-align:center">${cell(r.video)}</div><div style="text-align:center">${cell(r.pub)}</div><div style="text-align:center">${cell(r.nf)}</div></div>`).join("")}
-    ${(missIntern||missNf)?`<button class="btn btn-sm btn-p" style="width:100%;margin-top:12px" onclick="setupRemindPush()"><i class="ti ti-bell"></i>Eltern per Push erinnern</button>`:'<div style="text-align:center;color:#16a34a;font-size:13px;font-weight:700;margin-top:12px">Alles eingerichtet 🎉</div>'}
+    ${(missIntern||missNf)?`<button class="btn btn-sm btn-p" style="width:100%;margin-top:12px" onclick="setupRemindPush()"><i class="ti ti-bell"></i>Eltern per Push erinnern</button>`:'<div style="text-align:center;color:var(--green);font-size:13px;font-weight:700;margin-top:12px">Alles eingerichtet 🎉</div>'}
     ${typeof fotoAmpelOpen==="function"?`<button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="fotoAmpelOpen()">🚦 Foto-Ampel &amp; Einwilligungstext</button>`:""}
     <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('setup-modal').remove()">Schließen</button>`;
   modal.appendChild(c); document.body.appendChild(modal);
@@ -884,9 +884,9 @@ async function pausenOpen(){
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   c.innerHTML=`
-    ${mdlHead("pause-modal","⏸","Pausen & Wiedereinstieg","","#d97706")}
+    ${mdlHead("pause-modal","⏸","Pausen & Wiedereinstieg","","var(--amber)")}
     <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Pausierte Kinder sind bei Prognose, Nominierung und Buddy-Auslosung automatisch raus – bis zum Datum. Grund optional, keine Diagnosen.</div>
-    ${paused.length?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin:4px 0 2px">Aktuell pausiert</div>${paused.map(k=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:var(--border)"><span style="flex:1;font-size:13px">${esc(k.name)} <span style="color:#b45309;font-weight:700">· bis ${pauseBisLabel(k.name)}</span>${PAUSE_MAP[k.name].grund?`<span style="color:var(--text3);font-size:11px"> · ${esc(PAUSE_MAP[k.name].grund)}</span>`:""}</span><button class="btn btn-sm" title="Genesungsgrüße vom Team erlauben/stoppen (Familie vorher fragen)" onclick="pauseGruesse(${k._id},${PAUSE_MAP[k.name].gruesse_ok?"false":"true"})">${PAUSE_MAP[k.name].gruesse_ok?"💌 an":"💌 aus"}</button><button class="btn btn-sm" onclick="pauseEnd(${k._id})">Beenden</button></div>`).join("")}`:'<div style="font-size:12.5px;color:var(--text3);padding:4px 0">Aktuell pausiert niemand.</div>'}
+    ${paused.length?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin:4px 0 2px">Aktuell pausiert</div>${paused.map(k=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:var(--border)"><span style="flex:1;font-size:13px">${esc(k.name)} <span style="color:var(--amber);font-weight:700">· bis ${pauseBisLabel(k.name)}</span>${PAUSE_MAP[k.name].grund?`<span style="color:var(--text3);font-size:11px"> · ${esc(PAUSE_MAP[k.name].grund)}</span>`:""}</span><button class="btn btn-sm" title="Genesungsgrüße vom Team erlauben/stoppen (Familie vorher fragen)" onclick="pauseGruesse(${k._id},${PAUSE_MAP[k.name].gruesse_ok?"false":"true"})">${PAUSE_MAP[k.name].gruesse_ok?"💌 an":"💌 aus"}</button><button class="btn btn-sm" onclick="pauseEnd(${k._id})">Beenden</button></div>`).join("")}`:'<div style="font-size:12.5px;color:var(--text3);padding:4px 0">Aktuell pausiert niemand.</div>'}
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin:14px 0 4px">Kind pausieren</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <select id="pause-kid" style="flex:1;min-width:120px;min-height:40px;padding:6px 8px;border:var(--border-s);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">${frei.map(k=>`<option value="${k._id}">${esc(k.name)}</option>`).join("")}</select>
@@ -942,10 +942,10 @@ async function notfallTrainerOpen(){
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:520px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  const tel=v=>{const num=String(v).replace(/[^\d+]/g,"");return num?`<a href="tel:${num}" style="color:#dc2626;font-weight:700;text-decoration:none">${esc(v)}</a>`:esc(v);};
+  const tel=v=>{const num=String(v).replace(/[^\d+]/g,"");return num?`<a href="tel:${num}" style="color:var(--red);font-weight:700;text-decoration:none">${esc(v)}</a>`:esc(v);};
   c.innerHTML=`
-    ${mdlHead("nf-tr-modal","🚑","Notfallkarten",`Von den Eltern gepflegt · schreibgeschützt${offline?' · <b style="color:#b45309">📴 Offline-Stand</b>':""} · vertraulich`,"#dc2626")}
-    ${cards.length?cards.map(x=>`<div style="border:var(--border-s);border-left:3px solid #dc2626;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+    ${mdlHead("nf-tr-modal","🚑","Notfallkarten",`Von den Eltern gepflegt · schreibgeschützt${offline?' · <b style="color:var(--amber)">📴 Offline-Stand</b>':""} · vertraulich`,"var(--red)")}
+    ${cards.length?cards.map(x=>`<div style="border:var(--border-s);border-left:3px solid var(--red);border-radius:10px;padding:10px 12px;margin-bottom:8px">
         <div style="font-weight:800;font-size:14px;margin-bottom:4px">${esc(nameById[x.spieler_id]||("Kind #"+x.spieler_id))}</div>
         ${flds.filter(f=>x[f[0]]).map(f=>`<div style="font-size:12.5px;padding:2px 0"><span style="color:var(--text2)">${f[1]}:</span> ${f[0]==="notfall_tel"?tel(x[f[0]]):esc(x[f[0]])}</div>`).join("")}
       </div>`).join(""):'<div style="text-align:center;color:var(--text3);font-size:13px;padding:24px">Noch keine Notfallkarten hinterlegt.<br>Die Eltern füllen sie im Eltern-Bereich (🚑 Notfallkarte).</div>'}
@@ -962,7 +962,7 @@ function renderKader(){
     return lat.position===activeFilter;
   });
   if(!filtered.length){wrap.innerHTML='<div class="empty"><i class="ti ti-filter"></i>Kein Spieler für diesen Filter</div>';renderRauteMap(names);return;}
-  const dimCols=["#1a56db","#7c3aed","#d97706","#059669","#0e7490"];
+  const dimCols=["var(--blue)","#7c3aed","var(--amber)","var(--green)","#0e7490"];
   // Kader-Werkzeuge als einheitliche Kachel-Reihe (Design-Sprache), nicht mehr rechtsbündig verstreut.
   const kTool=(label,fn,title)=>`<button onclick="${fn}" title="${title}" style="flex:1 1 calc(33.3% - 6px);min-width:120px;min-height:46px;border:var(--border-s);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text);background:var(--surface);padding:0 10px">${label}</button>`;
   let html=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
@@ -982,7 +982,7 @@ function renderKader(){
     const mini=val=>{let s='<div class="sm">';for(let i=0;i<5;i++)s+=`<div class="sm-s${val>=(i+1)*20?" on":""}"></div>`;return s+'</div>';};
     const snBadge=DB[name].length>1?`<span title="${DB[name].length} Bewertungen – mehr = verlässlicher" style="font-size:9px;color:var(--teal);font-weight:600;margin-left:4px">×${DB[name].length}</span>`:"";
     const _tr=(typeof playerTrend==="function")?playerTrend(name):{delta:0,conf:0};
-    const trArrow=_tr.delta>2?`<span title="verbessert (+${_tr.delta}%)" style="color:#16a34a;font-size:12px;font-weight:800"> ↗</span>`:_tr.delta<-2?`<span title="gefallen (${_tr.delta}%)" style="color:#dc2626;font-size:12px;font-weight:800"> ↘</span>`:_tr.conf>=2?`<span title="stabil" style="color:var(--text3);font-size:12px"> →</span>`:"";
+    const trArrow=_tr.delta>2?`<span title="verbessert (+${_tr.delta}%)" style="color:var(--green);font-size:12px;font-weight:800"> ↗</span>`:_tr.delta<-2?`<span title="gefallen (${_tr.delta}%)" style="color:var(--red);font-size:12px;font-weight:800"> ↘</span>`:_tr.conf>=2?`<span title="stabil" style="color:var(--text3);font-size:12px"> →</span>`:"";
     const _hist=(DB[name]||[]).map(s=>s.total_score||0);
     const _spark=(typeof sparklineSVG==="function")?sparklineSVG(_hist):"";
     html+=`<tr>
@@ -1017,7 +1017,7 @@ function renderRauteMap(names){
     if(isTw){twList.push(n);}
     else{(posMap[p]||posMap.flex).push(n);}
   });
-  const cfg={aufpasser:{label:"Aufpasser",col:"#1a56db",bg:"#e8f0fe"},flitzer_l:{label:"Flitzer L",col:"#b45309",bg:"#fffbeb"},flitzer_r:{label:"Flitzer R",col:"#15803d",bg:"#f0fdf4"},jaeger:{label:"Jäger",col:"#c2410c",bg:"#fff7ed"}};
+  const cfg={aufpasser:{label:"Aufpasser",col:"var(--blue)",bg:"#e8f0fe"},flitzer_l:{label:"Flitzer L",col:"var(--amber)",bg:"#fffbeb"},flitzer_r:{label:"Flitzer R",col:"#15803d",bg:"#f0fdf4"},jaeger:{label:"Jäger",col:"#c2410c",bg:"#fff7ed"}};
   let html="";
   // TW row - show priority
   const tw1=twList.filter(n=>{const k=getKader(n);return k&&k.twPrio===1;});
@@ -1134,7 +1134,7 @@ function renderProfil(){
       </div>
       <div style="text-align:right">
         <div style="font-size:10px;color:var(--text2)">Entwicklungsstand</div>
-        <div style="font-size:26px;font-weight:700;color:var(--blue)">${tot}%</div>
+        <div style="font-size:26px;font-weight:700;color:var(--blue-text)">${tot}%</div>
         <div style="font-size:10.5px;color:var(--teal);font-weight:500">Entwicklungstempo ~${pot}%</div>
         ${typeof raeInfo==="function"&&raeInfo(getKader(name)?.geb)?`<div style="font-size:9.5px;color:var(--text3);max-width:150px;margin-top:2px">${raeInfo(getKader(name)?.geb)}</div>`:""}
       </div>
@@ -1157,7 +1157,7 @@ function renderProfil(){
     ${st.length>0||ef.length>0?`<div class="massnahmen-box">
       <div class="mb-title"><i class="ti ti-list-check" style="font-size:14px"></i>Konkrete Maßnahmen & Erkenntnisse</div>
       ${st.slice(0,5).map(s=>`<div class="mb-item"><div class="mb-icon" style="background:#dcfce7"><i class="ti ti-plus" style="font-size:11px;color:#15803d"></i></div><div class="mb-text">${esc(s)}</div></div>`).join("")}
-      ${ef.slice(0,5).map(e=>`<div class="mb-item"><div class="mb-icon" style="background:#fee2e2"><i class="ti ti-arrow-right" style="font-size:11px;color:#b91c1c"></i></div><div class="mb-text">${esc(e)}</div></div>`).join("")}
+      ${ef.slice(0,5).map(e=>`<div class="mb-item"><div class="mb-icon" style="background:#fee2e2"><i class="ti ti-arrow-right" style="font-size:11px;color:var(--red)"></i></div><div class="mb-text">${esc(e)}</div></div>`).join("")}
     </div>`:""}
 
     <div id="profil-selbstbild"></div>
@@ -1415,7 +1415,7 @@ async function urkundenOpen(){
   m.onclick=e=>{if(e.target===m)m.remove();};
   const fld="width:100%;box-sizing:border-box;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13.5px;background:var(--surface2);color:var(--text);margin-top:6px";
   m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
-    ${mdlHead("urk-modal","🏅","Urkunden-Studio","Saison-Urkunden für alle – oder eine Urkunde zum Anlass","#b45309")}
+    ${mdlHead("urk-modal","🏅","Urkunden-Studio","Saison-Urkunden für alle – oder eine Urkunde zum Anlass","var(--amber)")}
     <div style="font-weight:800;font-size:13px;margin-bottom:4px">Saison-Urkunden (alle Kinder)</div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Je Kind eine A4-Seite: Stärken aus der Bewertung, Rolle, Federn und Unterschriften-Zeile – fertig fürs Saisonabschluss-Fest.</div>
     <button class="btn btn-p" style="width:100%" onclick="urkundenAlle(this)"><i class="ti ti-printer"></i>Alle ${active.length} Urkunden drucken</button>
@@ -1489,7 +1489,7 @@ async function entwicklungsReport(){
   const fazit=(lat.fazit||"").trim();
   document.getElementById("zert-print").innerHTML=`
     <div style="max-width:720px;margin:0 auto;padding:24px;font-family:Inter,system-ui,sans-serif;color:#1a1a2e">
-      <div style="display:flex;align-items:center;gap:12px;border-bottom:2px solid #1a56db;padding-bottom:10px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--blue);padding-bottom:10px;margin-bottom:14px">
         <img src="logo.png" alt="" style="width:48px;height:48px;object-fit:contain">
         <div><div style="font-size:12px;color:#64748b">SV Adler Dellbrück e.V. · U9</div>
         <div style="font-size:20px;font-weight:800">Entwicklungsbericht</div></div>
@@ -1501,8 +1501,8 @@ async function entwicklungsReport(){
       <div style="display:flex;gap:14px;margin-bottom:14px">
         <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px">
           <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Entwicklungsstand</div>
-          <div style="font-size:24px;font-weight:800;color:#1a56db">${lat.total_score||0}%</div>
-          <div style="font-size:12px;font-weight:700;color:${tr.delta>0?'#16a34a':tr.delta<0?'#dc2626':'#64748b'}">${arrow}</div>
+          <div style="font-size:24px;font-weight:800;color:var(--blue-text)">${lat.total_score||0}%</div>
+          <div style="font-size:12px;font-weight:700;color:${tr.delta>0?'var(--green)':tr.delta<0?'var(--red)':'#64748b'}">${arrow}</div>
         </div>
         <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px">
           <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Anwesenheit</div>
@@ -2022,8 +2022,8 @@ function renderVerlauf(){
         <span style="font-weight:600;font-size:13px">${esc(s.datum||'–')}</span>
         <span class="rbadge ${bMap[s.position]||'rb-flex'}">${esc(s.prim_rolle||s.position||'–')}</span>
         <span style="font-size:10.5px;color:var(--text2)">${esc(s.trainer||'')}</span>
-        <span style="font-size:14px;font-weight:700;color:var(--blue)">${s.total_score||0}%</span>
-        <button data-del-snap data-name="${esc(name)}" data-datum="${esc(s.datum||'')}" data-id="${esc(s.id||'')}" style="padding:3px 8px;font-size:10px;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-family:inherit">Löschen</button>
+        <span style="font-size:14px;font-weight:700;color:var(--blue-text)">${s.total_score||0}%</span>
+        <button data-del-snap data-name="${esc(name)}" data-datum="${esc(s.datum||'')}" data-id="${esc(s.id||'')}" style="padding:3px 8px;font-size:10px;background:#fef2f2;color:var(--red);border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-family:inherit">Löschen</button>
       </div>
       <div class="hs">${dl.map((l,i)=>{const d=prev?(sc[i]||0)-(prev[i]||0):0;const ds=d>0?`<span class="dp"> +${d}</span>`:d<0?`<span class="dn"> ${d}</span>`:"";return`<span class="hp">${l}: ${sc[i]||0}%${ds}</span>`;}).join("")}</div>
     </div>`;
@@ -2233,11 +2233,11 @@ async function tpollRender(){
       const dstr=new Date(s.datum+"T00:00:00").toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"});
       const zstr=s.uhrzeit?" · "+String(s.uhrzeit).slice(0,5):"";
       const decided=p.decided_slot_id===s.id;
-      const voteBtns=["ja","vielleicht","nein"].map(st=>{const on=mine===st;const emo=st==="ja"?"✓":st==="vielleicht"?"?":"✗";const col=st==="ja"?"#16a34a":st==="vielleicht"?"#ca8a04":"#dc2626";
+      const voteBtns=["ja","vielleicht","nein"].map(st=>{const on=mine===st;const emo=st==="ja"?"✓":st==="vielleicht"?"?":"✗";const col=st==="ja"?"var(--green)":st==="vielleicht"?"#ca8a04":"var(--red)";
         return `<button onclick="tpollVote(${s.id},'${st}')" style="min-width:44px;min-height:44px;border-radius:8px;border:1.5px solid ${on?col:"#cbd5e1"};background:${on?col:"var(--surface)"};color:${on?"#fff":"var(--text2)"};cursor:pointer;font-weight:800">${emo}</button>`;}).join("");
-      return `<div style="border:var(--border-s);${decided?"border-color:#16a34a;background:#f0fdf4;color:#14532d;":""}border-radius:10px;padding:8px 10px;margin-top:6px">
+      return `<div style="border:var(--border-s);${decided?"border-color:var(--green);background:#f0fdf4;color:#14532d;":""}border-radius:10px;padding:8px 10px;margin-top:6px">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <div style="flex:1;min-width:110px;font-size:12.5px;font-weight:700">${dstr}${zstr}${decided?' <span style="color:#16a34a">✅ festgelegt</span>':""}</div>
+          <div style="flex:1;min-width:110px;font-size:12.5px;font-weight:700">${dstr}${zstr}${decided?' <span style="color:var(--green)">✅ festgelegt</span>':""}</div>
           <div style="display:flex;gap:4px">${voteBtns}</div>
         </div>
         <div style="font-size:10.5px;color:var(--text3);margin-top:4px">✓ ${ja} · ? ${viel} · ✗ ${nein}${p.status!=="entschieden"?` · <button onclick="tpollDecide(${p.id},${s.id})" style="border:none;background:none;color:#2563eb;font-weight:700;cursor:pointer;font-size:10.5px">diesen Termin festlegen</button>`:""}</div>
@@ -2245,8 +2245,8 @@ async function tpollRender(){
     }).join("");
     return `<div style="border:var(--border-s);border-radius:12px;padding:12px;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;font-weight:800;font-size:14px">🗓️ ${esc(p.titel)}</div>
-        <button onclick="tpollDelete(${p.id},'${jsq(p.titel)}')" aria-label="löschen" style="border:none;background:none;color:#dc2626;cursor:pointer;min-width:32px;min-height:32px"><i class="ti ti-trash"></i></button></div>
-      ${p.status==="entschieden"?'<div style="font-size:11px;color:#16a34a;font-weight:700">Termin steht ✓</div>':'<div style="font-size:11px;color:var(--text3)">Stimmt ab: ✓ passt · ? vielleicht · ✗ nicht</div>'}
+        <button onclick="tpollDelete(${p.id},'${jsq(p.titel)}')" aria-label="löschen" style="border:none;background:none;color:var(--red);cursor:pointer;min-width:32px;min-height:32px"><i class="ti ti-trash"></i></button></div>
+      ${p.status==="entschieden"?'<div style="font-size:11px;color:var(--green);font-weight:700">Termin steht ✓</div>':'<div style="font-size:11px;color:var(--text3)">Stimmt ab: ✓ passt · ? vielleicht · ✗ nicht</div>'}
       ${slotHtml||'<div style="font-size:11px;color:var(--text3)">Keine Termine.</div>'}
     </div>`;
   }).join("");
@@ -2331,16 +2331,16 @@ async function epollTrainerRender(prefillSpieler){
       const zstr=s.uhrzeit?" · "+String(s.uhrzeit).slice(0,5):"";
       const decided=p.decided_slot_id===s.id;
       const antwort=vs.length?`👍 ${ja} · 🤔 ${viel} · 👎 ${nein}`:'<span style="color:var(--text3)">noch keine Antwort</span>';
-      return `<div style="border:var(--border-s);${decided?"border-color:#16a34a;background:#f0fdf4;color:#14532d;":""}border-radius:10px;padding:8px 10px;margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <div style="flex:1;min-width:110px;font-size:12.5px;font-weight:700">${dstr}${zstr}${decided?' <span style="color:#16a34a">✅</span>':""}</div>
+      return `<div style="border:var(--border-s);${decided?"border-color:var(--green);background:#f0fdf4;color:#14532d;":""}border-radius:10px;padding:8px 10px;margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div style="flex:1;min-width:110px;font-size:12.5px;font-weight:700">${dstr}${zstr}${decided?' <span style="color:var(--green)">✅</span>':""}</div>
         <div style="font-size:11px;color:var(--text2)">${antwort}</div>
         ${p.status!=="entschieden"?`<button onclick="epollDecide(${p.id},${s.id})" class="btn btn-sm">festlegen</button>`:""}
       </div>`;
     }).join("");
     return `<div style="border:var(--border-s);border-radius:12px;padding:12px;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;font-weight:800;font-size:14px">🗓️ ${esc((p.kader&&p.kader.name)||"Familie")}${p.titel&&p.titel!=="Elterngespräch"?" · "+esc(p.titel):""}</div>
-        <button onclick="epollDelete(${p.id})" aria-label="löschen" style="border:none;background:none;color:#dc2626;cursor:pointer;min-width:32px;min-height:32px"><i class="ti ti-trash"></i></button></div>
-      ${p.status==="entschieden"?'<div style="font-size:11px;color:#16a34a;font-weight:700">Termin steht ✓</div>':'<div style="font-size:11px;color:var(--text3)">Warte auf die Rückmeldung der Eltern.</div>'}
+        <button onclick="epollDelete(${p.id})" aria-label="löschen" style="border:none;background:none;color:var(--red);cursor:pointer;min-width:32px;min-height:32px"><i class="ti ti-trash"></i></button></div>
+      ${p.status==="entschieden"?'<div style="font-size:11px;color:var(--green);font-weight:700">Termin steht ✓</div>':'<div style="font-size:11px;color:var(--text3)">Warte auf die Rückmeldung der Eltern.</div>'}
       ${slotHtml||'<div style="font-size:11px;color:var(--text3)">Keine Termine.</div>'}
     </div>`;
   }).join("");
@@ -2423,8 +2423,8 @@ async function homeRadarLoad(){
     <div style="font-size:10.5px;color:var(--text2);margin-bottom:8px">Zuletzt am wenigsten Spielzeit &amp; Aktionen – gib ihnen bewusst mehr Bühne.</div>
     ${top.map(s=>line(s.nr,s.name,`${s.min} Min · ${s.act} Aktionen`)).join("")}`:"";
   const absHtml=absent.length?`<div style="font-weight:700;margin:${top.length?"14px":"0"} 0 6px">📅 Zuletzt öfter gefehlt</div>
-    ${absent.slice(0,3).map(a=>line(a.nr,a.name,`${a.streak}× nicht da`,"#dc2626")).join("")}`:"";
-  box.innerHTML=`<div class="card" style="padding:14px;margin-bottom:10px;border-left:3px solid #dc2626">${playHtml}${absHtml}</div>`;
+    ${absent.slice(0,3).map(a=>line(a.nr,a.name,`${a.streak}× nicht da`,"var(--red)")).join("")}`:"";
+  box.innerHTML=`<div class="card" style="padding:14px;margin-bottom:10px;border-left:3px solid var(--red)">${playHtml}${absHtml}</div>`;
 }
 function onboardingDismiss(){ try{localStorage.setItem("adler_onboarded","1");}catch(e){} document.getElementById("onboard-card")?.remove(); }
 // Schnelle Einheit-Bewertung: 3 Stern-Kategorien (Spaß/Umsetzung/Erfolg) + Notiz, pro Datum.
@@ -2636,7 +2636,7 @@ async function anwesenheitQuoteInto(el){
   // Spiele/Turniere: nominierungen.data[name] = dabei/nicht/verletzt
   try{const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data&datum=gte.${ab}`,{headers:sbAuthHeaders()});if(r.ok){(await r.json()).forEach(row=>{const data=row.data||{};active.forEach(k=>{const s=data[k.name];if(s&&(s==="dabei"||s==="nicht"||s==="verletzt")){gm[k.name].t++;if(s==="dabei")gm[k.name].p++;}});});}}catch(e){}
   const pct=(o)=>o.t?Math.round(o.p/o.t*100):null;
-  const col=(p)=>p==null?"var(--text3)":p>=75?"#16a34a":p>=50?"#b45309":"#dc2626";
+  const col=(p)=>p==null?"var(--text3)":p>=75?"var(--green)":p>=50?"var(--amber)":"var(--red)";
   const cell=(o)=>{const p=pct(o);return `<span style="font-weight:700;color:${col(p)}">${p==null?"–":p+"%"}</span> <span style="color:var(--text3);font-size:10px">${o.t?`(${o.p}/${o.t})`:""}</span>`;};
   const rows=active.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(k=>`<tr style="border-top:var(--border)">
     <td style="padding:6px 8px;font-weight:600">${esc(k.name)}</td>
@@ -2750,7 +2750,7 @@ function saisonStartOpen(){
   m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
     ${mdlHead("sstart-modal","🌅","Saisonstart-Check",`Saison ${saisonLabel()} · ${n}/${SAISONSTART_STEPS.length} erledigt`,"#ea580c")}
     <div style="height:6px;background:var(--surface2);border-radius:4px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:${Math.round(n/SAISONSTART_STEPS.length*100)}%;background:linear-gradient(90deg,#ea580c,#f59e0b);transition:width .3s"></div></div>
-    ${SAISONSTART_STEPS.map(s=>`<div style="display:flex;align-items:center;gap:10px;border:var(--border-s);border-left:4px solid ${done[s.k]?"#16a34a":"#ea580c"};border-radius:12px;padding:10px 12px;margin-bottom:8px;${done[s.k]?"opacity:.65":""}">
+    ${SAISONSTART_STEPS.map(s=>`<div style="display:flex;align-items:center;gap:10px;border:var(--border-s);border-left:4px solid ${done[s.k]?"var(--green)":"#ea580c"};border-radius:12px;padding:10px 12px;margin-bottom:8px;${done[s.k]?"opacity:.65":""}">
       <button onclick="saisonStartToggle('${s.k}')" aria-label="abhaken" style="border:none;background:transparent;font-size:20px;cursor:pointer;min-width:44px;min-height:44px;margin:-6px 0 -6px -8px;flex:none">${done[s.k]?"✅":"⬜"}</button>
       <div style="flex:1;min-width:0">
         <div style="font-size:13.5px;font-weight:800;${done[s.k]?"text-decoration:line-through":""}">${s.emo} ${s.t}</div>
@@ -2758,7 +2758,7 @@ function saisonStartOpen(){
       </div>
       <button class="btn btn-sm" onclick="document.getElementById('sstart-modal').remove();${s.run}">Los</button>
     </div>`).join("")}
-    ${n===SAISONSTART_STEPS.length?'<div style="text-align:center;font-size:13.5px;font-weight:800;color:#16a34a;padding:6px">Alles erledigt – auf in die neue Saison! 🦅</div>':""}
+    ${n===SAISONSTART_STEPS.length?'<div style="text-align:center;font-size:13.5px;font-weight:800;color:var(--green);padding:6px">Alles erledigt – auf in die neue Saison! 🦅</div>':""}
   </div>`;
   document.body.appendChild(m);
 }
@@ -2811,7 +2811,7 @@ async function wahlListeLoad(){
         return `<div style="display:flex;align-items:center;gap:8px;margin-top:5px;font-size:12px"><span style="flex:1;min-width:0">${esc(String(o))}</span><span style="color:var(--text2)">${counts[i]}</span><span style="width:70px;height:6px;background:var(--surface2);border-radius:4px;overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:#0284c7"></span></span></div>`;}).join("")}
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn btn-sm" onclick="wahlToggle(${w.id},${w.aktiv?"false":"true"})">${w.aktiv?"Beenden":"Reaktivieren"}</button>
-        <button class="btn btn-sm" style="margin-left:auto;color:#dc2626" onclick="wahlDelete(${w.id})"><i class="ti ti-trash"></i></button>
+        <button class="btn btn-sm" style="margin-left:auto;color:var(--red)" onclick="wahlDelete(${w.id})"><i class="ti ti-trash"></i></button>
       </div>
     </div>`;}).join("");
 }
@@ -2886,7 +2886,7 @@ async function ansageListeLoad(){
       <div style="font-size:13px;line-height:1.45;white-space:pre-wrap">${esc(a.text)}</div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11.5px;color:var(--text2)">
         <span>${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}</span>
-        <span style="font-weight:800;color:${a.gelesen>=a.familien?"#059669":"#b45309"}">👁 Gelesen: ${a.gelesen}/${a.familien} Familien</span>
+        <span style="font-weight:800;color:${a.gelesen>=a.familien?"var(--green)":"var(--amber)"}">👁 Gelesen: ${a.gelesen}/${a.familien} Familien</span>
         <button onclick="ansageToggle(${a.id},${a.aktiv?"false":"true"})" style="margin-left:auto;min-height:32px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;cursor:pointer;text-decoration:underline">${a.aktiv?"Beenden":"Reaktivieren"}</button>
       </div>
       <div style="height:6px;background:var(--surface2);border-radius:4px;overflow:hidden;margin-top:6px"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#1e3a8a,#2563eb)"></div></div>
@@ -2948,7 +2948,7 @@ async function probeOpen(){
   document.body.appendChild(m);
   probeListeLoad();
 }
-const PROBE_STATUS={schnuppert:["🟡","schnuppert","#b45309"],aufnehmen:["✅","aufnehmen","#059669"],abgesagt:["❌","abgesagt","#dc2626"]};
+const PROBE_STATUS={schnuppert:["🟡","schnuppert","var(--amber)"],aufnehmen:["✅","aufnehmen","var(--green)"],abgesagt:["❌","abgesagt","var(--red)"]};
 async function probeListeLoad(){
   const el=document.getElementById("probe-liste"); if(!el)return;
   let rows=[];
@@ -2962,13 +2962,13 @@ async function probeListeLoad(){
         <span style="font-weight:800;font-size:14px;flex:1;min-width:0">${esc(p.name)}</span>
         <span style="font-size:11px;font-weight:800;color:${st[2]}">${st[0]} ${st[1]}${p.entschieden_am?" · "+new Date(p.entschieden_am+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"}):""}</span>
       </div>
-      ${p.kontakt?`<div style="font-size:12px;color:var(--text2);margin-top:2px">📞 ${tel?`<a href="tel:${esc(p.kontakt.replace(/[\s\/-]/g,""))}" style="color:var(--blue)">${esc(p.kontakt)}</a>`:esc(p.kontakt)}</div>`:""}
+      ${p.kontakt?`<div style="font-size:12px;color:var(--text2);margin-top:2px">📞 ${tel?`<a href="tel:${esc(p.kontakt.replace(/[\s\/-]/g,""))}" style="color:var(--blue-text)">${esc(p.kontakt)}</a>`:esc(p.kontakt)}</div>`:""}
       <div style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap">
         <span style="font-size:11.5px;color:var(--text2)">🏃 ${p.trainings} Training${p.trainings===1?"":"s"}</span>
         ${p.status==="schnuppert"?`
           <button class="btn btn-sm" onclick="probeTraining(${p.id},${p.trainings})">+1 heute</button>
-          <button class="btn btn-sm" style="margin-left:auto;color:#059669" onclick="probeStatus(${p.id},'aufnehmen')">✅ Aufnehmen</button>
-          <button class="btn btn-sm" style="color:#dc2626" onclick="probeStatus(${p.id},'abgesagt')">❌ Absagen</button>`
+          <button class="btn btn-sm" style="margin-left:auto;color:var(--green)" onclick="probeStatus(${p.id},'aufnehmen')">✅ Aufnehmen</button>
+          <button class="btn btn-sm" style="color:var(--red)" onclick="probeStatus(${p.id},'abgesagt')">❌ Absagen</button>`
         :`<button class="btn btn-sm" style="margin-left:auto" onclick="probeDelete(${p.id},'${(p.name||"").replace(/'/g,"")}')"><i class="ti ti-trash"></i>Jetzt löschen</button>`}
       </div>
     </div>`;}).join("");
@@ -3036,7 +3036,7 @@ async function saisonCockpitOpen(){
   let pulsHtml="";
   if(puls&&puls.overall_n){
     const weeks=(puls.weeks||[]).slice(-8);
-    const bars=weeks.map(w=>{const h=Math.round((w.avg/3)*42)+6;const col=w.avg>=2.6?"#16a34a":w.avg>=1.8?"#d97706":"#dc2626";return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px"><div style="font-size:9px;color:var(--text3)">${w.avg}</div><div style="width:68%;height:${h}px;background:${col};border-radius:4px 4px 0 0" title="${w.n} Rückmeldungen"></div><div style="font-size:8.5px;color:var(--text3);white-space:nowrap">${esc(w.wlabel)}</div></div>`;}).join("");
+    const bars=weeks.map(w=>{const h=Math.round((w.avg/3)*42)+6;const col=w.avg>=2.6?"var(--green)":w.avg>=1.8?"var(--amber)":"var(--red)";return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px"><div style="font-size:9px;color:var(--text3)">${w.avg}</div><div style="width:68%;height:${h}px;background:${col};border-radius:4px 4px 0 0" title="${w.n} Rückmeldungen"></div><div style="font-size:8.5px;color:var(--text3);white-space:nowrap">${esc(w.wlabel)}</div></div>`;}).join("");
     pulsHtml=`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🌡️ Eltern-Puls <span style="font-weight:400;color:var(--text2);font-size:11px">(anonym · ${puls.overall_n} Rückmeldungen · Ø ${puls.overall_avg} ${moodEmo(puls.overall_avg)})</span></div>`
       +(weeks.length?`<div style="display:flex;align-items:flex-end;gap:4px;height:74px;padding:4px 0">${bars}</div>`:'<div style="font-size:12px;color:var(--text3)">Sammelt sich, sobald Eltern nach Events abstimmen.</div>');
   }
@@ -3056,7 +3056,7 @@ async function saisonCockpitOpen(){
         const tArr=Object.entries(traurig).sort((a,b)=>b[1]-a[1]);
         stimmungHtml=`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🧒 Kinder-Stimmung <span style="font-weight:400;color:var(--text2);font-size:11px">(Kabine · ${rows.length} Antworten · Ø ${avg} ${moodEmo(Number(avg))})</span></div>`
           +(tArr.length?`<div style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px">😞 Zuletzt unzufrieden: <b>${tArr.map(([n,c])=>esc(n)+(c>1?` (${c}×)`:"")).join(", ")}</b> – vielleicht kurz das Gespräch suchen.</div>`
-                     :'<div style="font-size:12.5px;color:#16a34a">Kein Kind hat zuletzt 😞 gedrückt 👍</div>');
+                     :'<div style="font-size:12.5px;color:var(--green)">Kein Kind hat zuletzt 😞 gedrückt 👍</div>');
       }
     }
   }catch(e){}
@@ -3072,7 +3072,7 @@ async function saisonCockpitOpen(){
         const ohne=active.filter(k=>!per[k.id]).map(k=>k.name);
         postHtml=`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">📬 Adler-Post <span style="font-weight:400;color:var(--text2);font-size:11px">(${rows.length} Nachrichten · 60 Tage)</span></div>`
           +(ohne.length?`<div style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px">Noch ohne Post: <b>${ohne.map(esc).join(", ")}</b> – vielleicht mal ein Kompliment anstoßen (oder Sprachlob!).</div>`
-                       :'<div style="font-size:12.5px;color:#16a34a">Jedes Kind hat schon Post bekommen 👍</div>');
+                       :'<div style="font-size:12.5px;color:var(--green)">Jedes Kind hat schon Post bekommen 👍</div>');
       }
     }
   }catch(e){}
@@ -3101,7 +3101,7 @@ async function saisonCockpitOpen(){
       })).sort((a,b)=>b.avg-a.avg);
       if(arr.length){
         const teamAvg=(arr.reduce((s,x)=>s+x.avg*x.n,0)/arr.reduce((s,x)=>s+x.n,0)).toFixed(1).replace(".",",");
-        const col=a=>a>=4?"#16a34a":a>=2?"#b45309":"#dc2626";
+        const col=a=>a>=4?"var(--green)":a>=2?"var(--amber)":"var(--red)";
         tempoHtml=`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">⏱️ Rückmelde-Tempo <span style="font-weight:400;color:var(--text2);font-size:11px">(Zu-/Absagen · Team-Ø ${teamAvg} Tage vor dem Termin)</span></div>`
           +arr.map(x=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0"><span style="flex:1">${esc(x.name)}</span>${x.kurz?`<span title="davon kurzfristig (≤1 Tag vorher)" style="font-size:10px;color:var(--text3)">⚡ ${x.kurz}× kurzfristig</span>`:""}<span style="font-weight:700;color:${col(x.avg)}">Ø ${x.avg.toFixed(1).replace(".",",")} Tage</span><span style="font-size:10px;color:var(--text3)">(${x.n})</span></div>`).join("")
           +`<div style="font-size:10px;color:var(--text3);margin-top:4px">Ø Tage zwischen erster Antwort und Termin – je höher, desto früher meldet die Familie zurück. Exakt gemessen ab Juli 2026; ältere Antworten zählen mit dem Zeitpunkt der letzten Änderung.</div>`;
@@ -3112,7 +3112,7 @@ async function saisonCockpitOpen(){
   let rollenHtml="";
   try{ if(typeof rollenExpFetch==="function"){ const re=await rollenExpFetch(); if(re&&re.games){ const nie=(typeof _neverTW==="function")?_neverTW(re.byKid):[];
     rollenHtml=`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🎽 Rollen-Erfahrung <span style="font-weight:400;color:var(--text2);font-size:11px">(${re.games} Aufstellungen)</span></div>`
-      +(nie.length?`<div style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px">🥅 Noch nie im Tor: <b>${nie.map(esc).join(", ")}</b></div>`:'<div style="font-size:12.5px;color:#16a34a">Jedes aktive Kind stand schon mal im Tor 👍</div>')
+      +(nie.length?`<div style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px">🥅 Noch nie im Tor: <b>${nie.map(esc).join(", ")}</b></div>`:'<div style="font-size:12.5px;color:var(--green)">Jedes aktive Kind stand schon mal im Tor 👍</div>')
       +`<button class="btn btn-sm" style="margin-top:8px" onclick="document.getElementById('sc-modal').remove();rollenMatrixOpen()"><i class="ti ti-layout-grid"></i>Volle Rollen-Matrix</button>`;
   } } }catch(e){}
   // R6: faire Einsätze – die mit den wenigsten Spiel-Einsätzen (nur wenn überhaupt gespielt wurde)
@@ -3124,7 +3124,7 @@ async function saisonCockpitOpen(){
   const lowAtt=attArr.filter(x=>x.pct<60).slice(-3);
   const kpi=(v,l,c)=>`<div style="flex:1;min-width:80px;text-align:center;background:var(--surface2);border-radius:12px;padding:10px"><div style="font-size:22px;font-weight:900;color:${c}">${v}</div><div style="font-size:10px;color:var(--text2)">${l}</div></div>`;
   const medal=i=>["🥇","🥈","🥉"][i]||`${i+1}.`;
-  const attRow=x=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0"><span style="flex:1">${esc(x.name)}</span><span style="font-weight:700;color:${x.pct>=75?"#16a34a":x.pct>=50?"#b45309":"#dc2626"}">${x.pct}%</span><span style="font-size:10px;color:var(--text3)">(${x.t})</span></div>`;
+  const attRow=x=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0"><span style="flex:1">${esc(x.name)}</span><span style="font-weight:700;color:${x.pct>=75?"var(--green)":x.pct>=50?"var(--amber)":"var(--red)"}">${x.pct}%</span><span style="font-size:10px;color:var(--text3)">(${x.t})</span></div>`;
   document.getElementById("sc-modal")?.remove();
   const modal=document.createElement("div");
   modal.id="sc-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Saison-Cockpit");
@@ -3133,15 +3133,15 @@ async function saisonCockpitOpen(){
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   c.innerHTML=`${mdlHead("sc-modal","📈","Saison-Cockpit",`Saison seit ${new Date(ab+"T00:00:00").toLocaleDateString("de-DE",{month:"long",year:"numeric"})} · alles auf einen Blick`,"#1e3a8a")}
-    <div style="display:flex;gap:8px;margin-bottom:14px">${kpi(spiele,"Spiele","var(--blue)")}${kpi("⚽ "+toreGesamt,"Tore","#059669")}${kpi(trainings,"Trainings","#7c3aed")}</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">${kpi(spiele,"Spiele","var(--blue)")}${kpi("⚽ "+toreGesamt,"Tore","var(--green)")}${kpi(trainings,"Trainings","#7c3aed")}</div>
     <div style="font-weight:800;font-size:13.5px;margin-bottom:4px">🥇 Top-Torschützen</div>
-    ${scorers.length?scorers.map(([n,c],i)=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0"><span style="width:22px">${medal(i)}</span><span style="flex:1">${esc(n)}</span><span style="font-weight:800;color:#059669">${c}</span></div>`).join(""):'<div style="font-size:12px;color:var(--text3)">Noch keine Tore erfasst.</div>'}
+    ${scorers.length?scorers.map(([n,c],i)=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0"><span style="width:22px">${medal(i)}</span><span style="flex:1">${esc(n)}</span><span style="font-weight:800;color:var(--green)">${c}</span></div>`).join(""):'<div style="font-size:12px;color:var(--text3)">Noch keine Tore erfasst.</div>'}
     <div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">📊 Anwesenheit – am zuverlässigsten</div>
     ${topAtt.length?topAtt.map(attRow).join(""):'<div style="font-size:12px;color:var(--text3)">Noch keine Daten.</div>'}
-    ${lowAtt.length?`<div style="font-weight:800;font-size:12.5px;margin:12px 0 2px;color:#b45309">Zuletzt oft gefehlt – dranbleiben</div>${lowAtt.map(attRow).join("")}`:""}
+    ${lowAtt.length?`<div style="font-weight:800;font-size:12.5px;margin:12px 0 2px;color:var(--amber)">Zuletzt oft gefehlt – dranbleiben</div>${lowAtt.map(attRow).join("")}`:""}
     ${tempoHtml}
     ${wenig.length?`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">⚖️ Faire Einsätze – wer war seltener dabei</div>${wenig.map(x=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0"><span style="flex:1">${esc(x.name)}</span><span style="font-size:11px;color:var(--text3)">${x.e} Einsätze</span></div>`).join("")}`:""}
-    ${(toreTeam[2]||toreTeam[3])?`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🏆 Tore je Team</div><div style="display:flex;gap:8px;flex-wrap:wrap">${[1,2,3].filter(t=>toreTeam[t]>0||t===1).map(t=>`<div style="flex:1;min-width:70px;text-align:center;background:var(--surface2);border-radius:10px;padding:8px"><div style="font-size:11px;color:var(--text2)">Adler ${t}</div><div style="font-size:18px;font-weight:900;color:#059669">⚽ ${toreTeam[t]||0}</div></div>`).join("")}</div>`:""}
+    ${(toreTeam[2]||toreTeam[3])?`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🏆 Tore je Team</div><div style="display:flex;gap:8px;flex-wrap:wrap">${[1,2,3].filter(t=>toreTeam[t]>0||t===1).map(t=>`<div style="flex:1;min-width:70px;text-align:center;background:var(--surface2);border-radius:10px;padding:8px"><div style="font-size:11px;color:var(--text2)">Adler ${t}</div><div style="font-size:18px;font-weight:900;color:var(--green)">⚽ ${toreTeam[t]||0}</div></div>`).join("")}</div>`:""}
     ${stimmungHtml}
     ${postHtml}
     ${rollenHtml}
@@ -3373,13 +3373,13 @@ async function albumFotosOpen(){
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
-    ${mdlHead("albfoto-modal","🃏","Album-Karten-Fotos","Bilder für Trainer- und Vereins-Sticker – die Kinder sehen sie im Sammelalbum","#b45309")}
+    ${mdlHead("albfoto-modal","🃏","Album-Karten-Fotos","Bilder für Trainer- und Vereins-Sticker – die Kinder sehen sie im Sammelalbum","var(--amber)")}
     <div style="font-size:11.5px;color:var(--text2);margin-bottom:10px">Kinder-Sticker nutzen automatisch das Profilfoto (mit Eltern-Freigabe). Hier pflegst du die restlichen Karten – Querformat wird rund zugeschnitten, max. 3 MB.</div>
     ${_albumFotoSlots().map(s=>`<div style="display:flex;align-items:center;gap:8px;border:var(--border-s);border-radius:12px;padding:8px 12px;margin-bottom:6px">
       <span style="flex:1;min-width:0;font-size:13px;font-weight:700">${s.label}</span>
-      <span style="font-size:11px;color:${map[s.key]?"#059669":"var(--text3)"}">${map[s.key]?"✅ Foto da":"– kein Foto"}</span>
+      <span style="font-size:11px;color:${map[s.key]?"var(--green)":"var(--text3)"}">${map[s.key]?"✅ Foto da":"– kein Foto"}</span>
       <label class="btn btn-sm" style="cursor:pointer;margin:0">📷<input type="file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="albumFotoUpload('${s.key}',this)"></label>
-      ${map[s.key]?`<button class="btn btn-sm" style="color:#dc2626" onclick="albumFotoDelete('${s.key}')" title="Foto entfernen"><i class="ti ti-trash"></i></button>`:""}
+      ${map[s.key]?`<button class="btn btn-sm" style="color:var(--red)" onclick="albumFotoDelete('${s.key}')" title="Foto entfernen"><i class="ti ti-trash"></i></button>`:""}
     </div>`).join("")}
   </div>`;
   document.body.appendChild(m);
@@ -3456,7 +3456,7 @@ function pwChangeOpen(){
     ${mdlHead("pw-modal","🔑","Passwort ändern","Eigenes, sicheres Passwort (mind. 8 Zeichen)","#334155")}
     <label style="font-size:11px;color:var(--text2)">Neues Passwort<input type="password" id="pw-new" autocomplete="new-password" style="${fld}"></label>
     <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Nochmal eingeben<input type="password" id="pw-new2" autocomplete="new-password" onkeydown="if(event.key==='Enter')pwChangeSave()" style="${fld}"></label>
-    <div id="pw-err" style="color:#dc2626;font-size:12px;min-height:16px;margin-top:6px"></div>
+    <div id="pw-err" style="color:var(--red);font-size:12px;min-height:16px;margin-top:6px"></div>
     <div style="display:flex;gap:8px;margin-top:2px">
       <button class="btn btn-p btn-sm" onclick="pwChangeSave(this)"><i class="ti ti-device-floppy"></i>Speichern</button>
       <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('pw-modal').remove()">Abbrechen</button>
@@ -3535,7 +3535,7 @@ async function renderHome(){
         <span style="font-size:16px">${x.d===0?"🎉":"🎂"}</span>
         <strong>${esc(x.k.name)}</strong>
         <span style="color:var(--text2);font-size:11.5px">${x.d===0?`wird HEUTE ${homeAlter(x.k.geb)+1}!`:`wird in ${x.d} Tag${x.d===1?"":"en"} ${homeAlter(x.k.geb)+1}`}</span>
-      </div>`).join(""),"#d97706");
+      </div>`).join(""),"var(--amber)");
     }
   }
 
@@ -3592,9 +3592,9 @@ async function renderHome(){
       const ob=document.getElementById("kb-orga");
       if(ob&&rows.length)ob.textContent=rows.length+" Termin"+(rows.length===1?"":"e")+" geplant";
     }catch(e){}
-    if(!rows.length){slot.innerHTML=card(`<div style="font-size:12.5px">📅 Kein Termin geplant. <a href="#" onclick="go('termine');return false" style="color:var(--blue)">Jetzt anlegen</a></div>`);return;}
+    if(!rows.length){slot.innerHTML=card(`<div style="font-size:12.5px">📅 Kein Termin geplant. <a href="#" onclick="go('termine');return false" style="color:var(--blue-text)">Jetzt anlegen</a></div>`);return;}
     const t=rows[0];
-    const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"#1a56db"};
+    const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"var(--blue)"};
     const d=new Date(t.datum+"T00:00:00");
     const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
     const inTagen=Math.round((d-new Date(heute+"T00:00:00"))/86400000);
@@ -3635,10 +3635,10 @@ async function wetterWarnHome(t){
   const abgesagt=t.platz_status==="abgesagt";
   const tt=(t.titel||t.gegner||"Termin").replace(/'/g,"");
   el.innerHTML=`<div style="margin-top:8px;padding:10px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px">
-    <div style="font-size:12.5px;font-weight:800;color:#b91c1c">⚠️ Wetter kritisch: ${esc(warn.lvl)}</div>
+    <div style="font-size:12.5px;font-weight:800;color:var(--red)">⚠️ Wetter kritisch: ${esc(warn.lvl)}</div>
     <div style="font-size:11.5px;color:#7f1d1d;margin:2px 0 8px">${esc(warn.msg)} Absagen und die Eltern informieren?</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
-      ${abgesagt?'<span style="font-size:11.5px;color:#b91c1c;font-weight:700">🔴 Bereits als „fällt aus" markiert</span>':`<button class="btn btn-sm btn-d" onclick="wetterAbsagen(${Number(t.id)})"><i class="ti ti-x"></i>Platz absagen</button>`}
+      ${abgesagt?'<span style="font-size:11.5px;color:var(--red);font-weight:700">🔴 Bereits als „fällt aus" markiert</span>':`<button class="btn btn-sm btn-d" onclick="wetterAbsagen(${Number(t.id)})"><i class="ti ti-x"></i>Platz absagen</button>`}
       <button class="btn btn-sm" onclick="wetterInfoPush(${Number(t.id)},'${tt}','${t.datum}')"><i class="ti ti-bell"></i>Eltern informieren</button>
     </div>
   </div>`;
@@ -3646,7 +3646,7 @@ async function wetterWarnHome(t){
 async function wetterAbsagen(id){
   if(typeof platzAmpelSet==="function")await platzAmpelSet(id,"abgesagt");
   const el=document.getElementById("wetter-warn-home");
-  if(el)el.querySelector("div>div:last-child").innerHTML='<span style="font-size:11.5px;color:#b91c1c;font-weight:700">🔴 Als „fällt aus" markiert – jetzt noch die Eltern informieren.</span>';
+  if(el)el.querySelector("div>div:last-child").innerHTML='<span style="font-size:11.5px;color:var(--red);font-weight:700">🔴 Als „fällt aus" markiert – jetzt noch die Eltern informieren.</span>';
 }
 async function wetterInfoPush(id,titel,datum){
   const d=new Date(datum+"T00:00:00"), ds=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()]+" "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
@@ -3771,8 +3771,8 @@ async function trainerTodoLoad(){
     }
   }catch(e){}
   if(!todos.length){slot.innerHTML="";return;}
-  slot.innerHTML=`<div class="card" style="border-left:4px solid #d97706;padding:12px 14px;margin-bottom:10px">
-    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#b45309;margin-bottom:8px">📌 Deine To-Dos, ${esc(me)}</div>
+  slot.innerHTML=`<div class="card" style="border-left:4px solid var(--amber);padding:12px 14px;margin-bottom:10px">
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--amber);margin-bottom:8px">📌 Deine To-Dos, ${esc(me)}</div>
     ${todos.map(t=>`<button onclick="${t.act}" style="display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:var(--surface);border:var(--border-s);border-radius:10px;padding:10px 12px;margin-bottom:6px;font-family:inherit;cursor:pointer;color:var(--text)"><span style="font-size:17px;line-height:1">${t.emo}</span><span style="flex:1;font-size:12.5px;font-weight:600;line-height:1.4">${t.txt}</span><span style="color:var(--text3)">›</span></button>`).join("")}
   </div>`;
 }
@@ -3791,7 +3791,7 @@ function _trsvpRowHtml(t,me){
       <div style="font-size:13px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.icon} ${esc(t.titel||t.gegner||m.label)}</div>
       <div style="font-size:11px;color:var(--text2);white-space:nowrap">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""}</div>
     </div>
-    <div style="display:flex;gap:6px;margin-top:8px">${btn("ja","✅","Dabei","#16a34a")}${btn("unsicher","🤔","Unsicher","#ca8a04")}${btn("nein","❌","Nicht","#dc2626")}</div>
+    <div style="display:flex;gap:6px;margin-top:8px">${btn("ja","✅","Dabei","var(--green)")}${btn("unsicher","🤔","Unsicher","#ca8a04")}${btn("nein","❌","Nicht","var(--red)")}</div>
   </div>`;
 }
 async function trainerRsvpQuickOpen(){
@@ -3807,7 +3807,7 @@ async function trainerRsvpQuickOpen(){
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
-  c.innerHTML=`${mdlHead("trsvp-modal","🗓️","Bist du dabei?",`Ein Tap je Termin, ${esc(me)} – nochmal tippen nimmt zurück`,"#d97706")}
+  c.innerHTML=`${mdlHead("trsvp-modal","🗓️","Bist du dabei?",`Ein Tap je Termin, ${esc(me)} – nochmal tippen nimmt zurück`,"var(--amber)")}
     <div id="trsvp-list">${_trsvpRows.length?_trsvpRows.map(t=>_trsvpRowHtml(t,me)).join(""):'<div style="font-size:12.5px;color:var(--text3);padding:14px;text-align:center">Keine kommenden Termine in den nächsten 3 Wochen.</div>'}</div>`;
   modal.appendChild(c); document.body.appendChild(modal);
 }
@@ -3842,10 +3842,10 @@ async function homeRsvpNudge(){
   if(!offen){slot.innerHTML="";return;}
   const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ};
   const d=new Date(t.datum+"T00:00:00"), wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
-  slot.innerHTML=`<div onclick="rsvpOverviewOpen(${t.id})" class="card" style="padding:12px 14px;margin-bottom:10px;border-left:3px solid #d97706;cursor:pointer;display:flex;align-items:center;gap:8px">
+  slot.innerHTML=`<div onclick="rsvpOverviewOpen(${t.id})" class="card" style="padding:12px 14px;margin-bottom:10px;border-left:3px solid var(--amber);cursor:pointer;display:flex;align-items:center;gap:8px">
     <span style="font-size:18px">🔔</span>
-    <span style="flex:1;font-size:12.5px"><strong style="color:#b45309">${offen} ohne Rückmeldung</strong> für ${m.icon} ${esc(t.titel||t.gegner||m.label)} · ${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}</span>
-    <span style="font-size:11px;font-weight:800;color:var(--blue)">nachfassen ›</span>
+    <span style="flex:1;font-size:12.5px"><strong style="color:var(--amber)">${offen} ohne Rückmeldung</strong> für ${m.icon} ${esc(t.titel||t.gegner||m.label)} · ${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}</span>
+    <span style="font-size:11px;font-weight:800;color:var(--blue-text)">nachfassen ›</span>
   </div>`;
 }
 
@@ -3862,7 +3862,7 @@ async function homeAntiFrust(){
   // Nur wenn schon jemand getroffen hat (sonst ist es einfach Saisonstart) und nicht alle leer sind.
   if(mitTor>=2 && ohne.length){
     const pick=ohne[new Date().getDate()%ohne.length]; // rotiert täglich, damit alle mal drankommen
-    slot.innerHTML=`<div class="card" style="padding:12px 14px;margin-bottom:10px;border-left:3px solid #d97706;display:flex;align-items:center;gap:8px">
+    slot.innerHTML=`<div class="card" style="padding:12px 14px;margin-bottom:10px;border-left:3px solid var(--amber);display:flex;align-items:center;gap:8px">
       <span style="font-size:18px">🌟</span>
       <span style="flex:1;font-size:12.5px"><strong>${esc(pick)}</strong> hatte diese Saison noch kein Torerlebnis – gib ihm/ihr heute bewusst eine Bühne. 💛</span>
     </div>`;
@@ -4108,8 +4108,8 @@ function heftReporterQueueRender(){
   el.innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--text2)">🎙️ Kabinen-Reporter – ${offen.length} Antwort${offen.length===1?"":"en"} warten auf Freigabe</div>
     ${offen.map(x=>`<div style="display:flex;align-items:center;gap:8px;border:var(--border-s);border-left:3px solid #14b8a6;border-radius:10px;padding:8px 10px;margin-top:6px">
       <div style="flex:1;min-width:0;font-size:12px"><b>${esc(nameById[x.spieler_id]||"?")}</b> · ${esc(x.frage)}<br><span style="color:var(--text2)">„${esc(x.antwort)}"</span></div>
-      <button class="btn btn-sm" style="color:#059669" onclick="heftReporterApprove(${x.id})">✓ Ins Heft</button>
-      <button class="btn btn-sm" style="color:#dc2626" onclick="heftReporterDelete(${x.id})"><i class="ti ti-trash"></i></button>
+      <button class="btn btn-sm" style="color:var(--green)" onclick="heftReporterApprove(${x.id})">✓ Ins Heft</button>
+      <button class="btn btn-sm" style="color:var(--red)" onclick="heftReporterDelete(${x.id})"><i class="ti ti-trash"></i></button>
     </div>`).join("")}`;
 }
 async function heftReporterApprove(id){
@@ -4293,7 +4293,7 @@ function _kachelInhalt(key){
     const cutoff=new Date(Date.now()-42*86400000).toISOString().slice(0,10);
     const stale=KADER.filter(x=>{const s=DB[x.name];if(!s||!s.length)return true;return (s[s.length-1].datum||"0000")<cutoff;}).length;
     const tile=(v,l,c,arg)=>`<button onclick="kachelRun('go','${arg}')" style="flex:1;min-width:90px;min-height:72px;border:var(--border-s);border-radius:14px;background:var(--surface);padding:10px;text-align:center;cursor:pointer;font-family:inherit"><div style="font-size:24px;font-weight:900;color:${c}">${v}</div><div style="font-size:12px;color:var(--text2);font-weight:700">${l}</div></button>`;
-    return `<div style="display:flex;gap:10px;margin-bottom:4px">${tile(KADER.length,"Kader","var(--blue)","kader")}${tile(bewertet+"/"+KADER.length,"bewertet","#059669","bew")}${tile(stale,"überfällig","#dc2626","bew")}</div>
+    return `<div style="display:flex;gap:10px;margin-bottom:4px">${tile(KADER.length,"Kader","var(--blue)","kader")}${tile(bewertet+"/"+KADER.length,"bewertet","var(--green)","bew")}${tile(stale,"überfällig","var(--red)","bew")}</div>
       <div id="home-antifrust"></div><div id="home-birthday"></div><div id="home-radar"></div>`
       +kSec("Spieler")
       +kTiles([
