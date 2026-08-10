@@ -73,6 +73,7 @@ function sbClearToken(){
   const s=sbRead(); localStorage.removeItem(s?s.key:sbWriteKey());
   // Gesundheitsdaten der Notfallkarten nie über die Sitzung hinaus auf dem Gerät lassen
   try{ localStorage.removeItem("adler_nf_cache"); }catch(e){}
+  if(typeof trainerMeReset==="function")trainerMeReset(); // Name gehört zum Konto, nicht zum Gerät
 }
 // Eigene User-ID aus dem JWT (sub-Claim) – z. B. um "von mir reserviert" zu erkennen.
 function sbUserId(){
@@ -114,6 +115,7 @@ async function sbLogin(email,password){
   // Defensive: manche GoTrue-Antworten liefern nur expires_in (Sekunden relativ), nicht expires_at (Unix-Timestamp)
   const expiresAt=data.expires_at||(Math.floor(Date.now()/1000)+(data.expires_in||3600));
   localStorage.setItem(SB_TOKEN_KEY,JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token||null,expires_at:expiresAt})); // Passwort-Login = immer Trainer-Fach
+  if(typeof trainerMeReset==="function")trainerMeReset(); // sonst haengt der Name des vorigen Kontos nach
   return true;
 }
 /* Silent Token Refresh (Schritt 6): Session vor Ablauf still erneuern, damit man

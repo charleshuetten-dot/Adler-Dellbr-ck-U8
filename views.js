@@ -3657,21 +3657,33 @@ function toggleTeamCheck(){ if(typeof homeRadarLoad==="function")homeRadarLoad()
    E-Mail auf Vorname - damit lagen fuenf private Adressen im Quelltext einer
    oeffentlichen App und wurden an jeden Besucher ausgeliefert. Die RLS auf profiles
    gibt jedem genau seine eigene Zeile, deshalb reicht der Filter auf die eigene id. */
+/* NUR Erfolge werden gemerkt. Vorher wurde auch das leere Ergebnis dauerhaft
+   zwischengespeichert – ein einziger Aufruf ohne gueltigen Token (abgemeldet, oder
+   waehrend sbToken() kurz vor Ablauf null liefert) machte den Namen fuer den Rest
+   der Sitzung leer. Da tlStart den Namen nicht nur anzeigt, sondern als IDENTITAET
+   benutzt, endete das in „Bitte als Trainer anmelden" bei jedem Trainingsstart,
+   obwohl man laengst angemeldet war. Solange kein Name feststeht, wird bei jedem
+   Aufruf neu gefragt (die Aufrufe sind selten und gedrosselt). */
 let _meTrainer=null;
+function trainerMeReset(){_meTrainer=null;} // bei An- und Abmeldung: der Name gehoert zum Konto
 async function trainerMe(){
-  if(_meTrainer!==null)return _meTrainer;
+  if(_meTrainer)return _meTrainer;
+  if(!sbToken())return ""; // ohne Token gar nicht erst fragen – und nichts merken
   try{
     const r=await fetch(`${SB_URL}/auth/v1/user`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+sbToken()}});
     if(r.ok){
       const u=await r.json();
       if(u&&u.id){
         const p=await fetch(`${SB_URL}/rest/v1/profiles?select=anzeigename&id=eq.${encodeURIComponent(u.id)}`,{headers:sbAuthHeaders()});
-        if(p.ok){const zeilen=await p.json(); _meTrainer=((zeilen&&zeilen[0]&&zeilen[0].anzeigename)||"");}
+        if(p.ok){
+          const zeilen=await p.json();
+          const name=((zeilen&&zeilen[0]&&zeilen[0].anzeigename)||"").trim();
+          if(name){_meTrainer=name;return name;}
+        }
       }
     }
   }catch(e){}
-  if(_meTrainer===null)_meTrainer="";
-  return _meTrainer;
+  return ""; // bewusst NICHT merken
 }
 async function trainerTodoLoad(){
   const slot=document.getElementById("trainer-todo-slot"); if(!slot)return;

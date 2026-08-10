@@ -2313,7 +2313,13 @@ async function _tlPatch(fields,nurStatus){
 // Start durch einen Trainer: Session anlegen (oder heutige übernehmen) + Lobby öffnen
 async function tlStart(){
   const me=await trainerMe();
-  if(!me){toast("Bitte als Trainer anmelden","err");return;}
+  // Zwei verschiedene Ursachen, frueher beide mit derselben (falschen) Meldung: gar nicht
+  // angemeldet – oder angemeldet, aber ohne Anzeigenamen im Profil. Der Name ist hier keine
+  // Deko: die Lobby fuehrt Pflicht- und Fertig-Meldungen unter genau diesem Namen.
+  if(!me){
+    toast(sbToken()?"Dein Anzeigename fehlt im Profil – ohne ihn kann die Lobby dich nicht zuordnen. Bitte bei den Trainer-Einstellungen eintragen lassen.":"Bitte als Trainer anmelden","err");
+    return;
+  }
   const pflicht=tpGetCheckedTrainers();
   if(!pflicht.length){toast("Erst oben die Trainer von heute anhaken","err");return;}
   // Ohne Stationen gibt es nichts zu starten – sonst hängt die Runde unaufhaltsam auf „läuft".
