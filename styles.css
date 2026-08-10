@@ -69,7 +69,16 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .cdot{width:7px;height:7px;border-radius:50%;background:#94a3b8;transition:background .4s;flex-shrink:0}
 .cdot.ok{background:#16a34a}.cdot.err{background:#dc2626}.cdot.warn{background:#f59e0b}
 
-.nb{padding:8px 2px;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#64748b;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:inherit;font-size:inherit}
+/* Die Leiste trug ihre Stile frueher inline im shell.html. Seit sie sieben statt sechs
+   Plaetze hat, muss sie auf sehr schmalen Geraeten nachgeben koennen – und ein Inline-Stil
+   laesst sich per Medienabfrage nicht ueberschreiben. */
+#main-nav{position:fixed;left:0;right:0;bottom:0;z-index:50;display:grid;grid-template-columns:repeat(7,1fr);gap:2px;background:var(--surface);padding:6px 6px calc(6px + env(safe-area-inset-bottom));border-top:var(--border);box-shadow:0 -2px 12px rgba(0,0,0,.08)}
+/* Bei 320px blieben sonst 42px je Feld – unter der 44er-Regel. Weniger Rand, weniger Fuge. */
+@media(max-width:360px){ #main-nav{gap:1px;padding-left:2px;padding-right:2px} }
+/* Farbe als Variable statt #64748b: im hellen Modus derselbe Ton wie bisher, im dunklen
+   zieht sie mit (#8b98ac). Mit dem festen Wert waere die Beschriftung auf dunklem Grund
+   bei 3.07:1 gelandet – zu wenig fuer Text. */
+.nb{padding:8px 2px;border:none;background:transparent;border-radius:8px;cursor:pointer;color:var(--text3);display:flex;flex-direction:column;align-items:center;gap:2px;font-family:inherit;font-size:inherit}
 .nb i{font-size:17px}
 .nb span{font-size:8px;white-space:nowrap}
 /* Grundfarbe = Vereinsblau (gilt fuer Home, das keine Bereichsfarbe hat). Fuer die

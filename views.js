@@ -2622,7 +2622,12 @@ async function einheitSave(){
   einheitListRender();
 }
 // Anwesenheits-Quote je Kind: Training (aus AW_DATA) + Spiele/Turniere (aus nominierungen "dabei").
-async function anwesenheitOpen(){
+/* Die Quoten-Tabelle steckte frueher fest in ihrem eigenen Fenster. Sie wird jetzt
+   auch als dritter Reiter der Saison-Uebersicht gebraucht (awUebersichtZeig), damit
+   Spieler-, Trainer- und Spiele-Zahlen hinter EINER Tuer liegen statt auf zwei
+   aehnlichen Kacheln. Deshalb baut diese Funktion nur noch den Inhalt. */
+async function anwesenheitQuoteInto(el){
+  if(!el)return;
   const active=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
   const ab=(typeof saisonStart==="function")?saisonStart():"2000-01-01"; // Quote pro Saison + bounded fetch
   const tr={}, gm={}; active.forEach(k=>{tr[k.name]={p:0,t:0};gm[k.name]={p:0,t:0};});
@@ -2637,6 +2642,13 @@ async function anwesenheitOpen(){
     <td style="padding:6px 8px;font-weight:600">${esc(k.name)}</td>
     <td style="padding:6px 8px;text-align:right">${cell(tr[k.name])}</td>
     <td style="padding:6px 8px;text-align:right">${cell(gm[k.name])}</td></tr>`).join("");
+  el.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)"><td style="padding:4px 8px">Spieler</td><td style="padding:4px 8px;text-align:right">🏃 Training</td><td style="padding:4px 8px;text-align:right">⚽ Spiele</td></tr>
+      ${rows||'<tr><td style="padding:8px;color:var(--text3)">Noch keine Daten.</td></tr>'}
+    </table></div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">Training aus der Anwesenheitsliste, Spiele aus den Nominierungen · nur Info</div>`;
+}
+async function anwesenheitOpen(){
   document.getElementById("aq-modal")?.remove();
   const modal=document.createElement("div");
   modal.id="aq-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Anwesenheits-Quote");
@@ -2645,12 +2657,10 @@ async function anwesenheitOpen(){
   const cardEl=document.createElement("div");
   cardEl.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   cardEl.innerHTML=`${mdlHead("aq-modal","📊","Anwesenheits-Quote","Training aus der Liste, Spiele aus den Nominierungen · nur Info","#3b82f6")}
-    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">
-      <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)"><td style="padding:4px 8px">Spieler</td><td style="padding:4px 8px;text-align:right">🏃 Training</td><td style="padding:4px 8px;text-align:right">⚽ Spiele</td></tr>
-      ${rows||'<tr><td style="padding:8px;color:var(--text3)">Noch keine Daten.</td></tr>'}
-    </table></div>
+    <div id="aq-inhalt">Lade…</div>
     <button class="btn btn-sm" style="margin-top:12px;width:100%" onclick="document.getElementById('aq-modal').remove()">Schließen</button>`;
   modal.appendChild(cardEl);document.body.appendChild(modal);
+  await anwesenheitQuoteInto(document.getElementById("aq-inhalt"));
 }
 // Eltern-Onboarding-Paket: fertige WhatsApp-Nachricht mit Eltern-Link + Kurzanleitung,
 // damit der Trainer die ganze Elternschaft in einem Rutsch an Bord holt.
@@ -3152,6 +3162,7 @@ const HELP=[
   ]},
   {cat:"👥 Team", items:[
     {t:"Saison-Cockpit", d:"Torschützen, Anwesenheit, Rückmelde-Tempo der Familien, faire Einsätze, Eltern-Puls, Rückmelde-Tempo – alles auf einen Blick.", run:"saisonCockpitOpen()"},
+    {t:"Anwesenheit (Saison)", d:"Drei Reiter: Quote je Kind im Training, Anwesenheit der Trainer, und die Quote inklusive Spiele aus den Nominierungen.", run:"awUebersichtOpen()"},
     {t:"Probetraining", d:"Schnupperkinder verwalten – bewusst getrennt vom Kader, Auto-Löschung nach Entscheidung.", run:"probeOpen()"},
     {t:"Kader", d:"Spieler anlegen/bearbeiten, Trikotnummer, Foto, Kontakte, Foto-Freigabe.", go:"kader"},
     {t:"Bewerten", d:"Spieler in 16 Kriterien einschätzen – mit Live-Radar.", go:"bew"},
@@ -3159,8 +3170,7 @@ const HELP=[
     {t:"Entwicklung", d:"Entwicklung über die Zeit als Diagramm.", go:"verlauf"},
   ]},
   {cat:"🏃 Training", items:[
-    {t:"Anwesenheit erfassen", d:"Wer war da – Haken je Kind; Trainer werden aus dem Termin vorausgefüllt.", go:"anwesenheit"},
-    {t:"Anwesenheits-Quote", d:"Quote je Kind über die Saison (Training + Spiele).", run:"anwesenheitOpen()"},
+    {t:"Anwesenheit erfassen", d:"Wer war da – Haken je Kind; Trainer werden aus dem Termin vorausgefüllt. Die Saison-Auswertung dazu liegt bei Team.", go:"anwesenheit"},
     {t:"Trainingsplan", d:"Stationen bauen, Übungen zuweisen, Gruppen einteilen, Trainingsstart auf allen Handys.", go:"planung"},
     {t:"Einheit bewerten", d:"Schnell-Sterne: Spaß, Umsetzung, Erfolg.", run:"einheitBewertenOpen()"},
     {t:"Übungen", d:"Die Übungs-Datenbank: Gruppen-Kacheln, ⭐-Filter, Skizze je Übung, ➕ direkt in den Trainingsplan · KI-Coach · Themenplan.", go:"formen"},
@@ -3232,7 +3242,7 @@ const TOUR=[
   {emo:"🦅", t:"Willkommen in der Adler-App", d:"Die Startseite ist bewusst schlank: Ganz oben erscheinen DEINE To-Dos (nur wenn etwas offen ist), darunter der nächste Termin mit Wetter, das Termin-Karussell – und sechs große Kacheln. Hinter jeder Kachel wartet wieder ein Kachel-Menü. Diese Tour findest du jederzeit über ❓ oben rechts."},
   {emo:"🏃", t:"Kachel: Training", d:"Vier Wege: Anwesenheit (heute + kommende Termine), Trainingsplan mit Stationen und Trainingsstart, die Übungs-Datenbank und das ⚡ Blitzturnier für schnelle Turniere – auch Eltern gegen Kinder. Die Nachbewertung meldet sich nach dem Training von selbst als To-Do auf der Startseite."},
   {emo:"⚽", t:"Kachel: Spieltag", d:"Match mit Nominierung, fairer Auto-Aufstellung, Match-Uhr + Rotations-Timer, Liveticker und Analyse. Steht ein Turnier an, erscheint hier automatisch der Turnier-Bereich (Heimturnier ausrichten mit öffentlichem Link für die Gast-Trainer)."},
-  {emo:"👥", t:"Kachel: Team", d:"Kader verwalten, Spieler alle 6 Wochen in 16 Kriterien bewerten (Live-Radar), Profil mit Sprachlob und Entwicklungs-Report, dazu Saison-Cockpit, Anwesenheits-Quote und Rollen-Matrix. Auch Notfallkarten und Probetraining wohnen hier."},
+  {emo:"👥", t:"Kachel: Team", d:"Kader verwalten, Spieler alle 6 Wochen in 16 Kriterien bewerten (Live-Radar), Profil mit Sprachlob und Entwicklungs-Report, dazu Saison-Cockpit, Anwesenheit über die Saison und Rollen-Matrix. Auch Notfallkarten und Probetraining wohnen hier."},
   {emo:"🎯", t:"Kachel: Taktik", d:"Das Taktikboard: Formationen stellen, Laufwege und Pässe zeichnen, als Bild teilen – auf dem Tablet im großen Pro-Modus. Daneben die Übungs-Datenbank."},
   {emo:"🪶", t:"Kachel: Eltern & Kinder", d:"Team-Ansage mit Gelesen-Status, Eltern einladen, Elterngespräche – und die ganze Adler-Welt der Kinder: Federn, Karten, Abzeichen, Kabinen-Wahl, Sammelalbum-Fotos, Team-Quests, Urkunden-Studio und das Adler Nest."},
   {emo:"📅", t:"Kachel: Orga", d:"Termine mit Serien und Endzeit (danach automatisch ins Archiv), Pinnwand fürs Trainerteam, Ferien-Radar, Mitbringlisten, Trainer-Meeting, Teamkasse, Ausrüstung und Fundbüro. Ganz unten: Push-Benachrichtigungen und dein Passwort."},
@@ -3657,21 +3667,33 @@ function toggleTeamCheck(){ if(typeof homeRadarLoad==="function")homeRadarLoad()
    E-Mail auf Vorname - damit lagen fuenf private Adressen im Quelltext einer
    oeffentlichen App und wurden an jeden Besucher ausgeliefert. Die RLS auf profiles
    gibt jedem genau seine eigene Zeile, deshalb reicht der Filter auf die eigene id. */
+/* NUR Erfolge werden gemerkt. Vorher wurde auch das leere Ergebnis dauerhaft
+   zwischengespeichert – ein einziger Aufruf ohne gueltigen Token (abgemeldet, oder
+   waehrend sbToken() kurz vor Ablauf null liefert) machte den Namen fuer den Rest
+   der Sitzung leer. Da tlStart den Namen nicht nur anzeigt, sondern als IDENTITAET
+   benutzt, endete das in „Bitte als Trainer anmelden" bei jedem Trainingsstart,
+   obwohl man laengst angemeldet war. Solange kein Name feststeht, wird bei jedem
+   Aufruf neu gefragt (die Aufrufe sind selten und gedrosselt). */
 let _meTrainer=null;
+function trainerMeReset(){_meTrainer=null;} // bei An- und Abmeldung: der Name gehoert zum Konto
 async function trainerMe(){
-  if(_meTrainer!==null)return _meTrainer;
+  if(_meTrainer)return _meTrainer;
+  if(!sbToken())return ""; // ohne Token gar nicht erst fragen – und nichts merken
   try{
     const r=await fetch(`${SB_URL}/auth/v1/user`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+sbToken()}});
     if(r.ok){
       const u=await r.json();
       if(u&&u.id){
         const p=await fetch(`${SB_URL}/rest/v1/profiles?select=anzeigename&id=eq.${encodeURIComponent(u.id)}`,{headers:sbAuthHeaders()});
-        if(p.ok){const zeilen=await p.json(); _meTrainer=((zeilen&&zeilen[0]&&zeilen[0].anzeigename)||"");}
+        if(p.ok){
+          const zeilen=await p.json();
+          const name=((zeilen&&zeilen[0]&&zeilen[0].anzeigename)||"").trim();
+          if(name){_meTrainer=name;return name;}
+        }
       }
     }
   }catch(e){}
-  if(_meTrainer===null)_meTrainer="";
-  return _meTrainer;
+  return ""; // bewusst NICHT merken
 }
 async function trainerTodoLoad(){
   const slot=document.getElementById("trainer-todo-slot"); if(!slot)return;
@@ -4284,7 +4306,9 @@ function _kachelInhalt(key){
       +kSec("Überblick")
       +kTiles([
         {emo:"🧭",label:"Saison-Cockpit",fn:"saisonCockpitOpen"},
-        {emo:"📊",label:"Anwesenheits-Quote",fn:"anwesenheitOpen"},
+        // Ab v381 EIN Einstieg statt zwei: die frühere „Anwesenheits-Quote" ist der
+        // Reiter „Spiele" darin, die Übersicht kam aus der Anwesenheits-Erfassung her.
+        {emo:"📊",label:"Anwesenheit (Saison)",fn:"awUebersichtOpen"},
         {emo:"🎽",label:"Rollen-Matrix",fn:"rollenMatrixOpen"}
       ],col)
       +kSec("Besonderes")

@@ -39,12 +39,21 @@
   </div>
 </div>
 
-<nav id="main-nav" role="navigation" aria-label="Hauptbereiche" style="position:fixed;left:0;right:0;bottom:0;z-index:50;display:grid;grid-template-columns:repeat(6,1fr);gap:2px;background:#fff;padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-top:1px solid #e2e8f0;box-shadow:0 -2px 12px rgba(0,0,0,.08)">
+<nav id="main-nav" role="navigation" aria-label="Hauptbereiche">
+  <!-- Reihenfolge = Reihenfolge der Startseiten-Kacheln, mit Home davor. Ab v382 sind ALLE
+       sechs Bereiche vertreten (PO: „Taktik brauch ich in der App", also kein Tausch) –
+       daher sieben Plätze. Auf Handys sind die Beschriftungen ohnehin ausgeblendet
+       (@media max-width:680px), es zählen die Icons.
+       „Eltern & Kinder" ist KEIN Reiter (kein TABS-Eintrag), sondern nur eine Kachel –
+       der Knopf ruft deshalb kachelOpen statt openTab, und die Leiste markiert ihn nicht
+       als aktiv: das Kachel-Menü liegt als Fenster über dem bisherigen Bereich.
+       Wer eine Kachel ergänzt, zieht hier mit. -->
   <button class="nb active" id="nb-home" aria-label="Startseite" onclick="openTab('home')"><i class="ti ti-home"></i><span>Home</span></button>
-  <button class="nb" id="nb-team" aria-label="Team" onclick="openTab('team')"><i class="ti ti-users"></i><span>Team</span></button>
   <button class="nb" id="nb-training" aria-label="Training" onclick="openTab('training')"><i class="ti ti-run"></i><span>Training</span></button>
   <button class="nb" id="nb-spieltag" aria-label="Spieltag" onclick="openTab('spieltag')"><i class="ti ti-ball-football"></i><span>Spieltag</span></button>
-  <button class="nb" id="nb-taktik" aria-label="Taktik" onclick="openTab('taktik')"><i class="ti ti-arrows-move"></i><span>Taktik</span></button>
+  <button class="nb" id="nb-team" aria-label="Team" onclick="openTab('team')"><i class="ti ti-users"></i><span>Team</span></button>
+  <button class="nb" id="nb-taktik" aria-label="Taktik" onclick="openTab('taktik')"><i class="ti ti-target-arrow"></i><span>Taktik</span></button>
+  <button class="nb" id="nb-elki" aria-label="Eltern und Kinder" onclick="kachelOpen('elki')"><i class="ti ti-users-group"></i><span>Eltern</span></button>
   <button class="nb" id="nb-orga" aria-label="Orga" onclick="openTab('orga')"><i class="ti ti-calendar"></i><span>Orga</span></button>
 </nav>
 
@@ -459,12 +468,10 @@
     <div class="brow" style="margin-top:12px">
       <button onclick="awSave()" style="flex:1;min-width:150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:none;border-radius:12px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.28)"><i class="ti ti-device-floppy"></i>Speichern</button>
     </div>
-    <!-- Saison-Übersichten wohnen hinter EINER Kachel (PO: Erfassungs-Seite bleibt schlank);
+    <!-- Die Saison-Auswertung ist ab v381 NICHT mehr hier (PO): Erfassen und Auswerten sind
+         zwei verschiedene Anlaesse. Sie sitzt jetzt in der Team-Kachel unter „Überblick"
+         als „Anwesenheit (Saison)" – dort mit den Reitern Spieler/Trainer/Spiele.
          Buddy-/Kleingruppen-Auslosung ist in die Trainings-Planung umgezogen. -->
-    <button onclick="awUebersichtOpen()" style="width:100%;min-height:88px;margin-top:14px;border:var(--border-s);border-top:3px solid #16a34a;border-radius:14px;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:12px 8px">
-      <span style="font-size:30px">📊</span>
-      <span style="font-size:14px;font-weight:800">Übersicht Spieler &amp; Trainer (Saison)</span>
-    </button>
   </div><!-- /train-sub-anwesenheit -->
 
   <!-- SUB: Quiz-Ergebnisse -->

@@ -692,8 +692,8 @@ function awUebersichtOpen(){
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
-    ${mdlHead("awueb-modal","📊","Übersicht (Saison)","Anwesenheit von Spielern und Trainern","#16a34a")}
-    <div id="awueb-tabs" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px"></div>
+    ${mdlHead("awueb-modal","📊","Anwesenheit (Saison)","Spieler, Trainer und die Quote inklusive Spiele","#16a34a")}
+    <div id="awueb-tabs" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px"></div>
     <div id="awueb-inhalt"></div>
   </div>`;
   document.body.appendChild(m);
@@ -701,11 +701,22 @@ function awUebersichtOpen(){
 }
 function awUebersichtZeig(art){
   const tabs=document.getElementById("awueb-tabs");
-  if(tabs)tabs.innerHTML=[["spieler","🧒","Übersicht Spieler"],["trainer","🧑‍🏫","Übersicht Trainer"]].map(([k,emo,l])=>
+  // Dritter Reiter „Spiele" seit v381: die Quote (inkl. Nominierungen) sass frueher auf
+  // einer eigenen Team-Kachel direkt daneben. Zwei aehnliche Einstiege nebeneinander –
+  // jetzt eine Tuer, drei Reiter.
+  if(tabs)tabs.innerHTML=[["spieler","🧒","Spieler"],["trainer","🧑‍🏫","Trainer"],["spiele","⚽","Spiele"]].map(([k,emo,l])=>
     `<button onclick="awUebersichtZeig('${k}')" style="min-height:72px;border:var(--border-s);${art===k?"border-top:3px solid #16a34a;background:var(--surface2);":"border-top:3px solid transparent;background:var(--surface);"}border-radius:14px;color:var(--text);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 6px">
-      <span style="font-size:26px">${emo}</span><span style="font-size:13.5px;font-weight:800">${l}</span>
+      <span style="font-size:26px">${emo}</span><span style="font-size:13px;font-weight:800">${l}</span>
     </button>`).join("");
   const wrap=document.getElementById("awueb-inhalt"); if(!wrap)return;
+  if(art==="spiele"){
+    wrap.innerHTML='<div id="awueb-quote">Lade…</div>';
+    // Welle-1-Funktion, aber der Schutz kostet nichts und haelt den Reiter am Leben,
+    // falls die Quote spaeter in ein Modul wandert.
+    if(typeof anwesenheitQuoteInto==="function")anwesenheitQuoteInto(document.getElementById("awueb-quote"));
+    else wrap.innerHTML='<div style="color:var(--text2);font-size:12px;padding:8px">Die Quote ist gerade nicht verfügbar.</div>';
+    return;
+  }
   wrap.innerHTML=art==="spieler"?'<div id="aw-stats"></div>':'<div id="aw-trainer-stats"></div>';
   art==="spieler"?awRenderStats():awRenderTrainerStats();
 }
@@ -2313,7 +2324,13 @@ async function _tlPatch(fields,nurStatus){
 // Start durch einen Trainer: Session anlegen (oder heutige übernehmen) + Lobby öffnen
 async function tlStart(){
   const me=await trainerMe();
-  if(!me){toast("Bitte als Trainer anmelden","err");return;}
+  // Zwei verschiedene Ursachen, frueher beide mit derselben (falschen) Meldung: gar nicht
+  // angemeldet – oder angemeldet, aber ohne Anzeigenamen im Profil. Der Name ist hier keine
+  // Deko: die Lobby fuehrt Pflicht- und Fertig-Meldungen unter genau diesem Namen.
+  if(!me){
+    toast(sbToken()?"Dein Anzeigename fehlt im Profil – ohne ihn kann die Lobby dich nicht zuordnen. Bitte bei den Trainer-Einstellungen eintragen lassen.":"Bitte als Trainer anmelden","err");
+    return;
+  }
   const pflicht=tpGetCheckedTrainers();
   if(!pflicht.length){toast("Erst oben die Trainer von heute anhaken","err");return;}
   // Ohne Stationen gibt es nichts zu starten – sonst hängt die Runde unaufhaltsam auf „läuft".
@@ -2643,9 +2660,13 @@ function tgKachelHtml(){
     <span style="font-size:11.5px;color:var(--text2);text-align:center">${sub}</span>
   </button>`;
 }
-function tgBilden(){
+/* anzahl (optional): gewuenschte Gruppenzahl. Ohne Angabe wie bisher = Zahl der
+   angehakten Trainer. Die Zahl ist NICHT mehr an die Trainerzahl gebunden – je nach
+   Uebung braucht man mehr oder weniger Gruppen als Trainer da sind. Obergrenze ist die
+   Zahl der Gruppennamen (TG_NAMEN), damit Name und Leibchenfarbe eindeutig bleiben. */
+function tgBilden(anzahl){
   const trainers=tpGetCheckedTrainers();
-  const n=Math.max(1,trainers.length);
+  const n=Math.min(TG_NAMEN.length,Math.max(1,anzahl||trainers.length||1));
   const pool=_kgPool(); // Anwesenheit heute, sonst Kader; pausierte Kinder bleiben draußen
   const st=x=>(typeof teamStaerke==="function")?Math.max(0,teamStaerke(x)):0;
   const namen=pool.namen.slice().sort((a,b)=>st(b)-st(a));
@@ -2667,6 +2688,7 @@ async function tgOpen(){
   m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
     ${mdlHead("tg-modal","👥","Trainingsgruppen","Kind antippen = nächste Gruppe · Größen dürfen ungleich sein","#16a34a")}
     <div id="tg-quelle" style="font-size:11.5px;color:var(--text2);margin-bottom:8px"></div>
+    <div id="tg-anzahl" role="group" aria-label="Anzahl der Gruppen" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px"></div>
     <div id="tg-liste"></div>
     <div style="display:flex;gap:8px;margin-top:10px">
       <button class="btn btn-sm" style="flex:1" onclick="tgNeuMischen()">🎲 Neu mischen</button>
@@ -2680,6 +2702,20 @@ function tgRender(){
   const tg=tgFor(); const el=document.getElementById("tg-liste"); if(!el||!tg)return;
   const q=document.getElementById("tg-quelle");
   if(q)q.innerHTML=tg.ausAnwesenheit?"Quelle: Anwesenheit heute":"⚠️ Heute ist noch keine Anwesenheit erfasst – Basis ist der ganze Kader.";
+  /* Gruppenzahl frei waehlbar (PO): je nach Uebung braucht man mehr Gruppen als Trainer
+     da sind. „1" bleibt drin – das ist der bisherige Fall „alle zusammen" und darf nicht
+     verloren gehen. Filterleiste, deshalb sind 40px hier zulaessig (Konvention: 36px nur
+     in Listenzeilen/Filterleisten); aria-pressed macht die Wahl ohne Farbe erkennbar. */
+  const az=document.getElementById("tg-anzahl");
+  if(az){
+    const jetzt=tg.gruppen.length;
+    const kinder=tg.gruppen.reduce((s,g)=>s+g.kinder.length,0);
+    az.innerHTML=`<span style="font-size:11.5px;color:var(--text2);margin-right:2px">Gruppen:</span>`
+      +TG_NAMEN.map((_,i)=>{const n=i+1;const an=n===jetzt;
+        return `<button onclick="tgAnzahlSetzen(${n})" aria-pressed="${an?"true":"false"}" style="min-width:44px;min-height:40px;padding:0 12px;border:var(--border-s);${an?"border-color:transparent;background:var(--fam-training);color:#fff;":"background:var(--surface2);color:var(--text);"}border-radius:16px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">${an?"✓ ":""}${n}</button>`;
+      }).join("")
+      +`<span style="font-size:11px;color:var(--text3);margin-left:2px">${kinder} Kinder</span>`;
+  }
   el.innerHTML=tg.gruppen.map((g,gi)=>`<div style="border:var(--border-s);border-left:4px solid ${g.farbe};border-radius:12px;padding:10px 12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <button onclick="tgRename(${gi})" title="Gruppe umbenennen" style="border:none;background:transparent;font-family:inherit;font-size:14px;font-weight:900;color:${g.farbe};cursor:pointer;min-height:44px;padding:0;margin:-8px 0">${g.emo} ${esc(g.name)} ✏️</button>
@@ -2710,7 +2746,11 @@ function tgRename(gi){
   tg.gruppen[gi].name=name;
   tgSave(tg);tgRender();
 }
-function tgNeuMischen(){tgBilden();tgRender();}
+// Neu mischen behaelt die eingestellte Gruppenzahl – sonst springt sie beim Wuerfeln
+// auf die Trainerzahl zurueck und die eben getroffene Wahl waere weg.
+function tgNeuMischen(){const tg=tgFor();tgBilden(tg&&tg.gruppen?tg.gruppen.length:undefined);tgRender();}
+// Gruppenzahl umstellen: bildet sofort neu (die Kinder sind danach frei verschiebbar).
+function tgAnzahlSetzen(n){tgBilden(n);tgRender();}
 // ℹ️ direkt aus dem Übungs-Picker: Detail über dem Picker anzeigen (dessen z-index ist höher)
 function tpPickerInfo(idx){
   tpShowExercise(idx);
