@@ -273,8 +273,8 @@ async function spieltagDatesLoad(preferDatum){
 }
 function nomInit(){
   spieltagTeam=1; // Tab-Eintritt: Standard-Team
-  const seg=document.getElementById("spieltag-team-seg");
-  if(seg)seg.querySelectorAll(".seg-btn").forEach(b=>b.classList.toggle("active",b.dataset.val==="1"));
+  // Der Umschalter wird nicht mehr von Hand umgeklasst, sondern aus TEAM_ANZAHL
+  // gerendert (spieltagTeamSegRender) – das passiert am Ende von teamsLoad.
   spieltagDatesLoad(); // Spieltag-Dropdown aus hinterlegten Terminen befüllen (ruft dann nomLoad)
 }
 // Eltern-RSVP (Phase 10-M, Etappe 3): Rückmeldungen der Eltern zum Termin dieses Datums laden.

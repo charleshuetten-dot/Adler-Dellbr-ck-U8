@@ -534,13 +534,13 @@
       <span style="font-size:11px;color:var(--text2);font-weight:600">Spieltag</span>
       <select id="spieltag-date" onchange="if(typeof _spieltagTurnierBanner==='function')_spieltagTurnierBanner();nomLoad()" style="min-height:40px;padding:6px 10px;border:var(--border-s);border-radius:var(--r);font-family:inherit;background:var(--surface);color:var(--text);min-width:190px"></select>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    <!-- Der Umschalter wird von spieltagTeamSegRender (md-teams.js) gefuellt: so viele
+         Knoepfe, wie unter "Vor dem Spiel" Teams festgelegt sind. Frueher standen hier
+         fest drei - man konnte auf "Adler 3" tippen, bevor ueberhaupt entschieden war,
+         wie viele Teams wir stellen, und die App legte Daten dafuer an. -->
+    <div id="spieltag-team-zeile" hidden style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       <span style="font-size:11px;color:var(--text2);font-weight:600">Team</span>
-      <div class="seg-ctrl" id="spieltag-team-seg">
-        <button type="button" class="seg-btn active" data-val="1" onclick="spieltagSetTeam(1,this)">Adler 1</button>
-        <button type="button" class="seg-btn" data-val="2" onclick="spieltagSetTeam(2,this)">Adler 2</button>
-        <button type="button" class="seg-btn" data-val="3" onclick="spieltagSetTeam(3,this)">Adler 3</button>
-      </div>
+      <div class="seg-ctrl" id="spieltag-team-seg"></div>
     </div>
     </div><!-- /Karte Spieltag+Team -->
     <!-- Turnier-Banner: NUR wenn der gewaehlte Spieltag ein Turnier ist (PO: „ein Turnier

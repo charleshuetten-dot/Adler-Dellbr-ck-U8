@@ -7,7 +7,16 @@
    Gespeichert in nominierungen unter dem Schluessel "<datum>__teams", damit die
    Einteilung neben den drei Team-Zeilen liegt und Neuladen uebersteht.
 ═══════════════════════════════════ */
-let TEAMS={}, TEAM_ANZAHL=1, TEAM_STATS={}, TEAM_GRUND={};
+/* TEAM_TRAINER: {teamnummer: [Trainername, …]} – wer dieses Team am Spieltag betreut.
+   PO: „es muss immer ein Trainer zugewiesen werden", mehrere je Team sind erlaubt.
+   Wohnt in derselben data-Spalte wie die Kinder-Einteilung (nominierungen/„…__teams"),
+   deshalb keine neue Tabelle, keine Änderung an Backup oder Rechten. WICHTIG: beim Laden
+   wie _anzahl aus dem Objekt löschen, sonst landet der Schlüssel in TEAMS und die App
+   hält „_trainer" für ein Kind.
+   TEAM_STAB: wer überhaupt zuteilbar ist – der ganze Trainerstab (nicht nur wer
+   mittrainiert), mit seiner Zusage zu diesem Termin. */
+let TEAMS={}, TEAM_ANZAHL=1, TEAM_STATS={}, TEAM_GRUND={}, TEAM_TRAINER={}, TEAM_STAB=[];
+const TEAM_MAX=4; // PO v389: von 3 auf 4 erweitert
 function teamsKey(){ return spieltagRawDate()+"__teams"; }
 // Feld-IDs nie aus Namen bauen (Umlaute, Leerzeichen) – der Kader-Index ist eindeutig.
 function teamKaderIdx(n){ return KADER.findIndex(k=>k.name===n); }
@@ -49,7 +58,7 @@ function teamPlatzProTeam(n){
 function teamAnzahlVorschlag(){
   const kd=teamKader(), z=teamZusagen().length;
   if(!z)return 1;
-  let n=Math.min(3,Math.ceil(z/(kd.gesamt+1)));   // so wenige Teams wie möglich, ohne jemanden auszuschließen
+  let n=Math.min(TEAM_MAX,Math.ceil(z/(kd.gesamt+1)));   // so wenige Teams wie möglich, ohne jemanden auszuschließen
   while(n>1&&Math.floor(z/n)<teamMindestKader())n--; // aber nie unter die spielfähige Größe
   return Math.max(1,n);
 }
@@ -120,6 +129,23 @@ function teamsAuto(){
   const kd=teamKader(), n=TEAM_ANZAHL;
   let pool=teamZusagen();
   TEAMS={};
+  /* Trainer je Team – steht bewusst VOR der Kinder-Einteilung und auch dann schon da,
+     wenn noch niemand zugesagt hat: erst legen wir fest, wie viele Teams wir stellen und
+     wer sie betreut, dann verteilen wir die Kinder. Ein Team ohne Trainer wird angemahnt
+     (PO: „es muss immer ein Trainer zugewiesen werden"). */
+  html+=`<div style="font-size:12px;font-weight:600;margin:12px 0 6px">Trainer je Team</div>`;
+  for(let t=1;t<=TEAM_ANZAHL;t++){
+    const tr=TEAM_TRAINER[t]||[];
+    html+=`<button onclick="teamTrainerOpen(${t})" style="width:100%;min-height:48px;display:flex;align-items:center;gap:10px;text-align:left;margin-bottom:6px;padding:8px 12px;border:var(--border-s);border-left:3px solid var(--fam-spieltag);border-radius:12px;background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer">
+      <span style="font-size:16px">🧢</span>
+      <span style="flex:1;min-width:0">
+        <span style="display:block;font-size:12.5px;font-weight:800">Adler ${t}</span>
+        <span style="display:block;font-size:11.5px;${tr.length?"color:var(--text2)":"color:var(--amber);font-weight:700"}">${tr.length?esc(tr.join(", ")):"noch kein Trainer zugeteilt"}</span>
+      </span>
+      <span style="font-size:15px;color:var(--text3)">✏️</span>
+    </button>`;
+  }
+
   if(!pool.length){ teamsRender(); return; }
   const kap=teamPlatzProTeam(n);          // Sollgröße, ggf. +1 damit niemand zusehen muss
 
@@ -159,11 +185,92 @@ function teamsAuto(){
   });
   teamsRender();
 }
-function teamSetAnzahl(n){ TEAM_ANZAHL=Math.max(1,Math.min(3,parseInt(n)||1)); TEAMS={}; teamsRender(); }
+function teamSetAnzahl(n){
+  TEAM_ANZAHL=Math.max(1,Math.min(TEAM_MAX,parseInt(n)||1));
+  TEAMS={};
+  // Zuteilungen zu weggefallenen Teams aufräumen, sonst hängen Trainer an einem Team,
+  // das es nicht mehr gibt – und tauchen später wieder auf, wenn man wieder hochstellt.
+  Object.keys(TEAM_TRAINER).forEach(t=>{ if(Number(t)>TEAM_ANZAHL)delete TEAM_TRAINER[t]; });
+  const wechselNoetig=(typeof spieltagTeam!=="undefined"&&spieltagTeam>TEAM_ANZAHL);
+  teamsSpeichern();
+  teamsRender(); spieltagTeamSegRender();
+  // Sah man gerade „Adler 3" und stellt auf 2 Teams, muss die Ansicht darunter mit
+  // umschalten – sonst zeigt sie weiter Daten eines Teams, das nicht mehr existiert.
+  if(wechselNoetig&&typeof spieltagSetTeam==="function")spieltagSetTeam(1);
+}
+/* Ein Trainer gehört zu genau EINEM Team: er kann nicht an zwei Feldern gleichzeitig
+   stehen, und in der Eltern-Info stünde er sonst doppelt. Zuteilen zu Team B nimmt ihn
+   deshalb aus Team A heraus. Erneutes Antippen im eigenen Team entfernt ihn. */
+function teamTrainerToggle(t,name){
+  const drin=((TEAM_TRAINER[t]||[]).indexOf(name)>=0);
+  Object.keys(TEAM_TRAINER).forEach(k=>{ TEAM_TRAINER[k]=(TEAM_TRAINER[k]||[]).filter(x=>x!==name); });
+  if(!drin)TEAM_TRAINER[t]=(TEAM_TRAINER[t]||[]).concat(name);
+  Object.keys(TEAM_TRAINER).forEach(k=>{ if(!TEAM_TRAINER[k].length)delete TEAM_TRAINER[k]; });
+  teamsSpeichern(); teamsRender(); spieltagTeamSegRender();
+  const box=document.getElementById("teamtr-liste"); if(box)teamTrainerModalFill(t);
+}
+/* Wer ist zuteilbar? Der ganze Trainerstab – auch wer nicht mittrainiert (siehe
+   trainerstabNamen in core.js). Wer für diesen Termin zugesagt hat, wird hervorgehoben:
+   eingeteilt wird, wer da ist. */
+async function teamStabLoad(){
+  let status={};
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?datum=eq.${encodeURIComponent(spieltagRawDate())}&select=trainer_status&limit=1`,{headers:sbAuthHeaders()});
+    if(r.ok){ const rows=await r.json(); status=(rows[0]||{}).trainer_status||{}; }
+  }catch(e){}
+  const alle=(typeof trainerstabNamen==="function")?trainerstabNamen(status)
+            :(((typeof TRAINER!=="undefined"&&TRAINER)||[]).slice());
+  TEAM_STAB=alle.map(n=>({name:n,zusage:status[n]||""}));
+}
+function teamTrainerOpen(t){
+  document.getElementById("teamtr-modal")?.remove();
+  const m=document.createElement("div"); m.id="teamtr-modal";
+  m.setAttribute("role","dialog"); m.setAttribute("aria-modal","true"); m.setAttribute("aria-label","Trainer für Adler "+t);
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:420px;width:100%;margin:auto">
+    ${mdlHead("teamtr-modal","🧢","Trainer für Adler "+t,"Antippen teilt zu · ein Trainer gehört zu einem Team","var(--fam-spieltag)")}
+    <div id="teamtr-liste"></div>
+    <button class="btn btn-p" style="width:100%;margin-top:10px" onclick="document.getElementById('teamtr-modal').remove()">Fertig</button>
+  </div>`;
+  document.body.appendChild(m);
+  teamTrainerModalFill(t);
+}
+function teamTrainerModalFill(t){
+  const el=document.getElementById("teamtr-liste"); if(!el)return;
+  if(!TEAM_STAB.length){ el.innerHTML='<div style="font-size:12px;color:var(--text3)">Kein Trainerstab geladen.</div>'; return; }
+  el.innerHTML=TEAM_STAB.map(s=>{
+    const meins=((TEAM_TRAINER[t]||[]).indexOf(s.name)>=0);
+    let anderes=""; Object.keys(TEAM_TRAINER).forEach(k=>{ if(Number(k)!==t&&(TEAM_TRAINER[k]||[]).indexOf(s.name)>=0)anderes="Adler "+k; });
+    const zus=s.zusage==="ja"?"✅ dabei":s.zusage==="unsicher"?"🤔 unsicher":s.zusage==="nein"?"❌ nicht dabei":"– keine Rückmeldung";
+    return `<button onclick="teamTrainerToggle(${t},'${jsq(s.name)}')" aria-pressed="${meins?"true":"false"}"
+      style="width:100%;min-height:52px;display:flex;align-items:center;gap:10px;text-align:left;margin-bottom:6px;padding:8px 12px;border:var(--border-s);${meins?"border-color:transparent;background:var(--fam-spieltag);color:#fff;":"background:var(--surface2);color:var(--text);"}border-radius:12px;font-family:inherit;cursor:pointer">
+      <span style="font-size:17px">${meins?"✓":"🧢"}</span>
+      <span style="flex:1;min-width:0">
+        <span style="display:block;font-size:13.5px;font-weight:800">${esc(s.name)}</span>
+        <span style="display:block;font-size:11px;${meins?"opacity:.9":"color:var(--text3)"}">${zus}${anderes?" · steht bei "+anderes:""}</span>
+      </span></button>`;
+  }).join("");
+}
+/* Der Umschalter oben zeigte fest „Adler 1/2/3" – unabhängig davon, wie viele Teams
+   überhaupt gestellt werden (PO: „die Anzahl ist noch gar nicht festgelegt"). Er folgt
+   jetzt TEAM_ANZAHL, nennt die zugeteilten Trainer und verschwindet bei einem Team. */
+function spieltagTeamSegRender(){
+  const seg=document.getElementById("spieltag-team-seg"); if(!seg)return;
+  const zeile=document.getElementById("spieltag-team-zeile");
+  if(zeile)zeile.hidden=(TEAM_ANZAHL<=1);
+  const aktiv=(typeof spieltagTeam!=="undefined")?spieltagTeam:1;
+  seg.innerHTML=Array.from({length:TEAM_ANZAHL},(_,i)=>{
+    const n=i+1, tr=(TEAM_TRAINER[n]||[]).join(", ");
+    return `<button type="button" class="seg-btn${aktiv===n?" active":""}" data-val="${n}" onclick="spieltagSetTeam(${n},this)">Adler ${n}${
+      tr?`<span style="display:block;font-size:10px;font-weight:600;opacity:.85">${esc(tr)}</span>`:""}</button>`;
+  }).join("");
+}
 function teamSet(name,nr){ if(nr)TEAMS[name]=nr; else delete TEAMS[name]; teamsRender(); }
 
 async function teamsLoad(){
-  TEAMS={}; TEAM_ANZAHL=teamAnzahlVorschlag();
+  TEAMS={}; TEAM_ANZAHL=teamAnzahlVorschlag(); TEAM_TRAINER={};
+  await teamStabLoad();
   await Promise.all([teamStatsLoad(),teamGruendeLaden(spieltagRawDate())]);   // Kennzahlen für die Pausen-Entscheidung
   try{
     const r=await fetch(`${SB_URL}/rest/v1/nominierungen?datum=eq.${encodeURIComponent(teamsKey())}&select=data`,{headers:sbAuthHeaders()});
@@ -172,18 +279,20 @@ async function teamsLoad(){
       if(rows.length&&rows[0].data){
         const d={...rows[0].data};
         if(d._anzahl)TEAM_ANZAHL=d._anzahl;
-        delete d._anzahl;
+        if(d._trainer&&typeof d._trainer==="object")TEAM_TRAINER=d._trainer;
+        // BEIDE Sonderschluessel raus, sonst haelt die App "_trainer" fuer ein Kind
+        delete d._anzahl; delete d._trainer;
         TEAMS=d;
       }
     }
   }catch(e){}
-  teamsRender();
+  teamsRender(); spieltagTeamSegRender();
 }
 async function teamsSpeichern(){
   try{
     await fetch(`${SB_URL}/rest/v1/nominierungen?on_conflict=datum`,{method:"POST",
       headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({datum:teamsKey(),data:{_anzahl:TEAM_ANZAHL,...TEAMS}})});
+      body:JSON.stringify({datum:teamsKey(),data:{_anzahl:TEAM_ANZAHL,_trainer:TEAM_TRAINER,...TEAMS}})});
   }catch(e){}
 }
 /* Einteilung -> die drei Team-Nominierungen. _ovr enthält alle Namen, sonst würde
@@ -319,7 +428,7 @@ function teamsRender(){
       <span style="font-size:12px;font-weight:600">Anzahl Teams</span>
       <span style="font-size:11px;color:var(--text3);margin-left:auto">Vorschlag: ${vorschlag}</span>
     </div>
-    <div class="seg-ctrl" style="margin-bottom:8px">${segBtn(1)}${segBtn(2)}${segBtn(3)}</div>
+    <div class="seg-ctrl" style="margin-bottom:8px">${Array.from({length:TEAM_MAX},(_,i)=>segBtn(i+1)).join("")}</div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${esc(form)}: ${kd.tw?"1 Torwart + ":""}${kd.feld} Feldspieler = ${kd.gesamt} pro Team · ${pool.length} Zusage${pool.length===1?"":"n"}${teamPlatzProTeam()>kd.gesamt?" · ein Team nimmt ein Kind mehr auf, damit niemand zusehen muss":""}</div>`;
 
   if(!pool.length){
