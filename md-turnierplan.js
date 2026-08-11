@@ -352,7 +352,15 @@ async function anstossSet(name){
 async function rollenPanelRender(){
   const box=document.getElementById("rollen-panel"); if(!box)return;
   await anstossLoad(); // KAP_COUNT wird über kapitaenLoad in nomLoad gefüllt
-  const squad=(typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():KADER.map(k=>k.name);
+  /* Nur die Kinder DIESES Teams. Der frühere Rückfall auf den ganzen Kader war gut
+     gemeint, aber hier falsch: die Rollen wohnen in der Team-Kachel, und ein Kapitän aus
+     einem anderen Team steht am Spielfeldrand. Ist das Team leer, sagt das Panel das –
+     eine Auswahl über 16 Namen wäre nur eine Falle. */
+  const squad=(typeof nominierteSpieler==="function")?nominierteSpieler():[];
+  if(!squad.length){
+    box.innerHTML=`<div style="font-size:11.5px;color:var(--text3)">Noch niemand in diesem Team – erst oben unter „Teams festlegen“ einteilen.</div>`;
+    return;
+  }
   const nie=(cnt)=>squad.filter(n=>!(cnt[n]>0));
   const opts=(cnt,cur)=>squad.slice().sort((a,b)=>(cnt[a]||0)-(cnt[b]||0)).filter(n=>n!==cur).map(n=>`<option value="${esc(n)}">${getKader(n)?.nr?getKader(n).nr+" ":""}${esc(n)} · ${(cnt[n]||0)===0?"noch nie ⭐":(cnt[n]||0)+"×"}</option>`).join("");
   const row=(icon,label,cnt,cur,setFn)=>{
@@ -362,7 +370,7 @@ async function rollenPanelRender(){
         <span style="flex:1;font-size:12.5px;font-weight:700">${icon} ${label}${cur?`: <span style="color:var(--blue)">${esc(cur)}</span>`:""}</span>
         <select onchange="if(this.value)${setFn}(this.value)" style="padding:6px 8px;border:var(--border-s);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--surface2);color:var(--text)"><option value="">${cur?"wechseln…":"wählen…"}</option>${opts(cnt,cur)}</select>
       </div>
-      ${offen.length?`<div style="font-size:10.5px;color:var(--text2);margin-top:5px">Noch nie dran ⭐: ${offen.map(esc).join(", ")}</div>`:`<div style="font-size:10.5px;color:#16a34a;margin-top:5px">Alle waren schon dran – fair verteilt ✓</div>`}
+      ${offen.length?`<div style="font-size:10.5px;color:var(--text2);margin-top:5px">Noch nie dran ⭐: ${offen.map(esc).join(", ")}</div>`:`<div style="font-size:10.5px;color:var(--green);margin-top:5px">Alle waren schon dran – fair verteilt ✓</div>`}
     </div>`;
   };
   box.innerHTML=`<div style="font-size:10.5px;color:var(--text3);margin-bottom:6px">Damit jedes Kind mal die besondere Rolle bekommt.</div>`+
@@ -381,30 +389,24 @@ async function kapitaenSet(name){
   terminIdForDatum(datum).then(tid=>sbQueuedPost("match_actions",{datum,spieler:name,aktion:"kapitaen",termin_id:tid}));
   tickerPush(name,"kapitaen");   // Highlight für die Eltern
   toast(`©️ ${name} ist heute Kapitän`);
-  rotRenderLive();
+  rotRenderLive();          // Anzeige im Rotations-Timer
+  rollenPanelRender();      // und die Zeile bei den fairen Rollen
 }
-// Kapitäns-Zeile für die Live-Ansicht: aktueller Kapitän + faire Auswahl mit Zählung.
+/* Kapitäns-Zeile im Rotations-Timer: nur noch ANZEIGE.
+   PO-Meldung v396: „es gibt den Auswahl für Kapitän auch 2 x." Stimmt – einmal unter
+   „Faire Rollen" (① Vor dem Spiel) und einmal hier. Zwei Auswahlfelder für dieselbe
+   Entscheidung, mit unterschiedlichen Namenslisten obendrein: hier kam sie aus Feld und
+   Bank des Rotations-Timers, dort aus dem Team-Kader. Gewählt wird jetzt nur noch bei
+   den fairen Rollen; hier steht, wer es geworden ist, damit man es während des Spiels
+   sieht ohne hochzuscrollen. */
 function kapitaenRow(){
-  // fairste Wahl zuerst: aufsteigend nach bisheriger Kapitäns-Zahl
-  const squad=[...rotField,...rotBench,...(rotTW?[rotTW]:[])].sort((a,b)=>(KAP_COUNT[a]||0)-(KAP_COUNT[b]||0));
   if(matchKapitaen){
     const n=KAP_COUNT[matchKapitaen]||1;
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:var(--r);font-size:12.5px;color:#3730a3;margin-bottom:10px">
-      ©️ <strong>Kapitän: ${esc(matchKapitaen)}</strong><span style="font-size:10px;color:#6366f1">${n}. Mal</span>
-      <select onchange="if(this.value)kapitaenSet(this.value)" style="margin-left:auto;padding:6px 8px;border:var(--border-s);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--surface)">
-        <option value="">wechseln…</option>${squad.filter(n=>n!==matchKapitaen).map(kapitaenOpt).join("")}
-      </select></div>`;
+      ©️ <strong>Kapitän: ${esc(matchKapitaen)}</strong><span style="font-size:10px;color:#6366f1">${n}. Mal</span></div>`;
   }
   return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f5f3ff;border:1px dashed #c7d2fe;border-radius:var(--r);font-size:12.5px;color:#4338ca;margin-bottom:10px">
-    ©️ <strong>Kapitän heute:</strong>
-    <select onchange="if(this.value)kapitaenSet(this.value)" style="flex:1;padding:6px 8px;border:var(--border-s);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--surface)">
-      <option value="">— wählen (fair: wer noch nie dran war) —</option>${squad.map(kapitaenOpt).join("")}
-    </select></div>`;
-}
-function kapitaenOpt(n){
-  const c=KAP_COUNT[n]||0;
-  const label=c===0?"noch nie ⭐":c+"×";
-  return `<option value="${esc(n)}">${getKader(n)?.nr?getKader(n).nr+" ":""}${esc(n)} · ${label}</option>`;
+    ©️ <span>Noch kein Kapitän – unter „① Vor dem Spiel“ bei den fairen Rollen wählen.</span></div>`;
 }
 /* Die Nominierung gehoert seit v393 dem SPIELTAG, nicht dem einzelnen Team: „wer ist heute
    ueberhaupt dabei". Sie liegt unter „<datum>__nom" – dieselbe Tabelle, dieselben Rechte,
@@ -449,8 +451,10 @@ async function nomLoad(){
   // C: explizit pausierte Kinder sind raus (außer der Trainer hat manuell überstimmt).
   if(typeof pauseLoad==="function"){ await pauseLoad(); Object.keys(PAUSE_MAP||{}).forEach(name=>{ if(!nomOvr.has(name)) nomStatus[name]="nicht"; }); }
   nomRender();
-  if(document.getElementById("rollen-panel"))rollenPanelRender(); // B2: faire Rollen
   await teamsLoad();   // Einteilung gehört zum Datum, nicht zum einzelnen Team
+  // Faire Rollen ERST danach: sie fragen über nominierteSpieler() den Kader dieses Teams
+  // ab, und den kennt die App erst, wenn teamsLoad die Einteilung geladen hat. Vorher
+  // stand hier der ganze Kader in der Auswahl (PO-Meldung v396).
   nomApplyToTools();
   if(document.getElementById("action-panel"))atInit(); // Aktionen fürs neue Datum laden
 }
