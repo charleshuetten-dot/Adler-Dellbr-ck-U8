@@ -67,12 +67,50 @@ function questCountsLive(){
   Object.values(atCounts).forEach(pl=>Object.keys(pl).forEach(k=>{c[k]=(c[k]||0)+pl[k];}));
   return c;
 }
+/* ── Quests gelten teamuebergreifend (PO v392) ────────────────────────────────
+   Vorher zaehlte nur atCounts, also das gerade geoeffnete Team. Bei drei Teams
+   hat jedes fuer sich "Pass-Maschine 20" geholt – die Quest fiel dreimal und war
+   entsprechend billig. Jetzt gilt: EIN Ziel fuer den ganzen Spieltag.
+     Fortschritt = eigenes Team live (atCounts) + die anderen Teams aus der DB
+     Ziel        = q.target × Anzahl Teams  (drei Teams -> 60 statt 20)
+   questFremd haelt nur die ANDEREN Teams, damit ein Tipp im Aktions-Tracker
+   sofort sichtbar ist, ohne auf einen neuen Query zu warten. */
+let questFremd={};
+async function questFremdLaden(){
+  questFremd={};
+  const tag=(typeof spieltagRawDate==="function")?spieltagRawDate():"";
+  const eigen=(typeof spieltagKey==="function")?spieltagKey():tag;
+  if(!tag)return;
+  try{
+    // like.<datum>* trifft "2026-08-11" und "2026-08-11__t2" – Datumsschluessel haben feste Laenge.
+    const r=await fetch(`${SB_URL}/rest/v1/match_actions?datum=like.${encodeURIComponent(tag)}*&select=datum,aktion`,{headers:sbAuthHeaders()});
+    if(!r.ok)return;
+    (await r.json()).forEach(a=>{
+      const d=String(a.datum||"");
+      if(d===eigen)return;                                  // eigenes Team kommt live aus atCounts
+      if(d!==tag&&d.indexOf(tag+"__t")!==0)return;          // Sicherheitsnetz gegen Fehltreffer
+      questFremd[a.aktion]=(questFremd[a.aktion]||0)+1;
+    });
+  }catch(e){}
+}
+function questTeams(){
+  const n=(typeof TEAM_ANZAHL!=="undefined")?parseInt(TEAM_ANZAHL):1;
+  return Math.max(1,n||1);
+}
+function questZiel(q){ return Math.max(1,(parseInt(q&&q.target)||1)*questTeams()); }
+function questCountsAll(){
+  const c=questCountsLive();
+  Object.keys(questFremd).forEach(k=>{c[k]=(c[k]||0)+questFremd[k];});
+  return c;
+}
 function questStripHTML(counts){
+  counts=counts||questCountsAll();
   const items=teamQuests.map(q=>{
-    const n=counts[q.key]||0,done=n>=q.target,pct=Math.min(100,Math.round(n/q.target*100));
+    const ziel=questZiel(q);
+    const n=counts[q.key]||0,done=n>=ziel,pct=Math.min(100,Math.round(n/ziel*100));
     return `<div style="flex:1;min-width:86px">
       <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:2px">
-        <span>${q.icon} ${esc(q.label)}</span><span style="font-weight:700;color:${done?"#059669":"var(--text)"}">${n}/${q.target}${done?" ✓":""}</span>
+        <span>${q.icon} ${esc(q.label)}</span><span style="font-weight:700;color:${done?"#059669":"var(--text)"}">${n}/${ziel}${done?" ✓":""}</span>
       </div>
       <div style="height:6px;background:var(--surface2);border-radius:4px;overflow:hidden">
         <div style="height:100%;width:${pct}%;background:${done?"#059669":"var(--blue)"};transition:width .3s"></div>
@@ -80,22 +118,30 @@ function questStripHTML(counts){
     </div>`;
   }).join("");
   return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-      <span style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);flex:1">🏆 Team-Quests heute</span>
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);flex:1">🏆 Team-Quests heute${questTeams()>1?` · alle ${questTeams()} Teams zusammen`:""}</span>
       <button onclick="questEditorOpen()" style="border:none;background:transparent;color:var(--blue);font-size:11px;cursor:pointer;font-family:inherit">anpassen</button>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:10px">${items}</div>
     ${teamBelohnung?`<div style="margin-top:8px;font-size:11px;color:var(--text2)">🎁 Belohnung: <strong>${esc(teamBelohnung)}</strong></div>`:""}`;
 }
 // Spieltag-Sektion „Team-Quests": Ziele + Feder-Belohnung im Überblick, mit Editor-Zugang.
-// Die Live-Fortschritte laufen weiter über den quest-strip im Aktions-Panel.
+// Steht ausserhalb der Team-Kacheln – die Ziele gelten fuer alle Teams des Tages gemeinsam.
 function questPanelRender(){
   const box=document.getElementById("quest-panel"); if(!box)return;
-  const chips=teamQuests.map(q=>`<span style="font-size:11.5px;background:var(--surface2);border-radius:12px;padding:3px 9px">${q.icon} ${esc(q.label)} · ${q.target}</span>`).join("");
+  const teams=questTeams();
+  const counts=questCountsAll();
+  const chips=teamQuests.map(q=>{
+    const ziel=questZiel(q), n=counts[q.key]||0, done=n>=ziel;
+    return `<span style="font-size:11.5px;background:${done?"#ecfdf5":"var(--surface2)"};color:${done?"#065f46":"var(--text)"};border-radius:12px;padding:3px 9px">${q.icon} ${esc(q.label)} · ${n}/${ziel}${done?" ✓":""}</span>`;
+  }).join("");
   box.innerHTML=`<div style="background:var(--surface);border:var(--border-s);border-left:3px solid #7c3aed;border-radius:12px;padding:12px 14px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <span style="flex:1;font-size:12px;font-weight:700">🏆 Diese Ziele holt sich das Team im Spiel</span>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <span style="flex:1;font-size:12px;font-weight:700">🏆 Diese Ziele holen sich ${teams>1?"alle Teams gemeinsam":"die Kinder im Spiel"}</span>
       <button class="btn btn-sm" onclick="questEditorOpen()"><i class="ti ti-pencil"></i>Anpassen</button>
     </div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">${teams>1
+      ?`Ein Ziel für den ganzen Spieltag: gezählt werden die Aktionen <b>aller ${teams} Teams zusammen</b>, dafür ist das Ziel ${teams}× so hoch.`
+      :`Gezählt werden die Aktionen aus dem Live-Tracker.`}</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px">${chips||'<span style="font-size:11.5px;color:var(--text3)">Noch keine Quests – „Anpassen" antippen.</span>'}</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;font-size:11.5px;color:var(--text2)">
       ${teamQuestFedern>0?`<span style="background:#ecfdf5;color:#065f46;border-radius:12px;padding:3px 9px;font-weight:700">${XP_ICON} ${teamQuestFedern} Federn pro Kind, wenn ALLE Ziele fallen</span>`:`<span style="color:var(--text3)">Feder-Belohnung aus</span>`}
@@ -105,10 +151,10 @@ function questPanelRender(){
 }
 // Erst prüfen ob eine Quest NEU geschafft wurde – dann feiern (einmalig pro Spieltag).
 function questCheck(counts){
-  counts=counts||questCountsLive();
+  counts=counts||questCountsAll();
   const cont=document.getElementById("quest-strip");
   teamQuests.forEach(q=>{
-    if((counts[q.key]||0)>=q.target&&!questDone.has(q.key)){
+    if((counts[q.key]||0)>=questZiel(q)&&!questDone.has(q.key)){
       questDone.add(q.key);
       if(cont)confetti(cont);
       toast(`🏆 Team-Quest geschafft: ${q.label}!`);
@@ -117,17 +163,23 @@ function questCheck(counts){
   });
   teamQuestRewardMaybe(); // alle geschafft? -> Federn an jedes mitspielende Kind
 }
-// Wenn das Team ALLE Quests eines Spieltags schafft, bekommt jedes nominierte Kind die
-// eingestellte Feder-Belohnung – automatisch, serverseitig idempotent pro Spieler+Spieltag.
+/* Wenn ALLE Quests des Spieltags fallen, bekommt jedes mitspielende Kind die eingestellte
+   Feder-Belohnung – automatisch, serverseitig idempotent pro Spieler+Spieltag.
+   Schluessel ist bewusst das REINE Datum (nicht spieltagKey): die Quests gelten
+   teamuebergreifend, also gibt es die Belohnung einmal pro Kind und Spieltag – sonst
+   koennte ein Kind ueber "…__t2" ein zweites Mal kassieren.
+   Belohnt werden alle eingeteilten Kinder aller Teams; ohne Einteilung das nominierte Team. */
 let questRewardedFor=null;
 async function teamQuestRewardMaybe(){
   if(!teamQuests.length||questDone.size<teamQuests.length)return; // noch nicht alle geschafft
   if(teamQuestFedern<=0)return;                                    // Belohnung deaktiviert
   if(!sbToken())return;                                            // nur das Trainerteam vergibt
-  const datum=spieltagKey();
+  const datum=(typeof spieltagRawDate==="function")?spieltagRawDate():spieltagKey();
   if(questRewardedFor===datum)return;                              // in dieser Sitzung schon vergeben
   questRewardedFor=datum;
-  const namen=(typeof nominierteSpieler==="function")?nominierteSpieler():[];
+  const ausTeams=(typeof TEAMS==="object"&&TEAMS)?Object.keys(TEAMS).filter(n=>TEAMS[n]):[];
+  const namen=ausTeams.length?ausTeams
+            :((typeof nominierteSpieler==="function")?nominierteSpieler():[]);
   let n=0;
   for(const name of namen){
     const k=getKader(name); if(!k||!k._id)continue;
@@ -148,8 +200,8 @@ async function xpTeamQuestAward(spielerId,datum){
 }
 // Beim Laden bereits erfüllte Quests still als „erledigt" markieren (kein Confetti beim Öffnen).
 function questSeedDone(){
-  const counts=questCountsLive();
-  questDone=new Set(teamQuests.filter(q=>(counts[q.key]||0)>=q.target).map(q=>q.key));
+  const counts=questCountsAll();
+  questDone=new Set(teamQuests.filter(q=>(counts[q.key]||0)>=questZiel(q)).map(q=>q.key));
 }
 // Trainer-Editor: Ziel & Name je Quest anpassen + Freitext-Belohnung für die Kids.
 let qeDraft=[];

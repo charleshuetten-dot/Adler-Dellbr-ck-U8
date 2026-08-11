@@ -201,6 +201,7 @@ async function atInit(){
     }
   }catch(e){}
   await loadTeamConfig(); // editierbare Quests + Belohnung laden
+  await questFremdLaden(); // Quest-Fortschritt der ANDEREN Teams desselben Spieltags
   await atLoadGegentore(); // Gegentor-Stand fürs Live-Ergebnis
   questSeedDone(); // bereits erfüllte Quests still markieren, bevor gerendert wird
   atRender();
@@ -211,7 +212,7 @@ function atRender(){
   const box=document.getElementById("action-panel");
   if(!box)return;
   box.innerHTML=`
-    <div id="quest-strip" style="position:relative;overflow:hidden;background:var(--surface);border:var(--border-s);border-radius:12px;padding:10px 12px;margin-bottom:12px">${questStripHTML(questCountsLive())}</div>
+    <div id="quest-strip" style="position:relative;overflow:hidden;background:var(--surface);border:var(--border-s);border-radius:12px;padding:10px 12px;margin-bottom:12px">${questStripHTML(questCountsAll())}</div>
     <button onclick="atLiveOpen()" style="width:100%;min-height:64px;margin-bottom:10px;border:none;border-radius:14px;background:linear-gradient(135deg,#0ea5e9,#2563eb);color:#fff;font-size:17px;font-weight:800;font-family:inherit;cursor:pointer">⚡ Live-Aktion starten (Vollbild)</button>
     ${voiceSupported?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <button id="voice-btn" class="btn btn-sm" onclick="voiceToggle()"><i class="ti ti-microphone"></i>Voice<span style="font-size:9px;background:#f59e0b;color:#fff;padding:1px 5px;border-radius:8px;margin-left:5px">Beta</span></button>

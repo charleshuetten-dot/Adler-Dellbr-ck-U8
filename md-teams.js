@@ -35,9 +35,24 @@ function teamKader(){
 }
 function istTorwart(n){ const k=getKader(n); return !!(k&&k.tw); }
 
-// NUR wer zugesagt hat. Kein Rückfall auf den ganzen Kader – wer nicht zusagt, spielt nicht.
+/* Wer wird auf die Teams verteilt? Die NOMINIERUNG (nomStatus="dabei") – nicht die
+   Eltern-Rückmeldung allein.
+   Vorher stand hier nur `nomRsvp[n].status==="zugesagt"`. Der Gedanke war richtig
+   („wer nicht zusagt, spielt nicht"), das Ziel aber falsch gewählt: die Nominierung ist
+   die Entscheidung des TRAINERS, und sie wird aus den Eltern-Rückmeldungen ohnehin
+   vorbelegt (nomLoad). Mit 16 nominierten Kindern, aber nur einer Eltern-Zusage
+   verteilte „Automatisch einteilen" genau EIN Kind – es sah aus, als täte der Knopf
+   nichts (PO-Meldung v392).
+   Dazu kommt, wer bereits einem Team zugeordnet ist: sonst schrumpft der Pool beim
+   zweiten Aufruf auf das gerade geöffnete Team, denn nomStatus gilt je Team. */
 function teamZusagen(){
-  return KADER.map(k=>k.name).filter(n=>nomRsvp[n]&&nomRsvp[n].status==="zugesagt");
+  const namen=new Set();
+  if(typeof nomStatus==="object"&&nomStatus)
+    KADER.forEach(k=>{ if(nomStatus[k.name]==="dabei")namen.add(k.name); });
+  Object.keys(TEAMS||{}).forEach(n=>{ if(TEAMS[n])namen.add(n); });
+  if(!namen.size)  // ganz am Anfang: noch keine Nominierung geladen
+    KADER.forEach(k=>{ if(nomRsvp[k.name]&&nomRsvp[k.name].status==="zugesagt")namen.add(k.name); });
+  return KADER.map(k=>k.name).filter(n=>namen.has(n));   // Kader-Reihenfolge beibehalten
 }
 /* Kleinste sinnvolle Teamgröße: alle auf dem Feld plus ein Kind zum Wechseln.
    Darunter steht ein Kind 60 Minuten durch – das ist keine Alternative zum Pausieren. */
@@ -50,8 +65,11 @@ function teamMindestKader(){
 /* Die Kadergröße ist ein ZIEL, keine harte Obergrenze: lieber ein Kind mehr im Team als
    ein Kind auf der Tribüne. Ein Team darf deshalb um eins über die Sollgröße gehen.
    Beispiel 5+1 (Soll 8) mit 15 Zusagen: 8 + 7 statt 8 und sieben Zuschauer. */
-function teamPlatzProTeam(n){
-  const kd=teamKader(), z=teamZusagen().length;
+/* zusagen: Poolgröße, falls der Aufrufer sie schon kennt. teamsAuto MUSS sie übergeben –
+   es leert TEAMS, bevor es hier landet, und teamZusagen() zählt die bereits eingeteilten
+   Kinder mit. Ohne den Parameter kam dort kap=1 heraus und die Verteilung endete leer. */
+function teamPlatzProTeam(n,zusagen){
+  const kd=teamKader(), z=(zusagen==null)?teamZusagen().length:zusagen;
   n=n||TEAM_ANZAHL||1;
   return Math.max(1,Math.min(kd.gesamt+1,Math.ceil(z/n)));
 }
@@ -130,7 +148,7 @@ function teamsAuto(){
   let pool=teamZusagen();
   TEAMS={};
   if(!pool.length){ teamsRender(); return; }
-  const kap=teamPlatzProTeam(n);          // Sollgröße, ggf. +1 damit niemand zusehen muss
+  const kap=teamPlatzProTeam(n,pool.length); // Sollgröße, ggf. +1 damit niemand zusehen muss
 
   // 1) Überzählige bestimmen – Torwarte nur opfern, wenn danach noch genug bleiben
   const ueber=Math.max(0,pool.length-n*kap);
@@ -158,6 +176,10 @@ function teamsAuto(){
     const tw=pool.filter(istTorwart).sort((a,b)=>teamStaerke(b)-teamStaerke(a));
     for(let t=1;t<=n&&tw.length;t++) einsetzen(tw.shift(),t,true);
   }
+  /* Unbesetzte Torwart-Plätze werden zu Feldplätzen. Sonst blieb ein Platz je Team
+     reserviert, obwohl gar kein Kind mit TW-Haken zugesagt hat – und ein Kind stand
+     grundlos daneben. Die Teamgröße (kap) ändert sich dadurch nicht. */
+  for(let t=1;t<=n;t++){ if(twPlatz[t]>0){ feldPlatz[t]+=twPlatz[t]; twPlatz[t]=0; } }
   // 3) Feldspieler: stärkstes Kind ins momentan schwächste Team mit freiem Platz
   const rest=pool.filter(x=>!TEAMS[x]).sort((a,b)=>teamStaerke(b)-teamStaerke(a));
   rest.forEach(name=>{
@@ -175,8 +197,13 @@ function teamSetAnzahl(n){
   // das es nicht mehr gibt – und tauchen später wieder auf, wenn man wieder hochstellt.
   Object.keys(TEAM_TRAINER).forEach(t=>{ if(Number(t)>TEAM_ANZAHL)delete TEAM_TRAINER[t]; });
   const wechselNoetig=(typeof spieltagTeam!=="undefined"&&spieltagTeam>TEAM_ANZAHL);
+  teamsAuto();          // PO v392: neue Teamzahl -> sofort neu verteilen, nicht leer stehen lassen
   teamsSpeichern();
   teamsRender(); spieltagTeamKartenRender();
+  // Quest-Ziele wachsen mit der Teamzahl mit – die Sektion muss die neuen Zahlen zeigen.
+  if(typeof questSeedDone==="function")questSeedDone();
+  if(typeof questPanelRender==="function")questPanelRender();
+  if(typeof atRender==="function"&&document.getElementById("action-panel"))atRender();
   // Sah man gerade „Adler 3" und stellt auf 2 Teams, muss die Ansicht darunter mit
   // umschalten – sonst zeigt sie weiter Daten eines Teams, das nicht mehr existiert.
   if(wechselNoetig&&typeof spieltagSetTeam==="function")spieltagSetTeam(1);
@@ -302,6 +329,15 @@ async function teamsLoad(){
       }
     }
   }catch(e){}
+  /* PO v392: „Die Einteilung der Kinder auf die Teams muss auch automatisch erfolgen und
+     dann noch händisch geändert werden können."
+     Gibt es noch keine gespeicherte Einteilung, wird sie hier direkt vorgeschlagen – der
+     Trainer findet die Teams also bereits gefüllt vor und korrigiert nur noch.
+     Bewusst NICHT gespeichert: der Vorschlag wird erst mit „In die Nominierungen
+     übertragen" verbindlich, sonst überschriebe ein blosses Öffnen des Spieltags eine
+     Einteilung, die gerade jemand anders von Hand gemacht hat.
+     teamsAuto() rendert selbst – deshalb hier nur der Fallback-Pfad. */
+  if(!Object.keys(TEAMS).length&&teamZusagen().length){ teamsAuto(); spieltagTeamKartenRender(); return; }
   teamsRender(); spieltagTeamKartenRender();
 }
 async function teamsSpeichern(){
@@ -475,8 +511,9 @@ function teamsRender(){
      „Rollen-Erfahrung" ist gar keine Aktion am Spieltag, sondern eine Auswertung – die
      wohnt in der Team-Kachel unter „Ueberblick" und ist dort ueber rollenMatrixOpen
      erreichbar. Hier war sie doppelt und hat die Hauptaktion verdeckt. */
-  html+=`<div style="margin-bottom:10px">
-      <button class="btn btn-sm" onclick="teamsAuto()" style="width:100%;margin-bottom:8px"><i class="ti ti-wand"></i>Automatisch einteilen</button>
+  html+=`<div style="font-size:11.5px;color:var(--text2);margin:12px 0 6px">Die Kinder sind automatisch verteilt – mit den Zahlen-Knöpfen unten änderst du das von Hand. Erst „In die Nominierungen übertragen" macht es verbindlich.</div>
+    <div style="margin-bottom:10px">
+      <button class="btn btn-sm" onclick="teamsAuto()" style="width:100%;margin-bottom:8px"><i class="ti ti-wand"></i>Neu verteilen (Vorschlag verwerfen)</button>
       <button class="btn btn-p" onclick="teamsAnwenden()" style="width:100%"><i class="ti ti-arrow-right"></i>In die Nominierungen übertragen</button>
     </div>
     <div id="team-rollen-hint"></div>`;
@@ -490,7 +527,7 @@ function teamsRender(){
   }
 
   if(!Object.keys(TEAMS).length){
-    html+=`<div style="font-size:11.5px;color:var(--text3)">Noch nicht eingeteilt. „Automatisch einteilen" setzt je Team einen Torwart und verteilt den Rest nach Stärke.</div>`;
+    html+=`<div style="font-size:11.5px;color:var(--text3)">Noch nicht eingeteilt. „Neu verteilen" setzt je Team einen Torwart und verteilt den Rest nach Stärke.</div>`;
     box.innerHTML=html; return;
   }
 
@@ -549,7 +586,7 @@ function nomApplyRsvp(){
   nomOvr.clear();
   Object.keys(nomRsvp).forEach(name=>{ nomStatus[name]=nomRsvp[name].status==="zugesagt"?"dabei":"nicht"; });
   nomRender();nomApplyToTools();nomSave();
-  toast("Nominierung folgt wieder den Eltern ✓");
+  toast("Änderungen verworfen – die Nominierung folgt wieder den Eltern ✓");
 }
 function nomApplyToTools(){
   const squad=nominierteSpieler();
