@@ -456,8 +456,13 @@ async function nomLoad(){
 }
 function nomSet(name,status){
   nomStatus[name]=status;nomOvr.add(name);
-  // Wer nicht mehr dabei ist, steht in keinem Team – sonst bliebe er in der Kachel stehen.
-  if(status!=="dabei"&&typeof TEAMS==="object"&&TEAMS)delete TEAMS[name];
+  if(typeof TEAMS==="object"&&TEAMS){
+    // Wer nicht mehr dabei ist, steht in keinem Team – sonst bliebe er in der Kachel stehen.
+    if(status!=="dabei")delete TEAMS[name];
+    // … und wer zusagt, kommt direkt in ein Team, statt als „pausiert" dazustehen.
+    else if(typeof teamPlatzEinsortieren==="function")teamPlatzEinsortieren(name);
+  }
+  if(typeof teamsSpeichern==="function")teamsSpeichern();
   nomRender();
   if(typeof teamsRender==="function")teamsRender();
   if(typeof spieltagTeamKartenRender==="function")spieltagTeamKartenRender();
