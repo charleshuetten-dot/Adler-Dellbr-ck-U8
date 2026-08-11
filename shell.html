@@ -558,18 +558,13 @@
              „wer ist heute überhaupt dabei" – eine Frage des Spieltags, nicht eines Teams.
              Vorher stand derselbe Block in jeder Team-Kachel und musste dreimal gepflegt
              werden. Die Aufteilung auf die Teams passiert eine Ebene darunter. -->
-        <!-- Eigene Klappe: die Namensliste ist 16 Zeilen lang und steht direkt ueber der
-             ebenso langen Aufteilung. Zugeklappt zeigt die Zeile den Stand, das reicht in
-             den meisten Faellen – die Nominierung kommt ohnehin aus den Eltern-Zusagen. -->
-        <details class="el-sect" id="mt-nom-liste" style="margin-bottom:4px">
-          <summary><i class="ti ti-user-check"></i>Wer ist heute dabei?<span class="mt-nom-zahl"></span></summary>
-          <div class="abschnitt">
-            <div id="nom-panel"></div>
-          </div>
-        </details>
+        <!-- EIN Block: Kopfzeile mit dem Stand der Eltern-Rueckmeldungen (#nom-panel),
+             darunter die Aufteilung mit einer Zeile je Kind (#team-panel). Zwei getrennte
+             16-Zeilen-Listen uebereinander waren es bis v393 – dieselben Kinder zweimal. -->
         <div class="abschnitt">
-          <div class="sl nt"><i class="ti ti-users-group"></i>Aufteilung auf die Teams</div>
-          <div id="team-panel"></div>
+          <div class="sl nt"><i class="ti ti-user-check"></i>Wer ist heute dabei?</div>
+          <div id="nom-panel"></div>
+          <div id="team-panel" style="margin-top:10px"></div>
         </div>
       </div>
     </details>

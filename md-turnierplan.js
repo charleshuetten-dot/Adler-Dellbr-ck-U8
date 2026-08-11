@@ -480,39 +480,28 @@ function nominierteSpieler(){
   const t=(typeof spieltagTeam!=="undefined")?spieltagTeam:1;
   return dabei.filter(n=>TEAMS[n]===t);
 }
+/* Nur noch der KOPF der Nominierung: Stand der Eltern-Rückmeldungen und der Knopf, der
+   eigene Änderungen verwirft. Die Kinderzeilen selbst leben seit v393 in teamsRender() –
+   dort stehen Anwesenheit und Team-Zuordnung in EINER Zeile beieinander.
+   Vorher waren es zwei 16-Zeilen-Listen direkt untereinander: oben „dabei/nicht/verletzt",
+   unten dieselben Kinder noch einmal mit den Team-Knöpfen. */
 function nomRender(){
   const box=document.getElementById("nom-panel");
   if(!box)return;
-  const stCfg={dabei:{lbl:"Dabei",col:"#15803d"},nicht:{lbl:"Nicht",col:"#64748b"},verletzt:{lbl:"Verletzt",col:"#dc2626"}};
-  const rvEmo={zugesagt:"✅",abgesagt:"❌",krank:"🤒"};
   const hasRsvp=Object.keys(nomRsvp).length>0;
+  // Bewusst die GLOBALE Zahl, nicht nominierteSpieler() – das zaehlt seit v393 nur das
+  // gerade gewaehlte Team, und hier steht die Frage „wer ist heute ueberhaupt dabei".
+  const dabeiAlle=KADER.filter(k=>nomStatus[k.name]==="dabei").length;
   let sum="";
   if(hasRsvp){
     const c={zugesagt:0,abgesagt:0,krank:0};
     Object.values(nomRsvp).forEach(x=>{if(c[x.status]!=null)c[x.status]++;});
-    sum=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding:8px 10px;background:var(--surface2);border-radius:var(--r);font-size:11.5px">
+    sum=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;background:var(--surface2);border-radius:var(--r);font-size:11.5px">
       <span style="font-weight:600">Rückmeldung der Eltern</span><span style="color:var(--text3)">(auto übernommen)</span><span>✅ ${c.zugesagt}</span><span>❌ ${c.abgesagt}</span><span>🤒 ${c.krank}</span><span style="color:var(--text3)">offen ${KADER.length-Object.keys(nomRsvp).length}</span>
       <button class="btn btn-sm" onclick="nomApplyRsvp()" style="margin-left:auto;flex-direction:column;align-items:flex-start;gap:0;text-align:left" title="Setzt die Nominierung auf den Stand der Eltern-Rückmeldungen zurück"><span><i class="ti ti-arrow-back-up" style="margin-right:5px"></i>Meine Änderungen verwerfen</span><span style="font-size:10px;font-weight:400;color:var(--text3)">Nominierung folgt wieder den Eltern</span></button>
     </div>`;
   }
-  // Bewusst die GLOBALE Zahl, nicht nominierteSpieler() – das zaehlt seit v393 nur das
-  // gerade gewaehlte Team, und hier steht die Frage „wer ist heute ueberhaupt dabei".
-  const dabeiAlle=KADER.filter(k=>nomStatus[k.name]==="dabei").length;
-  // Kurzstand in die zugeklappte Ueberschrift, damit man die Liste nicht oeffnen muss.
-  const kurz=document.querySelector(".mt-nom-zahl");
-  // Kurz halten: die Zeile teilt sich den Platz mit dem „mehr"-Hinweis und bricht sonst um.
-  if(kurz)kurz.textContent=`${dabeiAlle}/${KADER.length} dabei`+(hasRsvp?` · ${KADER.length-Object.keys(nomRsvp).length} offen`:"");
-  box.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">${dabeiAlle} von ${KADER.length} dabei – gilt für den ganzen Spieltag</div>`+sum+
-    KADER.map(k=>{
-      const cur=nomStatus[k.name]||"offen";
-      const rv=nomRsvp[k.name];
-      const badge=rv?`<span title="Eltern-Rückmeldung: ${esc(rv.status)}${rv.kommentar?' – '+esc(rv.kommentar):''}" style="font-size:13px;width:16px;text-align:center">${rvEmo[rv.status]||""}</span>`:'<span style="width:16px"></span>';
-      return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
-        ${badge}
-        <span style="flex:1;font-size:12.5px">${getKader(k.name)?.nr?getKader(k.name).nr+" ":""}${esc(k.name)}${(typeof istPaused==="function"&&istPaused(k.name))?` <span title="Pausiert – zählt nicht mit" style="font-size:10px;font-weight:700;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:1px 6px">⏸ bis ${pauseBisLabel(k.name)}</span>`:""}</span>
-        ${["dabei","nicht","verletzt"].map(s=>`<button onclick="nomSet('${jsq(k.name)}','${s}')" style="min-height:44px;padding:5px 9px;font-size:11px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;background:${cur===s?stCfg[s].col:"var(--surface)"};color:${cur===s?"#fff":"var(--text2)"}">${stCfg[s].lbl}</button>`).join("")}
-      </div>`;
-    }).join("");
+  box.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">${dabeiAlle} von ${KADER.length} dabei – gilt für den ganzen Spieltag</div>`+sum;
 }
 
 /* ═══════════════════════════════════
