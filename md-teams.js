@@ -349,6 +349,25 @@ function teamKaderRender(){
     `<span style="font-size:12px;background:var(--surface2);border-radius:12px;padding:4px 10px">${getKader(n)&&getKader(n).nr?getKader(n).nr+" ":""}${esc(n)}${istTorwart(n)?" 🥅":""}</span>`).join("")}</div>
     <button class="btn btn-sm" style="margin-top:10px" onclick="document.getElementById('mt-phase-vor').open=true;document.getElementById('mt-phase-vor').scrollIntoView({behavior:'smooth',block:'start'})"><i class="ti ti-pencil"></i>Einteilung ändern</button>`;
 }
+/* Ein Kind, das gerade auf „dabei" gesetzt wurde, gehört sofort in ein Team.
+   PO-Meldung v395: „alle Kinder werden wenn ich sie dabei anklicke unten drunter auf
+   pausiert gesetzt. Das macht keinen sinn." Genau so war es: nomSet setzte nur den
+   Status, TEAMS blieb leer – und „kein Team" zeichnet die Zeile als ⏸ pausiert. Wer
+   zusagt, spielt erst mal mit; pausieren ist eine Entscheidung, kein Ausgangszustand.
+   Gefüllt wird das momentan kleinste Team mit freiem Platz. Sind alle voll, bleibt das
+   Kind ohne Team – dann stimmt „pausiert" auch, und der Hinweis oben erklärt es. */
+function teamPlatzEinsortieren(name){
+  if(TEAMS[name])return false;
+  const kap=teamPlatzProTeam(TEAM_ANZAHL,teamZusagen().length);
+  let ziel=0, klein=Infinity;
+  for(let t=1;t<=TEAM_ANZAHL;t++){
+    const n=Object.keys(TEAMS).filter(x=>TEAMS[x]===t).length;
+    if(n<kap&&n<klein){ klein=n; ziel=t; }
+  }
+  if(!ziel)return false;
+  TEAMS[name]=ziel;
+  return true;
+}
 function teamSet(name,nr){
   if(nr)TEAMS[name]=nr; else delete TEAMS[name];
   teamsRender(); spieltagTeamKartenRender();
@@ -589,9 +608,9 @@ function teamsRender(){
      erreichbar. Hier war sie doppelt und hat die Hauptaktion verdeckt. */
   html+=`<div style="font-size:11.5px;color:var(--text2);margin:12px 0 6px">${leer
       ? "Noch niemand dabei – unten in der Liste auf „Dabei“ tippen. Die Eltern-Rückmeldungen werden automatisch übernommen, sobald sie da sind."
-      : "Die Kinder sind automatisch verteilt – unten in der Liste änderst du Anwesenheit und Team von Hand. Erst „In die Nominierungen übertragen“ macht es verbindlich."}</div>
+      : `Wer auf „Dabei“ steht, wird direkt einem Team zugeordnet. Unten in der Liste änderst du Anwesenheit und Team von Hand. Erst „In die Nominierungen übertragen“ macht es verbindlich.`}</div>
     <div style="margin-bottom:10px">
-      <button class="btn btn-sm" onclick="teamsAuto()" style="width:100%;margin-bottom:8px"${leer?" disabled":""}><i class="ti ti-wand"></i>Neu verteilen (Vorschlag verwerfen)</button>
+      <button class="btn btn-sm" onclick="teamsAuto()" style="width:100%;margin-bottom:8px"${leer?" disabled":""}><i class="ti ti-wand"></i>Alle Kinder gleichmäßig auf ${TEAM_ANZAHL} Team${TEAM_ANZAHL>1?"s":""} verteilen</button>
       <button class="btn btn-p" onclick="teamsAnwenden()" style="width:100%"${leer?" disabled":""}><i class="ti ti-arrow-right"></i>In die Nominierungen übertragen</button>
     </div>
     <div id="team-rollen-hint"></div>`;
@@ -652,11 +671,13 @@ function teamsRender(){
     if(dabei){
       let k="";
       if(TEAM_ANZAHL>1){
+        // Beschriftung als Wort, nicht als Zeichen: das Pause-Symbol fehlt in manchen
+        // Systemschriften und wird dann als leeres Kästchen gezeichnet.
         for(let t=1;t<=TEAM_ANZAHL;t++)k+=btn(String(t),`teamSet('${jsq(n)}',${t})`,cur===t);
-        k+=btn("⏸",`teamSet('${jsq(n)}',0)`,!cur,"Pausiert – spielt heute nicht mit");
+        k+=btn("Pause",`teamSet('${jsq(n)}',0)`,!cur,"Pausiert – spielt heute nicht mit");
       }else{
         k =btn("Spielt mit",`teamSet('${jsq(n)}',1)`,cur===1);
-        k+=btn("⏸ Pausiert",`teamSet('${jsq(n)}',0)`,!cur,"Pausiert – spielt heute nicht mit");
+        k+=btn("Pausiert",`teamSet('${jsq(n)}',0)`,!cur,"Pausiert – spielt heute nicht mit");
       }
       teamZeile=`<div style="display:flex;gap:5px;margin-top:5px">${k}</div>`;
       if(!cur)teamZeile+=`<input id="nh-${teamKaderIdx(n)}" value="${esc(TEAM_GRUND[n]||"")}" placeholder="Grund für die Eltern (optional)"
@@ -676,8 +697,8 @@ function teamsRender(){
   const ohneTeam=pool.filter(n=>!TEAMS[n]);
   if(ohneTeam.length){
     html+=`<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:10px;padding:8px 10px;margin-bottom:6px">
-      <div style="font-size:12px;font-weight:700;color:var(--amber)">⏸ ${ohneTeam.length} Kind${ohneTeam.length===1?"":"er"} pausiert${ohneTeam.length===1?"":""}: ${ohneTeam.map(esc).join(", ")}</div>
-      <div style="font-size:11px;color:var(--amber);margin-top:2px">Vorschlag nach den meisten Saison-Einsätzen, dann nach der geringsten Trainingsbeteiligung. Unten in der Liste änderbar.</div>
+      <div style="font-size:12px;font-weight:700;color:var(--amber)">⏸ ${ohneTeam.length} Kind${ohneTeam.length===1?"":"er"} pausiert: ${ohneTeam.map(esc).join(", ")}</div>
+      <div style="font-size:11px;color:var(--amber);margin-top:2px">Mehr Zusagen als Plätze – ${TEAM_ANZAHL===1?"ein Team fasst":TEAM_ANZAHL+" Teams fassen"} ${TEAM_ANZAHL*teamPlatzProTeam()} Kinder. Vorgeschlagen nach den meisten Saison-Einsätzen, dann nach der geringsten Trainingsbeteiligung – unten in der Liste änderbar.</div>
     </div>`;
   }
   html+=KADER.map(k=>zeile(k.name)).join("");
