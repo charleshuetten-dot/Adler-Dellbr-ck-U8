@@ -34,7 +34,7 @@ function atLiveOpen(){
   clearInterval(atLiveClockId);
   let _tick=0;
   atLiveClockId=setInterval(()=>{
-    const el=document.getElementById("at-live-min");if(el&&typeof mcState!=="undefined"&&mcState)el.textContent=mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:20,typeof mcHalbzeiten!=="undefined"?mcHalbzeiten:2);
+    const el=document.getElementById("at-live-min");if(el&&typeof mcState!=="undefined"&&mcState)el.textContent=mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:10,typeof mcHalbzeiten!=="undefined"?mcHalbzeiten:1);
     if((_tick++ % 8)===0)atLiveClapPoll();   // B1: „die Tribüne feiert" alle 8s nachladen
   },1000);
   atLiveClapPoll();
@@ -56,7 +56,7 @@ function atLiveRender(){
     <div style="font-size:11px;color:#94a3b8">🏆 ${done}/${teamQuests.length}</div>
     <button onclick="atLiveClose()" aria-label="Schließen" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:22px;cursor:pointer">×</button></div>`;
   // Fokus-Modus: Uhr (live) + Wechsel-Vorschlag direkt im Vollbild
-  const minute=(typeof mcState!=="undefined"&&mcState)?mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:20,typeof mcHalbzeiten!=="undefined"?mcHalbzeiten:2):"";
+  const minute=(typeof mcState!=="undefined"&&mcState)?mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:10,typeof mcHalbzeiten!=="undefined"?mcHalbzeiten:1):"";
   let subHint="";
   if(typeof rotBench!=="undefined"&&rotBench&&rotBench.length&&rotField&&rotField.length){
     const benchTop=[...rotBench].sort((a,b)=>(rotBenchSec[b]||0)-(rotBenchSec[a]||0))[0];
