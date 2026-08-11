@@ -538,11 +538,7 @@
          Knoepfe, wie unter "Vor dem Spiel" Teams festgelegt sind. Frueher standen hier
          fest drei - man konnte auf "Adler 3" tippen, bevor ueberhaupt entschieden war,
          wie viele Teams wir stellen, und die App legte Daten dafuer an. -->
-    <div id="spieltag-team-zeile" hidden style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-      <span style="font-size:11px;color:var(--text2);font-weight:600">Team</span>
-      <div class="seg-ctrl" id="spieltag-team-seg"></div>
-    </div>
-    </div><!-- /Karte Spieltag+Team -->
+    </div><!-- /Karte Spieltag -->
     <!-- Turnier-Banner: NUR wenn der gewaehlte Spieltag ein Turnier ist (PO: „ein Turnier
          kommt selten vor und wird vorab in der Termin-Anlage organisiert"). spieltagDatesLoad
          holt den Typ ohnehin mit; _spieltagTurnierBanner() schaltet um. Gleiche Logik wie die
@@ -553,13 +549,27 @@
       <span style="font-size:18px;opacity:.85">›</span>
     </button>
     <!-- Spieltag-Phasen: Vor / Während / Nach dem Spiel – einklappbar für den Fokus -->
+    <!-- GLOBAL, nicht je Team: wie viele Teams, wer betreut sie, wer spielt wo.
+         Erst danach die Team-Kacheln – das ist die Reihenfolge, in der der PO denkt. -->
     <details class="el-sect" id="mt-phase-vor">
-      <summary><i class="ti ti-list-check"></i>① Vor dem Spiel</summary>
+      <summary><i class="ti ti-list-check"></i>① Teams festlegen</summary>
       <div>
         <div class="abschnitt">
           <div class="sl nt"><i class="ti ti-users-group"></i>Team-Einteilung</div>
           <div id="team-panel"></div>
         </div>
+      </div>
+    </details>
+
+    <!-- Je Team eine Kachel; die angetippte klappt auf und bekommt #spieltag-teaminhalt
+         per appendChild hineingeschoben. So bleiben die Panel-IDs einmalig – vier Teams
+         mit eigenen Kopien haetten jede ID vervierfacht. Bei EINEM Team gibt es keine
+         Kacheln, der Inhalt steht direkt da. -->
+    <div id="spieltag-teamkarten"></div>
+    <div id="spieltag-teaminhalt">
+    <details class="el-sect" id="mt-phase-nom" open>
+      <summary><i class="ti ti-user-check"></i>① Vor dem Spiel</summary>
+      <div>
         <div class="abschnitt">
           <div class="sl nt"><i class="ti ti-user-check"></i>Nominierung <span style="font-weight:400;color:var(--text3);font-size:11px">· für Adler <span id="nom-team-nr">1</span></span></div>
           <div id="nom-panel"></div>
@@ -604,6 +614,7 @@
         </div>
       </div>
     </details>
+    </div><!-- /spieltag-teaminhalt -->
   </div><!-- /train-sub-spieltag -->
 
 </div><!-- /view-training -->
