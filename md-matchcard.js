@@ -56,9 +56,9 @@ async function renderElternView(datum){
        Eltern-Portal) und elternCarpoolOpen (md-carpool.js). Die toten Aufrufe sind raus. */
     if(istTraining){/* Betreuung + Mitfahren laufen ueber das Eltern-Portal */}
     else{
-      elTickerLoad(m.datum,m.spieldauer_min||20);
+      elTickerLoad(m.datum,m.spieldauer_min||10);
       clearInterval(elTickerTimer);
-      elTickerTimer=setInterval(()=>elTickerLoad(m.datum,m.spieldauer_min||20),20000);
+      elTickerTimer=setInterval(()=>elTickerLoad(m.datum,m.spieldauer_min||10),20000);
       elternEinsatzLoad(m.datum);
     }
   }catch(e){root.innerHTML=elternEmpty("Konnte gerade nicht laden.<br>Bitte später erneut versuchen.","😕");}
@@ -128,7 +128,7 @@ async function renderDelegateView(token){
   let selected=null;
   const squad=KADER.map(k=>k.name); // KADER ist ohnehin oeffentlich im Client-Code enthalten
   function draw(){
-    const dauer=m.spieldauer_min||20;
+    const dauer=m.spieldauer_min||10;
     const minuteNow=mcMinuteLabel({half:m.half,clock_status:m.clock_status,started_at:m.started_at,paused_ms:m.paused_ms},dauer,m.halbzeiten||2);
     root.innerHTML=`
       <div style="text-align:center;margin:8px 0 16px">
@@ -154,7 +154,7 @@ async function renderDelegateView(token){
   window.dgSend=async(typ)=>{
     const name=typ==="gegentor"?null:selected;
     const text=tickerPhrase(typ,name);
-    const dauer=m.spieldauer_min||20;
+    const dauer=m.spieldauer_min||10;
     const minute=mcMinuteLabel({half:m.half,clock_status:m.clock_status,started_at:m.started_at,paused_ms:m.paused_ms},dauer,m.halbzeiten||2);
     const status=document.getElementById("dg-status");
     try{
@@ -192,7 +192,7 @@ async function renderTickerView(key){
   }
   function minuteFor(k){
     const c=clocks[k]; if(!c)return "";
-    return mcMinuteLabel({half:c.half,clock_status:c.clock_status,started_at:c.started_at,paused_ms:c.paused_ms},c.spieldauer_min||20,c.halbzeiten||2);
+    return mcMinuteLabel({half:c.half,clock_status:c.clock_status,started_at:c.started_at,paused_ms:c.paused_ms},c.spieldauer_min||10,c.halbzeiten||1);
   }
   async function draw(){
     let events=[];
@@ -574,7 +574,7 @@ function rotMove(name){
 // HOTFIX 12: Ein-/Auswechslung in match_substitutions loggen (Fairness-Beweis). Best-effort.
 async function rotLogSub(spieler,richtung){
   const datum=spieltagKey();
-  const minute=(typeof mcState!=="undefined"&&mcState)?mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:20,typeof mcHalbzeiten!=="undefined"?mcHalbzeiten:2):"";
+  const minute=(typeof mcState!=="undefined"&&mcState)?mcMinuteLabel(mcState,typeof mcSpieldauer!=="undefined"?mcSpieldauer:10,typeof mcHalbzeiten!=="undefined"?mcHalbzeiten:1):"";
   let tid=null; try{tid=await terminIdForDatum(datum);}catch(e){}
   sbQueuedPost("match_substitutions",{datum,termin_id:tid,spieler,richtung,minute,feld_sek:rotFieldSec[spieler]||0,bank_sek:rotBenchSec[spieler]||0});
 }

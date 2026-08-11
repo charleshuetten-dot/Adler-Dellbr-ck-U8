@@ -4,7 +4,10 @@
    paused_ms. Jeder Client rechnet die verstrichene Zeit selbst aus dem Anker –
    kein Sekunden-Broadcast nötig. Speist später die Minute für den Eltern-Ticker.
 ═══════════════════════════════════ */
-let mcState=null, mcTickId=null, mcSpieldauer=20, mcHalbzeiten=2, mcTickerOpen=true, mcDelegateToken=null;
+/* Standard 10 Minuten, eine Spielzeit (PO v397). Die U9 spielt in aller Regel kurze
+   Einzelspiele; die alten 20 Minuten mit Halbzeit waren aus der Feldgröße geraten. */
+const MC_DAUER_STD=10, MC_HALBZEITEN_STD=1;
+let mcState=null, mcTickId=null, mcSpieldauer=MC_DAUER_STD, mcHalbzeiten=MC_HALBZEITEN_STD, mcTickerOpen=true, mcDelegateToken=null;
 function mcElapsedSec(mc){
   const paused=mc.paused_ms||0;
   if(mc.clock_status==="running"&&mc.started_at){
@@ -30,13 +33,16 @@ async function mcLoad(){
   const realDate=spieltagRawDate(); // Spieldauer liegt am echten Termin-Datum, nicht am Team-Key
   try{
     const [mdRes,tmRes]=await Promise.all([
-      fetch(`${SB_URL}/rest/v1/matchday?datum=eq.${encodeURIComponent(datum)}&select=half,clock_status,started_at,paused_ms,ticker_open,delegate_token`,{headers:sbAuthHeaders()}),
+      fetch(`${SB_URL}/rest/v1/matchday?datum=eq.${encodeURIComponent(datum)}&select=half,clock_status,started_at,paused_ms,ticker_open,delegate_token,spieldauer_min,halbzeiten`,{headers:sbAuthHeaders()}),
       fetch(`${SB_URL}/rest/v1/termine?datum=eq.${encodeURIComponent(realDate)}&select=spieldauer_min,halbzeiten&order=id.desc&limit=1`,{headers:sbAuthHeaders()})
     ]);
     const mdRows=mdRes.ok?await mdRes.json():[];
     const tmRows=tmRes.ok?await tmRes.json():[];
-    mcSpieldauer=(tmRows[0]&&tmRows[0].spieldauer_min)||20;
-    mcHalbzeiten=(tmRows[0]&&tmRows[0].halbzeiten)||2;
+    /* Der Termin ist die Planung und hat Vorrang; matchday faengt die Faelle ohne
+       Termin-Eintrag ab (frei getipptes Datum). Aendert der Trainer die Zeit an der Uhr,
+       wird beides geschrieben – dann koennen sie gar nicht auseinanderlaufen. */
+    mcSpieldauer=(tmRows[0]&&tmRows[0].spieldauer_min)||(mdRows[0]&&mdRows[0].spieldauer_min)||MC_DAUER_STD;
+    mcHalbzeiten=(tmRows[0]&&tmRows[0].halbzeiten)||(mdRows[0]&&mdRows[0].halbzeiten)||MC_HALBZEITEN_STD;
     mcState=mdRows[0]||{half:1,clock_status:"idle",started_at:null,paused_ms:0};
     mcTickerOpen=mdRows[0]?mdRows[0].ticker_open!==false:true;
     mcDelegateToken=(mdRows[0]&&mdRows[0].delegate_token)||null;
@@ -95,10 +101,49 @@ function mcRenderLive(){
   else if(s==="halftime") controls=`<button class="btn btn-p" onclick="mcHalftimeEnd()"><i class="ti ti-player-play"></i>2. Halbzeit anpfeifen</button>`;
   else if(s==="ended") controls=`<button class="btn" onclick="mcReset()"><i class="ti ti-refresh"></i>Neu starten</button>`;
   const phase=eineZeit?`Spielzeit · ${mcSpieldauer} Min.`:`${mcState.half===2?"2. Halbzeit":"1. Halbzeit"} · ${mcSpieldauer} Min./HZ`;
+  /* Spielzeit direkt an der Uhr einstellbar (PO v397). Bis dahin ging das nur im
+     Termin-Editor – am Spielfeldrand, wo die Zeit tatsächlich abgesprochen wird, war sie
+     unerreichbar. Nicht sichtbar, waehrend die Uhr laeuft: dann waere jede Aenderung ein
+     Eingriff ins laufende Spiel. */
+  const einstellbar=(s!=="running");
+  const hzBtn=n=>`<button onclick="mcSetHalbzeiten(${n})" aria-pressed="${mcHalbzeiten===n?"true":"false"}"
+      style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;font-size:12px;font-weight:${mcHalbzeiten===n?"700":"500"};background:${mcHalbzeiten===n?"var(--blue)":"var(--surface)"};color:${mcHalbzeiten===n?"#fff":"var(--text2)"}">${n===1?"eine":"zwei"}</button>`;
   box.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
     <div style="font-size:28px;font-weight:800;min-width:70px">${label}</div>
     <div style="font-size:11px;color:var(--text2)">${phase}</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto">${controls}</div>
-  </div>`;
+  </div>`+(einstellbar?`
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:var(--border);font-size:11.5px;color:var(--text2)">
+    <label for="mc-dauer">${mcHalbzeiten===1?"Spielzeit":"Je Halbzeit"}</label>
+    <input id="mc-dauer" type="number" min="1" max="45" value="${mcSpieldauer}" onchange="mcSetDauer(this.value)"
+      style="width:72px;min-height:44px;padding:8px;border:var(--border-s);border-radius:var(--r);font-family:inherit;font-size:14px;font-weight:700;text-align:center;background:var(--surface);color:var(--text);box-sizing:border-box">
+    <span>Min.</span>
+    <span style="margin-left:8px">Halbzeiten</span>${hzBtn(1)}${hzBtn(2)}
+  </div>`:"");
+}
+/* Schreibt in den Termin (dort plant der Trainer) UND in matchday (dort liest der
+   oeffentliche Ticker, der den Termin nicht kennt). Gibt es fuer das Datum keinen Termin,
+   greift still nur der zweite Weg. */
+async function mcZeitSpeichern(){
+  const realDate=spieltagRawDate();
+  try{
+    await fetch(`${SB_URL}/rest/v1/termine?datum=eq.${encodeURIComponent(realDate)}`,{method:"PATCH",
+      headers:sbAuthHeaders({'Prefer':'return=minimal'}),
+      body:JSON.stringify({spieldauer_min:mcSpieldauer,halbzeiten:mcHalbzeiten})});
+  }catch(e){}
+  mcSave({spieldauer_min:mcSpieldauer,halbzeiten:mcHalbzeiten});
+}
+function mcSetDauer(v){
+  const n=Math.max(1,Math.min(45,parseInt(v)||MC_DAUER_STD));
+  if(n===mcSpieldauer){ mcRenderLive(); return; }
+  mcSpieldauer=n;
+  mcZeitSpeichern();
+  toast(`Spielzeit: ${n} Min.${mcHalbzeiten===2?" je Halbzeit":""}`);
+}
+function mcSetHalbzeiten(n){
+  n=(Number(n)===2)?2:1;
+  if(n===mcHalbzeiten)return;
+  mcHalbzeiten=n;
+  mcZeitSpeichern();
 }
 

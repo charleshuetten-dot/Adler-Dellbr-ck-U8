@@ -326,6 +326,7 @@ function spieltagKarteOeffnen(n){
   TEAM_KARTE_OFFEN=n;
   if(typeof spieltagTeam!=="undefined"&&n!==spieltagTeam&&typeof spieltagSetTeam==="function"){ spieltagSetTeam(n); return; }
   spieltagTeamKartenRender();
+  teamInhaltFuellen();   // erst jetzt sind die Panels sichtbar – und müssen gefüllt werden
 }
 // „· Adler 2" hinter die Phasen-Titel schreiben; 0 oder ein einziges Team = kein Zusatz.
 function teamPhasenLabel(n){
@@ -737,6 +738,21 @@ function teamInhaltSichtbar(){
   const el=document.getElementById("spieltag-teaminhalt");
   return !!el&&!el.hidden;
 }
+/* Die Panels IN der Team-Kachel füllen. Wird von zwei Seiten gebraucht:
+   – wenn sich Nominierung oder Einteilung ändern (nomApplyToTools)
+   – wenn eine Kachel aufgeklappt wird (spieltagKarteOeffnen)
+   Der zweite Weg fehlte und war der Fehler aus v396: beim Laden sind alle Kacheln zu,
+   die Bremse übersprang die Panels – und beim Aufklappen holte sie niemand nach. Match-Uhr
+   und faire Rollen blieben leer, ohne dass irgendwo etwas Rotes erschien. */
+function teamInhaltFuellen(){
+  if(!teamInhaltSichtbar())return;
+  // Kapitän und Anstoß dürfen nur Kinder DIESES Teams zur Wahl stellen – die Auswahl
+  // muss also jeder Änderung an Nominierung und Einteilung folgen, nicht nur dem Laden.
+  if(typeof rollenPanelRender==="function"&&document.getElementById("rollen-panel"))rollenPanelRender();
+  if(typeof blitzInit==="function"&&document.getElementById("blitz-panel"))blitzInit();
+  if(typeof atRender==="function"&&document.getElementById("action-panel"))atRender(); // Aktions-Chips folgen der Nominierung
+  if(typeof mcLoad==="function"&&document.getElementById("mc-panel"))mcLoad();
+}
 function nomApplyToTools(){
   const squad=nominierteSpieler();
   teamKaderRender();   // reines Zeichnen, kein Netz – läuft immer mit
@@ -744,12 +760,6 @@ function nomApplyToTools(){
     rotSeedFromSquad(squad); // Torwart separat, Feldgröße aus Spielform
     rotRenderControls();rotRenderLive();
   }
-  if(!teamInhaltSichtbar())return;
-  // Kapitän und Anstoß dürfen nur Kinder DIESES Teams zur Wahl stellen – die Auswahl
-  // muss also jeder Änderung an Nominierung und Einteilung folgen, nicht nur dem Laden.
-  if(typeof rollenPanelRender==="function"&&document.getElementById("rollen-panel"))rollenPanelRender();
-  if(document.getElementById("blitz-panel"))blitzInit();
-  if(typeof atRender==="function"&&document.getElementById("action-panel"))atRender(); // Aktions-Chips folgen der Nominierung
-  if(document.getElementById("mc-panel"))mcLoad();
+  teamInhaltFuellen();
 }
 

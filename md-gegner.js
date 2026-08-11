@@ -611,7 +611,7 @@ function tmEdit(id){
   const platzOpts=`<option value=""${!platzCur?" selected":""}>– kein Platz –</option>`+PLATZ.map(p=>`<option${p===platzCur?" selected":""}>${p}</option>`).join("");
   const sfOpts=["funino","4+1","5+1"].map(s=>`<option${s===t.spielform?" selected":""}>${s}</option>`).join("");
   // Spieldauer war im Bearbeiten-Dialog gar nicht vorhanden: einmal angelegt, nie änderbar.
-  const hz=Number(t.halbzeiten)||2, dauer=Number(t.spieldauer_min)||20;
+  const hz=Number(t.halbzeiten)||1, dauer=Number(t.spieldauer_min)||10;
   const hzOpts=[[1,"1 Spielzeit"],[2,"2 Halbzeiten"]].map(([v,l])=>`<option value="${v}"${v===hz?" selected":""}>${l}</option>`).join("");
   const dauerOpts=[8,10,12,15,20,25,30].map(v=>`<option value="${v}"${v===dauer?" selected":""}>${v} Min.</option>`).join("");
   const m=TM_META[t.typ]||{icon:"📅",label:t.typ};
@@ -653,7 +653,7 @@ async function tmEditSave(id){
   if(g("te-titel")){const tt=(g("te-titel").value||"").trim()||null; body.titel=tt; body.gegner=isSpiel?tt:null;}
   if(g("te-platz"))body.platz=(g("te-platz").value||"").trim()||null;
   if(g("te-sf"))body.spielform=g("te-sf").value||null;
-  if(g("te-dauer"))body.spieldauer_min=parseInt(g("te-dauer").value)||20;
+  if(g("te-dauer"))body.spieldauer_min=parseInt(g("te-dauer").value)||10;
   if(g("te-hz"))body.halbzeiten=parseInt(g("te-hz").value)||2;
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify(body)});
