@@ -1453,7 +1453,9 @@ async function pinCheck(){
     document.getElementById("pin-gate")?.remove();
     document.getElementById("main-app")?.remove();
     if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
-    renderElternView(params.get("match")||"");
+    // ueber routeRender, wie die uebrigen Sonderrouten: wartet kurz auf das Modul,
+    // statt bei langsamem Netz weiss zu bleiben (md-matchcard.js ist Welle 2).
+    routeRender("renderElternView",params.get("match")||"");
     setTimeout(pwaInstallNudge,1800); // Adoption: Hub aufs Handy holen
     return;
   }
@@ -1464,7 +1466,7 @@ async function pinCheck(){
     document.getElementById("pin-gate")?.remove();
     document.getElementById("main-app")?.remove();
     if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
-    renderDelegateView(params.get("delegate"));
+    routeRender("renderDelegateView",params.get("delegate"));
     return;
   }
   // Eltern-Portal (?portal): passwortloser OTP-Login → rollenbasiert (parent-Dashboard / Trainer-Hinweis)
@@ -1481,7 +1483,7 @@ async function pinCheck(){
       try{history.replaceState({},"",location.pathname+"?portal");}catch(e){}
     }
     if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
-    renderElternPortal();
+    routeRender("renderElternPortal");
     setTimeout(pwaInstallNudge,1800); // UX 1: Soft-Install-Nudge für Eltern
     return;
   }
@@ -1573,8 +1575,12 @@ async function pinCheck(){
     // Erst klaeren, WER spielt (eigenes Kind aus der Eltern-Sitzung / gemerkter Name).
     // Nur wenn das misslingt, erscheint ueberhaupt eine Namensauswahl.
     setTimeout(async()=>{
+      // quiz.js ist Welle 2. Der try fing bisher nur den ersten Aufruf ab – schlug er
+      // fehl, weil das Modul fehlt, lief tqStart() ungeschützt hinterher und warf.
+      // Für die Kinder bliebe die Seite weiß; jetzt greift die Meldung aus routeRender.
+      if(typeof tqStart!=="function"){ routeRender("tqStart"); return; }
       let steht=false;
-      try{ steht=await tqInitPlayer(); }catch(e){}
+      try{ if(typeof tqInitPlayer==="function")steht=await tqInitPlayer(); }catch(e){}
       if(!steht)tqStart();
     },100);
     setTimeout(()=>{if(typeof kidsIntroMaybe==="function")kidsIntroMaybe();},250); // einmalige Federn/Karten-Erklärung

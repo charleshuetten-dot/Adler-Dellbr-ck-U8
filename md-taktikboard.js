@@ -79,15 +79,8 @@ document.addEventListener("fullscreenchange",()=>{
 
 // Aufstellung als sauberes PNG rendern und per Web Share API teilen (Fallback: Download).
 // Zeichnet Feld + Tokens auf ein Canvas – kein html2canvas o.ä. nötig.
-function tbRoundRect(ctx,x,y,w,h,r){
-  ctx.beginPath();
-  ctx.moveTo(x+r,y);
-  ctx.arcTo(x+w,y,x+w,y+h,r);
-  ctx.arcTo(x+w,y+h,x,y+h,r);
-  ctx.arcTo(x,y+h,x,y,r);
-  ctx.arcTo(x,y,x+w,y,r);
-  ctx.closePath();
-}
+// tbRoundRect wohnt seit v391 in engine.js (Welle 1): views.js zeichnet damit
+// Karten und Diagramme und darf dafuer nicht auf ein Welle-2-Modul warten.
 function taktikShareBild(){
   if(!tbField||!tbField.length){toast("Erst eine Aufstellung aufs Feld stellen","err");return;}
   const W=600,H=800;
