@@ -498,7 +498,7 @@ function inviteMail(email,kind){
   location.href=`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(betreff)}&body=${encodeURIComponent(inviteText(email,kind))}`;
 }
 function inviteWa(tel,kind,email){
-  const nr=waNumber(tel); if(!nr){toast("Keine gültige Handynummer","err");return;}
+  const nr=(typeof waNumber==="function")?waNumber(tel):null; if(!nr){toast("Keine gültige Handynummer","err");return;}
   if(!email){toast("Erst eine Login-E-Mail hinterlegen","err");return;} // ohne Whitelist-Mail nützt der Link nichts
   window.open(`https://wa.me/${nr}?text=${encodeURIComponent(inviteText(email,kind))}`,"_blank","noopener");
 }
@@ -537,7 +537,7 @@ async function kontakteRender(sid){
     ${phones.length?phones.map(p=>`<div style="${kkZeile}">
       <div style="font-size:13px;margin-bottom:8px">${esc(p.telefon)}${(p.name||p.rolle)?` <span style="color:var(--text3);font-size:11px">(${esc([p.rolle,p.name].filter(Boolean).join(" · "))})</span>`:""}${p.geburtstag?` <span style="color:var(--text3);font-size:11px">🎂 ${new Date(p.geburtstag+"T00:00:00").toLocaleDateString("de-DE")}</span>`:""}</div>
       <div style="display:flex;gap:8px;align-items:center">
-        ${waNumber(p.telefon)&&emails.length?`<button onclick="inviteWa('${jsq(p.telefon)}','${jsq(kName)}','${jsq(emails[0].email)}')" style="${kkAktion};border-color:#86efac;color:#15803d"><i class="ti ti-brand-whatsapp"></i>WhatsApp</button>`:`<span style="flex:1;font-size:10.5px;color:var(--text3)">${waNumber(p.telefon)?"Erst eine Login-E-Mail hinterlegen":"Keine Handynummer"}</span>`}
+        ${(typeof waNumber==="function"&&waNumber(p.telefon))&&emails.length?`<button onclick="inviteWa('${jsq(p.telefon)}','${jsq(kName)}','${jsq(emails[0].email)}')" style="${kkAktion};border-color:#86efac;color:#15803d"><i class="ti ti-brand-whatsapp"></i>WhatsApp</button>`:`<span style="flex:1;font-size:10.5px;color:var(--text3)">${(typeof waNumber==="function"&&waNumber(p.telefon))?"Erst eine Login-E-Mail hinterlegen":"Keine Handynummer"}</span>`}
         <button onclick="kontakteDelPhone(${p.id},${sid},'${jsq(p.telefon)}')" aria-label="Telefonnummer entfernen" style="${kkLoeschen}"><i class="ti ti-trash"></i></button>
       </div>
     </div>`).join(""):'<div style="font-size:12px;color:var(--text3)">Noch keine Nummer.</div>'}
@@ -2079,6 +2079,17 @@ const TABS={
     {key:"team",     label:"Pinnwand", icon:"ti-clipboard"},
   ]},
 };
+/* Eine Welle-2-Funktion sicher aufrufen. Fehlt das Modul – etwa weil ein SyntaxError
+   die Datei abgebrochen hat, was laut CLAUDE.md KEIN script.onerror ausloest – reisst
+   ein direkter Aufruf hier die ganze Navigation mit: man kaeme in KEINEN Bereich mehr,
+   nicht nur in den betroffenen. Stattdessen eine ehrliche Meldung, der Rest bleibt
+   bedienbar. Fuer Sonderrouten gibt es das Gegenstueck routeRender() in boot.js. */
+function w2(name,...args){
+  const f=window[name];
+  if(typeof f==="function")return f(...args);
+  if(typeof toast==="function")toast("Dieser Bereich konnte nicht geladen werden ("+name+"). Bitte die App neu laden.","err");
+  return undefined;
+}
 const SECS={
   home:       {cid:"view-home",            init:()=>renderHome()},
   bew:        {cid:"view-bew",              init:()=>{const s=document.getElementById("p-date");if(s&&s.options.length<=1&&typeof terminSelectFill==="function")terminSelectFill("p-date",{});}},
@@ -2086,18 +2097,18 @@ const SECS={
   profil:     {cid:"view-profil",          init:()=>renderProfil()},
   verlauf:    {cid:"view-verlauf",         init:()=>renderVerlauf()},
   kombi:      {cid:"view-kombi",           init:()=>renderKombi()},
-  taktik:     {cid:"view-taktik",          init:()=>taktikInit()},
+  taktik:     {cid:"view-taktik",          init:()=>w2("taktikInit")},
   formen:     {cid:"train-sub-formen",     sub:true, init:()=>renderTraining()},
-  termine:    {cid:"train-sub-termine",    sub:true, init:()=>tmInit()},
+  termine:    {cid:"train-sub-termine",    sub:true, init:()=>w2("tmInit")},
   planung:    {cid:"train-sub-planung",    sub:true, init:()=>{const s=document.getElementById("tp-date");
     const go=()=>{tpRenderTimeline();if(typeof tpPlanRestore==="function")tpPlanRestore();};
     if(s&&s.options.length<=1&&typeof terminSelectFill==="function")terminSelectFill("tp-date",{types:["training"],future:true,onReady:go}); else go();
     addEvalSection(); if(typeof tpVorplanLoad==="function")tpVorplanLoad();}},
   anwesenheit:{cid:"train-sub-anwesenheit",sub:true, init:()=>awDatesLoad()},
-  quizresults:{cid:"train-sub-quizresults",sub:true, init:()=>tqRenderTrainerView()},
-  team:       {cid:"train-sub-team",       sub:true, init:()=>{tnLoad();teamStatsRender();tvInit();}},
-  analyse:    {cid:"train-sub-analyse",    sub:true, init:()=>anInit()},
-  spieltag:   {cid:"train-sub-spieltag",   sub:true, init:()=>{rotRenderControls();nomInit();}},
+  quizresults:{cid:"train-sub-quizresults",sub:true, init:()=>w2("tqRenderTrainerView")},
+  team:       {cid:"train-sub-team",       sub:true, init:()=>{w2("tnLoad");w2("teamStatsRender");tvInit();}},
+  analyse:    {cid:"train-sub-analyse",    sub:true, init:()=>w2("anInit")},
+  spieltag:   {cid:"train-sub-spieltag",   sub:true, init:()=>{w2("rotRenderControls");w2("nomInit");}},
 };
 const tabState={}; // zuletzt geöffnete Sektion je Tab (UX: Rückkehr an dieselbe Stelle)
 let curSection="bew"; // aktuell sichtbare Sektion (für Pull-to-Refresh)
@@ -3113,7 +3124,7 @@ async function saisonCockpitOpen(){
   try{ if(typeof rollenExpFetch==="function"){ const re=await rollenExpFetch(); if(re&&re.games){ const nie=(typeof _neverTW==="function")?_neverTW(re.byKid):[];
     rollenHtml=`<div style="font-weight:800;font-size:13.5px;margin:14px 0 4px">🎽 Rollen-Erfahrung <span style="font-weight:400;color:var(--text2);font-size:11px">(${re.games} Aufstellungen)</span></div>`
       +(nie.length?`<div style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px">🥅 Noch nie im Tor: <b>${nie.map(esc).join(", ")}</b></div>`:'<div style="font-size:12.5px;color:var(--green)">Jedes aktive Kind stand schon mal im Tor 👍</div>')
-      +`<button class="btn btn-sm" style="margin-top:8px" onclick="document.getElementById('sc-modal').remove();rollenMatrixOpen()"><i class="ti ti-layout-grid"></i>Volle Rollen-Matrix</button>`;
+      +`<button class="btn btn-sm" style="margin-top:8px" onclick="document.getElementById('sc-modal').remove();w2('rollenMatrixOpen')"><i class="ti ti-layout-grid"></i>Volle Rollen-Matrix</button>`;
   } } }catch(e){}
   // R6: faire Einsätze – die mit den wenigsten Spiel-Einsätzen (nur wenn überhaupt gespielt wurde)
   const maxEins=Math.max(0,...active.map(k=>einsatz[k.name]));
@@ -3296,7 +3307,7 @@ async function adlerWeltOpen(){
   c.innerHTML=`${mdlHead("aw-modal","🪶","Adler-Welt","Federn, Karten, Abzeichen & Challenge – ansehen und verwalten","#7c3aed")}
     <div id="aw-team-level" style="margin-bottom:12px"></div>
     <button class="btn btn-p btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();wochenChallengeOpen()"><i class="ti ti-trophy"></i>Wochen-Challenge setzen / bearbeiten</button>
-    <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('aw-modal').remove();skillWocheOpen()"><i class="ti ti-video"></i>🎬 Skill der Woche setzen</button>
+    <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('aw-modal').remove();w2('skillWocheOpen')"><i class="ti ti-video"></i>🎬 Skill der Woche setzen</button>
     <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('aw-modal').remove();wahlTrainerOpen()"><i class="ti ti-chart-bar"></i>🗳️ Kabinen-Wahl (Kinder stimmen ab)</button>
     <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="document.getElementById('aw-modal').remove();albumFotosOpen()"><i class="ti ti-photo"></i>🃏 Album-Karten-Fotos (Trainer &amp; Verein)</button>
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🎵 Kabinen-Playlist</div>
@@ -3315,11 +3326,11 @@ async function adlerWeltOpen(){
     </div>
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🤝 Unsere Vereinbarung</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Die Eltern sehen beides in EINEM Dokument: oben die kurzen Fairplay-Regeln, darunter die ausformulierten Punkte nach Rubriken.</div>
-    <button class="btn btn-sm" style="width:100%;margin-bottom:6px" onclick="document.getElementById('aw-modal').remove();fairplayEditOpen()"><i class="ti ti-edit"></i>Fairplay-Regeln bearbeiten (oberer Teil)</button>
-    <button class="btn btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();leitfadenEditOpen()"><i class="ti ti-edit"></i>Praktische Punkte bearbeiten (Rubriken)</button>
+    <button class="btn btn-sm" style="width:100%;margin-bottom:6px" onclick="document.getElementById('aw-modal').remove();w2('fairplayEditOpen')"><i class="ti ti-edit"></i>Fairplay-Regeln bearbeiten (oberer Teil)</button>
+    <button class="btn btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();w2('leitfadenEditOpen')"><i class="ti ti-edit"></i>Praktische Punkte bearbeiten (Rubriken)</button>
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🏟️ Team-Arena</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Schlachtruf & Einlauf-Song, die die Kinder in der Kabine sehen.</div>
-    <button class="btn btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();arenaEditOpen()"><i class="ti ti-flag"></i>Arena bearbeiten</button>
+    <button class="btn btn-sm" style="width:100%" onclick="document.getElementById('aw-modal').remove();w2('arenaEditOpen')"><i class="ti ti-flag"></i>Arena bearbeiten</button>
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🔗 Eltern einladen</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Fertige WhatsApp-Nachricht mit Eltern-Link + Kurzanleitung – an die Elternschaft schicken.</div>
     <button class="btn btn-sm btn-p" style="width:100%" onclick="document.getElementById('aw-modal').remove();elternInvitePaket()"><i class="ti ti-brand-whatsapp"></i>Einladung erstellen</button>
@@ -4166,22 +4177,22 @@ async function renderStadionheftView(){
     return;
   }
   const h=d.heft||{};
-  const avatar=(sp,size)=>`<div style="position:relative;width:${size}px;height:${size}px;border-radius:50%;overflow:hidden;background:linear-gradient(135deg,#1a56db,#3b82f6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:${Math.round(size*0.38)}px;font-weight:800">${sp.foto_url?`<img src="${sp.foto_url}" alt="" style="width:100%;height:100%;object-fit:cover">`:`<span>${elternEsc((sp.name||"?").slice(0,1).toUpperCase())}</span>`}</div>`;
+  const avatar=(sp,size)=>`<div style="position:relative;width:${size}px;height:${size}px;border-radius:50%;overflow:hidden;background:linear-gradient(135deg,#1a56db,#3b82f6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:${Math.round(size*0.38)}px;font-weight:800">${sp.foto_url?`<img src="${sp.foto_url}" alt="" style="width:100%;height:100%;object-fit:cover">`:`<span>${esc((sp.name||"?").slice(0,1).toUpperCase())}</span>`}</div>`;
   const cards=(d.spieler||[]).map(sp=>{
     const pos=sp.lieblingsposition?(typeof cardPosLabel==="function"?cardPosLabel(sp.lieblingsposition):sp.lieblingsposition):(sp.tw?"Torwart":"");
     return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:10px;text-align:center">
-      <div style="width:64px;margin:0 auto 6px;position:relative">${avatar(sp,64)}${sp.nr!=null?`<div style="position:absolute;bottom:-2px;right:-2px;min-width:20px;height:20px;background:#facc15;color:#1e293b;border-radius:10px;border:2px solid #fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 3px">${elternEsc(sp.nr)}</div>`:""}</div>
-      <div style="font-size:14px;font-weight:800;color:#1e293b">${elternEsc(sp.name)}${sp.tw?" 🥅":""}</div>
-      ${sp.spitzname?`<div style="font-size:10.5px;color:#64748b;font-style:italic">„${elternEsc(sp.spitzname)}"</div>`:""}
-      ${pos?`<div style="font-size:10.5px;color:#1a56db;font-weight:700">${elternEsc(pos)}</div>`:""}
+      <div style="width:64px;margin:0 auto 6px;position:relative">${avatar(sp,64)}${sp.nr!=null?`<div style="position:absolute;bottom:-2px;right:-2px;min-width:20px;height:20px;background:#facc15;color:#1e293b;border-radius:10px;border:2px solid #fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 3px">${esc(sp.nr)}</div>`:""}</div>
+      <div style="font-size:14px;font-weight:800;color:#1e293b">${esc(sp.name)}${sp.tw?" 🥅":""}</div>
+      ${sp.spitzname?`<div style="font-size:10.5px;color:#64748b;font-style:italic">„${esc(sp.spitzname)}"</div>`:""}
+      ${pos?`<div style="font-size:10.5px;color:#1a56db;font-weight:700">${esc(pos)}</div>`:""}
     </div>`;
   }).join("");
   const fk=h.fokus;
   const fokusHtml=fk?`<div style="display:flex;gap:12px;align-items:center;background:linear-gradient(135deg,#fef9c3,#fef3c7);border:1px solid #fde047;border-radius:14px;padding:12px;margin-bottom:12px">
     <div style="flex:0 0 auto">${avatar(fk,66)}</div>
     <div><div style="font-size:10.5px;font-weight:800;color:#a16207;text-transform:uppercase;letter-spacing:.5px">⭐ Spieler im Fokus</div>
-      <div style="font-size:16px;font-weight:900;color:#1e293b">${elternEsc(fk.name)}${fk.nr!=null?" · #"+elternEsc(fk.nr):""}</div>
-      ${fk.text?`<div style="font-size:12px;color:#475569;margin-top:2px;line-height:1.4">${elternEsc(fk.text).replace(/\n/g,"<br>")}</div>`:""}</div></div>`:"";
+      <div style="font-size:16px;font-weight:900;color:#1e293b">${esc(fk.name)}${fk.nr!=null?" · #"+esc(fk.nr):""}</div>
+      ${fk.text?`<div style="font-size:12px;color:#475569;margin-top:2px;line-height:1.4">${esc(fk.text).replace(/\n/g,"<br>")}</div>`:""}</div></div>`:"";
   const nestLbl=t=>`<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#94a3b8;margin:16px 4px 8px">${t}</div>`;
   // I-C: Kabinen-Reporter-Rubrik (RPC reporter_public: nur Freigegebenes, Namen serverseitig maskiert)
   let repHtml="";
@@ -4189,21 +4200,21 @@ async function renderStadionheftView(){
     const r=await fetch(`${SB_URL}/rest/v1/rpc/reporter_public`,{method:"POST",headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:"{}"});
     if(r.ok){const reps=((await r.json())||[]).slice(0,6);
       if(reps.length)repHtml=nestLbl("🎙️ Kabinen-Reporter – die Kinder haben das Wort")
-        +reps.map(x=>`<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #14b8a6;border-radius:12px;padding:10px 13px;margin-bottom:8px;font-size:12.5px;color:#334155"><b>${elternEsc(x.frage)}</b><br>„${elternEsc(x.antwort)}" – <i>${elternEsc(x.name)}</i></div>`).join("");}
+        +reps.map(x=>`<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #14b8a6;border-radius:12px;padding:10px 13px;margin-bottom:8px;font-size:12.5px;color:#334155"><b>${esc(x.frage)}</b><br>„${esc(x.antwort)}" – <i>${esc(x.name)}</i></div>`).join("");}
   }catch(e){}
   root.innerHTML=`<div class="elt-fade">
     <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);border-radius:16px;padding:18px 16px;text-align:center;color:#fff;margin:4px 0 14px;box-shadow:0 2px 12px rgba(30,58,138,.28)">
       <img src="logo.png" style="width:56px;height:56px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.3))" alt="SV Adler Dellbrück">
       <div style="font-size:11px;font-weight:700;letter-spacing:.8px;opacity:.85;margin-top:4px">SV ADLER DELLBRÜCK e.V.</div>
-      <div style="font-size:23px;font-weight:900;margin:2px 0">${elternEsc(h.titel||"Adler Nest")}</div>
+      <div style="font-size:23px;font-weight:900;margin:2px 0">${esc(h.titel||"Adler Nest")}</div>
       <div style="font-size:11.5px;opacity:.85">Das Vereinsheft der jungen Adler 🪺</div>
     </div>
-    ${h.einleitung?`<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #2563eb;border-radius:12px;padding:12px 13px;font-size:13px;color:#334155;line-height:1.55;margin-bottom:12px">${elternEsc(h.einleitung).replace(/\n/g,"<br>")}</div>`:""}
+    ${h.einleitung?`<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #2563eb;border-radius:12px;padding:12px 13px;font-size:13px;color:#334155;line-height:1.55;margin-bottom:12px">${esc(h.einleitung).replace(/\n/g,"<br>")}</div>`:""}
     ${fokusHtml}
     ${nestLbl("🦅 Unser Kader")}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
     ${repHtml}
-    ${h.kommentar?`${nestLbl("📣 Vom Trainerteam")}<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #16a34a;border-radius:12px;padding:12px 13px;font-size:12.5px;color:#334155;line-height:1.55">${elternEsc(h.kommentar).replace(/\n/g,"<br>")}</div>`:""}
+    ${h.kommentar?`${nestLbl("📣 Vom Trainerteam")}<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #16a34a;border-radius:12px;padding:12px 13px;font-size:12.5px;color:#334155;line-height:1.55">${esc(h.kommentar).replace(/\n/g,"<br>")}</div>`:""}
     <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:18px">Auf geht's, Adler! 🦅 · SV Adler Dellbrück e.V.</div></div>`;
 }
 

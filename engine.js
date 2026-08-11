@@ -8,6 +8,20 @@
 /* ═══════════════════════════════════
    HELPER
 ═══════════════════════════════════ */
+/* Abgerundetes Rechteck auf Canvas. Lag frueher in md-taktikboard.js (Welle 2),
+   wurde aber von views.js (Welle 1) an 13 Stellen fuer Karten und Diagramme
+   gebraucht – ein fehlendes Modul haette dort mitten im Zeichnen geworfen.
+   Jetzt EIN Ort in Welle 1; md-taktikboard.js benutzt dieselbe Funktion. */
+function tbRoundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
 const esc=s=>(s+'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const safeParse=(s,fb)=>{try{return s?JSON.parse(s):fb}catch(e){return fb}}; // C1: kaputte scores/radios-Zeilen dürfen keine View crashen
 function segSet(id,val,btn){document.getElementById(id).value=val;btn.parentElement.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active"));btn.classList.add("active");}
@@ -560,6 +574,8 @@ function _renderKombiInner(wrap){
 
   html+=`<div id="lineup-editor" style="margin-top:16px"></div>`;
   wrap.innerHTML=html;
-  initLineupEditor(best);
+  // md-aufstellung.js ist Welle 2 – ohne Schutz reisst ein fehlendes Modul das
+  // ganze Rendern der Aufstellung mit.
+  if(typeof initLineupEditor==="function")initLineupEditor(best);
 }
 
