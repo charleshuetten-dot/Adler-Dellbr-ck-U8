@@ -1114,13 +1114,22 @@ async function elternTickerLoad(termin){
   if(!termin||(termin.typ!=="spiel"&&termin.typ!=="turnier")){slot.innerHTML="";return;}
   const datum=termin.datum, kids=window._elternKids||[];
   // Team des eigenen Kindes serverseitig ermitteln (nominierungen ist trainer-only -> RPC kind_team).
-  let anzahl=1; const myTeams=new Set();
+  let anzahl=1; const myTeams=new Set(); const trainerJeTeam={};
   for(const k of kids){
     try{
       const r=await fetch(`${SB_URL}/rest/v1/rpc/kind_team`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler:k.spieler_id,p_datum:datum})});
-      if(r.ok){const s=await r.json(); if(s&&s.ok){ if(s.anzahl)anzahl=Math.max(anzahl,Number(s.anzahl)||1); if(s.team&&Number(s.team)>=1)myTeams.add(Number(s.team)); }}
+      if(r.ok){const s=await r.json(); if(s&&s.ok){
+        if(s.anzahl)anzahl=Math.max(anzahl,Number(s.anzahl)||1);
+        if(s.team&&Number(s.team)>=1)myTeams.add(Number(s.team));
+        // Seit v390 liefert kind_team auch die Trainer des Teams – nur an Trainer und
+        // die eigenen Eltern des Kindes (Berechtigung in der Funktion unverändert).
+        if(Array.isArray(s.trainer)&&s.trainer.length)trainerJeTeam[Number(s.team)||1]=s.trainer;
+      }}
     }catch(e){}
   }
+  // „Wer betreut mein Kind heute?" – die häufigste Elternfrage am Spieltag.
+  const trainerZeile=(t)=>{ const tr=trainerJeTeam[t]||[];
+    return tr.length?`<div style="font-size:11.5px;color:#334155;margin-bottom:4px">🧢 Trainer: <b>${tr.map(elternEsc).join(", ")}</b></div>`:""; };
   const wrap=(inner)=>`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
     <div style="font-size:12.5px;font-weight:700;color:#dc2626;margin-bottom:2px">📣 Liveticker</div>${inner}</div>`;
   const bigBtn=(label,onclick,filled)=>`<button onclick="${onclick}" style="width:100%;min-height:48px;margin-top:6px;padding:12px;border:1.5px solid #dc2626;border-radius:10px;background:${filled?"#dc2626":"#fff"};color:${filled?"#fff":"#dc2626"};font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">${label}</button>`;
@@ -1128,17 +1137,17 @@ async function elternTickerLoad(termin){
 
   if(myTeams.size===1){
     const t=[...myTeams][0];
-    slot.innerHTML=wrap(`<div style="font-size:11px;color:#64748b;margin-bottom:2px">Automatisch erkannt: dein Kind spielt heute in <b style="color:#dc2626">Adler ${t}</b>.</div>
+    slot.innerHTML=wrap(`<div style="font-size:11px;color:#64748b;margin-bottom:2px">Automatisch erkannt: dein Kind spielt heute in <b style="color:#dc2626">Adler ${t}</b>.</div>${trainerZeile(t)}
       ${bigBtn(`📣 Liveticker öffnen · Adler ${t}`,`elternTicker('${datum}',${t})`,true)}${konfBtn}`);
   }else if(myTeams.size>1){
-    const btns=[...myTeams].sort().map(t=>bigBtn(`📣 Adler ${t} (dein Kind)`,`elternTicker('${datum}',${t})`,true)).join("");
+    const btns=[...myTeams].sort().map(t=>trainerZeile(t)+bigBtn(`📣 Adler ${t} (dein Kind)`,`elternTicker('${datum}',${t})`,true)).join("");
     slot.innerHTML=wrap(`<div style="font-size:11px;color:#64748b;margin-bottom:2px">Deine Kinder spielen in mehreren Teams:</div>${btns}${konfBtn}`);
   }else if(anzahl>1){
     // Teams stehen (mehrere), aber das eigene Kind ist (noch) keinem zugeordnet.
     slot.innerHTML=wrap(`<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">Die Team-Einteilung deines Kindes steht noch nicht fest. Sieh einfach alle Teams gemeinsam:</div>${bigBtn("👥 Konferenz · alle Teams live",`elternTickerKonf('${datum}')`,true)}`);
   }else{
     // Nur ein Team an diesem Spieltag – kein Auswahl-/Konferenzbedarf.
-    slot.innerHTML=wrap(`<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">Nicht dabei? Hier gibt's Tore und Spielstand live.</div>${bigBtn("📣 Liveticker öffnen",`elternTicker('${datum}',1)`,true)}`);
+    slot.innerHTML=wrap(`${trainerZeile(1)}<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">Nicht dabei? Hier gibt's Tore und Spielstand live.</div>${bigBtn("📣 Liveticker öffnen",`elternTicker('${datum}',1)`,true)}`);
   }
 }
 

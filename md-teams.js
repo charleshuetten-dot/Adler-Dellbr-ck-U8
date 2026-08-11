@@ -129,23 +129,6 @@ function teamsAuto(){
   const kd=teamKader(), n=TEAM_ANZAHL;
   let pool=teamZusagen();
   TEAMS={};
-  /* Trainer je Team – steht bewusst VOR der Kinder-Einteilung und auch dann schon da,
-     wenn noch niemand zugesagt hat: erst legen wir fest, wie viele Teams wir stellen und
-     wer sie betreut, dann verteilen wir die Kinder. Ein Team ohne Trainer wird angemahnt
-     (PO: „es muss immer ein Trainer zugewiesen werden"). */
-  html+=`<div style="font-size:12px;font-weight:600;margin:12px 0 6px">Trainer je Team</div>`;
-  for(let t=1;t<=TEAM_ANZAHL;t++){
-    const tr=TEAM_TRAINER[t]||[];
-    html+=`<button onclick="teamTrainerOpen(${t})" style="width:100%;min-height:48px;display:flex;align-items:center;gap:10px;text-align:left;margin-bottom:6px;padding:8px 12px;border:var(--border-s);border-left:3px solid var(--fam-spieltag);border-radius:12px;background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer">
-      <span style="font-size:16px">🧢</span>
-      <span style="flex:1;min-width:0">
-        <span style="display:block;font-size:12.5px;font-weight:800">Adler ${t}</span>
-        <span style="display:block;font-size:11.5px;${tr.length?"color:var(--text2)":"color:var(--amber);font-weight:700"}">${tr.length?esc(tr.join(", ")):"noch kein Trainer zugeteilt"}</span>
-      </span>
-      <span style="font-size:15px;color:var(--text3)">✏️</span>
-    </button>`;
-  }
-
   if(!pool.length){ teamsRender(); return; }
   const kap=teamPlatzProTeam(n);          // Sollgröße, ggf. +1 damit niemand zusehen muss
 
@@ -193,7 +176,7 @@ function teamSetAnzahl(n){
   Object.keys(TEAM_TRAINER).forEach(t=>{ if(Number(t)>TEAM_ANZAHL)delete TEAM_TRAINER[t]; });
   const wechselNoetig=(typeof spieltagTeam!=="undefined"&&spieltagTeam>TEAM_ANZAHL);
   teamsSpeichern();
-  teamsRender(); spieltagTeamSegRender();
+  teamsRender(); spieltagTeamKartenRender();
   // Sah man gerade „Adler 3" und stellt auf 2 Teams, muss die Ansicht darunter mit
   // umschalten – sonst zeigt sie weiter Daten eines Teams, das nicht mehr existiert.
   if(wechselNoetig&&typeof spieltagSetTeam==="function")spieltagSetTeam(1);
@@ -206,7 +189,7 @@ function teamTrainerToggle(t,name){
   Object.keys(TEAM_TRAINER).forEach(k=>{ TEAM_TRAINER[k]=(TEAM_TRAINER[k]||[]).filter(x=>x!==name); });
   if(!drin)TEAM_TRAINER[t]=(TEAM_TRAINER[t]||[]).concat(name);
   Object.keys(TEAM_TRAINER).forEach(k=>{ if(!TEAM_TRAINER[k].length)delete TEAM_TRAINER[k]; });
-  teamsSpeichern(); teamsRender(); spieltagTeamSegRender();
+  teamsSpeichern(); teamsRender(); spieltagTeamKartenRender();
   const box=document.getElementById("teamtr-liste"); if(box)teamTrainerModalFill(t);
 }
 /* Wer ist zuteilbar? Der ganze Trainerstab – auch wer nicht mittrainiert (siehe
@@ -252,19 +235,52 @@ function teamTrainerModalFill(t){
       </span></button>`;
   }).join("");
 }
-/* Der Umschalter oben zeigte fest „Adler 1/2/3" – unabhängig davon, wie viele Teams
-   überhaupt gestellt werden (PO: „die Anzahl ist noch gar nicht festgelegt"). Er folgt
-   jetzt TEAM_ANZAHL, nennt die zugeteilten Trainer und verschwindet bei einem Team. */
-function spieltagTeamSegRender(){
-  const seg=document.getElementById("spieltag-team-seg"); if(!seg)return;
-  const zeile=document.getElementById("spieltag-team-zeile");
-  if(zeile)zeile.hidden=(TEAM_ANZAHL<=1);
-  const aktiv=(typeof spieltagTeam!=="undefined")?spieltagTeam:1;
-  seg.innerHTML=Array.from({length:TEAM_ANZAHL},(_,i)=>{
-    const n=i+1, tr=(TEAM_TRAINER[n]||[]).join(", ");
-    return `<button type="button" class="seg-btn${aktiv===n?" active":""}" data-val="${n}" onclick="spieltagSetTeam(${n},this)">Adler ${n}${
-      tr?`<span style="display:block;font-size:10px;font-weight:600;opacity:.85">${esc(tr)}</span>`:""}</button>`;
+/* Je Team eine Kachel – sie ERSETZT den Umschalter aus v389 (PO: „jedes Team braucht
+   eine eigene Kachel mit dem Kader und allen weiteren Infos").
+   Kniff: die Panels darunter (Nominierung, Uhr, Rotation, Ticker …) gibt es im
+   Grundgeruest je EINMAL. Statt sie zu vervielfaeltigen – was jede Element-ID
+   vervierfacht haette – wird der gemeinsame Block #spieltag-teaminhalt per appendChild
+   in die aufgeklappte Kachel geschoben. IDs bleiben einmalig, Handler und laufende
+   Uhren ueberleben den Umzug.
+   Bei EINEM Team gibt es keine Kacheln: der Inhalt steht direkt da. */
+function spieltagTeamKartenRender(){
+  const box=document.getElementById("spieltag-teamkarten");
+  const inhalt=document.getElementById("spieltag-teaminhalt");
+  if(!box||!inhalt)return;
+  // Zuerst in Sicherheit bringen: box.innerHTML wuerde den Inhalt sonst mitreissen,
+  // wenn er in einer der Kacheln haengt.
+  const heimat=box.parentElement;
+  if(heimat&&inhalt.parentElement!==heimat)heimat.insertBefore(inhalt,box.nextSibling);
+  if(TEAM_ANZAHL<=1){ box.innerHTML=""; return; }
+
+  const aktiv=Math.min(Math.max(1,(typeof spieltagTeam!=="undefined")?spieltagTeam:1),TEAM_ANZAHL);
+  box.innerHTML=Array.from({length:TEAM_ANZAHL},(_,i)=>{
+    const n=i+1, tr=(TEAM_TRAINER[n]||[]);
+    const kinder=Object.keys(TEAMS).filter(k=>TEAMS[k]===n).length;
+    const auf=(n===aktiv);
+    return `<div class="abschnitt" style="padding:0;overflow:hidden;${auf?"border-color:var(--fam-spieltag);":""}">
+      <button onclick="spieltagKarteOeffnen(${n})" aria-expanded="${auf?"true":"false"}"
+        style="width:100%;min-height:56px;display:flex;align-items:center;gap:10px;text-align:left;padding:12px 14px;border:none;border-left:4px solid var(--fam-spieltag);background:${auf?"var(--surface2)":"var(--surface)"};color:var(--text);font-family:inherit;cursor:pointer">
+        <span style="font-size:20px">⚽</span>
+        <span style="flex:1;min-width:0">
+          <span style="display:block;font-size:14px;font-weight:900">Adler ${n}</span>
+          <span style="display:block;font-size:11.5px;color:var(--text2)">${kinder} Kind${kinder===1?"":"er"} · ${
+            tr.length?esc(tr.join(", ")):'<span style="color:var(--amber);font-weight:700">kein Trainer</span>'}</span>
+        </span>
+        <span style="font-size:15px;color:var(--text3)">${auf?"▴":"▾"}</span>
+      </button>
+      <div id="spieltag-karte-inhalt-${n}" style="padding:0 12px 12px"></div>
+    </div>`;
   }).join("");
+  const ziel=document.getElementById("spieltag-karte-inhalt-"+aktiv);
+  if(ziel)ziel.appendChild(inhalt);
+}
+/* Antippen einer Kachel = Team wechseln. spieltagSetTeam laedt die Daten neu und
+   rendert am Ende ueber teamsLoad/teamsRender die Kacheln mit – deshalb hier nichts
+   weiter tun. Nur beim erneuten Antippen der offenen Kachel neu zeichnen. */
+function spieltagKarteOeffnen(n){
+  if(typeof spieltagTeam!=="undefined"&&n!==spieltagTeam&&typeof spieltagSetTeam==="function"){ spieltagSetTeam(n); return; }
+  spieltagTeamKartenRender();
 }
 function teamSet(name,nr){ if(nr)TEAMS[name]=nr; else delete TEAMS[name]; teamsRender(); }
 
@@ -286,7 +302,7 @@ async function teamsLoad(){
       }
     }
   }catch(e){}
-  teamsRender(); spieltagTeamSegRender();
+  teamsRender(); spieltagTeamKartenRender();
 }
 async function teamsSpeichern(){
   try{
@@ -430,6 +446,23 @@ function teamsRender(){
     </div>
     <div class="seg-ctrl" style="margin-bottom:8px">${Array.from({length:TEAM_MAX},(_,i)=>segBtn(i+1)).join("")}</div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${esc(form)}: ${kd.tw?"1 Torwart + ":""}${kd.feld} Feldspieler = ${kd.gesamt} pro Team · ${pool.length} Zusage${pool.length===1?"":"n"}${teamPlatzProTeam()>kd.gesamt?" · ein Team nimmt ein Kind mehr auf, damit niemand zusehen muss":""}</div>`;
+
+  /* Trainer je Team – steht bewusst VOR der Kinder-Einteilung und auch dann schon da,
+     wenn noch niemand zugesagt hat: erst legen wir fest, wie viele Teams wir stellen und
+     wer sie betreut, dann verteilen wir die Kinder. Ein Team ohne Trainer wird angemahnt
+     (PO: „es muss immer ein Trainer zugewiesen werden"). */
+  html+=`<div style="font-size:12px;font-weight:600;margin:12px 0 6px">Trainer je Team</div>`;
+  for(let t=1;t<=TEAM_ANZAHL;t++){
+    const tr=TEAM_TRAINER[t]||[];
+    html+=`<button onclick="teamTrainerOpen(${t})" style="width:100%;min-height:48px;display:flex;align-items:center;gap:10px;text-align:left;margin-bottom:6px;padding:8px 12px;border:var(--border-s);border-left:3px solid var(--fam-spieltag);border-radius:12px;background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer">
+      <span style="font-size:16px">🧢</span>
+      <span style="flex:1;min-width:0">
+        <span style="display:block;font-size:12.5px;font-weight:800">Adler ${t}</span>
+        <span style="display:block;font-size:11.5px;${tr.length?"color:var(--text2)":"color:var(--amber);font-weight:700"}">${tr.length?esc(tr.join(", ")):"noch kein Trainer zugeteilt"}</span>
+      </span>
+      <span style="font-size:15px;color:var(--text3)">✏️</span>
+    </button>`;
+  }
 
   if(!pool.length){
     box.innerHTML=html+`<div style="font-size:11.5px;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px">Noch keine Zusage. Eingeteilt wird ausschließlich, wer zugesagt hat.</div>`;
