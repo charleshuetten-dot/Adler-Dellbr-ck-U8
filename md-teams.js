@@ -16,6 +16,9 @@
    TEAM_STAB: wer überhaupt zuteilbar ist – der ganze Trainerstab (nicht nur wer
    mittrainiert), mit seiner Zusage zu diesem Termin. */
 let TEAMS={}, TEAM_ANZAHL=1, TEAM_STATS={}, TEAM_GRUND={}, TEAM_TRAINER={}, TEAM_STAB=[];
+/* Welche Team-Kachel ist aufgeklappt (0 = alle zu). Eigener Zustand, NICHT spieltagTeam:
+   ein Team ist immer ausgewaehlt, eine Kachel muss sich trotzdem schliessen lassen. */
+let TEAM_KARTE_OFFEN=0;
 const TEAM_MAX=4; // PO v389: von 3 auf 4 erweitert
 function teamsKey(){ return spieltagRawDate()+"__teams"; }
 // Feld-IDs nie aus Namen bauen (Umlaute, Leerzeichen) – der Kader-Index ist eindeutig.
@@ -43,8 +46,8 @@ function istTorwart(n){ const k=getKader(n); return !!(k&&k.tw); }
    vorbelegt (nomLoad). Mit 16 nominierten Kindern, aber nur einer Eltern-Zusage
    verteilte „Automatisch einteilen" genau EIN Kind – es sah aus, als täte der Knopf
    nichts (PO-Meldung v392).
-   Dazu kommt, wer bereits einem Team zugeordnet ist: sonst schrumpft der Pool beim
-   zweiten Aufruf auf das gerade geöffnete Team, denn nomStatus gilt je Team. */
+   Seit v393 ist nomStatus global (ein Spieltag, eine Liste). Die bereits Eingeteilten
+   bleiben als Sicherheitsnetz drin – falls die Nominierung noch nicht geladen ist. */
 function teamZusagen(){
   const namen=new Set();
   if(typeof nomStatus==="object"&&nomStatus)
@@ -278,19 +281,29 @@ function spieltagTeamKartenRender(){
   // wenn er in einer der Kacheln haengt.
   const heimat=box.parentElement;
   if(heimat&&inhalt.parentElement!==heimat)heimat.insertBefore(inhalt,box.nextSibling);
-  if(TEAM_ANZAHL<=1){ box.innerHTML=""; return; }
+  teamKaderRender();
+  if(TEAM_ANZAHL<=1){ box.innerHTML=""; inhalt.hidden=false; teamPhasenLabel(0); return; }
 
-  const aktiv=Math.min(Math.max(1,(typeof spieltagTeam!=="undefined")?spieltagTeam:1),TEAM_ANZAHL);
+  /* Welche Kachel ist offen? TEAM_KARTE_OFFEN=0 heisst: alle zu. Das ist bewusst NICHT
+     dasselbe wie spieltagTeam – das Team bleibt ausgewaehlt (Uhr, Ticker, Aktionen haengen
+     daran), nur die Kachel ist zugeklappt. Vorher war „offen" an spieltagTeam gekoppelt,
+     und weil immer ein Team ausgewaehlt ist, liess sich keine Kachel schliessen. */
+  const aktiv=TEAM_KARTE_OFFEN&&TEAM_KARTE_OFFEN<=TEAM_ANZAHL?TEAM_KARTE_OFFEN:0;
+  inhalt.hidden=!aktiv;
+  teamPhasenLabel(aktiv);
   box.innerHTML=Array.from({length:TEAM_ANZAHL},(_,i)=>{
     const n=i+1, tr=(TEAM_TRAINER[n]||[]);
     const kinder=Object.keys(TEAMS).filter(k=>TEAMS[k]===n).length;
     const auf=(n===aktiv);
+    // Uhr, Ticker und Aktionen haengen an spieltagTeam – auch wenn alle Kacheln zu sind.
+    // Das muss man sehen koennen, sonst tippt der Trainer im falschen Team auf „Anpfiff".
+    const gewaehlt=(typeof spieltagTeam!=="undefined"&&n===spieltagTeam);
     return `<div class="abschnitt" style="padding:0;overflow:hidden;${auf?"border-color:var(--fam-spieltag);":""}">
       <button onclick="spieltagKarteOeffnen(${n})" aria-expanded="${auf?"true":"false"}"
         style="width:100%;min-height:56px;display:flex;align-items:center;gap:10px;text-align:left;padding:12px 14px;border:none;border-left:4px solid var(--fam-spieltag);background:${auf?"var(--surface2)":"var(--surface)"};color:var(--text);font-family:inherit;cursor:pointer">
         <span style="font-size:20px">⚽</span>
         <span style="flex:1;min-width:0">
-          <span style="display:block;font-size:14px;font-weight:900">Adler ${n}</span>
+          <span style="display:block;font-size:14px;font-weight:900">Adler ${n}${gewaehlt&&!auf?` <span style="font-size:10px;font-weight:700;color:var(--blue-text);background:var(--surface2);border-radius:8px;padding:1px 7px;vertical-align:1px">Uhr &amp; Ticker</span>`:""}</span>
           <span style="display:block;font-size:11.5px;color:var(--text2)">${kinder} Kind${kinder===1?"":"er"} · ${
             tr.length?esc(tr.join(", ")):'<span style="color:var(--amber);font-weight:700">kein Trainer</span>'}</span>
         </span>
@@ -302,14 +315,47 @@ function spieltagTeamKartenRender(){
   const ziel=document.getElementById("spieltag-karte-inhalt-"+aktiv);
   if(ziel)ziel.appendChild(inhalt);
 }
-/* Antippen einer Kachel = Team wechseln. spieltagSetTeam laedt die Daten neu und
-   rendert am Ende ueber teamsLoad/teamsRender die Kacheln mit – deshalb hier nichts
-   weiter tun. Nur beim erneuten Antippen der offenen Kachel neu zeichnen. */
+/* Antippen einer Kachel: offene Kachel zu, geschlossene auf. Beim Wechsel auf ein anderes
+   Team laedt spieltagSetTeam die Daten neu und rendert ueber teamsLoad die Kacheln mit –
+   deshalb dort nur den Merker setzen und zurueck.
+   PO v393: „teams lässt sich nicht mehr einklappen. Geht nur zu wenn man das andere Team
+   aufklappt." Ursache war, dass „offen" an spieltagTeam hing – und ein Team ist immer
+   ausgewaehlt. Jetzt ist das Aufklappen ein eigener Zustand. */
 function spieltagKarteOeffnen(n){
+  if(TEAM_KARTE_OFFEN===n){ TEAM_KARTE_OFFEN=0; spieltagTeamKartenRender(); return; }
+  TEAM_KARTE_OFFEN=n;
   if(typeof spieltagTeam!=="undefined"&&n!==spieltagTeam&&typeof spieltagSetTeam==="function"){ spieltagSetTeam(n); return; }
   spieltagTeamKartenRender();
 }
-function teamSet(name,nr){ if(nr)TEAMS[name]=nr; else delete TEAMS[name]; teamsRender(); }
+// „· Adler 2" hinter die Phasen-Titel schreiben; 0 oder ein einziges Team = kein Zusatz.
+function teamPhasenLabel(n){
+  const txt=(n&&TEAM_ANZAHL>1)?"· Adler "+n:"";
+  document.querySelectorAll(".mt-team-tag").forEach(el=>{el.textContent=txt;});
+}
+/* Der Kader DIESES Teams – nur zum Nachsehen. Geändert wird eine Ebene höher unter
+   „Teams festlegen"; hier stünde derselbe Editor sonst mehrfach nebeneinander. */
+function teamKaderRender(){
+  const box=document.getElementById("team-kader-panel"); if(!box)return;
+  const t=(typeof spieltagTeam!=="undefined")?spieltagTeam:1;
+  const namen=(typeof nominierteSpieler==="function")?nominierteSpieler():[];
+  const tr=(TEAM_TRAINER[t]||[]);
+  const kopf=`<div style="font-size:11.5px;color:var(--text2);margin-bottom:8px">${namen.length} Kind${namen.length===1?"":"er"}${TEAM_ANZAHL>1?" in Adler "+t:""} · ${
+    tr.length?"🧢 "+esc(tr.join(", ")):'<span style="color:var(--amber);font-weight:700">noch kein Trainer zugeteilt</span>'}</div>`;
+  if(!namen.length){
+    box.innerHTML=kopf+`<div style="font-size:11.5px;color:var(--text3)">Noch niemand eingeteilt – das passiert oben unter „Teams festlegen".</div>`;
+    return;
+  }
+  box.innerHTML=kopf+`<div style="display:flex;flex-wrap:wrap;gap:6px">${namen.map(n=>
+    `<span style="font-size:12px;background:var(--surface2);border-radius:12px;padding:4px 10px">${getKader(n)&&getKader(n).nr?getKader(n).nr+" ":""}${esc(n)}${istTorwart(n)?" 🥅":""}</span>`).join("")}</div>
+    <button class="btn btn-sm" style="margin-top:10px" onclick="document.getElementById('mt-phase-vor').open=true;document.getElementById('mt-phase-vor').scrollIntoView({behavior:'smooth',block:'start'})"><i class="ti ti-pencil"></i>Einteilung ändern</button>`;
+}
+function teamSet(name,nr){
+  if(nr)TEAMS[name]=nr; else delete TEAMS[name];
+  teamsRender(); spieltagTeamKartenRender();
+  teamsSpeichern();     // Handkorrektur ist eine Entscheidung, kein Vorschlag
+  teamsSyncBald();      // … und die Eltern-Ansicht zieht nach
+  if(typeof nomApplyToTools==="function")nomApplyToTools();
+}
 
 async function teamsLoad(){
   TEAMS={}; TEAM_ANZAHL=teamAnzahlVorschlag(); TEAM_TRAINER={};
@@ -347,27 +393,46 @@ async function teamsSpeichern(){
       body:JSON.stringify({datum:teamsKey(),data:{_anzahl:TEAM_ANZAHL,_trainer:TEAM_TRAINER,...TEAMS}})});
   }catch(e){}
 }
-/* Einteilung -> die drei Team-Nominierungen. _ovr enthält alle Namen, sonst würde
-   nomLoad die Eltern-Zusagen wieder über die Einteilung legen und alle Kinder in
-   jedes Team schreiben – genau der Fehler, der das Feature bisher wirkungslos machte. */
-async function teamsAnwenden(){
-  if(!Object.keys(TEAMS).length){toast("Erst einteilen","err");return;}
-  if(!confirm(`Einteilung auf ${TEAM_ANZAHL} Team${TEAM_ANZAHL>1?"s":""} übertragen?\n\nDie Nominierung der betroffenen Teams wird überschrieben.`))return;
-  await teamsSpeichern();
+/* Die Team-Zeilen ("<datum>", "<datum>__t2", …) sind ABGELEITET aus der globalen
+   Nominierung und der Einteilung. Eltern-Ansicht und Liveticker lesen sie über die RPCs,
+   deshalb dürfen sie nicht hinterherhinken.
+   Bis v392 schrieb jeder Tipp in der Nominierung direkt die Team-Zeile, die Eltern sahen
+   die Änderung also sofort. Seit die Nominierung global ist (v393), wird sie hier
+   nachgezogen – gebündelt, damit nicht jeder einzelne Tipp vier Anfragen auslöst.
+   „offen" für dabei-aber-noch-nicht-eingeteilt ist Absicht: die Eltern lesen dann
+   „Aufstellung wählt Trainer noch" statt fälschlich „pausiert".
+   _ovr enthält alle Namen – Altbestand, der die Eltern-Zusagen nicht wieder über die
+   Einteilung legen soll. */
+let _teamSyncId=null;
+function teamsSyncBald(){ clearTimeout(_teamSyncId); _teamSyncId=setTimeout(()=>{ teamsZeilenSchreiben(); },900); }
+async function teamsZeilenSchreiben(){
+  if(!sbToken())return false;
   const d=spieltagRawDate(), alle=KADER.map(k=>k.name);
   for(let t=1;t<=TEAM_ANZAHL;t++){
     const key=t>1?`${d}__t${t}`:d;
     const data={_ovr:alle};
-    alle.forEach(n=>{ data[n]=(TEAMS[n]===t)?"dabei":"nicht"; });
+    alle.forEach(n=>{
+      data[n]=(TEAMS[n]===t)?"dabei"
+             :(nomStatus[n]==="dabei"&&!TEAMS[n])?"offen":"nicht";
+    });
     try{
-      await fetch(`${SB_URL}/rest/v1/nominierungen?on_conflict=datum`,{method:"POST",
+      const r=await fetch(`${SB_URL}/rest/v1/nominierungen?on_conflict=datum`,{method:"POST",
         headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},
         body:JSON.stringify({datum:key,data})});
-    }catch(e){ toast("Übertragen fehlgeschlagen","err"); return; }
+      if(!r.ok)return false;
+    }catch(e){ return false; }
   }
-  await teamGruendeSpeichern(d);
+  return true;
+}
+async function teamsAnwenden(){
+  if(!Object.keys(TEAMS).length){toast("Erst einteilen","err");return;}
+  if(!confirm(`Einteilung auf ${TEAM_ANZAHL} Team${TEAM_ANZAHL>1?"s":""} übertragen?\n\nDie Nominierung der betroffenen Teams wird überschrieben.`))return;
+  clearTimeout(_teamSyncId);   // die gebündelte Sicherung ist hier gegenstandslos
+  await teamsSpeichern();
+  if(!await teamsZeilenSchreiben()){ toast("Übertragen fehlgeschlagen","err"); return; }
+  await teamGruendeSpeichern(spieltagRawDate());
   toast(`Einteilung übertragen ✓`);
-  await nomLoad();   // aktuelles Team neu laden -> Rotation, Aktionen, Aufstellung ziehen nach
+  await nomLoad();   // alles neu laden -> Rotation, Aktionen, Aufstellung ziehen nach
 }
 
 /* Begründungen der pausierenden Kinder sichern. Wer wieder nominiert ist, verliert seinen
@@ -408,7 +473,7 @@ function teamQuoteText(n){
   const q=teamTrainingsQuote(n);
   if(!q)return `<span style="color:var(--text3)">Training –</span>`;
   const p=q.da/q.gesamt;
-  const farbe=p>=0.8?"#15803d":p>=0.5?"#b45309":"#dc2626";
+  const farbe=p>=0.8?"var(--green)":p>=0.5?"var(--amber)":"var(--red)";
   return `<span style="color:${farbe}">Training ${q.da}/${q.gesamt}</span>`;
 }
 function teamEinsatzText(n){
@@ -463,9 +528,20 @@ async function rollenMatrixOpen(){
     <button class="btn btn-sm" style="width:100%;margin-top:12px" onclick="document.getElementById('rollen-modal').remove()">Schließen</button>`;
   modal.appendChild(c); document.body.appendChild(modal);
 }
+/* Freitexte („Grund für die Eltern") aus dem DOM retten, bevor innerHTML sie wegwirft.
+   Seit die Liste bei jedem Tipp neu gezeichnet wird (Anwesenheit UND Team stehen darin),
+   wäre ein gerade getippter Grund sonst weg, sobald der Trainer irgendeinen Knopf drückt. */
+function teamGruendeAusDom(){
+  if(typeof KADER==="undefined")return;
+  KADER.forEach(k=>{
+    const el=document.getElementById("nh-"+teamKaderIdx(k.name));
+    if(el)TEAM_GRUND[k.name]=el.value;
+  });
+}
 function teamsRender(){
   const box=document.getElementById("team-panel");
   if(!box)return;
+  teamGruendeAusDom();
   const kd=teamKader();
   const pool=teamZusagen();
   const vorschlag=teamAnzahlVorschlag();
@@ -481,7 +557,7 @@ function teamsRender(){
       <span style="font-size:11px;color:var(--text3);margin-left:auto">Vorschlag: ${vorschlag}</span>
     </div>
     <div class="seg-ctrl" style="margin-bottom:8px">${Array.from({length:TEAM_MAX},(_,i)=>segBtn(i+1)).join("")}</div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${esc(form)}: ${kd.tw?"1 Torwart + ":""}${kd.feld} Feldspieler = ${kd.gesamt} pro Team · ${pool.length} Zusage${pool.length===1?"":"n"}${teamPlatzProTeam()>kd.gesamt?" · ein Team nimmt ein Kind mehr auf, damit niemand zusehen muss":""}</div>`;
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${esc(form)}: ${kd.tw?"1 Torwart + ":""}${kd.feld} Feldspieler = ${kd.gesamt} pro Team · ${pool.length} Kind${pool.length===1?"":"er"} dabei${teamPlatzProTeam()>kd.gesamt?" · ein Team nimmt ein Kind mehr auf, damit niemand zusehen muss":""}</div>`;
 
   /* Trainer je Team – steht bewusst VOR der Kinder-Einteilung und auch dann schon da,
      wenn noch niemand zugesagt hat: erst legen wir fest, wie viele Teams wir stellen und
@@ -500,10 +576,10 @@ function teamsRender(){
     </button>`;
   }
 
-  if(!pool.length){
-    box.innerHTML=html+`<div style="font-size:11.5px;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px">Noch keine Zusage. Eingeteilt wird ausschließlich, wer zugesagt hat.</div>`;
-    return;
-  }
+  /* Kein frueher Ausstieg mehr, wenn noch niemand dabei ist: die Kinderliste IST seit v394
+     der Ort, an dem „dabei" gesetzt wird. Wer hier aussteigt, nimmt dem Trainer den Weg,
+     ueberhaupt jemanden zu nominieren. Nur der Hinweis unterscheidet sich. */
+  const leer=!pool.length;
 
   /* Drei gleichrangige Knoepfe nebeneinander – der Bildschirm war falsch geschnitten
      (Hausregel: genau EINE Hauptaktion). Jetzt in der Reihenfolge des Arbeitsschritts:
@@ -511,30 +587,27 @@ function teamsRender(){
      „Rollen-Erfahrung" ist gar keine Aktion am Spieltag, sondern eine Auswertung – die
      wohnt in der Team-Kachel unter „Ueberblick" und ist dort ueber rollenMatrixOpen
      erreichbar. Hier war sie doppelt und hat die Hauptaktion verdeckt. */
-  html+=`<div style="font-size:11.5px;color:var(--text2);margin:12px 0 6px">Die Kinder sind automatisch verteilt – mit den Zahlen-Knöpfen unten änderst du das von Hand. Erst „In die Nominierungen übertragen" macht es verbindlich.</div>
+  html+=`<div style="font-size:11.5px;color:var(--text2);margin:12px 0 6px">${leer
+      ? "Noch niemand dabei – unten in der Liste auf „Dabei“ tippen. Die Eltern-Rückmeldungen werden automatisch übernommen, sobald sie da sind."
+      : "Die Kinder sind automatisch verteilt – unten in der Liste änderst du Anwesenheit und Team von Hand. Erst „In die Nominierungen übertragen“ macht es verbindlich."}</div>
     <div style="margin-bottom:10px">
-      <button class="btn btn-sm" onclick="teamsAuto()" style="width:100%;margin-bottom:8px"><i class="ti ti-wand"></i>Neu verteilen (Vorschlag verwerfen)</button>
-      <button class="btn btn-p" onclick="teamsAnwenden()" style="width:100%"><i class="ti ti-arrow-right"></i>In die Nominierungen übertragen</button>
+      <button class="btn btn-sm" onclick="teamsAuto()" style="width:100%;margin-bottom:8px"${leer?" disabled":""}><i class="ti ti-wand"></i>Neu verteilen (Vorschlag verwerfen)</button>
+      <button class="btn btn-p" onclick="teamsAnwenden()" style="width:100%"${leer?" disabled":""}><i class="ti ti-arrow-right"></i>In die Nominierungen übertragen</button>
     </div>
     <div id="team-rollen-hint"></div>`;
   setTimeout(()=>{try{rollenHintFill();}catch(e){}},0); // A-lite: „noch nie im Tor"-Hinweis nachladen
 
   // Zu wenige Torwarte? Das merkt man sonst erst beim Anpfiff.
-  if(kd.tw){
+  if(kd.tw&&!leer){
     const twDa=pool.filter(istTorwart).length;
     if(twDa<TEAM_ANZAHL*kd.tw)
-      html+=`<div style="font-size:11.5px;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;margin-bottom:10px">🥅 Nur ${twDa} Kind${twDa===1?"":"er"} mit Torwart-Haken zugesagt, gebraucht werden ${TEAM_ANZAHL}. Ein Team bleibt ohne Torwart.</div>`;
-  }
-
-  if(!Object.keys(TEAMS).length){
-    html+=`<div style="font-size:11.5px;color:var(--text3)">Noch nicht eingeteilt. „Neu verteilen" setzt je Team einen Torwart und verteilt den Rest nach Stärke.</div>`;
-    box.innerHTML=html; return;
+      html+=`<div style="font-size:11.5px;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;margin-bottom:10px">🥅 Nur ${twDa} Kind${twDa===1?"":"er"} mit Torwart-Haken dabei, gebraucht werden ${TEAM_ANZAHL}. Ein Team bleibt ohne Torwart.</div>`;
   }
 
   // Team-Übersicht: Größe, Torwart, Ø-Stärke
   const zeilen=[];
   const mindest=teamMindestKader();
-  for(let t=1;t<=TEAM_ANZAHL;t++){
+  for(let t=1;t<=TEAM_ANZAHL&&!leer;t++){
     const m=pool.filter(n=>TEAMS[n]===t);
     const bew=m.map(teamStaerke).filter(v=>v>=0);
     const schnitt=bew.length?Math.round(bew.reduce((a,b)=>a+b,0)/bew.length):null;
@@ -542,54 +615,102 @@ function teamsRender(){
     const spielfaehig=m.length>=mindest;
     zeilen.push(`<div style="flex:1;min-width:98px;background:var(--surface2);border-radius:var(--r);padding:8px">
       <div style="font-size:11.5px;font-weight:700">Adler ${t}</div>
-      <div style="font-size:10.5px;color:${spielfaehig?"var(--text2)":"#dc2626"}" title="Sollgröße ${kd.gesamt}, mindestens ${mindest}">${m.length} Kinder${spielfaehig?"":" – zu wenige"}</div>
-      <div style="font-size:10.5px">${kd.tw?(tw?"🥅 ok":"<span style='color:#dc2626'>kein TW</span>"):"<span style='color:var(--text3)'>ohne TW</span>"}</div>
+      <div style="font-size:10.5px;color:${spielfaehig?"var(--text2)":"var(--red)"}" title="Sollgröße ${kd.gesamt}, mindestens ${mindest}">${m.length} Kinder${spielfaehig?"":" – zu wenige"}</div>
+      <div style="font-size:10.5px">${kd.tw?(tw?"🥅 ok":"<span style='color:var(--red)'>kein TW</span>"):"<span style='color:var(--text3)'>ohne TW</span>"}</div>
       <div style="font-size:10.5px;color:var(--text2)">${schnitt!=null?"Ø "+schnitt+"%":"–"}</div>
     </div>`);
   }
   html+=`<div style="display:flex;gap:6px;margin-bottom:10px">${zeilen.join("")}</div>`;
 
+  /* EINE Zeile je Kind: Anwesenheit und Team-Zuordnung beieinander (PO v394: „Wäre es
+     nicht besser wenn ich die Anwesenheit direkt in Teams festlegen sehen und ändern
+     kann?"). Vorher waren das zwei getrennte 16-Zeilen-Listen übereinander.
+     Die Team-Knöpfe erscheinen nur bei „dabei" – wer nicht da ist, braucht kein Team.
+     Bei EINEM Team gibt es statt der Zahlen einen Pausiert-Schalter: die Zahl „1" wäre
+     keine Wahl, aber „passt nicht mehr rein" gibt es auch mit einem Team. */
+  const stCfg={dabei:{lbl:"Dabei",col:"var(--green)"},nicht:{lbl:"Nicht",col:"var(--text3)"},verletzt:{lbl:"Verletzt",col:"var(--red)"}};
+  const rvEmo={zugesagt:"✅",abgesagt:"❌",krank:"🤒"};
+  const btn=(inhalt,onclick,an,titel)=>`<button onclick="${onclick}" aria-pressed="${an?"true":"false"}"${titel?` title="${titel}"`:""}
+      style="flex:1;min-width:44px;min-height:44px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:${an?"700":"500"};background:${an?"var(--blue)":"var(--surface)"};color:${an?"#fff":"var(--text2)"}">${inhalt}</button>`;
+
   const zeile=(n)=>{
+    const st=(typeof nomStatus==="object"&&nomStatus[n])||"offen";
+    const dabei=(st==="dabei");
     const cur=TEAMS[n]||0;
-    const knoepfe=[];
-    for(let t=1;t<=TEAM_ANZAHL;t++)
-      knoepfe.push(`<button onclick="teamSet('${jsq(n)}',${t})" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;background:${cur===t?"var(--blue)":"var(--surface)"};color:${cur===t?"#fff":"var(--text2)"}">${t}</button>`);
-    knoepfe.push(`<button onclick="teamSet('${jsq(n)}',0)" title="Pausiert" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;font-size:12px;background:${cur?"var(--surface)":"var(--surface2)"};color:var(--text3)">–</button>`);
-    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12.5px">${getKader(n)&&getKader(n).nr?getKader(n).nr+" ":""}${esc(n)}${istTorwart(n)?" 🥅":""}</div>
-        <div style="font-size:10px">${teamQuoteText(n)} · ${teamEinsatzText(n)}</div>
+    const rv=(typeof nomRsvp==="object"&&nomRsvp[n])||null;
+    const badge=rv
+      ? `<span title="Eltern-Rückmeldung: ${esc(rv.status)}${rv.kommentar?" – "+esc(rv.kommentar):""}" style="width:16px;text-align:center;font-size:13px">${rvEmo[rv.status]||""}</span>`
+      : `<span style="width:16px"></span>`;
+    const pause=(typeof istPaused==="function"&&istPaused(n))
+      ? ` <span title="Pausiert – zählt nicht mit" style="font-size:10px;font-weight:700;color:var(--amber)">⏸ bis ${pauseBisLabel(n)}</span>` : "";
+
+    const stKnoepfe=["dabei","nicht","verletzt"].map(s=>
+      `<button onclick="nomSet('${jsq(n)}','${s}')" aria-pressed="${st===s?"true":"false"}"
+        style="flex:1;min-height:44px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:${st===s?"700":"500"};background:${st===s?stCfg[s].col:"var(--surface)"};color:${st===s?"#fff":"var(--text2)"}">${stCfg[s].lbl}</button>`).join("");
+
+    let teamZeile="";
+    if(dabei){
+      let k="";
+      if(TEAM_ANZAHL>1){
+        for(let t=1;t<=TEAM_ANZAHL;t++)k+=btn(String(t),`teamSet('${jsq(n)}',${t})`,cur===t);
+        k+=btn("⏸",`teamSet('${jsq(n)}',0)`,!cur,"Pausiert – spielt heute nicht mit");
+      }else{
+        k =btn("Spielt mit",`teamSet('${jsq(n)}',1)`,cur===1);
+        k+=btn("⏸ Pausiert",`teamSet('${jsq(n)}',0)`,!cur,"Pausiert – spielt heute nicht mit");
+      }
+      teamZeile=`<div style="display:flex;gap:5px;margin-top:5px">${k}</div>`;
+      if(!cur)teamZeile+=`<input id="nh-${teamKaderIdx(n)}" value="${esc(TEAM_GRUND[n]||"")}" placeholder="Grund für die Eltern (optional)"
+        style="width:100%;min-height:44px;margin-top:5px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text);box-sizing:border-box">`;
+    }
+    return `<div style="padding:8px 0;border-top:var(--border)">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+        ${badge}
+        <span style="flex:1;min-width:0;font-size:12.5px;font-weight:600">${getKader(n)&&getKader(n).nr?getKader(n).nr+" ":""}${esc(n)}${istTorwart(n)?" 🥅":""}${pause}</span>
+        ${dabei?`<span style="font-size:10px">${teamQuoteText(n)} · ${teamEinsatzText(n)}</span>`:""}
       </div>
-      ${knoepfe.join("")}
+      <div style="display:flex;gap:5px">${stKnoepfe}</div>
+      ${teamZeile}
     </div>`;
   };
 
-  const eingeteilt=pool.filter(n=>TEAMS[n]);
-  const pausiert=pool.filter(n=>!TEAMS[n]);
-  html+=eingeteilt.map(zeile).join("");
-
-  if(pausiert.length){
-    html+=`<div style="margin-top:12px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:10px">
-      <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:2px">⚠️ ${pausiert.length} Kind${pausiert.length===1?"":"er"} passt${pausiert.length===1?"":"en"} nicht mehr in ein volles Team</div>
-      <div style="font-size:11px;color:#92400e;margin-bottom:8px">Vorschlag nach den meisten Saison-Einsätzen, dann nach der geringsten Trainingsbeteiligung. Du entscheidest – mit den Knöpfen umsetzen.</div>
-      ${pausiert.map(n=>zeile(n)+`<div style="display:flex;gap:6px;margin:-2px 0 10px 0">
-          <input id="nh-${teamKaderIdx(n)}" value="${esc(TEAM_GRUND[n]||"")}" placeholder="Grund für die Eltern (optional)" style="flex:1;min-height:44px;padding:8px;border:1px solid #fcd34d;border-radius:8px;font-family:inherit;font-size:12px;background:#fff;color:#334155">
-        </div>`).join("")}
+  const ohneTeam=pool.filter(n=>!TEAMS[n]);
+  if(ohneTeam.length){
+    html+=`<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:10px;padding:8px 10px;margin-bottom:6px">
+      <div style="font-size:12px;font-weight:700;color:var(--amber)">⏸ ${ohneTeam.length} Kind${ohneTeam.length===1?"":"er"} pausiert${ohneTeam.length===1?"":""}: ${ohneTeam.map(esc).join(", ")}</div>
+      <div style="font-size:11px;color:var(--amber);margin-top:2px">Vorschlag nach den meisten Saison-Einsätzen, dann nach der geringsten Trainingsbeteiligung. Unten in der Liste änderbar.</div>
     </div>`;
   }
+  html+=KADER.map(k=>zeile(k.name)).join("");
   box.innerHTML=html;
 }
 
 // Eltern-Zusagen werden automatisch übernommen (in nomLoad). Dieser Button verwirft die
 // Trainer-Overrides und koppelt die Nominierung wieder komplett an den aktuellen RSVP-Stand.
+/* „Meine Änderungen verwerfen" stellt den Zustand her, den nomLoad ohne jeden Trainer-
+   Eingriff erzeugt hätte.
+   PO-Meldung v394: „wenn ich die Nominierung händisch änder und dann wieder auf Eltern
+   folgen klicke, ändert er die Buttons nicht mehr." Ursache: die Schleife lief nur über
+   nomRsvp – also über die Kinder, deren Eltern geantwortet haben. Bei 15 offenen
+   Rückmeldungen blieben 15 von Hand gesetzte Knöpfe stehen, und der Knopf sah kaputt aus.
+   Jetzt wird der ganze Kader zurückgesetzt: mit Rückmeldung nach der Rückmeldung, ohne
+   auf „offen" – und pausierte Kinder anschließend wieder heraus, genau wie in nomLoad. */
 function nomApplyRsvp(){
   nomOvr.clear();
-  Object.keys(nomRsvp).forEach(name=>{ nomStatus[name]=nomRsvp[name].status==="zugesagt"?"dabei":"nicht"; });
-  nomRender();nomApplyToTools();nomSave();
+  KADER.forEach(k=>{
+    const rv=nomRsvp[k.name];
+    nomStatus[k.name]=rv?(rv.status==="zugesagt"?"dabei":"nicht"):"offen";
+  });
+  if(typeof PAUSE_MAP==="object"&&PAUSE_MAP)
+    Object.keys(PAUSE_MAP).forEach(name=>{ if(nomStatus[name]!=null)nomStatus[name]="nicht"; });
+  nomRender();
+  teamsAuto();                 // die Aufteilung folgt der neuen Nominierung
+  spieltagTeamKartenRender();
+  nomApplyToTools();nomSave();
   toast("Änderungen verworfen – die Nominierung folgt wieder den Eltern ✓");
 }
 function nomApplyToTools(){
   const squad=nominierteSpieler();
+  teamKaderRender();   // Kader-Übersicht in der Team-Kachel mitziehen
   if(!rotTimerId){ // laufendes Spiel nicht zerstören – nur setzen, wenn Timer nicht läuft
     rotSeedFromSquad(squad); // Torwart separat, Feldgröße aus Spielform
     rotRenderControls();rotRenderLive();

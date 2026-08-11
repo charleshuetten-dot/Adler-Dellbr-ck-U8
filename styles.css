@@ -836,6 +836,11 @@ details.el-sect>summary{cursor:pointer;font-weight:800;font-size:12px;text-trans
 details.el-sect>summary::-webkit-details-marker{display:none}
 details.el-sect>summary::after{content:"▾ mehr";margin-left:auto;font-size:11px;color:#94a3b8;text-transform:none;letter-spacing:0;font-weight:700}
 details.el-sect[open]>summary::after{content:"▴ weniger"}
+/* „· Adler 2" hinter den Phasen-Titeln: macht sichtbar, dass Uhr, Ticker und Blitz-Rating
+   zu DIESEM Team gehören. Bei einem einzigen Team bleibt der Text leer und die Regel
+   greift ins Leere – deshalb kein Trennzeichen im CSS. */
+.mt-team-tag{font-weight:700;color:var(--blue-text);text-transform:none;letter-spacing:0}
+.mt-team-tag:not(:empty){margin-left:6px}
 
 /* ── Touch-Target-Sicherheitsnetz (Audit v251) ──
    Viele Buttons in Modals/Karten haben KEINE .btn-Klasse und waren daher von der 48-px-Regel

@@ -692,6 +692,8 @@ function tmJump(ziel,datum,spielform){
     switchTrainSub("spieltag");
     setTimeout(()=>{
       spieltagTeam=1; // Sprung vom Termin: Standard-Team; Multi-Team wird am Spieltag selbst gewählt
+      // Das Blitz-Rating liegt IN der Team-Kachel – ohne offene Kachel bliebe es unsichtbar.
+      if(typeof TEAM_KARTE_OFFEN!=="undefined")TEAM_KARTE_OFFEN=1;
       spieltagDatesLoad(datum);toast("Spieltag "+datum);
       const ph=document.getElementById("mt-phase-nach"); if(ph)ph.open=true; // Phase „Nach dem Spiel" aufklappen
       setTimeout(()=>document.getElementById("blitz-panel")?.scrollIntoView({behavior:"smooth",block:"start"}),200);
