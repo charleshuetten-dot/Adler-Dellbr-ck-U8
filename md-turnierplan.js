@@ -272,9 +272,8 @@ async function spieltagDatesLoad(preferDatum){
   nomLoad();
 }
 function nomInit(){
-  spieltagTeam=1; // Tab-Eintritt: Standard-Team
-  // Der Umschalter wird nicht mehr von Hand umgeklasst, sondern aus TEAM_ANZAHL
-  // gerendert (spieltagTeamSegRender) – das passiert am Ende von teamsLoad.
+  spieltagTeam=1;                                   // Tab-Eintritt: Standard-Team
+  if(typeof TEAM_KARTE_OFFEN!=="undefined")TEAM_KARTE_OFFEN=0;  // … und alle Kacheln zu
   spieltagDatesLoad(); // Spieltag-Dropdown aus hinterlegten Terminen befüllen (ruft dann nomLoad)
 }
 // Eltern-RSVP (Phase 10-M, Etappe 3): Rückmeldungen der Eltern zum Termin dieses Datums laden.
@@ -407,12 +406,37 @@ function kapitaenOpt(n){
   const label=c===0?"noch nie ⭐":c+"×";
   return `<option value="${esc(n)}">${getKader(n)?.nr?getKader(n).nr+" ":""}${esc(n)} · ${label}</option>`;
 }
+/* Die Nominierung gehoert seit v393 dem SPIELTAG, nicht dem einzelnen Team: „wer ist heute
+   ueberhaupt dabei". Sie liegt unter „<datum>__nom" – dieselbe Tabelle, dieselben Rechte,
+   nur ein weiterer Schluessel neben „__teams" und den Team-Zeilen.
+   Die Aufteilung auf die Teams steckt in TEAMS (md-teams.js); die Team-Zeilen schreibt
+   weiterhin teamsAnwenden(), weil Eltern-Ansicht und Liveticker sie lesen. */
+function nomKey(){ return spieltagRawDate()+"__nom"; }
 async function nomLoad(){
-  const datum=spieltagKey();
+  const tag=spieltagRawDate();
   nomStatus={}; nomOvr=new Set();
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/nominierungen?datum=eq.${encodeURIComponent(datum)}&select=data`,{headers:sbAuthHeaders()});
-    if(!sbCheck401(r)&&r.ok){const rows=await r.json();if(rows.length&&rows[0].data){const d={...rows[0].data};if(Array.isArray(d._ovr))nomOvr=new Set(d._ovr);delete d._ovr;nomStatus=d;}}
+    // Ein Query fuer alle Zeilen des Tages: die globale und (fuer Altbestand) die Team-Zeilen.
+    const r=await fetch(`${SB_URL}/rest/v1/nominierungen?datum=like.${encodeURIComponent(tag)}*&select=datum,data`,{headers:sbAuthHeaders()});
+    if(!sbCheck401(r)&&r.ok){
+      const rows=await r.json();
+      const global=rows.find(x=>x.datum===nomKey());
+      if(global&&global.data){
+        const d={...global.data}; if(Array.isArray(d._ovr))nomOvr=new Set(d._ovr); delete d._ovr; nomStatus=d;
+      }else{
+        /* Altbestand vor v393: die Nominierung lag je Team. Wer in IRGENDEINEM Team dabei
+           war, war an diesem Spieltag dabei – sonst stuende ein alter Spieltag plötzlich leer.
+           „dabei" gewinnt deshalb immer gegen ein „nicht" aus einer anderen Team-Zeile. */
+        rows.forEach(x=>{
+          if(/__teams$/.test(x.datum)||!x.data)return;
+          Object.keys(x.data).forEach(name=>{
+            if(name==="_ovr")return;
+            const st=x.data[name];
+            if(st==="dabei"||!nomStatus[name])nomStatus[name]=st;
+          });
+        });
+      }
+    }
   }catch(e){}
   // HOTFIX 14: strikte Trennung Orga/Match – KEIN pauschales "dabei" mehr. Nur explizit
   // Gesetzte (gespeichert / Eltern-Zusage / Trainer-Override) sind dabei; der Rest bleibt "offen".
@@ -424,20 +448,38 @@ async function nomLoad(){
   Object.keys(nomRsvp).forEach(name=>{ if(!nomOvr.has(name)) nomStatus[name]=nomRsvp[name].status==="zugesagt"?"dabei":"nicht"; });
   // C: explizit pausierte Kinder sind raus (außer der Trainer hat manuell überstimmt).
   if(typeof pauseLoad==="function"){ await pauseLoad(); Object.keys(PAUSE_MAP||{}).forEach(name=>{ if(!nomOvr.has(name)) nomStatus[name]="nicht"; }); }
-  const nr=document.getElementById("nom-team-nr"); if(nr)nr.textContent=String(spieltagTeam);
   nomRender();
   if(document.getElementById("rollen-panel"))rollenPanelRender(); // B2: faire Rollen
   await teamsLoad();   // Einteilung gehört zum Datum, nicht zum einzelnen Team
   nomApplyToTools();
   if(document.getElementById("action-panel"))atInit(); // Aktionen fürs neue Datum laden
 }
-function nomSet(name,status){nomStatus[name]=status;nomOvr.add(name);nomRender();nomApplyToTools();nomSave();}
+function nomSet(name,status){
+  nomStatus[name]=status;nomOvr.add(name);
+  // Wer nicht mehr dabei ist, steht in keinem Team – sonst bliebe er in der Kachel stehen.
+  if(status!=="dabei"&&typeof TEAMS==="object"&&TEAMS)delete TEAMS[name];
+  nomRender();
+  if(typeof teamsRender==="function")teamsRender();
+  if(typeof spieltagTeamKartenRender==="function")spieltagTeamKartenRender();
+  nomApplyToTools();nomSave();
+}
 async function nomSave(){
   if(!document.getElementById("spieltag-date")?.value)return;
-  const datum=spieltagKey();
-  try{await fetch(`${SB_URL}/rest/v1/nominierungen?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({datum,data:{...nomStatus,_ovr:[...nomOvr]}})});}catch(e){}
+  try{await fetch(`${SB_URL}/rest/v1/nominierungen?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({datum:nomKey(),data:{...nomStatus,_ovr:[...nomOvr]}})});}catch(e){}
+  // Eltern-Ansicht und Ticker lesen die Team-Zeilen – die müssen mitziehen.
+  if(typeof teamsSyncBald==="function")teamsSyncBald();
 }
-function nominierteSpieler(){return KADER.map(k=>k.name).filter(n=>nomStatus[n]==="dabei");}
+/* Wer spielt im GERADE gewaehlten Team? Bis v392 war das die Nominierung selbst, denn die
+   lag je Team vor. Seit v393 ist die Nominierung global und die Aufteilung steckt in TEAMS.
+   Solange nichts verteilt ist, gilt die ganze Nominierung – so bleibt der Ein-Team-Fall
+   unveraendert. Alles, was einen Kader braucht (Rotation, Aufstellung, Blitz-Rating,
+   Spielbericht, Aktions-Tracker), haengt an dieser einen Funktion. */
+function nominierteSpieler(){
+  const dabei=KADER.map(k=>k.name).filter(n=>nomStatus[n]==="dabei");
+  if(typeof TEAMS!=="object"||!TEAMS||!Object.keys(TEAMS).length)return dabei;
+  const t=(typeof spieltagTeam!=="undefined")?spieltagTeam:1;
+  return dabei.filter(n=>TEAMS[n]===t);
+}
 function nomRender(){
   const box=document.getElementById("nom-panel");
   if(!box)return;
@@ -453,7 +495,14 @@ function nomRender(){
       <button class="btn btn-sm" onclick="nomApplyRsvp()" style="margin-left:auto;flex-direction:column;align-items:flex-start;gap:0;text-align:left" title="Setzt die Nominierung auf den Stand der Eltern-Rückmeldungen zurück"><span><i class="ti ti-arrow-back-up" style="margin-right:5px"></i>Meine Änderungen verwerfen</span><span style="font-size:10px;font-weight:400;color:var(--text3)">Nominierung folgt wieder den Eltern</span></button>
     </div>`;
   }
-  box.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">${nominierteSpieler().length} von ${KADER.length} dabei</div>`+sum+
+  // Bewusst die GLOBALE Zahl, nicht nominierteSpieler() – das zaehlt seit v393 nur das
+  // gerade gewaehlte Team, und hier steht die Frage „wer ist heute ueberhaupt dabei".
+  const dabeiAlle=KADER.filter(k=>nomStatus[k.name]==="dabei").length;
+  // Kurzstand in die zugeklappte Ueberschrift, damit man die Liste nicht oeffnen muss.
+  const kurz=document.querySelector(".mt-nom-zahl");
+  // Kurz halten: die Zeile teilt sich den Platz mit dem „mehr"-Hinweis und bricht sonst um.
+  if(kurz)kurz.textContent=`${dabeiAlle}/${KADER.length} dabei`+(hasRsvp?` · ${KADER.length-Object.keys(nomRsvp).length} offen`:"");
+  box.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">${dabeiAlle} von ${KADER.length} dabei – gilt für den ganzen Spieltag</div>`+sum+
     KADER.map(k=>{
       const cur=nomStatus[k.name]||"offen";
       const rv=nomRsvp[k.name];
