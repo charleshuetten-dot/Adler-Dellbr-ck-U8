@@ -729,13 +729,25 @@ function nomApplyRsvp(){
   nomApplyToTools();nomSave();
   toast("Änderungen verworfen – die Nominierung folgt wieder den Eltern ✓");
 }
+/* Sind alle Team-Kacheln zugeklappt, ist der ganze Block unsichtbar (hidden). Die Panels
+   darin brauchen dann nicht nachgeladen zu werden – und genau das ist der Normalfall,
+   während der Trainer oben in der Liste die Anwesenheit durchtippt. Ohne diese Bremse
+   löste jeder einzelne Tipp Nachladungen für Rollen, Match-Uhr und Blitz-Rating aus. */
+function teamInhaltSichtbar(){
+  const el=document.getElementById("spieltag-teaminhalt");
+  return !!el&&!el.hidden;
+}
 function nomApplyToTools(){
   const squad=nominierteSpieler();
-  teamKaderRender();   // Kader-Übersicht in der Team-Kachel mitziehen
+  teamKaderRender();   // reines Zeichnen, kein Netz – läuft immer mit
   if(!rotTimerId){ // laufendes Spiel nicht zerstören – nur setzen, wenn Timer nicht läuft
     rotSeedFromSquad(squad); // Torwart separat, Feldgröße aus Spielform
     rotRenderControls();rotRenderLive();
   }
+  if(!teamInhaltSichtbar())return;
+  // Kapitän und Anstoß dürfen nur Kinder DIESES Teams zur Wahl stellen – die Auswahl
+  // muss also jeder Änderung an Nominierung und Einteilung folgen, nicht nur dem Laden.
+  if(typeof rollenPanelRender==="function"&&document.getElementById("rollen-panel"))rollenPanelRender();
   if(document.getElementById("blitz-panel"))blitzInit();
   if(typeof atRender==="function"&&document.getElementById("action-panel"))atRender(); // Aktions-Chips folgen der Nominierung
   if(document.getElementById("mc-panel"))mcLoad();
