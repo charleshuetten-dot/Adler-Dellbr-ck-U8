@@ -450,7 +450,7 @@ function nomRender(){
     Object.values(nomRsvp).forEach(x=>{if(c[x.status]!=null)c[x.status]++;});
     sum=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding:8px 10px;background:var(--surface2);border-radius:var(--r);font-size:11.5px">
       <span style="font-weight:600">Rückmeldung der Eltern</span><span style="color:var(--text3)">(auto übernommen)</span><span>✅ ${c.zugesagt}</span><span>❌ ${c.abgesagt}</span><span>🤒 ${c.krank}</span><span style="color:var(--text3)">offen ${KADER.length-Object.keys(nomRsvp).length}</span>
-      <button class="btn btn-sm" onclick="nomApplyRsvp()" style="margin-left:auto" title="Verwirft manuelle Trainer-Änderungen und koppelt wieder komplett an die Eltern-Zusagen"><i class="ti ti-refresh"></i>Wieder den Eltern folgen</button>
+      <button class="btn btn-sm" onclick="nomApplyRsvp()" style="margin-left:auto;flex-direction:column;align-items:flex-start;gap:0;text-align:left" title="Setzt die Nominierung auf den Stand der Eltern-Rückmeldungen zurück"><span><i class="ti ti-arrow-back-up" style="margin-right:5px"></i>Meine Änderungen verwerfen</span><span style="font-size:10px;font-weight:400;color:var(--text3)">Nominierung folgt wieder den Eltern</span></button>
     </div>`;
   }
   box.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">${nominierteSpieler().length} von ${KADER.length} dabei</div>`+sum+

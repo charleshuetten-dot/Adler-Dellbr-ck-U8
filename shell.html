@@ -552,7 +552,7 @@
     <!-- GLOBAL, nicht je Team: wie viele Teams, wer betreut sie, wer spielt wo.
          Erst danach die Team-Kacheln – das ist die Reihenfolge, in der der PO denkt. -->
     <details class="el-sect" id="mt-phase-vor">
-      <summary><i class="ti ti-list-check"></i>① Teams festlegen</summary>
+      <summary><i class="ti ti-list-check"></i>Teams festlegen</summary>
       <div>
         <div class="abschnitt">
           <div class="sl nt"><i class="ti ti-users-group"></i>Team-Einteilung</div>
@@ -567,7 +567,7 @@
          Kacheln, der Inhalt steht direkt da. -->
     <div id="spieltag-teamkarten"></div>
     <div id="spieltag-teaminhalt">
-    <details class="el-sect" id="mt-phase-nom" open>
+    <details class="el-sect" id="mt-phase-nom">
       <summary><i class="ti ti-user-check"></i>① Vor dem Spiel</summary>
       <div>
         <div class="abschnitt">
@@ -580,7 +580,7 @@
         </div>
       </div>
     </details>
-    <details class="el-sect">
+    <details class="el-sect" id="mt-phase-live">
       <summary><i class="ti ti-ball-football"></i>② Während des Spiels</summary>
       <div>
         <div class="abschnitt">
@@ -599,10 +599,6 @@
           <div class="sl nt"><i class="ti ti-broadcast"></i>Eltern-Liveticker</div>
           <div id="ticker-panel"></div>
         </div>
-        <div class="abschnitt">
-          <div class="sl nt"><i class="ti ti-trophy"></i>Team-Quests &amp; Belohnung</div>
-          <div id="quest-panel"></div>
-        </div>
       </div>
     </details>
     <details class="el-sect" id="mt-phase-nach">
@@ -615,6 +611,20 @@
       </div>
     </details>
     </div><!-- /spieltag-teaminhalt -->
+
+    <!-- Team-Quests stehen BEWUSST ausserhalb der Team-Kacheln: sie gelten fuer alle Teams
+         des Tages gemeinsam. Innerhalb einer Kachel haetten drei Teams dieselbe Quest je
+         einzeln erfuellt – "Pass-Maschine 20" waere dreimal gefallen. Gezaehlt wird jetzt
+         ueber alle Teams zusammen, und das Ziel waechst mit der Teamzahl mit. -->
+    <details class="el-sect" id="mt-phase-quests">
+      <summary><i class="ti ti-trophy"></i>Team-Quests &amp; Belohnung</summary>
+      <div>
+        <div class="abschnitt">
+          <div class="sl nt"><i class="ti ti-trophy"></i>Gemeinsame Ziele aller Teams</div>
+          <div id="quest-panel"></div>
+        </div>
+      </div>
+    </details>
   </div><!-- /train-sub-spieltag -->
 
 </div><!-- /view-training -->

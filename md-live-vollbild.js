@@ -48,8 +48,8 @@ async function atLiveClapPoll(){
 function atLiveClose(){ clearInterval(atLiveClockId); document.getElementById("at-live")?.remove(); atLiveAction=null; if(document.getElementById("action-panel"))atRender(); }
 function atLiveRender(){
   const m=document.getElementById("at-live"); if(!m)return;
-  const counts=questCountsLive();
-  const done=teamQuests.filter(q=>(counts[q.key]||0)>=q.target).length;
+  const counts=questCountsAll();   // Quests gelten teamübergreifend
+  const done=teamQuests.filter(q=>(counts[q.key]||0)>=questZiel(q)).length;
   const top=`<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#1e293b">
     <div style="flex:1;font-size:13px;font-weight:800">⚡ Live-Aktion${atLiveAction?"":" · Aktion wählen"}</div>
     <div title="Ergebnis (Tore:Gegentore)" style="font-size:17px;font-weight:900;padding:3px 12px;background:rgba(255,255,255,.14);border-radius:10px">${atTore()}:${atGegentore}</div>
