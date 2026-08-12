@@ -921,9 +921,15 @@ async function leitfadenEditSave(btn){
 
 /* Platz-Ampel-Banner für die Eltern – nur wenn der Trainer einen Status gesetzt hat.
    Farben aus der gemeinsamen PLATZ_AMPEL-Definition, kontrastreich für draußen. */
+/* PO v407: „Das Termin stattfindet sollte keine eigene kachel sein … der Normalfall ist,
+   dass der termin stattfindet. von daher brauchen wir da keine extra info. eher wenn er
+   mal nicht stattfindet."
+   Also: bei `normal` gar nichts. Eine Meldung, die immer dasteht, ist keine Meldung mehr –
+   sie kostet nur den Platz, den die Ausnahme bräuchte, um aufzufallen. Der Hinweis lebt
+   jetzt IN der Terminkarte (elternPlatzHinweisHtml), nicht als eigene Kachel davor. */
 function elternPlatzAmpelBanner(termin){
   const s=termin.platz_status; const a=(typeof PLATZ_AMPEL!=="undefined"&&PLATZ_AMPEL[s]);
-  if(!a)return "";
+  if(!a||s==="normal")return "";
   const bg=s==="abgesagt"?"#dc2626":s==="ausweich"?"#d97706":"#16a34a";
   const wann=termin.platz_status_at?new Date(termin.platz_status_at).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"";
   const text=s==="abgesagt"?"Der Termin fällt heute aus."
@@ -934,6 +940,24 @@ function elternPlatzAmpelBanner(termin){
     <div style="font-size:13.5px;opacity:.97;margin-top:4px">${text}${termin.platz_status_note?` <b>${esc(termin.platz_status_note)}</b>`:""}</div>
     ${wann?`<div style="font-size:10.5px;opacity:.8;margin-top:6px">Aktualisiert ${wann} Uhr vom Trainer</div>`:""}
   </div>`;
+}
+/* Kompakter Hinweis IN der Terminkarte – eine Zeile, kein zweiter Block. Leer im
+   Normalfall. `randFarbe` gibt der Karte zusätzlich ihre Umrandung. */
+function elternPlatzHinweisHtml(termin){
+  const s=termin&&termin.platz_status; const a=(typeof PLATZ_AMPEL!=="undefined"&&PLATZ_AMPEL[s]);
+  if(!a||s==="normal")return "";
+  const bg=s==="abgesagt"?"#dc2626":"#d97706";
+  const text=s==="abgesagt"?"Der Termin fällt aus.":"Heute auf den Ausweichplatz.";
+  const wann=termin.platz_status_at?new Date(termin.platz_status_at).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"";
+  return `<div style="background:${bg};color:#fff;border-radius:10px;padding:10px 12px;margin:8px 0 2px">
+    <div style="font-size:14px;font-weight:900">${a.emo} ${esc(a.lbl)}</div>
+    <div style="font-size:12.5px;opacity:.97;margin-top:2px">${text}${termin.platz_status_note?` <b>${esc(termin.platz_status_note)}</b>`:""}</div>
+    ${wann?`<div style="font-size:10px;opacity:.85;margin-top:4px">Aktualisiert ${wann} Uhr vom Trainer</div>`:""}
+  </div>`;
+}
+function elternPlatzRandFarbe(termin){
+  const s=termin&&termin.platz_status;
+  return s==="abgesagt"?"#dc2626":s==="ausweich"?"#d97706":"";
 }
 
 /* Pausiert mein Kind? Die Nominierungen sind trainer-only, deshalb fragt die RPC

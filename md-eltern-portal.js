@@ -293,6 +293,9 @@ function elternCatOpen(id){
 }
 function elternCatClose(fromPop){
   const ov=document.getElementById("el-cat-overlay"); if(ov)ov.style.display="none";
+  // Gelesene News: der Knopf geht mit dem Schließen, nicht schon beim Öffnen (v407).
+  const nb=document.getElementById("eltern-news-btn");
+  if(nb&&nb.dataset.gelesen==="1"){ nb.style.display="none"; delete nb.dataset.gelesen; }
   // Beim Schließen per ←-Button den History-Eintrag still verbrauchen (fromPop=true kommt
   // von der Zurück-Taste selbst – dann ist der Eintrag schon weg).
   if(!fromPop){ window._mdlSuppress=(window._mdlSuppress||0)+1; try{history.back();}catch(e){window._mdlSuppress--;} }
@@ -351,6 +354,9 @@ async function elternNewsLoad(kids){
   if(cur.wn&&cur.wn>(seen.wn||"")) items.unshift({emo:"🆕",txt:`${esc(ELTERN_WHATSNEW.titel)} – tippen für die Highlights!`,act:"whatsNewOpen()"}); // L2: ganz oben
   const badge=document.getElementById("eltern-news-badge");
   if(badge){ badge.textContent=items.length?String(items.length):"0"; badge.style.display=items.length?"inline-block":"none"; }
+  // Der ganze Knopf verschwindet, wenn nichts Ungelesenes da ist (PO v407).
+  const nbtn=document.getElementById("eltern-news-btn");
+  if(nbtn)nbtn.style.display=items.length?"flex":"none";
   panel.innerHTML = items.length
     ? items.map(i=>`<button onclick="${i.act}" style="display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:8px;font-family:inherit;cursor:pointer"><span style="font-size:20px;line-height:1">${i.emo}</span><span style="flex:1;font-size:13px;color:#334155;line-height:1.4">${i.txt}</span><span style="font-size:14px;color:#94a3b8">›</span></button>`).join("")
     : '<div style="background:#fff;border-radius:14px;padding:24px;text-align:center;color:#94a3b8;font-size:13px">Aktuell nichts Neues 🦅</div>';
@@ -358,6 +364,9 @@ async function elternNewsLoad(kids){
 function elternNewsMarkSeen(){
   try{ if(window._elternNewsCur)localStorage.setItem("adler_news_seen",JSON.stringify(window._elternNewsCur)); }catch(e){}
   const b=document.getElementById("eltern-news-badge"); if(b){ b.textContent="0"; b.style.display="none"; }
+  /* Der Knopf verschwindet erst beim Schließen: verschwände er unter dem Finger, während
+     man noch liest, wäre der Weg zurück weg. Gelesen ist er ab jetzt trotzdem. */
+  const btn=document.getElementById("eltern-news-btn"); if(btn)btn.dataset.gelesen="1";
 }
 /* L3: Saison-Chronik – das laufende Gedächtnis der Saison als Zeitstrahl: Spiele &
    Turniere mit Ergebnis, Events und Team-Meilensteine, nach Monaten gruppiert.
@@ -569,10 +578,16 @@ async function elternDashLoad(){
     (r2||[]).forEach(x=>{(rsvpAll[x.termin_id]=rsvpAll[x.termin_id]||{})[x.spieler_id]=x.status;});
     kasse=r3;
   }
-  let html="";
-  if(termin&&termin.platz_status)html+=elternPlatzAmpelBanner(termin);   // ganz oben: findet statt / Ausweich / fällt aus
-  if(termin&&(termin.typ==="spiel"||termin.typ==="turnier"))html+='<div id="pause-card"></div>';  // ganz oben, noch vor dem Termin
-  html+='<div id="ansage-slot"></div>'; // H1: ungelesene Trainer-Ansagen als Banner ganz oben
+  /* PO v407: „oben sollte immer der nächste Termin stehen und offenen Rückmeldung für
+     Termine der nächsten 14 Tage."
+     Die Terminkarte wird deshalb ZUERST gebaut und danach eingehängt – der Platz-Status
+     steckt jetzt IN ihr (nur wenn er vom Normalfall abweicht), nicht als eigene Kachel
+     davor. Alles Weitere (Ansagen, Pause-Karte, To-Dos, News, Rückblick) rutscht darunter. */
+  let html="", terminHtml="";
+  html+='<div id="eltern-top-slot"></div>';        // hier landet die Terminkarte (s. u.)
+  html+='<div id="eltern-offen-slot"></div>';      // offene Rückmeldungen der nächsten 14 Tage
+  if(termin&&(termin.typ==="spiel"||termin.typ==="turnier"))html+='<div id="pause-card"></div>';
+  html+='<div id="ansage-slot"></div>'; // H1: ungelesene Trainer-Ansagen als Banner
   html+='<div id="genesung-slot"></div>'; // I-A: „X fehlt gerade" – 1-Tap-Genesungsgruß (nur mit Trainer-Freigabe)
   // ── 📌 ZU ERLEDIGEN: alle offenen Punkte gebündelt, ganz oben. Die Loader füllen die Slots;
   //    ist alles leer, blendet elternTodoSync() die ganze Sektion aus. ──
@@ -585,7 +600,9 @@ async function elternDashLoad(){
     <span style="font-size:18px;opacity:.85">›</span>
   </button>`;
   // 📣 Adler News: eigener Button (News ≠ To-Do); Panel #cat-news; roter Badge bei Ungelesenem.
-  html+=`<button id="eltern-news-btn" onclick="elternCatOpen('news')" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:10px;border:none;border-radius:14px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(2,132,199,.22)">
+  /* PO v407: „adlernews auch nur wenn etwas drin ist." – wie beim To-Do-Knopf: unsichtbar
+     starten, elternNewsLoad blendet ihn nur bei ungelesenen Punkten ein. */
+  html+=`<button id="eltern-news-btn" onclick="elternCatOpen('news')" style="display:none;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:10px;border:none;border-radius:14px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(2,132,199,.22)">
     <span style="font-size:22px;line-height:1">📣</span>
     <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:800">Adler News</span><span style="display:block;font-size:11.5px;opacity:.92;margin-top:1px">Neues aus dem Team &amp; von deinem Kind</span></span>
     <span id="eltern-news-badge" style="display:none;background:#ef4444;color:#fff;font-weight:800;font-size:12px;border-radius:12px;padding:2px 9px">0</span>
@@ -593,7 +610,7 @@ async function elternDashLoad(){
   </button>`;
   html+=`<div id="match-gruss-slot"></div>`;  // A1: persönlicher Nach-dem-Spiel-Gruß (positiv, kein To-Do)
   if(!termin){
-    html+=card('<div style="font-weight:700;margin-bottom:2px">📅 Nächster Termin</div><div style="color:#64748b;font-size:13px">Aktuell ist kein Termin geplant.</div>');
+    terminHtml=card('<div style="font-weight:700;margin-bottom:2px">📅 Nächster Termin</div><div style="color:#64748b;font-size:13px">Aktuell ist kein Termin geplant.</div>');
   }else{
     const m=(typeof TM_META!=="undefined"&&TM_META[termin.typ])||{icon:"📅",label:termin.typ,col:"#1e3a8a"};
     const d=new Date(termin.datum+"T00:00:00");
@@ -623,11 +640,18 @@ async function elternDashLoad(){
     // J5: Rückmelde-Frist – ab dem Vortag wird eine offene Rückmeldung rot & dringlich
     const morgen=new Date(Date.now()+864e5).toISOString().slice(0,10);
     const dringend=offen.length>0&&termin.datum<=morgen;
-    html+=`<div id="termin-card" style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;${offen.length?(dringend?"border:2px solid #ef4444;box-shadow:0 4px 16px rgba(239,68,68,.22)":"border:2px solid #f59e0b;box-shadow:0 4px 16px rgba(245,158,11,.18)"):""}">
+    /* Der Platz-Status färbt die Karte, wenn er vom Normalfall abweicht – sonst zeigt die
+       Umrandung wie bisher die fehlende Rückmeldung an (PO v407: „Entweder über einen
+       Hinweis oder eine farbige Umrandung"). */
+    const statusRand=(typeof elternPlatzRandFarbe==="function")?elternPlatzRandFarbe(termin):"";
+    const rand=statusRand?`border:2px solid ${statusRand};box-shadow:0 4px 16px ${statusRand}33`
+      :(offen.length?(dringend?"border:2px solid #ef4444;box-shadow:0 4px 16px rgba(239,68,68,.22)":"border:2px solid #f59e0b;box-shadow:0 4px 16px rgba(245,158,11,.18)"):"");
+    terminHtml=`<div id="termin-card" style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;${rand}">
       <div style="display:flex;align-items:center;gap:8px">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Nächster Termin</div>
         ${offen.length?(dringend?`<span style="margin-left:auto;font-size:10px;font-weight:800;color:#b91c1c;background:#fef2f2;border:1px solid #fca5a5;border-radius:20px;padding:2px 8px">⏰ Rückmeldung überfällig – bitte jetzt</span>`:`<span style="margin-left:auto;font-size:10px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:20px;padding:2px 8px">❗ Rückmeldung fehlt</span>`):""}
       </div>
+      ${(typeof elternPlatzHinweisHtml==="function")?elternPlatzHinweisHtml(termin):""}
       <div style="font-size:16px;font-weight:800;margin-top:2px">${m.icon} ${esc(termin.titel||termin.gegner||m.label)}${heimLabel(termin)?` <span style="font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;background:${termin.heim?"#dcfce7":"#fef3c7"};color:${termin.heim?"#15803d":"#b45309"};white-space:nowrap">${heimLabel(termin)}</span>`:""}</div>
       <div style="font-size:12.5px;color:#64748b;margin-top:3px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})}${zeit?" · "+zeit:""}${termin.ort?" · "+mapsAnchor(termin.ort):""}${termin.platz?" · 🏟️ "+esc(termin.platz):""}</div>
       <div id="wetter-eltern"></div>
@@ -645,6 +669,12 @@ async function elternDashLoad(){
     </div>`;
   }
   const sec=(t)=>`<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#94a3b8;margin:18px 4px 8px">${t}</div>`;
+  // Terminkarte und die offenen Rückmeldungen wandern in ihre Slots ganz oben.
+  /* Ersatz per FUNKTION, nicht per String: in $-Zeichen der Termindaten („$" im Titel,
+     „$&") sieht String.replace sonst Rückverweise und frisst Teile der Karte. */
+  const offenHtml=elternOffeneRsvpHtml(termineListe,kids,rsvpAll,termin&&termin.id);
+  html=html.replace('<div id="eltern-top-slot"></div>',()=>terminHtml)
+           .replace('<div id="eltern-offen-slot"></div>',()=>offenHtml);
   // ── TERMINE ── (Karussell + Kalender-Abo)
   html+=sec("📅 Termine");
   html+=elternTermineCarouselHtml(termineListe,kids,rsvpAll); // Schnell-Zu-/Absage für alle Termine (deckt „kommende Termine × Kinder" ab)
@@ -867,6 +897,48 @@ async function elternRsvpClear(terminId,spielerId){
 }
 /* Schnell-Karussell: alle kommenden Termine als horizontal wischbare Karten, jede mit
    Zusage/Unsicher/Absage je Kind. Nutzt dieselben elternRsvp/elternRsvpClear wie oben. */
+/* PO v407: „oben sollte immer der nächste Termin stehen und offenen Rückmeldung für
+   Termine der nächsten 14 Tage."
+   Der nächste Termin trägt seine Knöpfe selbst, deshalb ist er hier ausgenommen – sonst
+   stünde dieselbe Frage zweimal untereinander. Weiter als 14 Tage wird bewusst nicht
+   gefragt: eine Zusage für November hilft niemandem und macht den Block unlesbar.
+   Gezeigt wird nur, was WIRKLICH offen ist; ist alles beantwortet, ist der Block weg. */
+function elternOffeneRsvpHtml(rows,kids,rsvpAll,ausserId){
+  const heute=new Date().toISOString().slice(0,10);
+  const bis=new Date(Date.now()+14*864e5).toISOString().slice(0,10);
+  rsvpAll=rsvpAll||{};
+  const offen=(rows||[])
+    .filter(t=>t.datum>=heute&&t.datum<=bis&&Number(t.id)!==Number(ausserId))
+    .map(t=>({t,kinder:(kids||[]).filter(k=>!((rsvpAll[t.id]||{})[k.spieler_id]))}))
+    .filter(x=>x.kinder.length);
+  if(!offen.length)return "";
+  const anzahl=offen.reduce((n,x)=>n+x.kinder.length,0);
+  const zeilen=offen.map(({t,kinder})=>{
+    const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"#1e3a8a"};
+    const d=new Date(t.datum+"T00:00:00"), wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+    const zeit=t.uhrzeit?String(t.uhrzeit).slice(0,5)+" Uhr":"";
+    const kidRows=kinder.map(k=>{
+      const kd=k.kader||{};
+      const btns=EP_RSVP_QUICK.map(s=>{
+        const c=EP_RSVP[s];
+        return `<button onclick="elternRsvp(${t.id},${k.spieler_id},'${s}')" aria-label="${esc(kd.name||"Kind")}: ${c.lbl}" style="flex:1;min-width:0;min-height:44px;padding:6px 3px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;color:#334155;font-family:inherit;font-size:11.5px;font-weight:700;line-height:1.15;cursor:pointer">${c.emo} ${c.lbl}</button>`;
+      }).join("");
+      return `<div style="margin-top:8px">
+        <div style="font-size:12.5px;font-weight:700;margin-bottom:5px">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="color:#94a3b8;font-weight:600">#${kd.nr}</span>`:""}</div>
+        <div style="display:flex;gap:6px">${btns}</div></div>`;
+    }).join("");
+    return `<div style="border-top:1px solid #f1f5f9;margin-top:10px;padding-top:10px">
+      <div onclick="terminDetailOpen(${t.id})" style="cursor:pointer;font-size:13px;font-weight:800">${m.icon} ${esc(t.titel||t.gegner||m.label)}</div>
+      <div style="font-size:11.5px;color:#64748b">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""}${t.platz?" · 🏟️ "+esc(t.platz):""}</div>
+      ${kidRows}</div>`;
+  }).join("");
+  return `<div id="eltern-offen-card" style="background:#fff;border:2px solid #f59e0b;border-radius:14px;padding:14px 16px 16px;margin-bottom:12px;box-shadow:0 4px 16px rgba(245,158,11,.18)">
+    <div style="display:flex;align-items:baseline;gap:8px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#b45309;font-weight:800">❗ Rückmeldung fehlt</div>
+      <div style="margin-left:auto;font-size:11px;color:#64748b">${anzahl} offen · nächste 14 Tage</div>
+    </div>
+    ${zeilen}</div>`;
+}
 function elternTermineCarouselHtml(rows,kids,rsvpAll){
   const upcoming=(rows||[]).slice(0,10);
   if(upcoming.length<2)return ""; // bei nur 1 Termin steht der schon oben mit voller Info
