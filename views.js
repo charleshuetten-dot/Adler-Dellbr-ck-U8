@@ -3169,7 +3169,7 @@ async function saisonCockpitOpen(){
 ═══════════════════════════════════ */
 const HELP=[
   {cat:"🏠 Start", items:[
-    {t:"Startseite", d:"To-Do-Banner (nur bei offenen Aufgaben), deine Termine der nächsten 14 Tage zum direkten Antippen („Alle Termine ansehen“ zeigt den Rest der Saison), nächster Termin mit Wetter, Termin-Karussell und sechs große Kacheln – dahinter jeweils ein Kachel-Menü.", go:"home"},
+    {t:"Startseite", d:"To-Do-Banner (nur bei offenen Aufgaben), „Bist du dabei?“ mit den Terminen der nächsten 14 Tage, für die deine Antwort noch fehlt (beantwortet = Karte weg), nächster Termin mit Wetter, Termin-Karussell, der Knopf zu allen Terminen und sechs große Kacheln – dahinter jeweils ein Kachel-Menü.", go:"home"},
   ]},
   {cat:"👥 Team", items:[
     {t:"Saison-Cockpit", d:"Torschützen, Anwesenheit, Rückmelde-Tempo der Familien, faire Einsätze, Eltern-Puls, Rückmelde-Tempo – alles auf einen Blick.", run:"saisonCockpitOpen()"},
@@ -3250,7 +3250,7 @@ function hilfeRender(q){
   box.innerHTML=html||`<div style="font-size:12px;color:var(--text3);padding:10px 0">Nichts gefunden.</div>`;
 }
 const TOUR=[
-  {emo:"🦅", t:"Willkommen in der Adler-App", d:"Die Startseite ist bewusst schlank: Ganz oben erscheinen DEINE To-Dos (nur wenn etwas offen ist), darunter deine Termine der nächsten 14 Tage – ein Tap auf ✅ 🤔 ❌ sagt zu oder ab, „Alle Termine ansehen“ zeigt die ganze Saison. Danach der nächste Termin mit Wetter, das Termin-Karussell – und sechs große Kacheln. Hinter jeder Kachel wartet wieder ein Kachel-Menü. Diese Tour findest du jederzeit über ❓ oben rechts."},
+  {emo:"🦅", t:"Willkommen in der Adler-App", d:"Die Startseite ist bewusst schlank: Ganz oben erscheinen DEINE To-Dos (nur wenn etwas offen ist), darunter „Bist du dabei?“ – nur die Termine der nächsten 14 Tage, für die deine Antwort noch fehlt; ein Tap auf ✅ 🤔 ❌ genügt, und ist alles beantwortet, verschwindet die Karte. Danach der nächste Termin mit Wetter, das Termin-Karussell, ein Knopf zu allen Terminen der Saison – und sechs große Kacheln. Hinter jeder Kachel wartet wieder ein Kachel-Menü. Diese Tour findest du jederzeit über ❓ oben rechts."},
   {emo:"🏃", t:"Kachel: Training", d:"Vier Wege: Anwesenheit (heute + kommende Termine), Trainingsplan mit Stationen und Trainingsstart, die Übungs-Datenbank und das ⚡ Blitzturnier für schnelle Turniere – auch Eltern gegen Kinder. Die Nachbewertung meldet sich nach dem Training von selbst als To-Do auf der Startseite."},
   {emo:"⚽", t:"Kachel: Spieltag", d:"Der Ablauf von oben nach unten: „Teams festlegen“ beantwortet einmal für den ganzen Tag, wer dabei ist und wie viele Teams wir stellen – die Kinder verteilt die App automatisch, du korrigierst nur. Darunter je Team eine Kachel mit Kader, Rollen, Uhr, Rotations-Timer und Liveticker; ganz unten die Team-Quests für alle Teams zusammen. Dazu die Rollen-Empfehlung aus den Bewertungen und die Analyse. Steht ein Turnier an, erscheint hier automatisch der Turnier-Bereich (Heimturnier ausrichten mit öffentlichem Link für die Gast-Trainer)."},
   {emo:"👥", t:"Kachel: Team", d:"Kader verwalten, Spieler alle 6 Wochen in 16 Kriterien bewerten (Live-Radar), Profil mit Sprachlob und Entwicklungs-Report, dazu Saison-Cockpit, Anwesenheit über die Saison und Rollen-Matrix. Auch Notfallkarten und Probetraining wohnen hier."},
@@ -3572,6 +3572,7 @@ async function renderHome(){
     <div id="eg-trainer"></div>
     <div id="home-next">${card('<div style="font-size:12px;color:var(--text3)">Lade nächsten Termin...</div>')}</div>
     <div id="home-carousel"></div>
+    <div id="trainer-alle-termine-slot"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
       ${kachelTile("training","🏃","Training","var(--fam-training)","var(--fam-training-2)")}
       ${kachelTile("spieltag","⚽","Spieltag","var(--fam-spieltag)","var(--fam-spieltag-2)")}
@@ -3893,6 +3894,7 @@ async function trainerRsvpSet(id,val){
   const kopf=document.getElementById("trsvp-kopf"); if(kopf)kopf.textContent=_trsvpKopfText();
   const filt=document.getElementById("trsvp-filter"); if(filt)filt.innerHTML=_trsvpFilterHtml();
   const hk=document.getElementById("trhome-kopf"); if(hk)hk.textContent=_trhomeKopfText();
+  const ha=document.getElementById("trainer-alle-termine-slot"); if(ha&&ha.innerHTML)ha.innerHTML=_trhomeAlleKnopfHtml();
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({trainer_status:st})});
     if(sbCheck401(r))return;
@@ -3900,51 +3902,65 @@ async function trainerRsvpSet(id,val){
   }catch(e){toast("Netzwerkfehler","err");return;}
   try{navigator.vibrate&&navigator.vibrate(15);}catch(e){}
 }
-/* Startseite: die nächsten 14 Tage offen ausgelegt (PO v403 „eine terminliste mit allen
-   anstehenden Terminen. Zum einfach anklicken"). Vorher stand hier nur ein Zähler in der
-   To-Do-Leiste – man musste erst einen Dialog öffnen, um zu sehen, WORUM es geht.
-   Das 14-Tage-Fenster ist hier richtig: die Startseite soll zeigen, was ansteht, nicht die
-   ganze Saison. Alles Weitere hängt sichtbar einen Tap dahinter („Alle N Termine"). */
+/* Startseite, zwei getrennte Dinge (PO v404: „ich habe alle offenen Termine beantwortet.
+   Dann kann die obere kachel verschwinden. es geht ja nur um die Erinnerung an nicht
+   abgestimmte termine. darunter stehen ja dann die kommenden termine"):
+
+   1. OBEN eine reine ERINNERUNG – nur Termine der nächsten 14 Tage, die noch OHNE deine
+      Antwort sind. Ist nichts offen, ist die Karte weg. Sie zeigt nicht mehr, was ansteht;
+      dafür gibt es direkt darunter „Nächster Termin" und das Karussell.
+   2. UNTEN, unter den kommenden Terminen, ein dauerhafter Zugang zur Gesamtliste. Der darf
+      NICHT in der Erinnerungskarte hängen: sonst verschwindet mit der letzten Antwort auch
+      der einzige Weg zu allen Terminen. Er trägt den Zähler der offenen Antworten mit, auch
+      der weiter entfernten – sonst wäre die Lage aus v401 zurück (33 offen, keiner in den
+      nächsten 14 Tagen, nirgends ein Hinweis). */
 const TRHOME_TAGE=14, TRHOME_MAX=6;
-function _trhomeFenster(){
+function _trhomeOffeneImFenster(){
   const bis=new Date(Date.now()+TRHOME_TAGE*864e5).toISOString().slice(0,10);
-  return _trsvpRows.filter(t=>t.datum<=bis);
+  return _trsvpRows.filter(t=>t.datum<=bis&&!(t.trainer_status||{})[_trsvpMe]);
 }
+/* Die Karte zeigt genau die Termine, die BEIM AUFBAU offen waren. Antworten während des
+   Lesens lassen die Zeile stehen – sonst verschwände sie unter dem Finger und die Antwort
+   ließe sich nicht mehr zurücknehmen. Weg ist die Karte beim nächsten Aufbau. */
+let _trhomeIds=[];
 function _trhomeKopfText(){
-  const f=_trhomeFenster(), offen=f.filter(t=>!(t.trainer_status||{})[_trsvpMe]).length;
-  if(!f.length)return "kein Termin in den nächsten 14 Tagen";
-  return `${f.length} Termin${f.length===1?"":"e"} · ${offen?offen+" ohne deine Antwort":"alle beantwortet ✓"}`;
+  const offen=_trhomeIds.filter(id=>{
+    const t=_trsvpRows.find(x=>Number(x.id)===Number(id));
+    return t&&!(t.trainer_status||{})[_trsvpMe];
+  }).length;
+  return offen?`${offen} ohne deine Antwort`:"alles beantwortet ✓";
+}
+function _trsvpAlleOffen(){ return _trsvpRows.filter(t=>!(t.trainer_status||{})[_trsvpMe]).length; }
+function _trhomeAlleKnopfHtml(){
+  const offen=_trsvpAlleOffen();
+  return `<button onclick="trainerRsvpQuickOpen()" style="display:flex;gap:6px;align-items:center;justify-content:center;width:100%;min-height:44px;margin-bottom:12px;background:var(--surface);border:var(--border-s);border-radius:10px;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text2);cursor:pointer">🗓️ Alle ${_trsvpRows.length} Termine${offen?`<span style="font-weight:500;color:var(--text3)"> · ${offen} ohne deine Antwort</span>`:""}<span style="color:var(--text3)">›</span></button>`;
 }
 async function trainerTermineHomeLoad(){
   const slot=document.getElementById("trainer-termine-slot"); if(!slot)return;
-  if(!sbToken()){slot.innerHTML="";return;}
-  const me=await trainerMe(); if(!me){slot.innerHTML="";return;}
+  const leer=()=>{slot.innerHTML="";const a=document.getElementById("trainer-alle-termine-slot");if(a)a.innerHTML="";};
+  if(!sbToken()){leer();return;}
+  const me=await trainerMe(); if(!me){leer();return;}
   _trsvpMe=me;
-  if(!await _trsvpLoad()){slot.innerHTML="";return;}
+  if(!await _trsvpLoad()){leer();return;}
   if(!document.getElementById("trainer-termine-slot"))return; // Tab schon verlassen
-  if(!_trsvpRows.length){slot.innerHTML="";return;}
-  const fenster=_trhomeFenster(), zeigen=fenster.slice(0,TRHOME_MAX);
-  let inhalt;
-  if(zeigen.length){
-    inhalt=zeigen.map(t=>_trsvpRowHtml(t,me,"trhome")).join("");
-    if(fenster.length>zeigen.length)
-      inhalt+=`<div style="font-size:11.5px;color:var(--text3);text-align:center;padding:2px 0 6px">und ${fenster.length-zeigen.length} weitere in diesen 14 Tagen</div>`;
-  }else{
-    // Nichts im Fenster heißt nicht „nichts geplant" – sonst liest sich die leere Karte
-    // wie „alles erledigt" (derselbe Fehler wie beim To-Do in v401).
-    const n=_trsvpRows[0], d=new Date(n.datum+"T00:00:00");
-    inhalt=`<div style="font-size:12.5px;color:var(--text2);padding:8px 2px 10px;line-height:1.5">
-      In den nächsten 14 Tagen steht nichts an.<br>Der nächste Termin ist am
-      <b>${d.toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"})}</b>
-      ${esc(n.titel||n.gegner||((typeof TM_META!=="undefined"&&TM_META[n.typ]&&TM_META[n.typ].label)||""))}.</div>`;
-  }
-  slot.innerHTML=`<div class="card" style="padding:12px 14px;margin-bottom:10px">
+  if(!_trsvpRows.length){leer();return;}
+  // unten: Zugang zur Gesamtliste, unabhängig von der Erinnerung
+  const alle=document.getElementById("trainer-alle-termine-slot");
+  if(alle)alle.innerHTML=_trhomeAlleKnopfHtml();
+  // oben: die Erinnerung – nur wenn wirklich etwas offen ist
+  const offen=_trhomeOffeneImFenster();
+  _trhomeIds=offen.map(t=>t.id);
+  if(!offen.length){slot.innerHTML="";return;}
+  const zeigen=offen.slice(0,TRHOME_MAX);
+  let inhalt=zeigen.map(t=>_trsvpRowHtml(t,me,"trhome")).join("");
+  if(offen.length>zeigen.length)
+    inhalt+=`<div style="font-size:11.5px;color:var(--text3);text-align:center;padding:2px 0 6px">und ${offen.length-zeigen.length} weitere ohne deine Antwort</div>`;
+  slot.innerHTML=`<div class="card" style="border-left:4px solid var(--amber);padding:12px 14px;margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">🗓️ Nächste 14 Tage</div>
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--amber)">🗓️ Bist du dabei?</div>
       <div id="trhome-kopf" style="font-size:11px;color:var(--text2);text-align:right">${_trhomeKopfText()}</div>
     </div>
     ${inhalt}
-    <button onclick="trainerRsvpQuickOpen()" style="display:flex;gap:8px;align-items:center;justify-content:center;width:100%;min-height:44px;background:var(--surface);border:var(--border-s);border-radius:10px;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text2);cursor:pointer">Alle ${_trsvpRows.length} Termine ansehen<span style="color:var(--text3)">›</span></button>
   </div>`;
 }
 // Startseiten-Nudge: wer hat für den nächsten Termin (Training/Spiel/Turnier) noch nicht
