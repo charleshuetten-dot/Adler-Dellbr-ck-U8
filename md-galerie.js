@@ -79,6 +79,7 @@ async function galerieOpen(terminId,titel){
   document.getElementById("gal-modal")?.remove();
   const m=document.createElement("div");m.id="gal-modal";m.dataset.termin=terminId;
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.style.zIndex=zOben(9999);  // ueber einen evtl. schon offenen Dialog legen
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:520px;width:100%;margin:auto">
     ${mdlHead("gal-modal","📸",`Fotos${titel?" · "+esc(titel):""}`,"Team-Galerie zum Termin – für alle Team-Eltern","#7c3aed")}

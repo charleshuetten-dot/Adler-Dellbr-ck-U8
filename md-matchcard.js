@@ -361,6 +361,7 @@ async function mdOpen(datum,typ){
   }catch(e){}
   const modal=document.createElement("div");
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto";
+  modal.style.zIndex=zOben(9999);  // ueber einen evtl. schon offenen Dialog legen
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const f=(id,lbl,val,ph)=>`<div class="mg" style="margin-bottom:8px"><label>${lbl}</label><input type="text" id="md-${id}" value="${esc(val||"")}" placeholder="${ph||""}"></div>`;
   const spielFelder=`

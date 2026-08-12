@@ -1018,6 +1018,33 @@ document.addEventListener("keydown",e=>{
   if(e.shiftKey&&(document.activeElement===erste||!dlg.contains(document.activeElement))){e.preventDefault();letzte.focus();}
   else if(!e.shiftKey&&(document.activeElement===letzte||!dlg.contains(document.activeElement))){e.preventDefault();erste.focus();}
 },true);
+/* ── Welcher z-index legt ein neues Overlay wirklich nach oben? ──────────────
+   Die Zahlen sind historisch gewachsen: 9999, 10000, 10001, 10002, 10040, 10050,
+   10060. Solange jeder Dialog einzeln aufgeht, faellt das nicht auf. Oeffnet aber
+   ein Dialog einen zweiten, entscheidet nicht die Reihenfolge, sondern die zufaellige
+   Paarung der Zahlen - so lag das Termin-Detail (10040) VOR seinen eigenen Knoepfen
+   „Eltern-Info" (9999) und „Bearbeiten" (10001): der neue Dialog ging hinter dem
+   alten auf (PO v405).
+
+   zOben() nimmt den hoechsten gerade offenen Dialog und legt einen drauf. Der
+   Fokus-Trap oben geht ohnehin davon aus, dass der ZULETZT geoeffnete oben liegt -
+   jetzt stimmen beide ueberein.
+
+   Gezaehlt werden nur Dialog-Overlays (fixed, body-Ebene, z-index >= 9000 und
+   unterhalb der Decke). Toasts (10075) und Konfetti (10072/73) bleiben so immer
+   sichtbar - eine Meldung hinter dem Dialog waere keine Meldung. */
+const Z_DIALOG_MIN=9000, Z_DIALOG_MAX=10069;
+function zOben(mindestens){
+  let max=Number(mindestens)||Z_DIALOG_MIN;
+  document.querySelectorAll("body > *").forEach(el=>{
+    const s=getComputedStyle(el);
+    if(s.position!=="fixed"||s.display==="none")return;
+    const z=parseInt(s.zIndex,10);
+    if(isNaN(z)||z<Z_DIALOG_MIN||z>Z_DIALOG_MAX)return;
+    if(z>=max)max=z+1;
+  });
+  return Math.min(max,Z_DIALOG_MAX);
+}
 /* Beim Oeffnen den Fokus in den Dialog setzen - bewusst auf den Container und
    nicht aufs erste Eingabefeld, sonst springt auf dem Handy die Tastatur auf. */
 _adlerOnReady(()=>{
