@@ -351,7 +351,53 @@ async function fgJoin(id,datum){
   }catch(e){alert("Konnte nicht speichern.");}
 }
 
-// Trainer-Editor für die Eltern-Info (Modal, an ein Termin-Datum + Typ gebunden)
+/* ── Der Termin ist die Quelle, matchday seine öffentliche Abschrift ─────────
+   PO v406: „Die meisten Infos stehen doch schon im Termin selbst oder? also Ort,
+   Trainingszeit, etc." und „Gegner Adresse ist doch auch im Termin bereits
+   aufgeführt oder?" – beides stimmt: von sechs Feldern der Eltern-Info doppelten
+   fünf den Termin.
+
+   Warum die Tabelle trotzdem bleibt: `termine` ist NUR für Angemeldete lesbar
+   (RLS `termine_read` gilt für authenticated), `matchday` hat eine eigene
+   anon-Regel. Die Eltern-Seite ?match=<datum> und der Kalender-Export laufen
+   ohne Anmeldung – sie können `termine` gar nicht lesen. matchday ist deshalb
+   nicht die zweite Pflegestelle, sondern die veröffentlichte Teilmenge:
+   Logistik, keine Namen, keine Bewertungen, kein trainer_status.
+
+   Vorher war das eine echte Doppelpflege – und niemand pflegte doppelt. Ergebnis
+   am 12.08.: 33 künftige Termine, 0 matchday-Zeilen; der Eltern-Link zeigte eine
+   fast leere Karte, der Kalender-Export meldete „Keine kommenden Termine". */
+function tmMatchdayProjektion(t){
+  if(!t||!t.datum)return null;
+  const istSpiel=(t.typ==="spiel"||t.typ==="turnier");
+  const hhmm=v=>v?String(v).slice(0,5):"";
+  const von=hhmm(t.uhrzeit), bis=hhmm(t.uhrzeit_ende);
+  // Treffpunkt = wann UND wo man sich trifft; der Platz („vorne links") ist für
+  // Eltern die eigentliche Auskunft, wenn die Anlage mehrere Felder hat.
+  const treff=[hhmm(t.treffzeit)?hhmm(t.treffzeit)+" Uhr":"",(t.platz||"").trim()?"Platz "+String(t.platz).trim():""]
+    .filter(Boolean).join(" · ");
+  return {
+    datum:t.datum, typ:t.typ||"spiel",
+    gegner: istSpiel?((t.gegner||t.titel||"").trim()||null):null,
+    ort:(t.ort||"").trim()||null,
+    treffpunkt:treff||null,
+    // führendes HH:MM bleibt erhalten – elternKalenderIcs liest genau das
+    anpfiff: von?(bis?`${von}–${bis} Uhr`:`${von} Uhr`):null,
+    published:true
+  };
+}
+/* Schreibt die Abschrift. Nur die aufgeführten Spalten werden angefasst –
+   `infos` und `gegner_adresse` (die einzigen Felder ohne Gegenstück im Termin)
+   überleben jedes Speichern. */
+async function tmMatchdaySync(t){
+  const p=tmMatchdayProjektion(t); if(!p)return false;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/matchday?on_conflict=datum`,{method:"POST",
+      headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(p)});
+    return r.ok||r.status===201;
+  }catch(e){return false;}
+}
+// Trainer-Editor für die Eltern-Info: nur noch das, was im Termin NICHT steht.
 async function mdOpen(datum,typ){
   typ=typ||"spiel";
   let cur={};
@@ -359,34 +405,54 @@ async function mdOpen(datum,typ){
     const r=await fetch(`${SB_URL}/rest/v1/matchday?datum=eq.${encodeURIComponent(datum)}&select=*`,{headers:sbAuthHeaders()});
     if(!sbCheck401(r)&&r.ok){const rows=await r.json();if(rows.length)cur=rows[0];}
   }catch(e){}
+  // Der Termin selbst – erst aus der geladenen Liste, sonst nachschlagen.
+  let t=(typeof TM_TERMINE!=="undefined"&&(TM_TERMINE||[]).find(x=>x.datum===datum&&(!typ||x.typ===typ)))||null;
+  if(!t){
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/termine?datum=eq.${encodeURIComponent(datum)}&select=*&order=uhrzeit.asc.nullslast&limit=1`,{headers:sbAuthHeaders()});
+      if(!sbCheck401(r)&&r.ok)t=(await r.json())[0]||null;
+    }catch(e){}
+  }
+  const p=tmMatchdayProjektion(t)||{};
   const modal=document.createElement("div");
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto";
   modal.style.zIndex=zOben(9999);  // ueber einen evtl. schon offenen Dialog legen
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
-  const f=(id,lbl,val,ph)=>`<div class="mg" style="margin-bottom:8px"><label>${lbl}</label><input type="text" id="md-${id}" value="${esc(val||"")}" placeholder="${ph||""}"></div>`;
-  const spielFelder=`
-    ${f("gegner","Gegner",cur.gegner,"z. B. FC Musterstadt")}
-    <div class="mg" style="margin-bottom:8px"><label for="md-gegner_adresse">Adresse des Gegners</label>
+  const istSpiel=(typ==="spiel"||typ==="turnier");
+  // Aus dem Termin übernommen – hier bewusst NUR zum Lesen. Zwei Eingabefelder für
+  // dieselbe Angabe laufen sonst auseinander, und dann gilt die falsche.
+  const zeile=(ico,lbl,val)=>`<div style="display:flex;gap:8px;padding:6px 0;border-bottom:var(--border)">
+    <span style="width:18px">${ico}</span>
+    <div style="min-width:0"><div style="font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">${lbl}</div>
+    <div style="font-size:13px;font-weight:600${val?"":";color:var(--text3);font-weight:400"}">${val?esc(val):"– nicht im Termin hinterlegt –"}</div></div></div>`;
+  const ausDemTermin=`<div style="background:var(--surface2);border-radius:10px;padding:10px 12px;margin-bottom:12px">
+    <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px">Aus dem Termin</div>
+    ${istSpiel?zeile("⚽","Gegner",p.gegner):""}
+    ${zeile("📍","Ort / Adresse",p.ort)}
+    ${zeile("⏰","Treffpunkt",p.treffpunkt)}
+    ${zeile(typ==="training"?"🕐":"🔔",typ==="training"?"Trainingszeit":"Anpfiff",p.anpfiff)}
+    <div style="font-size:10.5px;color:var(--text3);margin-top:8px;line-height:1.45">Diese Angaben pflegst du am Termin selbst („✏️ Bearbeiten"). Beim Speichern hier werden sie für die Eltern veröffentlicht.</div>
+  </div>`;
+  const gegnerAdresse=`<div class="mg" style="margin-bottom:8px"><label for="md-gegner_adresse">Adresse des Gegners <span style="font-weight:400;color:var(--text3)">– nur falls abweichend vom Ort oben</span></label>
       <div style="display:flex;gap:6px">
-        <input type="text" id="md-gegner_adresse" value="${esc(cur.gegner_adresse||"")}" placeholder="Straße, Ort..." style="flex:1">
+        <input type="text" id="md-gegner_adresse" value="${esc(cur.gegner_adresse||"")}" placeholder="Straße, Ort..." style="flex:1;min-width:0">
         <button class="btn btn-sm" onclick="mdMapsSearch()" title="Auf Karte suchen"><i class="ti ti-map-search"></i></button>
       </div>
-      <div style="font-size:10px;color:var(--text3);margin-top:2px">Tipp: Vereinsname eintippen und 🔎 tippen – öffnet die Google-Maps-Suche.</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">Leer lassen ist der Normalfall – die Route führt dann zum Ort aus dem Termin.</div>
     </div>`;
   modal.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:400px;width:100%;max-height:90vh;overflow-y:auto">
     <div style="font-weight:700;margin-bottom:4px">Eltern-Info · ${typ==="training"?"🏃 Training":"⚽ Spiel"} · ${datum}</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Nur Logistik – für die Eltern sichtbar. Keine Bewertungen.</div>
-    ${typ==="training"?"":spielFelder}
-    ${f("ort","Ort / Sportplatz",cur.ort,"z. B. Sportplatz Dellbrück")}
-    ${f("treffpunkt","Treffpunkt (Zeit/Ort)",cur.treffpunkt,"z. B. 9:15 Uhr am Platz")}
-    ${f("anpfiff",typ==="training"?"Trainingszeit":"Anpfiff",cur.anpfiff,typ==="training"?"z. B. 17:00–18:15":"z. B. 10:00 Uhr")}
-    <div class="mg" style="margin-bottom:10px"><label for="md-infos">Infos (frei)</label><textarea id="md-infos" rows="2" style="resize:none">${esc(cur.infos||"")}</textarea></div>
+    ${ausDemTermin}
+    ${istSpiel?gegnerAdresse:""}
+    <div class="mg" style="margin-bottom:10px"><label for="md-infos">Infos (frei)</label><textarea id="md-infos" rows="2" style="resize:none" placeholder="z. B. Trikot mitbringen, Kuchen für den Kiosk">${esc(cur.infos||"")}</textarea></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-p" onclick="mdSave('${datum}','${typ}',this)"><i class="ti ti-device-floppy"></i>Speichern</button>
       <button class="btn" onclick="mdShareLink('${datum}')"><i class="ti ti-share"></i>Eltern-Link</button>
       <button class="btn" onclick="this.closest('div[style*=fixed]').remove()">Schließen</button>
     </div>
   </div>`;
+  modal._termin=t;   // mdSave schreibt die Termin-Angaben gleich mit
   document.body.appendChild(modal);
 }
 function mdMapsSearch(){
@@ -396,7 +462,11 @@ function mdMapsSearch(){
 }
 async function mdSave(datum,typ,btn){
   const g=id=>document.getElementById("md-"+id)?.value.trim()||"";
-  const body={datum,typ:typ||"spiel",gegner:g("gegner"),gegner_adresse:g("gegner_adresse"),ort:g("ort"),treffpunkt:g("treffpunkt"),anpfiff:g("anpfiff"),infos:g("infos"),published:true};
+  /* Speichern heißt: die Termin-Angaben veröffentlichen UND die zwei eigenen Felder
+     sichern – in EINEM Upsert. Sonst hinge die Eltern-Seite an einem zweiten Klick. */
+  const t=btn&&btn.closest("div[style*=fixed]")?btn.closest("div[style*=fixed]")._termin:null;
+  const body=Object.assign({datum,typ:typ||"spiel",published:true},tmMatchdayProjektion(t)||{},
+    {gegner_adresse:g("gegner_adresse")||null, infos:g("infos")||null});
   try{
     const r=await fetch(`${SB_URL}/rest/v1/matchday?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(body)});
     if(sbCheck401(r))return;

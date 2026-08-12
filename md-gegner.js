@@ -660,7 +660,11 @@ async function tmEditSave(id){
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify(body)});
     if(sbCheck401(r))return;
-    if(r.ok){toast("Termin aktualisiert ✓");terminIdCacheClear();document.getElementById("tm-edit-modal")?.remove();tmLoad();}
+    if(r.ok){
+      /* Der Termin ist die Quelle – die Eltern-Abschrift (matchday) sofort nachziehen,
+         sonst zeigt der Eltern-Link nach einer Ortsänderung noch den alten Platz. */
+      if(typeof tmMatchdaySync==="function")tmMatchdaySync(Object.assign({},t,body));
+      toast("Termin aktualisiert ✓");terminIdCacheClear();document.getElementById("tm-edit-modal")?.remove();tmLoad();}
     else toast("Speichern fehlgeschlagen","err");
   }catch(e){toast("Netzwerkfehler","err");}
 }

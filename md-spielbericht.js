@@ -234,7 +234,12 @@ async function elternKalenderIcs(){
     const titel=istTr?"Training U9":("Spiel U9"+(m.gegner?" gegen "+m.gegner:""));
     const hasTime=m.anpfiff&&/^\d{1,2}:\d{2}/.test(m.anpfiff);
     lines.push("BEGIN:VEVENT","UID:adler-u9-"+m.datum+"-"+i+"@adler-dellbrueck","DTSTAMP:"+stamp);
-    if(hasTime){ lines.push("DTSTART:"+icsLocalStart(m.datum,m.anpfiff)); lines.push("DTEND:"+icsLocalPlus(m.datum,m.anpfiff,istTr?75:120)); }
+    /* „16:45–18:00 Uhr" trägt das Ende schon in sich (seit v406 kommt es aus dem Termin).
+       Vorher wurde blind auf 75 bzw. 120 Minuten geschätzt – im Kalender der Eltern stand
+       dann eine falsche Endzeit. Nur wenn kein Ende dasteht, wird weiter geschätzt. */
+    const ende=hasTime?(/^\d{1,2}:\d{2}\s*[–-]\s*(\d{1,2}:\d{2})/.exec(m.anpfiff)||[])[1]:null;
+    if(hasTime){ lines.push("DTSTART:"+icsLocalStart(m.datum,m.anpfiff));
+      lines.push("DTEND:"+(ende?icsLocalStart(m.datum,ende):icsLocalPlus(m.datum,m.anpfiff,istTr?75:120))); }
     else{ lines.push("DTSTART;VALUE=DATE:"+m.datum.replace(/-/g,"")); }
     lines.push("SUMMARY:"+icsEscape(titel));
     if(m.ort)lines.push("LOCATION:"+icsEscape(m.ort));

@@ -154,6 +154,10 @@ async function tmAdd(){
     const r=await fetch(`${SB_URL}/rest/v1/termine`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify(payload)});
     if(sbCheck401(r))return;
     if(r.ok||r.status===201){
+      // Eltern-Abschrift gleich mit anlegen – sonst ist ein frischer Termin über den
+      // Eltern-Link unsichtbar, bis jemand die Eltern-Info öffnet (das tat nie jemand).
+      if(typeof tmMatchdaySync==="function")
+        (Array.isArray(payload)?payload:[payload]).forEach(row=>tmMatchdaySync(row));
       terminIdCacheClear();
       toast(daten.length>1?`🔁 ${daten.length} Termine angelegt${ausgelassen?` · ${ausgelassen} Ferienwoche${ausgelassen===1?"":"n"} ausgelassen 🏖️`:""} ✓`:"Termin angelegt ✓");
       document.getElementById("tm-titel").value="";
