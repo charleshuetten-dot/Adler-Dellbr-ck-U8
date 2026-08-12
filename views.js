@@ -3715,11 +3715,24 @@ async function trainerTodoLoad(){
   const vor14=new Date(Date.now()-14*864e5).toISOString().slice(0,10);
   const vor7=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
   const todos=[];
-  // a) Offene „Trainer dabei?"-Antworten für kommende Termine
+  /* a) Offene „Trainer dabei?"-Antworten für kommende Termine.
+     Das 14-Tage-Fenster gibt es, damit niemand wegen eines Termins im Mai genervt wird.
+     Es hatte nur keinen Boden: liegt der nächste Termin weiter weg – zum Saisonstart der
+     Normalfall –, stand da gar nichts, und das liest sich wie „alles erledigt"
+     (PO v401: „mir wird als Trainer aktuell keine Abfrage angezeigt").
+     Jetzt ohne obere Grenze holen und im Zweifel den nächsten Termin nennen. */
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,datum,trainer_status&datum=gte.${heute}&datum=lte.${in14}&order=datum.asc`,{headers:sbAuthHeaders()});
-    if(r.ok){const offen=((await r.json())||[]).filter(t=>!(t.trainer_status||{})[me]);
-      if(offen.length)todos.push({emo:"🗓️",txt:`„Bist du dabei?" – ${offen.length} Termin${offen.length===1?"":"e"} ohne deine Antwort`,act:"trainerRsvpQuickOpen()"});}
+    const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,datum,trainer_status&datum=gte.${heute}&order=datum.asc&limit=60`,{headers:sbAuthHeaders()});
+    if(r.ok){
+      const offen=((await r.json())||[]).filter(t=>!(t.trainer_status||{})[me]);
+      const imFenster=offen.filter(t=>t.datum<=in14);
+      if(imFenster.length){
+        todos.push({emo:"🗓️",txt:`„Bist du dabei?" – ${imFenster.length} Termin${imFenster.length===1?"":"e"} ohne deine Antwort`,act:"trainerRsvpQuickOpen()"});
+      }else if(offen.length){
+        const d=new Date(offen[0].datum+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+        todos.push({emo:"🗓️",txt:`„Bist du dabei?" – ${offen.length} Termin${offen.length===1?"":"e"} ohne deine Antwort, der erste am ${d}`,act:"trainerRsvpQuickOpen()"});
+      }
+    }
   }catch(e){}
   // b) Einheit nachbereiten, wenn du laut Trainingsplan eingeteilt warst
   try{
@@ -3810,7 +3823,18 @@ async function trainerRsvpQuickOpen(){
   const heute=new Date().toISOString().slice(0,10);
   const in21=new Date(Date.now()+21*864e5).toISOString().slice(0,10);
   _trsvpRows=[];
-  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,datum,uhrzeit,typ,titel,gegner,trainer_status&datum=gte.${heute}&datum=lte.${in21}&order=datum.asc,uhrzeit.asc.nullslast`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)_trsvpRows=await r.json();}catch(e){}
+  /* Wie beim To-Do auf der Startseite: drei Wochen sind das Fenster, aber kein Boden.
+     Liegt nichts darin, kommen die nächsten fünf Termine – sonst schickt das To-Do den
+     Trainer in einen leeren Dialog. */
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,datum,uhrzeit,typ,titel,gegner,trainer_status&datum=gte.${heute}&order=datum.asc,uhrzeit.asc.nullslast&limit=60`,{headers:sbAuthHeaders()});
+    if(sbCheck401(r))return;
+    if(r.ok){
+      const alle=(await r.json())||[];
+      const imFenster=alle.filter(t=>t.datum<=in21);
+      _trsvpRows=imFenster.length?imFenster:alle.slice(0,5);
+    }
+  }catch(e){}
   document.getElementById("trsvp-modal")?.remove();
   const modal=document.createElement("div"); modal.id="trsvp-modal";
   modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Bist du dabei?");
@@ -3819,7 +3843,7 @@ async function trainerRsvpQuickOpen(){
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   c.innerHTML=`${mdlHead("trsvp-modal","🗓️","Bist du dabei?",`Ein Tap je Termin, ${esc(me)} – nochmal tippen nimmt zurück`,"var(--amber)")}
-    <div id="trsvp-list">${_trsvpRows.length?_trsvpRows.map(t=>_trsvpRowHtml(t,me)).join(""):'<div style="font-size:12.5px;color:var(--text3);padding:14px;text-align:center">Keine kommenden Termine in den nächsten 3 Wochen.</div>'}</div>`;
+    <div id="trsvp-list">${_trsvpRows.length?_trsvpRows.map(t=>_trsvpRowHtml(t,me)).join(""):'<div style="font-size:12.5px;color:var(--text3);padding:14px;text-align:center">Keine kommenden Termine eingetragen.</div>'}</div>`;
   modal.appendChild(c); document.body.appendChild(modal);
 }
 async function trainerRsvpSet(id,val){
