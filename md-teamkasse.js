@@ -13,6 +13,7 @@ async function mitbringTrainerOpen(){
   const modal=document.createElement("div");
   modal.id="mitbring-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Event-Mitbringliste");
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.style.zIndex=zOben(10001);  // ueber einen evtl. schon offenen Dialog legen
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   const c=document.createElement("div");
   c.id="mitbring-card";
