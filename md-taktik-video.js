@@ -284,21 +284,31 @@ function tbAddDrag(tok,fieldEl){
     }
 
     if(fromBench){
+      /* Von der Bank aufs Feld: hier IST die Ablage-Stelle die Auskunft über die Rolle,
+         das Kind hatte vorher keine. Funino kennt keine festen Rollen – dort kommt es
+         ohne auf den Platz (das fehlte bisher, die Zonen wurden auch dort befragt). */
       tbBench=tbBench.filter(n=>n!==playerName);
-      const detected=tbDetectRole(finalX,finalY);
-      tbField.push({name:playerName,x:finalX,y:finalY,cls:detected.cls,role:detected.role});
+      if(tbFormation==='funino'){
+        tbField.push({name:playerName,x:finalX,y:finalY,cls:"tb-frei",role:""});
+      }else{
+        const detected=tbDetectRole(finalX,finalY);
+        tbField.push({name:playerName,x:finalX,y:finalY,cls:detected.cls,role:detected.role});
+      }
       taktikRender();
     } else {
       const idx=parseInt(tok.dataset.idx);
       if(!isNaN(idx)&&tbField[idx]){
+        /* NUR die Position ändert sich – die Rolle bleibt, wo sie war.
+           Vorher wurde nach jedem Ziehen tbDetectRole() befragt und die Rolle aus der
+           nächstgelegenen Zone neu gesetzt. Genau das macht das Board unbrauchbar für
+           das, wofür es da ist: Laufwege zeigen. Schiebt man den Flitzer R zum Tor,
+           um einen Konter zu erklären, wurde aus ihm ein Jäger – und plötzlich standen
+           zwei Jäger auf dem Feld (PO v400). Die Rolle wechselt jetzt ausschließlich
+           durch Antippen (tbCycleRole), also bewusst.
+           Beim Einwechseln von der Bank wird weiterhin abgeleitet: dort HAT das Kind
+           noch keine Rolle, und die Ablage-Stelle ist die einzige Auskunft darüber. */
         tbField[idx].x=finalX;
         tbField[idx].y=finalY;
-        // Rollen-Neuzuordnung nur bei strukturierten Formationen – Funino hat keine festen Rollen
-        if(!tqActive&&tbFormation!=='funino'){
-          const detected=tbDetectRole(finalX,finalY);
-          tbField[idx].role=detected.role;
-          tbField[idx].cls=detected.cls;
-        }
         taktikRender();
       }
     }
