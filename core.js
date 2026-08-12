@@ -265,10 +265,19 @@ async function ensureLogin(){
   // Sitzung da, aber gerade kein frischer Token (offline): lokal weiterarbeiten lassen.
   // Die Erneuerung läuft beim nächsten Netz von selbst an (online-/pageshow-Ereignis).
   if(!sbToken())return;
-  // Sitzung da – aber gehoert sie wirklich einem Trainer? Ein Eltern-Token wuerde die
-  // Oberflaeche zeigen und dann bei jedem Schreiben stumm an der RLS scheitern.
+  /* Sitzung da – aber gehoert sie wirklich einem Trainer? Ein Eltern-Token wuerde die
+     Oberflaeche zeigen und dann bei jedem Schreiben stumm an der RLS scheitern.
+     WICHTIG: nach der EIGENEN Kennung fragen. Vorher stand hier
+     `profiles?select=role&limit=1` – ohne Filter und ohne Sortierung. Die RLS-Regel
+     profiles_select_self_or_trainer laesst einen Trainer ALLE Profile lesen, davon drei
+     Eltern-Konten; `limit=1` griff also eine beliebige Zeile heraus. Erwischte es ein
+     Eltern-Profil, hielt die App den Trainer fuer einen Elternteil und meldete ihn ab –
+     bei jedem Neuladen aufs Neue, scheinbar zufaellig (PO v401).
+     Fuer Eltern war die Abfrage nie falsch: sie sehen ohnehin nur die eigene Zeile. */
+  const uid=(typeof sbUserId==="function")?sbUserId():null;
+  if(!uid)return;   // ohne Kennung kein Urteil – lieber angemeldet lassen
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/profiles?select=role&limit=1`,{headers:sbAuthHeaders()});
+    const r=await fetch(`${SB_URL}/rest/v1/profiles?select=role&id=eq.${encodeURIComponent(uid)}`,{headers:sbAuthHeaders()});
     if(!r.ok)return; // offline o.ae.: bestehende Sitzung nicht wegwerfen
     const rows=await r.json();
     // Leere Antwort heißt NICHT „kein Trainer", sondern „keine Auskunft" – nicht abmelden.

@@ -3169,7 +3169,7 @@ async function saisonCockpitOpen(){
 ═══════════════════════════════════ */
 const HELP=[
   {cat:"🏠 Start", items:[
-    {t:"Startseite", d:"To-Do-Banner (nur bei offenen Aufgaben), nächster Termin mit Wetter, Termin-Karussell und sechs große Kacheln – dahinter jeweils ein Kachel-Menü.", go:"home"},
+    {t:"Startseite", d:"To-Do-Banner (nur bei offenen Aufgaben), deine Termine der nächsten 14 Tage zum direkten Antippen („Alle Termine ansehen“ zeigt den Rest der Saison), nächster Termin mit Wetter, Termin-Karussell und sechs große Kacheln – dahinter jeweils ein Kachel-Menü.", go:"home"},
   ]},
   {cat:"👥 Team", items:[
     {t:"Saison-Cockpit", d:"Torschützen, Anwesenheit, Rückmelde-Tempo der Familien, faire Einsätze, Eltern-Puls, Rückmelde-Tempo – alles auf einen Blick.", run:"saisonCockpitOpen()"},
@@ -3250,7 +3250,7 @@ function hilfeRender(q){
   box.innerHTML=html||`<div style="font-size:12px;color:var(--text3);padding:10px 0">Nichts gefunden.</div>`;
 }
 const TOUR=[
-  {emo:"🦅", t:"Willkommen in der Adler-App", d:"Die Startseite ist bewusst schlank: Ganz oben erscheinen DEINE To-Dos (nur wenn etwas offen ist), darunter der nächste Termin mit Wetter, das Termin-Karussell – und sechs große Kacheln. Hinter jeder Kachel wartet wieder ein Kachel-Menü. Diese Tour findest du jederzeit über ❓ oben rechts."},
+  {emo:"🦅", t:"Willkommen in der Adler-App", d:"Die Startseite ist bewusst schlank: Ganz oben erscheinen DEINE To-Dos (nur wenn etwas offen ist), darunter deine Termine der nächsten 14 Tage – ein Tap auf ✅ 🤔 ❌ sagt zu oder ab, „Alle Termine ansehen“ zeigt die ganze Saison. Danach der nächste Termin mit Wetter, das Termin-Karussell – und sechs große Kacheln. Hinter jeder Kachel wartet wieder ein Kachel-Menü. Diese Tour findest du jederzeit über ❓ oben rechts."},
   {emo:"🏃", t:"Kachel: Training", d:"Vier Wege: Anwesenheit (heute + kommende Termine), Trainingsplan mit Stationen und Trainingsstart, die Übungs-Datenbank und das ⚡ Blitzturnier für schnelle Turniere – auch Eltern gegen Kinder. Die Nachbewertung meldet sich nach dem Training von selbst als To-Do auf der Startseite."},
   {emo:"⚽", t:"Kachel: Spieltag", d:"Der Ablauf von oben nach unten: „Teams festlegen“ beantwortet einmal für den ganzen Tag, wer dabei ist und wie viele Teams wir stellen – die Kinder verteilt die App automatisch, du korrigierst nur. Darunter je Team eine Kachel mit Kader, Rollen, Uhr, Rotations-Timer und Liveticker; ganz unten die Team-Quests für alle Teams zusammen. Dazu die Rollen-Empfehlung aus den Bewertungen und die Analyse. Steht ein Turnier an, erscheint hier automatisch der Turnier-Bereich (Heimturnier ausrichten mit öffentlichem Link für die Gast-Trainer)."},
   {emo:"👥", t:"Kachel: Team", d:"Kader verwalten, Spieler alle 6 Wochen in 16 Kriterien bewerten (Live-Radar), Profil mit Sprachlob und Entwicklungs-Report, dazu Saison-Cockpit, Anwesenheit über die Saison und Rollen-Matrix. Auch Notfallkarten und Probetraining wohnen hier."},
@@ -3568,6 +3568,7 @@ async function renderHome(){
   box.innerHTML=`
     ${onboardHtml}
     <div id="trainer-todo-slot"></div>
+    <div id="trainer-termine-slot"></div>
     <div id="eg-trainer"></div>
     <div id="home-next">${card('<div style="font-size:12px;color:var(--text3)">Lade nächsten Termin...</div>')}</div>
     <div id="home-carousel"></div>
@@ -3581,6 +3582,7 @@ async function renderHome(){
     </div>`;
   elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche (handeln nötig → bleibt oben)
   trainerTodoLoad();             // To-Do-Banner (leer = unsichtbar)
+  trainerTermineHomeLoad();      // Termine der nächsten 14 Tage zum Antippen
   if(typeof tlCheck==="function")tlCheck(); // läuft gerade ein Trainingsstart? → Bereit-Fenster ploppt auf
   if(stale>0){const b=document.getElementById("kb-team");if(b)b.textContent=stale+" Bewertungen fällig";}
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
@@ -3711,16 +3713,12 @@ async function trainerTodoLoad(){
   if(!sbToken()){slot.innerHTML="";return;}
   const me=await trainerMe(); if(!me){slot.innerHTML="";return;}
   const heute=new Date().toISOString().slice(0,10);
-  const in14=new Date(Date.now()+14*864e5).toISOString().slice(0,10);
   const vor14=new Date(Date.now()-14*864e5).toISOString().slice(0,10);
   const vor7=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
   const todos=[];
-  // a) Offene „Trainer dabei?"-Antworten für kommende Termine
-  try{
-    const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,datum,trainer_status&datum=gte.${heute}&datum=lte.${in14}&order=datum.asc`,{headers:sbAuthHeaders()});
-    if(r.ok){const offen=((await r.json())||[]).filter(t=>!(t.trainer_status||{})[me]);
-      if(offen.length)todos.push({emo:"🗓️",txt:`„Bist du dabei?" – ${offen.length} Termin${offen.length===1?"":"e"} ohne deine Antwort`,act:"trainerRsvpQuickOpen()"});}
-  }catch(e){}
+  /* a) „Bist du dabei?" stand hier als Zähler und ist seit v403 eine eigene Karte direkt
+     darunter – mit den Terminen im Klartext statt einer Zahl. Zwei Elemente auf demselben
+     Bildschirm, die dasselbe sagen, kosten nur Platz; deshalb hier gestrichen. */
   // b) Einheit nachbereiten, wenn du laut Trainingsplan eingeteilt warst
   try{
     const r=await fetch(`${SB_URL}/rest/v1/trainingsplan?select=datum,plan&datum=gte.${vor14}&datum=lt.${heute}`,{headers:sbAuthHeaders()});
@@ -3787,17 +3785,70 @@ async function trainerTodoLoad(){
     ${todos.map(t=>`<button onclick="${t.act}" style="display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:var(--surface);border:var(--border-s);border-radius:10px;padding:10px 12px;margin-bottom:6px;font-family:inherit;cursor:pointer;color:var(--text)"><span style="font-size:17px;line-height:1">${t.emo}</span><span style="flex:1;font-size:12.5px;font-weight:600;line-height:1.4">${t.txt}</span><span style="color:var(--text3)">›</span></button>`).join("")}
   </div>`;
 }
-/* Schnell-Antwort „Bist du dabei?": kleines Fenster mit den nächsten Terminen, je ein Tap
-   (✅/🤔/❌) speichert sofort – nochmal tippen nimmt die Antwort zurück. Öffnet aus der
-   Trainer-To-Do; ohne Umweg über den Termine-Reiter. */
-let _trsvpRows=[];
-function _trsvpRowHtml(t,me){
+/* „Bist du dabei?": je ein Tap (✅/🤔/❌) speichert sofort – nochmal tippen nimmt die
+   Antwort zurück.
+   PO v402: „es ist wichtig das ich alle zukünftigen Termine ansehen kann und dort meine
+   Anwesenheit sehen und ändern kann." Vorher war die Liste auf drei Wochen begrenzt –
+   bei 38 Trainingsterminen bis Weihnachten war der Rest unerreichbar. Kein Fenster mehr;
+   stattdessen Monats-Überschriften zur Orientierung und ein Filter für die offenen.
+   PO v403: „eine terminliste mit allen anstehenden Terminen. Zum einfach anklicken.
+   Auf der Startseite die Termine in den nächsten 14 Tagen. Aber es muss auch eine gesamte
+   Ansicht möglich sein." Also beides: die nächsten 14 Tage stehen offen auf der Startseite
+   (kein Zähler, der erst aufgeklappt werden muss), der Rest hängt einen Tap dahinter.
+   EIN Datenbestand für beide Ansichten – sonst zeigt die Karte etwas anderes als der
+   Dialog, sobald man in einem von beiden antwortet. */
+let _trsvpRows=[], _trsvpMe="", _trsvpNurOffen=false, _trsvpGeladen=0;
+async function _trsvpLoad(){
+  if(_trsvpRows.length&&Date.now()-_trsvpGeladen<30000)return true; // frisch genug
+  const heute=new Date().toISOString().slice(0,10);
+  // Alles ab heute, ohne obere Grenze. 300 deckt auch eine komplette Saison ab.
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,datum,uhrzeit,typ,titel,gegner,trainer_status&datum=gte.${heute}&order=datum.asc,uhrzeit.asc.nullslast&limit=300`,{headers:sbAuthHeaders()});
+    if(sbCheck401(r))return false;
+    if(!r.ok)return false;
+    _trsvpRows=(await r.json())||[]; _trsvpGeladen=Date.now(); return true;
+  }catch(e){return false;}
+}
+function _trsvpOffen(){ return _trsvpRows.filter(t=>!(t.trainer_status||{})[_trsvpMe]); }
+function _trsvpKopfText(){
+  const offen=_trsvpOffen().length;
+  return `${_trsvpRows.length} Termin${_trsvpRows.length===1?"":"e"} · ${offen?offen+" ohne deine Antwort":"alle beantwortet ✓"}`;
+}
+function _trsvpFilterHtml(){
+  const alle=_trsvpRows.length, offen=_trsvpOffen().length;
+  const chip=(an,lbl,fn)=>`<button onclick="${fn}" aria-pressed="${an?"true":"false"}"
+    style="min-height:38px;padding:6px 14px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12px;font-weight:${an?"700":"500"};cursor:pointer;background:${an?"var(--blue)":"var(--surface)"};color:${an?"#fff":"var(--text2)"}">${lbl}</button>`;
+  return chip(!_trsvpNurOffen,`Alle (${alle})`,"trainerRsvpFilter(false)")+
+         chip(_trsvpNurOffen,`Nur offene (${offen})`,"trainerRsvpFilter(true)");
+}
+function _trsvpListHtml(){
+  const rows=_trsvpNurOffen?_trsvpOffen():_trsvpRows;
+  if(!rows.length)return `<div style="font-size:12.5px;color:var(--text3);padding:14px;text-align:center">${
+    _trsvpNurOffen?"Alle Termine beantwortet ✓":"Keine kommenden Termine eingetragen."}</div>`;
+  let html="", monat="";
+  rows.forEach(t=>{
+    const m=new Date(t.datum+"T00:00:00").toLocaleDateString("de-DE",{month:"long",year:"numeric"});
+    if(m!==monat){
+      monat=m;
+      html+=`<div style="position:sticky;top:0;z-index:2;background:var(--surface);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);padding:8px 2px 4px">${esc(m)}</div>`;
+    }
+    html+=_trsvpRowHtml(t,_trsvpMe,"trsvp");
+  });
+  return html;
+}
+function trainerRsvpFilter(nurOffen){
+  _trsvpNurOffen=!!nurOffen;
+  const l=document.getElementById("trsvp-list"); if(l)l.innerHTML=_trsvpListHtml();
+  const f=document.getElementById("trsvp-filter"); if(f)f.innerHTML=_trsvpFilterHtml();
+}
+function _trsvpRowHtml(t,me,pre){
+  pre=pre||"trsvp";
   const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"#1e3a8a"};
   const st=(t.trainer_status||{})[me];
   const d=new Date(t.datum+"T00:00:00"), wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
   const zeit=t.uhrzeit?String(t.uhrzeit).slice(0,5)+" Uhr":"";
-  const btn=(val,emo,lbl,col)=>`<button onclick="trainerRsvpSet(${Number(t.id)},'${val}')" style="flex:1;min-height:44px;border-radius:10px;border:1.5px solid ${st===val?col:"#e2e8f0"};background:${st===val?col:"var(--surface)"};color:${st===val?"#fff":"var(--text2)"};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">${emo} ${lbl}</button>`;
-  return `<div id="trsvp-${t.id}" style="border:var(--border-s);border-left:3px solid ${m.col};border-radius:12px;padding:10px 12px;margin-bottom:8px;background:var(--surface)">
+  const btn=(val,emo,lbl,col)=>`<button onclick="trainerRsvpSet(${Number(t.id)},'${val}')" aria-pressed="${st===val?"true":"false"}" style="flex:1;min-height:44px;border-radius:10px;border:1.5px solid ${st===val?col:"#e2e8f0"};background:${st===val?col:"var(--surface)"};color:${st===val?"#fff":"var(--text2)"};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">${emo} ${lbl}</button>`;
+  return `<div id="${pre}-${t.id}" style="border:var(--border-s);border-left:3px solid ${m.col};border-radius:12px;padding:10px 12px;margin-bottom:8px;background:var(--surface)">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
       <div style="font-size:13px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.icon} ${esc(t.titel||t.gegner||m.label)}</div>
       <div style="font-size:11px;color:var(--text2);white-space:nowrap">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""}</div>
@@ -3807,19 +3858,21 @@ function _trsvpRowHtml(t,me){
 }
 async function trainerRsvpQuickOpen(){
   const me=await trainerMe(); if(!me){toast("Kein Trainer-Konto erkannt","err");return;}
-  const heute=new Date().toISOString().slice(0,10);
-  const in21=new Date(Date.now()+21*864e5).toISOString().slice(0,10);
-  _trsvpRows=[];
-  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,datum,uhrzeit,typ,titel,gegner,trainer_status&datum=gte.${heute}&datum=lte.${in21}&order=datum.asc,uhrzeit.asc.nullslast`,{headers:sbAuthHeaders()});if(sbCheck401(r))return;if(r.ok)_trsvpRows=await r.json();}catch(e){}
+  _trsvpMe=me; _trsvpNurOffen=false;
+  await _trsvpLoad();
   document.getElementById("trsvp-modal")?.remove();
   const modal=document.createElement("div"); modal.id="trsvp-modal";
   modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Bist du dabei?");
-  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10050;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10050;display:flex;padding:14px";
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  /* Kopf und Filter bleiben stehen, nur die Liste scrollt – bei 38 Terminen sonst
+     endloses Zurückscrollen, um den Filter wieder zu erreichen. */
   const c=document.createElement("div");
-  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4);display:flex;flex-direction:column;max-height:100%";
   c.innerHTML=`${mdlHead("trsvp-modal","🗓️","Bist du dabei?",`Ein Tap je Termin, ${esc(me)} – nochmal tippen nimmt zurück`,"var(--amber)")}
-    <div id="trsvp-list">${_trsvpRows.length?_trsvpRows.map(t=>_trsvpRowHtml(t,me)).join(""):'<div style="font-size:12.5px;color:var(--text3);padding:14px;text-align:center">Keine kommenden Termine in den nächsten 3 Wochen.</div>'}</div>`;
+    <div id="trsvp-kopf" style="font-size:11.5px;color:var(--text2);margin-bottom:8px">${_trsvpKopfText()}</div>
+    <div id="trsvp-filter" style="display:flex;gap:6px;margin-bottom:10px">${_trsvpFilterHtml()}</div>
+    <div id="trsvp-list" style="flex:1;min-height:0;overflow-y:auto">${_trsvpListHtml()}</div>`;
   modal.appendChild(c); document.body.appendChild(modal);
 }
 async function trainerRsvpSet(id,val){
@@ -3829,14 +3882,70 @@ async function trainerRsvpSet(id,val){
   st[me]=st[me]===val?undefined:val;           // nochmal tippen = Antwort zurücknehmen
   if(st[me]===undefined)delete st[me];
   t.trainer_status=st;
-  const row=document.getElementById("trsvp-"+id); if(row)row.outerHTML=_trsvpRowHtml(t,me); // sofort sichtbar
+  /* Beide Ansichten mitziehen: die Zeile kann im Dialog stehen, auf der Startseiten-Karte
+     oder – wenn der Dialog über der Karte liegt – an beiden Stellen gleichzeitig. */
+  ["trsvp","trhome"].forEach(pre=>{
+    const row=document.getElementById(pre+"-"+id); if(row)row.outerHTML=_trsvpRowHtml(t,me,pre);
+  });
+  /* Kopfzeile und Filter mitziehen. Die LISTE bleibt bewusst stehen: würde die gerade
+     beantwortete Zeile unter dem Finger verschwinden, verliert man beim Durchgehen von
+     38 Terminen sofort die Stelle. */
+  const kopf=document.getElementById("trsvp-kopf"); if(kopf)kopf.textContent=_trsvpKopfText();
+  const filt=document.getElementById("trsvp-filter"); if(filt)filt.innerHTML=_trsvpFilterHtml();
+  const hk=document.getElementById("trhome-kopf"); if(hk)hk.textContent=_trhomeKopfText();
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({trainer_status:st})});
     if(sbCheck401(r))return;
     if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return;}
   }catch(e){toast("Netzwerkfehler","err");return;}
   try{navigator.vibrate&&navigator.vibrate(15);}catch(e){}
-  clearTimeout(window._trsvpTodoT); window._trsvpTodoT=setTimeout(()=>trainerTodoLoad(),600); // To-Do-Zähler nachziehen
+}
+/* Startseite: die nächsten 14 Tage offen ausgelegt (PO v403 „eine terminliste mit allen
+   anstehenden Terminen. Zum einfach anklicken"). Vorher stand hier nur ein Zähler in der
+   To-Do-Leiste – man musste erst einen Dialog öffnen, um zu sehen, WORUM es geht.
+   Das 14-Tage-Fenster ist hier richtig: die Startseite soll zeigen, was ansteht, nicht die
+   ganze Saison. Alles Weitere hängt sichtbar einen Tap dahinter („Alle N Termine"). */
+const TRHOME_TAGE=14, TRHOME_MAX=6;
+function _trhomeFenster(){
+  const bis=new Date(Date.now()+TRHOME_TAGE*864e5).toISOString().slice(0,10);
+  return _trsvpRows.filter(t=>t.datum<=bis);
+}
+function _trhomeKopfText(){
+  const f=_trhomeFenster(), offen=f.filter(t=>!(t.trainer_status||{})[_trsvpMe]).length;
+  if(!f.length)return "kein Termin in den nächsten 14 Tagen";
+  return `${f.length} Termin${f.length===1?"":"e"} · ${offen?offen+" ohne deine Antwort":"alle beantwortet ✓"}`;
+}
+async function trainerTermineHomeLoad(){
+  const slot=document.getElementById("trainer-termine-slot"); if(!slot)return;
+  if(!sbToken()){slot.innerHTML="";return;}
+  const me=await trainerMe(); if(!me){slot.innerHTML="";return;}
+  _trsvpMe=me;
+  if(!await _trsvpLoad()){slot.innerHTML="";return;}
+  if(!document.getElementById("trainer-termine-slot"))return; // Tab schon verlassen
+  if(!_trsvpRows.length){slot.innerHTML="";return;}
+  const fenster=_trhomeFenster(), zeigen=fenster.slice(0,TRHOME_MAX);
+  let inhalt;
+  if(zeigen.length){
+    inhalt=zeigen.map(t=>_trsvpRowHtml(t,me,"trhome")).join("");
+    if(fenster.length>zeigen.length)
+      inhalt+=`<div style="font-size:11.5px;color:var(--text3);text-align:center;padding:2px 0 6px">und ${fenster.length-zeigen.length} weitere in diesen 14 Tagen</div>`;
+  }else{
+    // Nichts im Fenster heißt nicht „nichts geplant" – sonst liest sich die leere Karte
+    // wie „alles erledigt" (derselbe Fehler wie beim To-Do in v401).
+    const n=_trsvpRows[0], d=new Date(n.datum+"T00:00:00");
+    inhalt=`<div style="font-size:12.5px;color:var(--text2);padding:8px 2px 10px;line-height:1.5">
+      In den nächsten 14 Tagen steht nichts an.<br>Der nächste Termin ist am
+      <b>${d.toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"})}</b>
+      ${esc(n.titel||n.gegner||((typeof TM_META!=="undefined"&&TM_META[n.typ]&&TM_META[n.typ].label)||""))}.</div>`;
+  }
+  slot.innerHTML=`<div class="card" style="padding:12px 14px;margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">🗓️ Nächste 14 Tage</div>
+      <div id="trhome-kopf" style="font-size:11px;color:var(--text2);text-align:right">${_trhomeKopfText()}</div>
+    </div>
+    ${inhalt}
+    <button onclick="trainerRsvpQuickOpen()" style="display:flex;gap:8px;align-items:center;justify-content:center;width:100%;min-height:44px;background:var(--surface);border:var(--border-s);border-radius:10px;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text2);cursor:pointer">Alle ${_trsvpRows.length} Termine ansehen<span style="color:var(--text3)">›</span></button>
+  </div>`;
 }
 // Startseiten-Nudge: wer hat für den nächsten Termin (Training/Spiel/Turnier) noch nicht
 // geantwortet? Ein Tap öffnet die Rückmeldungs-Übersicht mit WhatsApp-Erinnerung.
