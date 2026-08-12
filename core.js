@@ -51,10 +51,21 @@ function sbRead(){
   }
   return null;
 }
+/* Der Zugangs-Token von Supabase lebt eine Stunde; der refresh_token daneben viel länger.
+   Vorher gab diese Funktion in der letzten Minute vor Ablauf `null` zurück – ohne dass
+   irgendjemand erneuerte. sbAuthHeaders fiel dann auf den anonymen Schlüssel zurück, die
+   Anfrage wurde abgelehnt, sbCheck401 warf die Sitzung weg: Anmeldemaske. Genau das
+   „ich muss mich immer wieder neu anmelden" (PO v398).
+   Jetzt: solange der Token wirklich gültig ist, wird er weiter benutzt; kurz vor Ablauf
+   läuft die Erneuerung im Hintergrund an. */
+let _sbRefreshFehlerAb=0;   // nach einem Fehlschlag kurz Ruhe geben, sonst Anfrage-Sturm
 function sbToken(){
   const s=sbRead();
-  if(s&&(s.t.expires_at*1000)>Date.now()+60000)return s.t.access_token;
-  return null;
+  if(!s)return null;
+  const restMs=s.t.expires_at*1000-Date.now();
+  if(restMs>60000)return s.t.access_token;
+  if(s.t.refresh_token&&Date.now()>_sbRefreshFehlerAb)sbRefreshToken();   // im Hintergrund
+  return restMs>0?s.t.access_token:null;                                  // noch gültig? dann weiter
 }
 /* Datierte Wegwerf-Keys (Karten-Packs, Reveals, Tagesgruppen ...) sammelten sich
    unbegrenzt an - nach einer Saison hunderte tote Eintraege. Einmal pro Start aufraeumen. */
@@ -105,16 +116,39 @@ function sbAuthHeaders(extra){
   const tok=sbToken();
   return Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+(tok||SB_KEY),'Content-Type':'application/json'},extra||{});
 }
-// Bei 401: Token verwerfen und Login zeigen (gibt true zurück, wenn 401 behandelt wurde)
+// Abmelden und die passende Anmeldemaske zeigen (Eltern passwortlos, Trainer mit Passwort).
+function sbAbmelden(){
+  sbClearToken();
+  if(new URLSearchParams(location.search).has("portal")){
+    if(typeof renderElternPortal==="function")renderElternPortal();
+  }else{
+    showLoginGate();
+  }
+}
+/* Bei 401: NICHT sofort abmelden. Ein 401 heißt in aller Regel nur „Zugangs-Token
+   abgelaufen", nicht „Sitzung beendet" – und der refresh_token, der das heilen würde,
+   flog beim Abmelden gleich mit weg. Deshalb erst ein Erneuerungsversuch:
+     true  – erneuert, die Sitzung lebt weiter (Aktion einmal wiederholen)
+     false – der refresh_token wurde abgelehnt, die Sitzung ist wirklich vorbei
+     null  – Netz- oder Serverproblem: nichts wegwerfen, später klappt es wieder
+   Gibt weiterhin true zurück, wenn ein 401 behandelt wurde (Aufrufer bricht ab). */
+let _sb401Laeuft=false;
 function sbCheck401(res){
   if(res&&res.status===401&&!document.body.classList.contains("quiz-extern")){
-    sbClearToken();
-    // UX 5: im Eltern-Portal den passwortlosen Portal-Login zeigen, NICHT das Trainer-Passwort-Gate
-    if(new URLSearchParams(location.search).has("portal")){
-      if(typeof renderElternPortal==="function")renderElternPortal();
-    }else{
-      showLoginGate();
+    const slot=sbRead();
+    if(slot&&slot.t&&slot.t.refresh_token){
+      if(!_sb401Laeuft){
+        _sb401Laeuft=true;
+        sbRefreshToken().then(ok=>{
+          _sb401Laeuft=false;
+          if(ok===true){ if(typeof toast==="function")toast("Sitzung erneuert – bitte noch einmal antippen"); return; }
+          if(ok===false){ sbAbmelden(); return; }
+          if(typeof toast==="function")toast("Keine Verbindung – Sitzung bleibt bestehen","err");
+        }).catch(()=>{_sb401Laeuft=false;});
+      }
+      return true;
     }
+    sbAbmelden();
     return true;
   }
   return false;
@@ -148,24 +182,47 @@ function sbRefreshToken(){
         method:"POST",headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
         body:JSON.stringify({refresh_token:s.refresh_token})
       });
+      /* Sauber unterscheiden – davon hängt ab, ob jemand ausgeloggt wird:
+         400/401/403 = der refresh_token gilt nicht mehr, die Sitzung ist vorbei.
+         Alles andere (offline, 5xx, kaputte Antwort) ist ein Zufall von heute Abend
+         und darf keine Anmeldung kosten. */
+      if(r.status===400||r.status===401||r.status===403){ _sbRefreshFehlerAb=0; return false; }
       const data=await r.json().catch(()=>({}));
-      if(!r.ok||!data.access_token)return false;
+      if(!r.ok||!data.access_token){ _sbRefreshFehlerAb=Date.now()+30000; return null; }
       const expiresAt=data.expires_at||(Math.floor(Date.now()/1000)+(data.expires_in||3600));
       localStorage.setItem(zielKey,JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token||s.refresh_token,expires_at:expiresAt}));
+      _sbRefreshFehlerAb=0;
       return true;
-    }catch(e){return false;}
+    }catch(e){ _sbRefreshFehlerAb=Date.now()+30000; return null; }   // offline: später nochmal
     finally{sbRefreshing=null;}
   })();
   return sbRefreshing;
+}
+/* Gibt es überhaupt eine Sitzung? Ein abgelaufener Zugangs-Token mit gültigem
+   refresh_token IST eine Sitzung – sie muss nur erneuert werden. Nur wenn beides fehlt,
+   ist der Trainer wirklich abgemeldet. Wichtig für den Platz ohne Empfang: dort soll die
+   App lokal weiterlaufen statt eine Anmeldemaske zu zeigen, die ohne Netz gar nicht geht. */
+function sbSitzungVorhanden(){
+  const s=sbRead();
+  return !!(s&&s.t&&(s.t.refresh_token||(s.t.expires_at*1000)>Date.now()));
 }
 // Proaktiv: läuft der Token in < 10 Min ab, still erneuern (Netz vorhanden vorausgesetzt).
 async function sbMaybeRefresh(){
   const s=sbSession();
   if(!s||!s.refresh_token)return;
-  if(s.expires_at*1000-Date.now() < 10*60*1000) await sbRefreshToken();
+  if(s.expires_at*1000-Date.now() < 10*60*1000){
+    const ok=await sbRefreshToken();
+    // Nur eine ausdrückliche Ablehnung beendet die Sitzung. Offline ändert gar nichts.
+    if(ok===false)sbAbmelden();
+  }
 }
 setInterval(sbMaybeRefresh, 3*60*1000); // alle 3 Min prüfen
+/* Der Wecker steht still, solange die App im Hintergrund liegt – auf dem Telefon ist das
+   der Normalfall. Deshalb bei jedem Zurückkommen erneut prüfen: sichtbar werden, aus dem
+   Seiten-Cache zurückkehren, Netz wiederbekommen. */
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible")sbMaybeRefresh(); });
+window.addEventListener("pageshow",sbMaybeRefresh);
+window.addEventListener("online",sbMaybeRefresh);
 sbMaybeRefresh(); // beim Start einmal prüfen, damit ein alter Token nicht direkt zum Logout führt
 function showLoginGate(){
   if(document.getElementById("login-gate"))return;
@@ -199,14 +256,24 @@ async function doLogin(){
 async function ensureLogin(){
   const p=new URLSearchParams(location.search);
   if(p.has("quiz")||p.has("portal"))return;
-  if(!sbToken()){showLoginGate();return;}
+  /* ERST erneuern, DANN prüfen. Vorher lief sbMaybeRefresh nur nebenher los und hier
+     wurde sofort weitergemacht: nach einer Nacht war der Token abgelaufen, die Abfrage
+     ging mit dem anonymen Schlüssel raus – und lieferte brav 200 mit leerer Liste.
+     Daraus wurde „kein Trainer" und die Sitzung flog weg (PO v398). */
+  try{ await sbMaybeRefresh(); }catch(e){}
+  if(!sbSitzungVorhanden()){showLoginGate();return;}
+  // Sitzung da, aber gerade kein frischer Token (offline): lokal weiterarbeiten lassen.
+  // Die Erneuerung läuft beim nächsten Netz von selbst an (online-/pageshow-Ereignis).
+  if(!sbToken())return;
   // Sitzung da – aber gehoert sie wirklich einem Trainer? Ein Eltern-Token wuerde die
   // Oberflaeche zeigen und dann bei jedem Schreiben stumm an der RLS scheitern.
   try{
     const r=await fetch(`${SB_URL}/rest/v1/profiles?select=role&limit=1`,{headers:sbAuthHeaders()});
     if(!r.ok)return; // offline o.ae.: bestehende Sitzung nicht wegwerfen
     const rows=await r.json();
-    if(((rows[0]||{}).role)!=="trainer"){
+    // Leere Antwort heißt NICHT „kein Trainer", sondern „keine Auskunft" – nicht abmelden.
+    if(!Array.isArray(rows)||!rows.length)return;
+    if(rows[0].role!=="trainer"){
       sbClearToken();
       showLoginGate();
       if(typeof toast==="function")toast("Das war ein Eltern-Zugang – bitte als Trainer anmelden.","err");
