@@ -466,7 +466,7 @@ function rotRenderControls(){
       </select>
       <button class="btn btn-p" id="rot-startbtn" onclick="rotToggle()" style="min-height:44px">${running?'<i class="ti ti-player-pause"></i>Pause':'<i class="ti ti-player-play"></i>Start'}</button>
       <button class="btn" onclick="rotReset()" style="min-height:44px"><i class="ti ti-refresh"></i>Reset</button>
-      <button class="btn" onclick="magicLineup()" title="Nominierte Spieler optimal aufs Feld verteilen" style="min-height:44px">🪄 Auto-Aufstellung</button>
+      <button class="btn" onclick="magicLineup()" title="Verteilt den Kader dieses Teams auf Feld und Bank – wenig gespielte Kinder starten" style="min-height:44px">🪄 Feld &amp; Bank fair besetzen</button>
     </div>
     <div id="rot-live"></div>`;
 }
@@ -509,9 +509,11 @@ async function magicLineup(){
   rotTW=keeper;
   rotField=ordered.slice(0,form.fieldCount);
   rotBench=ordered.slice(form.fieldCount);
-  rotBenchSec={};squad.forEach(n=>rotBenchSec[n]=0);rotElapsed=0;
+  // Neue Startaufstellung = neuer Anfang: Bank- UND Feldzeiten auf 0. Vorher blieben die
+  // Feldzeiten stehen und der Wechselvorschlag rechnete mit Zahlen von vorhin.
+  rotBenchSec={};rotFieldSec={};squad.forEach(n=>{rotBenchSec[n]=0;rotFieldSec[n]=0;});rotElapsed=0;
   rotRenderControls();rotRenderLive();
-  toast(fair?"⚖️ Faire Auto-Aufstellung ✓ – wenig-gespielte Kinder starten, frei anpassbar":"Auto-Aufstellung erstellt ✓ – frei anpassbar");
+  toast(fair?"⚖️ Feld & Bank fair besetzt ✓ – wenig-gespielte Kinder starten, frei anpassbar":"Feld & Bank besetzt ✓ – frei anpassbar");
 }
 function fmtSec(s){const m=Math.floor(s/60),ss=s%60;return m+":"+(ss<10?"0":"")+ss;}
 // Wechselvorschlag als eigener Helper: längste Bankzeit rein für kürzeste Bankzeit
@@ -633,9 +635,21 @@ async function rotPersistTimes(){
   // Offline-hart: über die Sync-Queue -> am Platz ohne Netz wird es zuverlässig nachgetragen.
   try{ await sbQueuedPost("einsatzzeiten?on_conflict=datum,spieler",payload,"resolution=merge-duplicates"); }catch(e){}
 }
+/* PO v399: „wenn ich den Wechsel timer resete dann sollten auch die Spielzeiten der
+   Spieler reseten oder?" – ja. Vorher wurden nur der Zähler und die BANK-Zeiten
+   genullt, die Feldzeiten liefen weiter: nach dem Reset stand 4:00 auf der Uhr und
+   2:54 neben Piet. Ein halber Reset ist schlimmer als keiner, weil man ihm nicht
+   ansieht, was er stehen gelassen hat.
+   Weil das die erfassten Einsatzzeiten dieses Spiels verwirft, wird gefragt – und die
+   Nullen werden auch gespeichert, sonst käme die alte Zahl beim nächsten Laden zurück. */
 function rotReset(){
+  const gespielt=Object.values(rotFieldSec||{}).some(v=>v>0);
+  if(gespielt&&!confirm("Wechsel-Timer zurücksetzen?\n\nDie erfassten Spielzeiten dieses Spiels werden dabei auf 0:00 gesetzt."))return;
   if(rotTimerId){clearInterval(rotTimerId);rotTimerId=null;}
-  rotElapsed=0;Object.keys(rotBenchSec).forEach(n=>rotBenchSec[n]=0);
+  rotElapsed=0;
+  Object.keys(rotBenchSec).forEach(n=>rotBenchSec[n]=0);
+  Object.keys(rotFieldSec).forEach(n=>rotFieldSec[n]=0);
+  if(gespielt)rotPersistTimes();
   rotRenderControls();rotRenderLive();
 }
 

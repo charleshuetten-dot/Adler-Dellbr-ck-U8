@@ -464,6 +464,11 @@ function calcBestCombos(restrictNames){
   if(names.length<4)return null;
 
   const players=names.map(n=>getPlayerData(n)).filter(Boolean);
+  /* Nicht die Zahl der NAMEN zählt, sondern die der BEWERTETEN. Vorher wurde nur oben
+     geprüft: 14 nominierte, aber unbewertete Kinder kamen durch, players blieb leer, die
+     Funktion gab ein leeres Array zurück – und renderKombi las combos[0].tw davon.
+     Ergebnis: Ausnahme im setTimeout, der Ladekringel drehte sich für immer (PO v399). */
+  if(players.length<4)return null;
   const twPlayers=players.filter(p=>getKader(p.name)?.tw);
 
   // Pre-compute role scores and sort candidates per role
@@ -512,12 +517,22 @@ function renderKombi(){
   const wrap=document.getElementById("kombi-content");
   if(!window._dbLoaded&&!Object.keys(DB).length){wrap.innerHTML=skeletonRows(3);return;} // L2
   wrap.innerHTML='<div style="text-align:center;padding:2rem;color:var(--text2)"><i class="ti ti-loader" style="font-size:24px;animation:spin 1s linear infinite;display:inline-block"></i><div style="margin-top:8px;font-size:12px">Berechne beste Aufstellung...</div></div>';
-  setTimeout(()=>{_renderKombiInner(wrap);},30);
+  /* Der Kringel steht so lange, bis jemand ihn ersetzt – eine Ausnahme hier drin bleibt
+     also als „rechnet ewig" sichtbar. Deshalb abfangen und ehrlich hinschreiben. */
+  setTimeout(()=>{
+    try{ _renderKombiInner(wrap); }
+    catch(e){ wrap.innerHTML='<div class="empty"><i class="ti ti-alert-triangle"></i>Die Aufstellung konnte nicht berechnet werden.<br><span style="font-size:11px">'+esc(String(e&&e.message||e))+'</span></div>'; }
+  },30);
 }
 function _renderKombiInner(wrap){
   const nominiert=verfuegbareSpieler();
   const combos=calcBestCombos(nominiert);
-  if(!combos){wrap.innerHTML='<div class="empty"><i class="ti ti-users-group"></i>Mindestens 4 bewertete Spieler nötig</div>';return;}
+  if(!combos||!combos.length){
+    const bewertet=(nominiert||Object.keys(DB)).filter(n=>getPlayerData(n)).length;
+    wrap.innerHTML=`<div class="empty"><i class="ti ti-users-group"></i>Für die Aufstellung braucht es mindestens 4 <b>bewertete</b> Kinder – bisher sind es ${bewertet}.
+      <div style="font-size:11.5px;color:var(--text2);margin-top:8px;line-height:1.5">Die Rollen-Empfehlung rechnet mit den Bewertungen aus dem Team-Bereich. Solange die fehlen, hilft im Spieltag der Knopf „🪄 Feld &amp; Bank fair besetzen" – der verteilt nach Einsatzzeiten statt nach Bewertung.</div></div>`;
+    return;
+  }
 
   const best=combos[0];
   const insights=generateInsights(best.tw,best.aufpasser,best.flitzer_l,best.flitzer_r,best.jaeger,best.score);

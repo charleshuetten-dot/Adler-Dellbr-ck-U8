@@ -295,15 +295,19 @@ function spieltagTeamKartenRender(){
     const n=i+1, tr=(TEAM_TRAINER[n]||[]);
     const kinder=Object.keys(TEAMS).filter(k=>TEAMS[k]===n).length;
     const auf=(n===aktiv);
-    // Uhr, Ticker und Aktionen haengen an spieltagTeam – auch wenn alle Kacheln zu sind.
-    // Das muss man sehen koennen, sonst tippt der Trainer im falschen Team auf „Anpfiff".
-    const gewaehlt=(typeof spieltagTeam!=="undefined"&&n===spieltagTeam);
+    /* Marke nur, wenn dieses Team gerade WIRKLICH spielt. „Uhr & Ticker" stand vorher
+       dauerhaft an Adler 1 und las sich wie ein Eigenname statt wie ein Zustand
+       (PO v399: „Warum steht uhr & ticker nur bei team Adler 1?"). Solange keine Uhr
+       läuft, ist die Auswahl auch belanglos: das Antippen einer Kachel wechselt sie. */
+    const laeuft=(typeof mcState!=="undefined"&&mcState&&
+                  ["running","paused","halftime"].indexOf(mcState.clock_status)>=0);
+    const gewaehlt=(typeof spieltagTeam!=="undefined"&&n===spieltagTeam&&laeuft);
     return `<div class="abschnitt" style="padding:0;overflow:hidden;${auf?"border-color:var(--fam-spieltag);":""}">
       <button onclick="spieltagKarteOeffnen(${n})" aria-expanded="${auf?"true":"false"}"
         style="width:100%;min-height:56px;display:flex;align-items:center;gap:10px;text-align:left;padding:12px 14px;border:none;border-left:4px solid var(--fam-spieltag);background:${auf?"var(--surface2)":"var(--surface)"};color:var(--text);font-family:inherit;cursor:pointer">
         <span style="font-size:20px">⚽</span>
         <span style="flex:1;min-width:0">
-          <span style="display:block;font-size:14px;font-weight:900">Adler ${n}${gewaehlt&&!auf?` <span style="font-size:10px;font-weight:700;color:var(--blue-text);background:var(--surface2);border-radius:8px;padding:1px 7px;vertical-align:1px">Uhr &amp; Ticker</span>`:""}</span>
+          <span style="display:block;font-size:14px;font-weight:900">Adler ${n}${gewaehlt&&!auf?` <span style="font-size:10px;font-weight:700;color:var(--green);background:var(--green-bg);border-radius:8px;padding:1px 7px;vertical-align:1px">Spiel läuft</span>`:""}</span>
           <span style="display:block;font-size:11.5px;color:var(--text2)">${kinder} Kind${kinder===1?"":"er"} · ${
             tr.length?esc(tr.join(", ")):'<span style="color:var(--amber);font-weight:700">kein Trainer</span>'}</span>
         </span>
