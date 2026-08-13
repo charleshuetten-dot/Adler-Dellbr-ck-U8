@@ -247,18 +247,16 @@ function tqResetProgress(){
   document.body.appendChild(modal);
 }
 
-function tqDoReset(modal){
+async function tqDoReset(modal){
   const checks=modal.querySelectorAll(".tq-reset-cb:checked");
   if(!checks.length){toast("Niemand ausgewählt","err");return;}
   const p=tqGetProgress();
   const all=Array.from(checks).some(c=>c.value==="__ALL__");
   // Das loescht den muehsam erspielten Fortschritt der Kinder – und laesst sich nicht rueckgaengig machen.
   const wen=all?"ALLER Kinder":Array.from(checks).map(c=>c.value).join(", ");
-  if(!confirm(`Quiz-Fortschritt wirklich löschen?
-
-${wen}
-
-Das kann nicht rückgängig gemacht werden. Bereits verdiente Adler-Federn bleiben erhalten.`))return;
+  if(!await frageJaNein({emoji:"🗑️",titel:"Quiz-Fortschritt löschen?",
+    text:`${wen}\n\nDas kann nicht rückgängig gemacht werden. Bereits verdiente Adler-Federn bleiben erhalten.`,
+    ja:"Löschen",ton:"rot"}))return;
   if(all){
     localStorage.removeItem(TQ_PROGRESS_KEY);
     fetch(`${SB_URL}/rest/v1/quiz_progress?player=neq.`,{method:"DELETE",headers:sbAuthHeaders()}).then(r=>sbCheck401(r)).catch(()=>{});

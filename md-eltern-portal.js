@@ -1352,7 +1352,9 @@ async function notfallSave(spielerId){
   }catch(e){toast("Netzwerkfehler","err");}
 }
 async function notfallClear(spielerId){
-  if(!confirm("Notfallkarte wirklich leeren? Alle Angaben werden gelöscht."))return;
+  if(!await frageJaNein({emoji:"🚑",titel:"Notfallkarte leeren?",
+    text:"Alle Angaben werden gelöscht – Kontakte, Allergien, Medikamente.",
+    ja:"Leeren",ton:"rot"}))return;
   try{
     const r=await fetch(`${SB_URL}/rest/v1/kind_notfall?spieler_id=eq.${spielerId}`,{method:"DELETE",headers:sbAuthHeaders()});
     if(!r.ok){toast("Konnte nicht löschen","err");return;}
@@ -1422,7 +1424,9 @@ async function elternFotoConsentSave(spielerId){
   }catch(e){toast("Netzwerkfehler","err");}
 }
 async function elternFotoConsentRevoke(spielerId){
-  if(!confirm("Wirklich alle Foto- und Video-Freigaben für dein Kind widerrufen?"))return;
+  if(!await frageJaNein({emoji:"📷",titel:"Alle Freigaben widerrufen?",
+    text:"Dein Kind erscheint dann auf keinem Foto und in keinem Video mehr – auch nicht im geschützten Team-Bereich.\n\nDu kannst jederzeit wieder freigeben.",
+    ja:"Widerrufen",ton:"rot"}))return;
   try{
     const r=await fetch(`${SB_URL}/rest/v1/foto_consent?on_conflict=spieler_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({spieler_id:spielerId,intern:false,video:false,public_ok:false})});
     if(!r.ok){toast("Konnte nicht widerrufen","err");return;}
@@ -1508,7 +1512,9 @@ function tdMitbringGoto(){
   else toast("Die Mitbringliste erscheint, sobald das Event näher rückt.");
 }
 async function tdBuedchenOptout(terminId,spielerId){
-  if(!confirm("Ihr könnt beim Büdchen nicht? Dann rückt die nächste Familie nach."))return;
+  if(!await frageJaNein({emoji:"🍿",titel:"Beim Büdchen absagen?",
+    text:"Dann rückt die nächste Familie nach.",
+    ja:"Absagen",nein:"Doch, wir machen"}))return;
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/buedchen_optout`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_termin:terminId,p_spieler:spielerId})});if(sbCheck401(r))return;if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht ändern"),"err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
   toast("Danke – die nächste Familie rückt nach.");
   terminDetailOpen(terminId);
