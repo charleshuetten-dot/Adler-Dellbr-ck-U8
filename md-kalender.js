@@ -33,14 +33,35 @@ function tmSetTyp(t,btn){
   tmTyp=t;
   if(btn){btn.parentElement.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active"));btn.classList.add("active");}
   const istSpiel=(t==="spiel"||t==="turnier");
-  const disp=(id,on)=>{const el=document.getElementById(id);if(el)el.style.display=on?"block":"none";};
+  // display:"" statt "block": .mg ist per CSS ein flex-Container mit 4px Abstand zwischen
+  // Label und Feld. Ein hart gesetztes "block" hat den Abstand jedes Mal geschluckt.
+  const disp=(id,on)=>{const el=document.getElementById(id);if(el)el.style.display=on?"":"none";};
   disp("tm-titel-row", t!=="training");                 // Training braucht keinen Titel/Gegner
   const lbl=document.getElementById("tm-titel-lbl"); if(lbl)lbl.textContent=t==="event"?"Titel (z. B. Saisonabschluss, Weihnachtsfeier)":"Gegner / Titel";
   // Platz gibt es bei Training UND Spiel/Turnier (jeweils eigene Optionen) – nur beim Event nicht.
-  const platzRow=document.getElementById("tm-platz")?.closest(".mg"); if(platzRow)platzRow.style.display=(t==="training"||istSpiel)?"block":"none";
+  const platzRow=document.getElementById("tm-platz")?.closest(".mg"); if(platzRow)platzRow.style.display=(t==="training"||istSpiel)?"":"none";
   disp("tm-spielform-row", istSpiel);
   disp("tm-dauer-row", istSpiel);
   disp("tm-heim-row", istSpiel);                          // Heim/Auswärts nur bei Spiel/Turnier
+  /* PO: Beim Training kommen alle zur Trainingszeit – eine getrennte Treffzeit gibt es nur,
+     wo vorher etwas passiert (Spiel, Turnier, Event). Und wiederholt wird nur ein Event;
+     Spiele und Turniere sind jedes Mal andere. Ausgeblendete Felder werden GELEERT, sonst
+     wandert ein unsichtbarer Wert in den nächsten Termin. */
+  const treffRow=document.getElementById("tm-treff")?.closest(".mg");
+  if(treffRow)treffRow.style.display=(t==="training")?"none":"";
+  if(t==="training"){const tz=document.getElementById("tm-treff"); if(tz)tz.value="";}
+  disp("tm-serie-row", t==="event");
+  if(t!=="event"){
+    const s=document.getElementById("tm-serie"); if(s)s.value="";
+    const sb=document.getElementById("tm-serie-bis"); if(sb)sb.value="";
+    if(typeof tmSerieToggle==="function")tmSerieToggle();
+  }
+  // Kurze Labels statt Klammer-Erklaerungen: die brachen im zweispaltigen Raster um und
+  // schoben das Feld darunter aus der Linie. Was Pflicht ist, sagt jetzt das Label selbst.
+  const zLbl=document.getElementById("tm-zeit-lbl");
+  if(zLbl)zLbl.textContent=istSpiel?"Anpfiff":"Uhrzeit";
+  const eLbl=document.getElementById("tm-ende-lbl");
+  if(eLbl)eLbl.textContent=istSpiel?"Ende (Pflicht)":"Ende";
   const gdb=document.getElementById("tm-gegnerdb-btn"); if(gdb)gdb.style.display=istSpiel?"inline-flex":"none"; // Gegner-DB nur bei Spiel/Turnier (nicht bei Training/Event)
   const zeit=document.getElementById("tm-zeit"), datum=document.getElementById("tm-datum"), ort=document.getElementById("tm-ort");
   tmPlatzFill(t);                                         // Optionen + Vorbelegung passend zum Typ

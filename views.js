@@ -2788,11 +2788,28 @@ const SAISONSTART_STEPS=[
   {k:"wrapped",  emo:"🏆", t:"Adler Wrapped ansehen",       d:"Der Saison-Rückblick fürs Team – Gänsehaut zum Abschluss.", run:"adlerWrappedTeaser()"},
   {k:"urkunden", emo:"🏅", t:"Saison-Urkunden drucken",     d:"Alle Kinder in einem Druckauftrag – fürs Abschlussfest.", run:"urkundenOpen()"},
   {k:"kader",    emo:"📋", t:"Kader aufräumen",             d:"Abgänge deaktivieren, Neuzugänge anlegen, Trikotnummern prüfen.", run:"go('kader')"},
-  {k:"serie",    emo:"🔁", t:"Trainings-Serie anlegen",     d:"Beim Termin-Anlegen „jede Woche“ wählen – Ferienwochen werden automatisch ausgelassen.", run:"go('termine')"},
+  {k:"serie",    emo:"📅", t:"Trainings-Termine anlegen",    d:"Die Trainingstage der neuen Saison eintragen.", run:"go('termine')"},
   {k:"einladung",emo:"🔗", t:"Eltern-Einladung verschicken",d:"Neue Familien per WhatsApp-Paket in die App holen.", run:"elternInvitePaket()"},
   {k:"ansage",   emo:"📣", t:"Saisonstart-Ansage senden",   d:"Alle Eltern begrüßen – mit Gelesen-Status.", run:"ansageTrainerOpen()"}
 ];
 function _saisonStartKey(){ return "adler_saisonstart_"+saisonLabel().replace(/\s/g,""); }
+/* Der Check ist eine Aufgabenliste – die darf verschwinden, wenn nichts mehr offen ist
+   (dieselbe Regel wie bei „Bist du dabei?"). Abgelegt wird das UNTER dem Saison-Schlüssel:
+   zur nächsten Saison heißt der Schlüssel anders, der Check steht also von selbst wieder da.
+   `_zu` ist bewusst kein Schritt-Kürzel, damit es den Zähler nicht verfälscht. */
+function saisonStartZu(){
+  try{ return !!(JSON.parse(localStorage.getItem(_saisonStartKey())||"{}")._zu); }catch(e){ return false; }
+}
+async function saisonStartFertig(){
+  if(!await frageJaNein({emoji:"🌅",titel:"Saisonstart abschließen?",
+    text:`Der Check verschwindet aus dem Orga-Menü. Zur nächsten Saison steht er von selbst wieder da – und über die Hilfe erreichst du ihn jederzeit.`,
+    ja:"Abschließen",nein:"Offen lassen"}))return;
+  let done={}; try{done=JSON.parse(localStorage.getItem(_saisonStartKey())||"{}");}catch(e){}
+  done._zu=true;
+  try{localStorage.setItem(_saisonStartKey(),JSON.stringify(done));}catch(e){}
+  document.getElementById("sstart-modal")?.remove();
+  toast("Saisonstart abgeschlossen ✓");
+}
 function saisonStartOpen(){
   let done={}; try{done=JSON.parse(localStorage.getItem(_saisonStartKey())||"{}");}catch(e){}
   const n=SAISONSTART_STEPS.filter(s=>done[s.k]).length;
@@ -2813,6 +2830,7 @@ function saisonStartOpen(){
       <button class="btn btn-sm" onclick="document.getElementById('sstart-modal').remove();${s.run}">Los</button>
     </div>`).join("")}
     ${n===SAISONSTART_STEPS.length?'<div style="text-align:center;font-size:13.5px;font-weight:800;color:var(--green);padding:6px">Alles erledigt – auf in die neue Saison! 🦅</div>':""}
+    <button type="button" onclick="saisonStartFertig()" style="width:100%;min-height:44px;margin-top:4px;border:${n===SAISONSTART_STEPS.length?"none":"var(--border-s)"};border-radius:12px;background:${n===SAISONSTART_STEPS.length?"var(--green)":"var(--surface2)"};color:${n===SAISONSTART_STEPS.length?"#fff":"var(--text2)"};font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">Saisonstart abschließen – bis zur nächsten Saison ausblenden</button>
   </div>`;
   document.body.appendChild(m);
 }
@@ -3250,9 +3268,11 @@ const HELP=[
     {t:"Quiz (Kinder)", d:"Kinder spielen über den Kids-Link (?quiz); Ergebnisse unter Eltern & Kinder → Quiz-Ergebnisse.", go:"quizresults"},
   ]},
   {cat:"📅 Orga", items:[
-    {t:"Termine", d:"Treffzeit getrennt vom Anstoß (bei Spielen −45 Min. vorgeschlagen) · Anlegen/bearbeiten · Serien · Endzeit (danach automatisch ins Archiv) · Platz · Trainer-Verfügbarkeit · Wetter · Ferien-Warnung.", go:"termine"},
+    {t:"Termine", d:"Das Formular zeigt nur, was zum Typ gehört: eine Treffzeit gibt es bei Spiel, Turnier und Event (bei Spielen −45 Min. vom Anpfiff vorgeschlagen) – beim Training kommen ohnehin alle zur Trainingszeit. „Wiederholen“ steht beim Event, weil Spiele und Turniere jedes Mal andere sind. Dazu: anlegen/bearbeiten · Endzeit (danach automatisch ins Archiv) · Platz · Trainer-Verfügbarkeit · Wetter · Ferien-Warnung.", go:"termine"},
     {t:"Gegner-Datenbank", d:"Adresse, Ansprechpartner, Telefon/WhatsApp, bisherige Spiele.", run:"gegnerManageOpen()"},
     {t:"Pinnwand", d:"Team-Notizen fürs Trainerteam.", go:"team"},
+    {t:"Trainer-Meeting", d:"Terminvorschläge machen, im Trainerteam abstimmen (✓ / ? / ✗), einen Termin festlegen. Solange deine Stimme fehlt, erinnert dich die Startseite daran; sobald der Termin steht, erscheint er dort als eigene Zeile. Ein Trainer-Meeting landet bewusst NICHT bei den Terminen – die sehen die Eltern.", run:"trainerMeetingOpen()"},
+    {t:"Saisonstart-Check", d:"Sechs Schritte für den Übergang in die neue Saison – Wrapped, Urkunden, Kader, Trainings-Serie, Eltern-Einladung, Ansage. Er steht Juni bis September im Orga-Menü; mit „Saisonstart abschließen“ blendest du ihn bis zur nächsten Saison aus. Von hier aus geht er immer auf.", run:"saisonStartOpen()"},
     {t:"Teamkasse", d:"Kassen-Link hinterlegen (kein Geld in der App).", run:"kasseOpen()"},
     {t:"Fundbüro", d:"Liegengebliebenes verwalten.", run:"fundbueroOpen()"},
     {t:"Team-Ausrüstung", d:"Wer hat welches Material.", run:"ausruestungGrid()"},
@@ -3299,7 +3319,7 @@ const TOUR=[
   {emo:"👥", t:"Kachel: Team", d:"Kader verwalten, Spieler alle 6 Wochen in 16 Kriterien bewerten (Live-Radar), Profil mit Sprachlob und Entwicklungs-Report, dazu Saison-Cockpit, Anwesenheit über die Saison und Rollen-Matrix. Auch Notfallkarten und Probetraining wohnen hier."},
   {emo:"🎯", t:"Kachel: Taktik", d:"Das Taktikboard: Formationen stellen, Laufwege und Pässe zeichnen, als Bild teilen – auf dem Tablet im großen Pro-Modus. Daneben die Übungs-Datenbank."},
   {emo:"🪶", t:"Kachel: Eltern & Kinder", d:"Team-Ansage mit Gelesen-Status, Eltern einladen, Elterngespräche – und die ganze Adler-Welt der Kinder: Federn, Karten, Abzeichen, Kabinen-Wahl, Sammelalbum-Fotos, Team-Quests, Urkunden-Studio und das Adler Nest."},
-  {emo:"📅", t:"Kachel: Orga", d:"Termine mit Serien und Endzeit (danach automatisch ins Archiv), Pinnwand fürs Trainerteam, Ferien-Radar, Mitbringlisten, Trainer-Meeting, Teamkasse, Ausrüstung und Fundbüro. Ganz unten: Push-Benachrichtigungen und dein Passwort."},
+  {emo:"📅", t:"Kachel: Orga", d:"Termine mit Endzeit (danach automatisch ins Archiv), Pinnwand fürs Trainerteam, Ferien-Radar, Mitbringlisten, Trainer-Meeting (steht der Termin, erscheint er auf deiner Startseite – die Eltern sehen ihn nicht), Teamkasse, Ausrüstung und Fundbüro. Ganz unten: Push-Benachrichtigungen und dein Passwort."},
   {emo:"🧭", t:"Und unten?", d:"Die Leiste am unteren Rand führt zu denselben Bereichen – für den schnellen Daumen-Wechsel. Kacheln und Leiste sind dieselbe Logik, nur zwei Wege. Viel Spaß – auf geht's, Adler! 🎉"},
 ];
 let tourIdx=0;
@@ -3614,6 +3634,7 @@ async function renderHome(){
     <div id="trainer-termine-slot"></div>
     <div id="eg-trainer"></div>
     <div id="home-next">${card('<div style="font-size:12px;color:var(--text3)">Lade nächsten Termin...</div>')}</div>
+    <div id="home-meeting"></div>
     <div id="home-carousel"></div>
     <div id="trainer-alle-termine-slot"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
@@ -3629,6 +3650,7 @@ async function renderHome(){
   elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche (handeln nötig → bleibt oben)
   trainerTodoLoad();             // To-Do-Banner (leer = unsichtbar)
   trainerTermineHomeLoad();      // Termine der nächsten 14 Tage zum Antippen
+  trainerMeetingHomeLoad();      // festgelegtes Trainer-Meeting (steht nicht in `termine`)
   if(typeof tlCheck==="function")tlCheck(); // läuft gerade ein Trainingsstart? → Bereit-Fenster ploppt auf
   if(stale>0){const b=document.getElementById("kb-team");if(b)b.textContent=stale+" Bewertungen fällig";}
   // ── Next Event (async nachladen, damit das Dashboard sofort steht) ──
@@ -4007,6 +4029,44 @@ async function trainerTermineHomeLoad(){
     </div>
     ${inhalt}
   </div>`;
+}
+/* Ein festgelegtes Trainer-Meeting auf der Startseite. Der Doodle lebt in `trainer_poll`,
+   NICHT in `termine` – und das bleibt auch so: `termine` lesen angemeldete Eltern, ein
+   Trainer-Meeting geht sie nichts an. Bisher verschwand ein Meeting nach dem Festlegen
+   komplett: das To-Do endet mit der eigenen Stimme, danach zeigte es keine Fläche mehr.
+   Deshalb hier eine eigene, nur dem Trainer sichtbare Zeile. */
+async function trainerMeetingHomeLoad(){
+  const slot=document.getElementById("home-meeting"); if(!slot)return;
+  slot.innerHTML="";
+  if(!sbToken())return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/trainer_poll?status=eq.entschieden&decided_slot_id=not.is.null&select=id,titel,decided_slot_id`,{headers:sbAuthHeaders()});
+    if(!r.ok)return;
+    const polls=(await r.json())||[];
+    if(!polls.length)return;
+    const heute=new Date().toISOString().slice(0,10);
+    const rs=await fetch(`${SB_URL}/rest/v1/trainer_poll_slot?id=in.(${polls.map(p=>p.decided_slot_id).join(",")})&datum=gte.${heute}&select=id,datum,uhrzeit&order=datum.asc,uhrzeit.asc.nullslast`,{headers:sbAuthHeaders()});
+    if(!rs.ok)return;
+    const slots=(await rs.json())||[];
+    if(!slots.length)return;
+    if(!document.getElementById("home-meeting"))return;   // Tab schon verlassen
+    slot.innerHTML=slots.map(s=>{
+      const p=polls.find(x=>x.decided_slot_id===s.id); if(!p)return "";
+      const d=new Date(s.datum+"T00:00:00");
+      const wann=d.toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"})+(s.uhrzeit?" · "+String(s.uhrzeit).slice(0,5)+" Uhr":"");
+      const tage=Math.round((d-new Date(heute+"T00:00:00"))/864e5);
+      const bald=tage===0?"heute":tage===1?"morgen":"in "+tage+" Tagen";
+      return `<button type="button" onclick="trainerMeetingOpen()" class="card" style="width:100%;text-align:left;border-left:4px solid #334155;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;cursor:pointer;font-family:inherit;min-height:44px">
+        <span style="font-size:20px;flex:none">🗓️</span>
+        <span style="flex:1;min-width:0">
+          <span style="display:block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text2)">Trainer-Meeting · ${esc(bald)}</span>
+          <span style="display:block;font-size:13.5px;font-weight:800;color:var(--text)">${esc(p.titel)}</span>
+          <span style="display:block;font-size:12px;color:var(--text2)">${esc(wann)}</span>
+        </span>
+        <span style="color:var(--text3);flex:none">›</span>
+      </button>`;
+    }).join("");
+  }catch(e){}
 }
 // Startseiten-Nudge: wer hat für den nächsten Termin (Training/Spiel/Turnier) noch nicht
 // geantwortet? Ein Tap öffnet die Rückmeldungs-Übersicht mit WhatsApp-Erinnerung.
@@ -4557,7 +4617,9 @@ function _kachelInhalt(key){
       {emo:"💰",label:"Teamkasse",fn:"kasseOpen"},
       {emo:"👕",label:"Ausrüstung",fn:"ausruestungGrid"},
       {emo:"🧦",label:"Fundbüro",fn:"fundbueroOpen"},
-      (new Date().getMonth()>=5&&new Date().getMonth()<=8)?{emo:"🌅",label:"Saisonstart-Check",fn:"saisonStartOpen"}:null,
+      // Juni–September – und nur solange die Saison nicht abgehakt ist. Zur nächsten
+      // Saison wechselt der Schlüssel, dann steht er von selbst wieder da.
+      (new Date().getMonth()>=5&&new Date().getMonth()<=8&&!saisonStartZu())?{emo:"🌅",label:"Saisonstart-Check",fn:"saisonStartOpen"}:null,
       {emo:"🧰",label:"Setup-Übersicht",fn:"setupTrainerOpen"}
     ],col)
     +kSec("Einstellungen")

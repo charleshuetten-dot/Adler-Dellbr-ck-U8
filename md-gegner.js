@@ -623,7 +623,7 @@ function tmEdit(id){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <label style="font-size:11px;color:var(--text2)">Datum<input type="date" id="te-datum" value="${t.datum}" style="${fld}" onchange="ferienDatumHint(this,'te-ferien-hint')"></label>
       <label style="font-size:11px;color:var(--text2)">Uhrzeit<input type="time" id="te-zeit" value="${t.uhrzeit?String(t.uhrzeit).slice(0,5):''}" style="${fld}"></label>
-      <label style="font-size:11px;color:var(--text2)">🕒 Treffen<input type="time" id="te-treff" value="${t.treffzeit?String(t.treffzeit).slice(0,5):''}" style="${fld}"></label>
+      ${!isTraining?`<label style="font-size:11px;color:var(--text2)">Treffen<input type="time" id="te-treff" value="${t.treffzeit?String(t.treffzeit).slice(0,5):''}" style="${fld}"></label>`:''}
     </div>
     <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Ende${isSpiel?" (Pflicht – danach wandert der Termin ins Archiv)":" (optional)"}<input type="time" id="te-ende" value="${t.uhrzeit_ende?String(t.uhrzeit_ende).slice(0,5):''}" style="${fld}"></label>
     <div id="te-ferien-hint"></div>
@@ -651,6 +651,8 @@ async function tmEditSave(id){
   const datum=g("te-datum")?.value;
   if(!datum){toast("Bitte Datum wählen","err");return;}
   if(isSpiel&&!(g("te-ende")?.value)){toast("Bitte eine Endzeit eintragen – danach wandert der Termin ins Archiv","err");return;}
+  // treffzeit: beim Training gibt es das Feld nicht mehr, dann wird eine alte Treffzeit
+  // bewusst geleert – sonst zeigen die Eltern-Karten weiter eine Zeit, die niemand pflegen kann.
   const body={datum, uhrzeit:(g("te-zeit")?.value||"")||null, uhrzeit_ende:(g("te-ende")?.value||"")||null, ort:(g("te-ort")?.value||"").trim()||null, treffzeit:(g("te-treff")?.value||"")||null};
   if(g("te-titel")){const tt=(g("te-titel").value||"").trim()||null; body.titel=tt; body.gegner=isSpiel?tt:null;}
   if(g("te-platz"))body.platz=(g("te-platz").value||"").trim()||null;
