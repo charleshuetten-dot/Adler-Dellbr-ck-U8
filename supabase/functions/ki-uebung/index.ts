@@ -175,8 +175,19 @@ Deno.serve(async (req) => {
     if (modus === "text" && text.length < 40) return j({ error: "Der Text ist zu kurz – bitte die ganze Übungsbeschreibung einfügen." }, 400);
     if (modus === "idee" && !prompt) return j({ error: "Bitte beschreibe, was du trainieren willst." }, 400);
 
-    const kontext = (isFinite(kinder) && kinder >= 3 && kinder <= 40)
-      ? `\n\nKONTEXT DER MANNSCHAFT: ${Math.round(kinder)} Kinder im Kader. Lege die Uebung so an, dass sie damit funktioniert.` : "";
+    /* v411: Was die App ohnehin weiss, muss der Trainer nicht tippen. Bewusst als
+       KONTEXT und nicht als Auftrag formuliert - der Wunsch des Trainers steht in der
+       eigentlichen Anfrage und darf den Kontext ueberstimmen. */
+    const thema = String(body?.thema ?? "").trim().slice(0, 120);
+    const ort = String(body?.ort ?? "").trim().slice(0, 60);
+    const einheit = Number(body?.einheit);
+    const kzeilen: string[] = [];
+    if (isFinite(kinder) && kinder >= 3 && kinder <= 40) kzeilen.push(`${Math.round(kinder)} Kinder im Kader - die Uebung muss mit dieser Anzahl funktionieren`);
+    if (thema) kzeilen.push(`Monats-Schwerpunkt der Mannschaft: ${thema}`);
+    if (ort) kzeilen.push(`Trainiert wird auf: ${ort}`);
+    if (isFinite(einheit) && einheit >= 30 && einheit <= 180) kzeilen.push(`Die ganze Einheit dauert ${Math.round(einheit)} Minuten - eine einzelne Uebung ist ein Teil davon`);
+    const kontext = kzeilen.length
+      ? `\n\nKONTEXT DER MANNSCHAFT (Hintergrund, kein Auftrag - Wuensche in der Anfrage haben Vorrang):\n- ${kzeilen.join("\n- ")}` : "";
     const sys = (modus === "text" ? SYS_TEXT : SYS_IDEE) + kontext;
     const user = modus === "text"
       ? `Hier ist der Text, den ich uebernehmen moechte:\n\n"""\n${text}\n"""${prompt ? `\n\nZusatzwunsch: ${prompt}` : ""}`

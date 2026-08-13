@@ -14,6 +14,7 @@ function kiCoachOpen(){
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
   m.onclick=e=>{if(e.target===m)m.remove();};
   const chip=t=>`<button onclick="document.getElementById('ki-prompt').value='${t.replace(/'/g,"")}'" style="border:var(--border-s);background:var(--surface);border-radius:14px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit">${t}</button>`;
+  const feld="width:100%;min-height:44px;padding:6px 8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:12.5px;background:var(--surface2);color:var(--text);box-sizing:border-box";
   m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:460px;width:100%;margin:auto">
     ${mdlHead("ki-modal","🤖","Adler-Coach (KI)","Übungen vorschlagen oder fremden Text übernehmen","#7c3aed")}
     <div id="ki-modus" style="display:flex;gap:6px;margin-bottom:10px">
@@ -21,8 +22,15 @@ function kiCoachOpen(){
       <button data-modus="text" onclick="kiSetModus('text')" style="flex:1;min-height:44px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">📋 Text übernehmen</button>
     </div>
     <div id="ki-hinweis" style="font-size:11px;color:var(--text2);margin-bottom:10px"></div>
+    <div id="ki-kontext"></div>
     <div id="ki-block-idee">
-      <textarea id="ki-prompt" rows="2" placeholder="z. B. 2 Übungen für Zweikampfhärte" style="width:100%;box-sizing:border-box;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px"></textarea>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+        <label style="font-size:10.5px;color:var(--text2)">Schwerpunkt<select id="ki-kat" style="${feld}">${KI_KATS.map(([k,n])=>`<option value="${k}">${n}</option>`).join("")}</select></label>
+        <label style="font-size:10.5px;color:var(--text2)">Dauer<select id="ki-dauer" style="${feld}">${KI_DAUER.map((d,i)=>`<option${i===1?" selected":""}>${d}</option>`).join("")}</select></label>
+        <label style="font-size:10.5px;color:var(--text2)">Wo<select id="ki-ort" style="${feld}">${KI_ORTE.map(o=>`<option>${o}</option>`).join("")}</select></label>
+        <label style="font-size:10.5px;color:var(--text2)">Material<select id="ki-material" style="${feld}">${KI_MATERIAL.map(m=>`<option>${m}</option>`).join("")}</select></label>
+      </div>
+      <textarea id="ki-prompt" rows="2" placeholder="Optional: was dir wichtig ist – z. B. „viele Ballkontakte, die Schnellen sollen nicht dominieren“" style="width:100%;box-sizing:border-box;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px"></textarea>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${chip("Dribbling & Ballführung")}${chip("Passspiel in der Raute")}${chip("Torschuss mit Spaß")}${chip("Zweikampf & Mut")}</div>
     </div>
     <div id="ki-block-text" style="display:none">
@@ -37,6 +45,72 @@ function kiCoachOpen(){
   </div>`;
   document.body.appendChild(m);
   kiSetModus("idee");
+  kiKontextLaden();   // füllt die Kontextzeile und belegt Schwerpunkt/Ort vor
+}
+/* ── Was die App ohnehin weiß, muss niemand tippen (PO v411, Punkt 1) ─────────
+   Ein „Prompt-Generator", der aus einem kurzen Satz einen langen macht, müsste Angaben
+   ERFINDEN – genau das, was wir im Text-Modus gerade verboten haben. Die meisten
+   schlechten Ergebnisse entstehen nicht aus schlechten Formulierungen, sondern aus
+   FEHLENDEN Angaben. Also holt die App, was sie hat, statt zu raten:
+   Kadergröße, Monats-Schwerpunkt aus der Periodisierung, Platz und Dauer des nächsten
+   Trainings. Angezeigt wird das offen über dem Eingabefeld – wer nicht sieht, was
+   mitgeschickt wird, kann es auch nicht korrigieren. */
+let KI_KONTEXT={};
+async function kiKontextLaden(){
+  const k={};
+  try{ if(typeof KADER!=="undefined"&&Array.isArray(KADER))k.kinder=KADER.filter(x=>x&&x.aktiv!==false).length; }catch(e){}
+  const monat=new Date().toISOString().slice(0,7);
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/periodisierung?monat=eq.${monat}&select=thema,kategorie`,{headers:sbAuthHeaders()});
+    if(r.ok){const p=((await r.json())||[])[0]; if(p){k.thema=p.thema||""; k.kategorie=p.kategorie||"";}}
+  }catch(e){}
+  const heute=new Date().toISOString().slice(0,10);
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?select=platz,uhrzeit,uhrzeit_ende&typ=eq.training&datum=gte.${heute}&order=datum.asc&limit=1`,{headers:sbAuthHeaders()});
+    if(r.ok){const t=((await r.json())||[])[0];
+      if(t){
+        if(t.platz)k.ort=t.platz;
+        const min=(a,b)=>{const p=x=>{const m=/^(\d{1,2}):(\d{2})/.exec(String(x||""));return m?+m[1]*60+ +m[2]:null;};
+          const v=p(a),w=p(b);return (v!=null&&w!=null&&w>v)?w-v:null;};
+        const d=min(t.uhrzeit,t.uhrzeit_ende); if(d)k.einheit=d;
+      }}
+  }catch(e){}
+  KI_KONTEXT=k;
+  const box=document.getElementById("ki-kontext");
+  if(box){
+    const teile=[];
+    if(k.kinder)teile.push(`👥 ${k.kinder} Kinder`);
+    if(k.thema)teile.push(`🎯 Schwerpunkt: ${esc(k.thema)}`);
+    if(k.ort)teile.push(`🏟️ ${esc(k.ort)}`);
+    if(k.einheit)teile.push(`⏱ Einheit ${k.einheit} Min`);
+    box.innerHTML=teile.length
+      ? `<div style="font-size:10.5px;color:var(--text3);background:var(--surface2);border-radius:8px;padding:7px 9px;margin-bottom:8px;line-height:1.5">Der Coach bekommt das automatisch mit: ${teile.join(" · ")}</div>`
+      : "";
+  }
+  // Schwerpunkt-Auswahl auf das Monatsthema vorbelegen, Ort aus dem nächsten Training
+  const sel=document.getElementById("ki-kat");
+  if(sel&&k.kategorie&&[...sel.options].some(o=>o.value===k.kategorie))sel.value=k.kategorie;
+  const ort=document.getElementById("ki-ort");
+  if(ort&&k.ort){
+    const p=String(k.ort).toLowerCase();
+    ort.value=p.includes("halle")?"Halle":p.includes("käfig")||p.includes("kaefig")?"Käfig":"Platz";
+  }
+}
+/* Punkt 2: fragen statt generieren. Vier Auswahlfelder mit sinnvoller Vorbelegung –
+   der Client setzt daraus einen präzisen Satz zusammen. Deterministisch, nichts erfunden. */
+const KI_DAUER=["10 Min","15 Min","20 Min","25 Min"];
+const KI_ORTE=["Platz","Käfig","Halle"];
+const KI_MATERIAL=["nur Hütchen","Hütchen + Minitore","großes Tor mit Torwart"];
+function kiWunschSatz(){
+  const g=id=>document.getElementById(id)?.value||"";
+  const kat=g("ki-kat"), dauer=g("ki-dauer"), ort=g("ki-ort"), mat=g("ki-material");
+  const kn=(KI_KATS.find(x=>x[0]===kat)||[])[1]||"";
+  const t=[];
+  if(kn)t.push("Schwerpunkt: "+kn);
+  if(dauer)t.push("Dauer: "+dauer);
+  if(ort)t.push("Ort: "+ort);
+  if(mat)t.push("Material: "+mat);
+  return t.join(" · ");
 }
 /* Zwei Eingänge, ein Ergebnisweg (PO v410, Stufe 1): „Idee" erfindet, „Text" ordnet nur.
    Der Unterschied steht auch im System-Prompt der Edge Function – hier nur die Oberfläche. */
@@ -86,9 +160,15 @@ async function kiCoachGenerate(){
   const ctrl=new AbortController(), to=setTimeout(()=>ctrl.abort(),60000);
   // Kadergröße mitgeben: „6-12 Spieler" geht sonst an einer Mannschaft mit 15 Kindern vorbei.
   const kinder=(typeof KADER!=="undefined"&&Array.isArray(KADER))?KADER.filter(k=>k&&k.aktiv!==false).length:0;
+  // Auswahlfelder (nur im Idee-Modus) vor den Freitext setzen – sie sind die Angabe,
+  // der Freitext ist die Nuance.
+  const wunsch=KI_MODUS==="idee"?kiWunschSatz():"";
+  const promptVoll=[wunsch,prompt].filter(Boolean).join(". ");
   try{
     const r=await fetch(`${SB_URL}/functions/v1/ki-uebung`,{method:"POST",headers:sbAuthHeaders(),
-      body:JSON.stringify({modus:KI_MODUS,prompt,text:KI_MODUS==="text"?text:"",kinder}),signal:ctrl.signal});
+      body:JSON.stringify({modus:KI_MODUS,prompt:promptVoll,text:KI_MODUS==="text"?text:"",
+        kinder, thema:KI_KONTEXT.thema||"", ort:KI_KONTEXT.ort||"", einheit:KI_KONTEXT.einheit||0}),
+      signal:ctrl.signal});
     clearTimeout(to);
     const d=await r.json().catch(()=>({}));
     if(!r.ok){ if(out)out.innerHTML=`<div style="color:#dc2626;font-size:13px;padding:10px">${esc(d.error||("Fehler "+r.status))}</div>`; return; }
@@ -104,8 +184,14 @@ function kiCoachRender(uebungen,rest){
   kiLastUebungen=uebungen||[];
   const out=document.getElementById("ki-result"); if(!out)return;
   if(!kiLastUebungen.length){out.innerHTML='<div style="padding:10px;color:var(--text3);font-size:13px">Keine Übungen erhalten – bitte anders formulieren.</div>';return;}
+  /* Punkt 3: Rückmeldung statt Vorab-Anleitung. Der Text-Modus lässt Felder bewusst leer,
+     wenn die Angabe im Text fehlt. Das sichtbar zu machen ist die bessere Anleitung: man
+     lernt genau dann, welche Angaben zählen, wenn es einen interessiert. */
+  const fehlt=u=>[["dauer","Dauer"],["spieler","Spieleranzahl"],["feld","Feldgröße"],["material","Material"]]
+    .filter(([k])=>!String(u[k]||"").trim()).map(([,n])=>n);
   out.innerHTML=kiLastUebungen.map((u,i)=>`<div style="border:var(--border-s);border-radius:12px;padding:12px;margin-bottom:10px">
     <div style="font-weight:800;font-size:14px">${esc(u.titel||"Übung")}</div>
+    ${(KI_MODUS==="text"&&fehlt(u).length)?`<div style="font-size:11px;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:7px 9px;margin:6px 0;line-height:1.5">⚠️ Stand nicht im Text: <b>${fehlt(u).join(", ")}</b> – ergänze es kurz im Text und übernimm nochmal, oder trag es nach dem Speichern in der Übung nach.</div>`:""}
     <div style="font-size:11px;color:var(--text2);margin:2px 0 6px">${u.dauer?"⏱ "+esc(u.dauer):""}${u.spieler?" · 👥 "+esc(u.spieler):""}${u.feld?" · 📐 "+esc(u.feld):""}${u.material?" · 🎒 "+esc(u.material):""}</div>
     ${u.skizze&&typeof _skz==="function"?_skz(u.skizze)+(typeof skzLegende==="function"?skzLegende():""):""}
     <div style="font-size:12.5px;line-height:1.5;white-space:pre-wrap">${esc(u.beschreibung||"")}</div>
