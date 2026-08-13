@@ -15,17 +15,51 @@ function kiCoachOpen(){
   m.onclick=e=>{if(e.target===m)m.remove();};
   const chip=t=>`<button onclick="document.getElementById('ki-prompt').value='${t.replace(/'/g,"")}'" style="border:var(--border-s);background:var(--surface);border-radius:14px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit">${t}</button>`;
   m.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:460px;width:100%;margin:auto">
-    ${mdlHead("ki-modal","🤖","Adler-Coach (KI)","Schlägt altersgerechte U8/U9-Übungen vor","#7c3aed")}
-    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Beschreibe, was du trainieren willst – der Coach schlägt altersgerechte U8/U9-Übungen vor. Du entscheidest, was in die Bibliothek kommt.</div>
-    <textarea id="ki-prompt" rows="2" placeholder="z. B. 2 Übungen für Zweikampfhärte" style="width:100%;box-sizing:border-box;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px"></textarea>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${chip("Dribbling & Ballführung")}${chip("Passspiel in der Raute")}${chip("Torschuss mit Spaß")}${chip("Zweikampf & Mut")}</div>
+    ${mdlHead("ki-modal","🤖","Adler-Coach (KI)","Übungen vorschlagen oder fremden Text übernehmen","#7c3aed")}
+    <div id="ki-modus" style="display:flex;gap:6px;margin-bottom:10px">
+      <button data-modus="idee" onclick="kiSetModus('idee')" style="flex:1;min-height:44px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">💡 Idee beschreiben</button>
+      <button data-modus="text" onclick="kiSetModus('text')" style="flex:1;min-height:44px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">📋 Text übernehmen</button>
+    </div>
+    <div id="ki-hinweis" style="font-size:11px;color:var(--text2);margin-bottom:10px"></div>
+    <div id="ki-block-idee">
+      <textarea id="ki-prompt" rows="2" placeholder="z. B. 2 Übungen für Zweikampfhärte" style="width:100%;box-sizing:border-box;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px"></textarea>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${chip("Dribbling & Ballführung")}${chip("Passspiel in der Raute")}${chip("Torschuss mit Spaß")}${chip("Zweikampf & Mut")}</div>
+    </div>
+    <div id="ki-block-text" style="display:none">
+      <textarea id="ki-text" rows="8" placeholder="Übungsbeschreibung hier einfügen – von einer Webseite, aus WhatsApp, aus einem Buch oder aus der Beschreibung unter einem Video." style="width:100%;box-sizing:border-box;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px"></textarea>
+      <div style="font-size:10.5px;color:var(--text3);margin:4px 0 8px">Der Coach ordnet den Text in Aufbau, Ablauf, Varianten und Coaching-Punkte und zeichnet die Skizze dazu. Er erfindet nichts hinzu – was nicht dasteht, bleibt leer.</div>
+    </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <button id="ki-gen-btn" class="btn btn-p btn-sm" onclick="kiCoachGenerate()"><i class="ti ti-sparkles"></i>Übungen vorschlagen</button>
-      <button class="btn btn-sm" onclick="kiCoachInsertNotes()" title="Deine letzten Trainer-Notizen als Kontext einfügen"><i class="ti ti-notes"></i>📓 Aus meinen Notizen</button>
+      <button id="ki-gen-btn" class="btn btn-p btn-sm" onclick="kiCoachGenerate()"><i class="ti ti-sparkles"></i><span id="ki-gen-lbl">Übungen vorschlagen</span></button>
+      <button id="ki-notiz-btn" class="btn btn-sm" onclick="kiCoachInsertNotes()" title="Deine letzten Trainer-Notizen als Kontext einfügen"><i class="ti ti-notes"></i>📓 Aus meinen Notizen</button>
     </div>
     <div id="ki-result" style="margin-top:12px"></div>
   </div>`;
   document.body.appendChild(m);
+  kiSetModus("idee");
+}
+/* Zwei Eingänge, ein Ergebnisweg (PO v410, Stufe 1): „Idee" erfindet, „Text" ordnet nur.
+   Der Unterschied steht auch im System-Prompt der Edge Function – hier nur die Oberfläche. */
+let KI_MODUS="idee";
+function kiSetModus(m){
+  KI_MODUS=(m==="text")?"text":"idee";
+  const an=KI_MODUS;
+  document.querySelectorAll("#ki-modus button").forEach(b=>{
+    const aktiv=b.dataset.modus===an;
+    b.style.background=aktiv?"#7c3aed":"var(--surface)";
+    b.style.color=aktiv?"#fff":"var(--text2)";
+    b.style.borderColor=aktiv?"#7c3aed":"";
+    b.setAttribute("aria-pressed",aktiv?"true":"false");
+  });
+  const zeig=(id,ja)=>{const e=document.getElementById(id); if(e)e.style.display=ja?"block":"none";};
+  zeig("ki-block-idee",an==="idee");
+  zeig("ki-block-text",an==="text");
+  const h=document.getElementById("ki-hinweis");
+  if(h)h.textContent=an==="text"
+    ? "Text einfügen – der Coach macht daraus eine Übung im Format der App, mit Skizze."
+    : "Beschreibe, was du trainieren willst – der Coach schlägt altersgerechte U8/U9-Übungen vor. Du entscheidest, was in die Bibliothek kommt.";
+  const l=document.getElementById("ki-gen-lbl"); if(l)l.textContent=an==="text"?"Text übernehmen":"Übungen vorschlagen";
+  const nb=document.getElementById("ki-notiz-btn"); if(nb)nb.style.display=an==="text"?"none":"";
 }
 /* KI-Loop (18.1): der Trainer holt seine letzten Voice-Diary-Notizen als Kontext in den
    Prompt – bewusst per Klick (Trainer-in-the-Loop), nicht serverseitig-automatisch, damit
@@ -42,13 +76,19 @@ async function kiCoachInsertNotes(){
 }
 async function kiCoachGenerate(){
   const prompt=(document.getElementById("ki-prompt")?.value||"").trim();
-  if(!prompt){toast("Bitte kurz beschreiben","err");return;}
+  const text=(document.getElementById("ki-text")?.value||"").trim();
+  if(KI_MODUS==="text"&&text.length<40){toast("Bitte die ganze Übungsbeschreibung einfügen","err");return;}
+  if(KI_MODUS==="idee"&&!prompt){toast("Bitte kurz beschreiben","err");return;}
   const out=document.getElementById("ki-result"), btn=document.getElementById("ki-gen-btn");
-  if(out)out.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">🧠 Adler-Coach denkt nach…</div>';
+  if(out)out.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">🧠 ${KI_MODUS==="text"?"Adler-Coach liest den Text…":"Adler-Coach denkt nach…"}</div>`;
   if(btn)btn.disabled=true;
-  const ctrl=new AbortController(), to=setTimeout(()=>ctrl.abort(),30000); // UI haengt nie
+  // Ein größeres Modell braucht länger als das alte kleine – 30 s waren dafür zu knapp.
+  const ctrl=new AbortController(), to=setTimeout(()=>ctrl.abort(),60000);
+  // Kadergröße mitgeben: „6-12 Spieler" geht sonst an einer Mannschaft mit 15 Kindern vorbei.
+  const kinder=(typeof KADER!=="undefined"&&Array.isArray(KADER))?KADER.filter(k=>k&&k.aktiv!==false).length:0;
   try{
-    const r=await fetch(`${SB_URL}/functions/v1/ki-uebung`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({prompt}),signal:ctrl.signal});
+    const r=await fetch(`${SB_URL}/functions/v1/ki-uebung`,{method:"POST",headers:sbAuthHeaders(),
+      body:JSON.stringify({modus:KI_MODUS,prompt,text:KI_MODUS==="text"?text:"",kinder}),signal:ctrl.signal});
     clearTimeout(to);
     const d=await r.json().catch(()=>({}));
     if(!r.ok){ if(out)out.innerHTML=`<div style="color:#dc2626;font-size:13px;padding:10px">${esc(d.error||("Fehler "+r.status))}</div>`; return; }
