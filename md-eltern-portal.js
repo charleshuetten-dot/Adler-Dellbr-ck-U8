@@ -780,7 +780,9 @@ async function elternDashLoad(){
     <div id="push-slot-eltern"></div>`);
   html+=`</div>`; // /cat-kontakt
   html+=`</div></div>`; // /el-cat-overlay
+  const scrollVor=_epScrollMerken(body);   // Wischposition der Karussells retten
   body.innerHTML=html;
+  _epScrollZurueck(scrollVor,body);        // …und sofort wiederherstellen, vor dem ersten Bild
   try{ const tb=document.getElementById("cat-todo"); if(tb){ new MutationObserver(elternTodoSync).observe(tb,{childList:true,subtree:true}); elternTodoSync(); } }catch(e){}
   elternThemeInit();          // Observer für Modals/Slots (einmalig)
   elternThemeSweep(body);     // Dashboard bei Dark-Theme einfärben
@@ -942,6 +944,27 @@ function elternOffeneRsvpHtml(rows,kids,rsvpAll,ausserId){
     </div>
     ${zeilen}</div>`;
 }
+/* Jede Antwort baut das Dashboard komplett neu – und ein frisches Element fängt bei
+   scrollLeft 0 an. Wer im Termin-Karussell nach rechts gewischt hatte, stand nach dem
+   Antippen wieder ganz links und musste sich zum nächsten offenen Termin zurückwischen.
+   Elemente mit data-scrollkeep behalten deshalb ihre Position über den Neuaufbau hinweg.
+   Wichtig: der Schlüssel steht im Markup, nicht in einer Liste hier – ein neues Karussell
+   trägt sein Attribut mit und ist damit automatisch dabei. */
+function _epScrollMerken(wurzel){
+  const merk={};
+  (wurzel||document).querySelectorAll("[data-scrollkeep]").forEach(el=>{
+    if(el.scrollLeft>0)merk[el.dataset.scrollkeep]=el.scrollLeft;
+  });
+  return merk;
+}
+function _epScrollZurueck(merk,wurzel){
+  if(!merk)return;
+  (wurzel||document).querySelectorAll("[data-scrollkeep]").forEach(el=>{
+    const x=merk[el.dataset.scrollkeep];
+    // scroll-snap würde eine sanfte Bewegung mitanimieren – hier soll es einfach dastehen
+    if(x>0)el.scrollLeft=x;
+  });
+}
 function elternTermineCarouselHtml(rows,kids,rsvpAll){
   const upcoming=(rows||[]).slice(0,10);
   if(upcoming.length<2)return ""; // bei nur 1 Termin steht der schon oben mit voller Info
@@ -974,7 +997,7 @@ function elternTermineCarouselHtml(rows,kids,rsvpAll){
   return `<div style="background:#fff;border-radius:14px;padding:14px 14px 8px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">
     <div style="font-weight:700;margin-bottom:2px">📅 Deine nächsten Termine</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:10px">Schnell 👍 zusagen · 🤔 unsicher · 👎 absagen · „Alle Infos" für Details. Wischen →</div>
-    <div style="display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:8px;-webkit-overflow-scrolling:touch">${cards}</div>
+    <div data-scrollkeep="termine" style="display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:8px;-webkit-overflow-scrolling:touch">${cards}</div>
   </div>`;
 }
 
