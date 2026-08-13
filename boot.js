@@ -51,7 +51,10 @@ async function saveCustomTraining(){
     spass:parseInt(document.getElementById('tf-spass').value),
     diff:parseInt(document.getElementById('tf-diff').value),
     custom:true,focus:false,tags:'Eigene Übung',
-    kurz:document.getElementById('tf-ablauf').value.slice(0,80)
+    kurz:document.getElementById('tf-ablauf').value.slice(0,80),
+    /* v409: die selbst getippte oder aus einer Vorlage geladene Skizze. Die Spalte
+       `skizze` (jsonb) gab es schon – gefüllt hat sie nur nie jemand. */
+    skizze:(window.TF_SKIZZE&&typeof window.TF_SKIZZE==="object")?window.TF_SKIZZE:null
   };
   try{
     // Trainer-Token statt anon (RLS: trainingsformen schreibbar nur fuer is_trainer). Kein svg-Feld (Spalte existiert nicht).
@@ -62,15 +65,24 @@ async function saveCustomTraining(){
     });
     if(!res.ok){toast("Cloud-Speicherung fehlgeschlagen – nur lokal gespeichert","info");}
   }catch(e){toast("Offline – Übung nur lokal gespeichert","info");}
+  // Bild sofort mitrechnen, damit die neue Übung in der Liste nicht erst nach einem
+  // Neuladen ihre Skizze zeigt (ladeCustomForms macht das sonst beim nächsten Start).
+  try{ form.svg=_skz(form.skizze||SKZ_KAT[form.kat]||SKZ_KAT.technik); }catch(e){}
   CUSTOM_FORMS.push(form);
   closeAddTraining();
   renderTraining();
   toast("Übung gespeichert ✓");
 }
 
-function openAddTraining(){document.getElementById('training-modal').style.display='block';}
+function openAddTraining(){
+  document.getElementById('training-modal').style.display='block';
+  window.TF_SKIZZE=null;                                   // jede Übung startet ohne Skizze
+  if(typeof tfSkizzeVorschau==="function")tfSkizzeVorschau(); // Welle 2 – ungeschützt reißt es den Dialog mit
+}
 function closeAddTraining(){
   document.getElementById('training-modal').style.display='none';
+  window.TF_SKIZZE=null;
+  if(typeof tfSkizzeVorschau==="function")tfSkizzeVorschau();
   ['tf-name','tf-ablauf','tf-varianten','tf-coaching','tf-spieler','tf-feld','tf-dauer'].forEach(function(id){
     var el=document.getElementById(id);if(el)el.value='';
   });

@@ -344,6 +344,14 @@
         <div class="mg" style="grid-column:span 2"><label for="tf-coaching">Coaching-Punkte</label>
           <textarea id="tf-coaching" rows="2" style="resize:none" placeholder="Was soll der Trainer beobachten?"></textarea>
         </div>
+        <!-- Skizze: Vorlage wählen oder selbst tippen (md-skizze.js, Welle 2) -->
+        <div class="mg" style="grid-column:span 2"><label>Skizze</label>
+          <div id="tf-skizze-vorschau"></div>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-sm" onclick="tfSkizzeOpen()"><i class="ti ti-pencil"></i>Skizze zeichnen</button>
+            <button type="button" class="btn btn-sm" id="tf-skizze-weg" style="display:none" onclick="tfSkizzeWeg()"><i class="ti ti-trash"></i>Entfernen</button>
+          </div>
+        </div>
       </div>
       <div class="brow">
         <button class="btn btn-p" onclick="saveCustomTraining()"><i class="ti ti-device-floppy"></i>Speichern</button>

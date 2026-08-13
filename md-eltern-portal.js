@@ -707,6 +707,8 @@ async function elternDashLoad(){
   html+=catBtn('regeln','📋','Regeln &amp; Vereinbarungen','Unsere Vereinbarung &amp; das Fairplay-Quiz','linear-gradient(135deg,#16a34a,#059669)');
   html+=catBtn('datenschutz','🔒','Datenschutz &amp; Freigaben','Foto/Video, Notfallkarte, Datenexport','linear-gradient(135deg,#0d9488,#0f766e)');
   html+=catBtn('kontakt','⚙️','Kontakt &amp; Benachrichtigungen','Elterngespräch, Push, Einstellungen','linear-gradient(135deg,#475569,#334155)');
+  // Versionszeile: hilft, wenn jemand „bei mir sieht das anders aus" meldet (v409)
+  html+=`<div id="app-version-eltern" style="text-align:center;font-size:10.5px;color:#94a3b8;margin:16px 0 4px"></div>`;
   html+=`<div id="el-cat-overlay" style="display:none;position:fixed;inset:0;z-index:10000;background:var(--bg,#f1f5f9);overflow-y:auto"><div style="max-width:560px;margin:0 auto;padding:12px 16px 40px">
     <div style="display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg,#f1f5f9);padding:8px 0 10px;z-index:1">
       <button onclick="elternCatClose()" aria-label="Zurück" style="border:none;background:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;color:#334155;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);flex:none">←</button>
@@ -805,6 +807,7 @@ async function elternDashLoad(){
   pulsNudgeLoad();         // Puls-Erinnerung fürs jüngste Event ohne Feedback
   elternChecklistLoad(kids); // „Erste Schritte"-Checkliste (Adoption)
   elternNewsLoad(kids);    // 📣 Adler News: Neues seit letztem Blick + roter Badge
+  if(typeof appVersionInto==="function")appVersionInto("app-version-eltern");
   // Kam das Kind über „← Zurück zur Kabine" aus dem Quiz? Dann nicht im Eltern-Hub landen.
   let backToKabine=false; try{backToKabine=sessionStorage.getItem("adler_open_kabine")==="1";sessionStorage.removeItem("adler_open_kabine");}catch(e){}
   // PO: Reload in der Kabine warf das Kind zurueck in den Eltern-Hub. Der Kids-Modus ist
