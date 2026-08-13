@@ -1240,9 +1240,13 @@ async function wrappedLoadFotos(saison){
   return awrapFotoUrls;
 }
 // HOTFIX 7: Wrapped ist standardmäßig gesperrt (Teaser). Trainer kann trotzdem eine Vorschau öffnen.
-function adlerWrappedTeaser(){
+async function adlerWrappedTeaser(){
   try{navigator.vibrate&&navigator.vibrate(20);}catch(e){}
-  if(confirm("🎬 Adler Wrapped ist der große Saison-Rückblick – die volle Story gibt's am Saisonende.\n\nMöchtest du jetzt schon eine Vorschau mit dem aktuellen Stand ansehen?"))adlerWrappedOpen();
+  const ja=await frageJaNein({
+    emoji:"🎬", titel:"Adler Wrapped", unter:"Der große Saison-Rückblick",
+    text:"Die volle Story gibt's am Saisonende.\n\nMöchtest du jetzt schon eine Vorschau mit dem aktuellen Stand ansehen?",
+    ja:"Vorschau ansehen", nein:"Später"});
+  if(ja)adlerWrappedOpen();
 }
 async function adlerWrappedOpen(){
   const btn=document.getElementById("wrapped-btn");
@@ -2686,10 +2690,47 @@ function elternInvitePaket(){
     `So kommt ihr rein:\n`+
     `1️⃣ Link öffnen: ${url}\n`+
     `2️⃣ Mit EURER E-Mail anmelden (die, die ihr dem Trainer gegeben habt) – ihr bekommt einen Code per Mail.\n`+
-    `3️⃣ Im Browser-Menü „Zum Startbildschirm hinzufügen" – dann läuft sie wie eine echte App.\n\n`+
+    `3️⃣ Im Browser-Menü „Zum Startbildschirm hinzufügen“ – dann läuft sie wie eine echte App.\n\n`+
     `Bis bald am Platz! 🖤`;
-  if(navigator.share){ navigator.share({title:"Eltern-App · SV Adler U9",text:msg}).catch(()=>{}); }
-  else{ try{navigator.clipboard?.writeText(msg);}catch(e){} window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank"); }
+  elternInviteTeilen(msg);
+}
+/* Drei Wege, und der Trainer erfährt immer, welcher gegriffen hat. Vorher schluckte
+   ein .catch(()=>{}) jeden Fehler des Teilen-Menüs, die Zwischenablage lief unbemerkt
+   ins Leere (writeText ist ein Promise, try/catch fängt das nicht) und ein blockiertes
+   Pop-up hinterließ gar nichts – ein Knopf, der nichts tut, sieht aus wie ein Defekt. */
+async function elternInviteTeilen(msg){
+  // 1. Teilen-Menü des Geräts
+  if(navigator.share){
+    try{ await navigator.share({title:"Eltern-App · SV Adler U9",text:msg}); return; }
+    catch(e){ if(e&&e.name==="AbortError")return; }   // bewusst abgebrochen: kein Ersatzweg aufdrängen
+  }
+  // 2. Zwischenablage + WhatsApp im neuen Tab
+  let kopiert=false;
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ await navigator.clipboard.writeText(msg); kopiert=true; } }catch(e){}
+  const fenster=window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
+  if(fenster){ toast(kopiert?"WhatsApp geöffnet · Text ist auch kopiert ✓":"WhatsApp geöffnet ✓"); return; }
+  if(kopiert){ toast("Einladungstext kopiert – jetzt in WhatsApp einfügen ✓"); return; }
+  // 3. Nichts ging (Pop-up blockiert, keine Zwischenablage): Text zum Herauskopieren zeigen
+  elternInviteTextZeigen(msg);
+}
+function elternInviteTextZeigen(msg){
+  document.getElementById("invite-modal")?.remove();
+  const m=document.createElement("div"); m.id="invite-modal";
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Einladungstext");
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;padding:16px;overflow-y:auto";
+  m.style.zIndex=(typeof zOben==="function")?zOben(10010):10010;
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:14px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  c.innerHTML=`${mdlHead("invite-modal","🔗","Einladungstext","Teilen ging nicht – hier zum Kopieren","#1e3a8a")}
+    <textarea id="invite-text" readonly style="width:100%;height:220px;border:var(--border-s);border-radius:12px;background:var(--surface2);color:var(--text);font-family:inherit;font-size:12.5px;line-height:1.5;padding:10px;resize:vertical">${esc(msg)}</textarea>
+    <button type="button" id="invite-copy" style="width:100%;min-height:44px;margin-top:10px;border:none;border-radius:12px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">Text markieren</button>`;
+  m.appendChild(c); document.body.appendChild(m);
+  c.querySelector("#invite-copy").onclick=()=>{
+    const t=c.querySelector("#invite-text");
+    t.focus(); t.select(); t.setSelectionRange(0,msg.length);
+    toast("Markiert – jetzt kopieren und in WhatsApp einfügen");
+  };
 }
 // Saison-Cockpit: ein Blick auf die Saison – Kennzahlen, Top-Torschützen, Anwesenheit,
 // Sprung zur Einsatz-Fairness. Führt vorhandene Datenquellen zusammen (keine neue Persistenz).

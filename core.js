@@ -966,6 +966,53 @@ function mdlHead(modalId,emoji,title,sub,col){
   </div>`;
 }
 
+/* ── Ja/Nein-Frage im App-Look, als Ersatz für confirm(). ──────────────────────
+   confirm() reißt den Bildschirm aus der App heraus, ignoriert den dunklen Modus und
+   heißt auf manchen Geräten „Diese Seite sagt:". Diese Frage sieht aus wie der Rest
+   der App, trägt role="dialog" (Fokus-Trap greift) und liefert ein Promise<boolean>.
+
+   Abbruch ist IMMER „nein": ×, Klick daneben, Esc und die Android-Zurück-Taste
+   entfernen das Fenster — der Wächter unten merkt das und löst die Zusage auf,
+   sonst wartet der Aufrufer für immer.
+
+   Aufruf:  if(!await frageJaNein({titel:"…", text:"…", ja:"Löschen", ton:"rot"}))return;  ── */
+function frageJaNein(o){
+  o=o||{};
+  return new Promise(fertig=>{
+    document.getElementById("frage-modal")?.remove();
+    // Feste Rottöne, nicht var(--red): der Knopf malt seinen Grund selbst und traegt immer
+    // weisse Schrift – das helle Rot des Dunkelmodus kaeme damit auf 2,8:1.
+    const akzent=o.ton==="rot"?"#b91c1c":"#1e3a8a";   // beide 6,5:1 bzw. 10,4:1 mit Weiss
+    const m=document.createElement("div"); m.id="frage-modal";
+    m.setAttribute("role","dialog"); m.setAttribute("aria-modal","true");
+    m.setAttribute("aria-label",o.titel||"Frage");
+    m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;padding:16px;overflow-y:auto";
+    m.style.zIndex=(typeof zOben==="function")?zOben(10010):10010;
+    let fertigGemeldet=false, wache=null;
+    const antwort=ja=>{
+      if(fertigGemeldet)return; fertigGemeldet=true;
+      if(wache)wache.disconnect();
+      m.remove(); fertig(!!ja);
+    };
+    m.onclick=e=>{ if(e.target===m)antwort(false); };
+    const c=document.createElement("div");
+    c.style.cssText="background:var(--surface);color:var(--text);max-width:400px;width:100%;margin:auto;border-radius:16px;padding:14px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+    c.innerHTML=`${mdlHead("frage-modal",o.emoji||"❓",esc(o.titel||"Kurze Frage"),o.unter?esc(o.unter):"",akzent)}
+      <div style="font-size:13.5px;line-height:1.55;color:var(--text);white-space:pre-line;margin:2px 2px 14px">${esc(o.text||"")}</div>
+      <div style="display:flex;gap:8px">
+        <button type="button" id="frage-nein" style="flex:1;min-height:44px;border:var(--border-s);border-radius:12px;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">${esc(o.nein||"Abbrechen")}</button>
+        <button type="button" id="frage-ja" style="flex:1;min-height:44px;border:none;border-radius:12px;background:${akzent};color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">${esc(o.ja||"Ja, weiter")}</button>
+      </div>`;
+    m.appendChild(c); document.body.appendChild(m);
+    c.querySelector("#frage-nein").onclick=()=>antwort(false);
+    c.querySelector("#frage-ja").onclick=()=>antwort(true);
+    // × im Kopf, Esc und Android-Zurück entfernen das Fenster an uns vorbei
+    wache=new MutationObserver(()=>{ if(!m.isConnected)antwort(false); });
+    wache.observe(document.body,{childList:true});
+    setTimeout(()=>{ try{c.querySelector("#frage-ja").focus();}catch(e){} },0);
+  });
+}
+
 /* ── Android-Zurück schließt das oberste Fenster statt der App (PWA-Back-Falle, PO-Feedback).
    Jedes direkt am body geöffnete Fenster (id endet auf -modal/-ov/-overlay) bekommt beim
    Öffnen einen History-Eintrag; die Zurück-Taste schließt es dann. Schließen per ×
