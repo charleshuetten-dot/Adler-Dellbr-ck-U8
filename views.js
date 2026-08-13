@@ -3184,7 +3184,7 @@ const HELP=[
     {t:"Anwesenheit erfassen", d:"Wer war da – Haken je Kind; Trainer werden aus dem Termin vorausgefüllt. Die Saison-Auswertung dazu liegt bei Team.", go:"anwesenheit"},
     {t:"Trainingsplan", d:"Stationen bauen, Übungen zuweisen, Gruppen einteilen, Trainingsstart auf allen Handys.", go:"planung"},
     {t:"Einheit bewerten", d:"Schnell-Sterne: Spaß, Umsetzung, Erfolg.", run:"einheitBewertenOpen()"},
-    {t:"Übungen", d:"Die Übungs-Datenbank: Gruppen-Kacheln, ⭐-Filter, Skizze je Übung, ➕ direkt in den Trainingsplan · KI-Coach · Themenplan.", go:"formen"},
+    {t:"Übungen", d:"Die Übungs-Datenbank: Gruppen-Kacheln, ⭐-Filter, Skizze je Übung, ➕ direkt in den Trainingsplan · KI-Coach · Themenplan. Bei einer eigenen Übung kannst du die Skizze selbst erzeugen: zehn Vorlagen zum Antippen (Rondo, Slalom, Torschuss …) oder mit Spielern, Hütchen, Toren, Zonen und Pfeilen selbst auf den Platz tippen.", go:"formen"},
     {t:"Blitzturnier", d:"Turnier zum Trainingsabschluss mit Zeitbudget-Automatik: Gesamtzeit (z. B. 40 Min.) und 1–4 Felder vorgeben, die Automatik wählt Format und Spielzeit (5–10 Min., Finale nur bei Restzeit) – reicht die Zeit fair nicht, sagt sie ehrlich, wie viele Minuten fehlen. Zwei Modi: Kinder-Turnier (Trainer spielen auf Wunsch in den Teams mit) oder Kinder gegen Eltern (1–4 Eltern-Teams, Duelle parallel auf den Feldern, Duell-Scoreboard, nie Kind gegen Kind). Spielform wählbar (FUNiño, 4+1, 5+1) mit Team-Vorschlag aus der Kinderzahl. Ein Pfiff für alle Felder.", run:"blitzOpen()"},
   ]},
   {cat:"⚽ Spieltag", items:[
@@ -3580,7 +3580,9 @@ async function renderHome(){
       ${kachelTile("taktik","🎯","Taktik","var(--fam-taktik)","var(--fam-taktik-2)")}
       ${kachelTile("elki","🪶","Eltern & Kinder","var(--fam-elki)","var(--fam-elki-2)")}
       ${kachelTile("orga","📅","Orga","var(--fam-orga)","var(--fam-orga-2)")}
-    </div>`;
+    </div>
+    <div id="app-version" style="text-align:center;font-size:10.5px;color:var(--text3);margin:14px 0 4px"></div>`;
+  appVersionInto("app-version");   // liest die Version aus dem geladenen Cache
   elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche (handeln nötig → bleibt oben)
   trainerTodoLoad();             // To-Do-Banner (leer = unsichtbar)
   trainerTermineHomeLoad();      // Termine der nächsten 14 Tage zum Antippen

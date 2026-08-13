@@ -1033,6 +1033,36 @@ document.addEventListener("keydown",e=>{
    Gezaehlt werden nur Dialog-Overlays (fixed, body-Ebene, z-index >= 9000 und
    unterhalb der Decke). Toasts (10075) und Konfetti (10072/73) bleiben so immer
    sichtbar - eine Meldung hinter dem Dialog waere keine Meldung. */
+/* ── Welche Version läuft hier gerade? (PO v409) ─────────────────────────────
+   „es wäre super wenn die aktuelle version der app irgendwo stehen würde."
+
+   Die Wahrheit steht in sw.js (`const CACHE="u9i-adler-vNNN"`) und wird bei jeder
+   Änderung hochgezählt. Eine zweite Konstante im Client wäre genau die Doppelpflege,
+   die bei uns schon zweimal danebenging – deshalb wird der Wert GELESEN, nicht
+   gepflegt: erst aus dem Namen des aktiven Caches (sofort da, auch offline), sonst
+   aus sw.js selbst. Damit stimmt die Anzeige immer mit dem überein, was der Nutzer
+   tatsächlich geladen hat – und genau das will man wissen, wenn etwas klemmt. */
+let _appVersion=null;
+async function appVersion(){
+  if(_appVersion)return _appVersion;
+  try{
+    const ks=(await caches.keys()).filter(k=>/^u9i-adler-v\d+$/.test(k));
+    if(ks.length){ // bei mehreren (Umschaltmoment) die höchste
+      _appVersion=ks.map(k=>k.replace("u9i-adler-","")).sort((a,b)=>parseInt(b.slice(1))-parseInt(a.slice(1)))[0];
+      return _appVersion;
+    }
+  }catch(e){}
+  try{
+    const r=await fetch("sw.js",{cache:"no-store"});
+    if(r.ok){const m=/u9i-adler-(v\d+)/.exec(await r.text()); if(m){_appVersion=m[1];return _appVersion;}}
+  }catch(e){}
+  return "";
+}
+async function appVersionInto(id){
+  const el=document.getElementById(id); if(!el)return;
+  const v=await appVersion();
+  el.textContent=v?("Adler-App "+v):"";
+}
 const Z_DIALOG_MIN=9000, Z_DIALOG_MAX=10069;
 function zOben(mindestens){
   let max=Number(mindestens)||Z_DIALOG_MIN;
