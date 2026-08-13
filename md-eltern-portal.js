@@ -658,7 +658,10 @@ async function elternDashLoad(){
       ${trainerJa.length?`<div style="font-size:11.5px;color:#64748b;margin-top:4px">👤 Trainer dabei: ${trainerJa.map(esc).join(", ")}</div>`:""}
       ${kids.length>=2?`<button onclick="elternRsvpAllYes(${termin.id})" style="width:100%;min-height:44px;margin-top:10px;padding:9px;border:1.5px solid #059669;border-radius:10px;background:#f0fdf4;color:#15803d;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">👍 Alle ${kids.length} Kinder zusagen</button>`:""}
       ${rsvpRows}
-      <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Aktiven Status nochmal tippen = Rückmeldung entfernen. Deine Rückmeldung ist ein Hinweis – die endgültige Aufstellung entscheidet der Trainer.</div>
+      <!-- PO: „Beim Training ist der Satz mit der endgültigen Aufstellung egal. nur bei spiel
+           jemand turnier" – beim Training wird niemand aufgestellt, da wäre der Zusatz nur
+           eine Einschränkung ohne Anlass. Der erste Satz gilt überall. -->
+      <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Aktiven Status nochmal tippen = Rückmeldung entfernen.${(termin.typ==="spiel"||termin.typ==="turnier")?" Deine Rückmeldung ist ein Hinweis – die endgültige Aufstellung entscheidet der Trainer.":""}</div>
       ${termin.typ==="training"?'<div id="betreuung-card"></div>':""}
       ${termin.typ==="turnier"?'<div id="turnierplan-card"></div>':""}
       ${(termin.datum===heute&&(termin.typ==="spiel"||termin.typ==="turnier"))?elternTickerHtml(termin):""}
