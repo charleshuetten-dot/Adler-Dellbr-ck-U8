@@ -4364,11 +4364,26 @@ function kachelTile(key,emo,label,c1,c2){
   </button>`;
 }
 // Aktion aus einer Kachelseite: Seite schließen, Funktion aufrufen (ehrlicher Toast, falls fehlt)
+/* PO v408: „wenn ich jetzt die kachel schliese komme ich direkt wieder auf die Startseite
+   anstatt auf die kachel vorher eltern Welt zu kommen."
+   kachelRun schloss das Menü IMMER, bevor die Aktion lief. Bei einem Tab-Wechsel (`go`) ist
+   das richtig – man verlässt das Menü ja. Bei den 12 Einträgen, die nur ein Fenster öffnen,
+   war es falsch: schließt man das Fenster, ist auch das Menü weg und man steht auf der
+   Startseite.
+
+   Jetzt bleibt das Menü stehen und das Fenster legt sich darüber. Zwei Sicherungen:
+   - navigierende Aktionen schließen es sofort (kein Menü, das über einem Tab hängen bleibt)
+   - ruft eine Aktion INTERN go() auf, merkt der Vergleich der aktiven Navi-Schaltfläche das
+     und räumt nach – dafür braucht es keine gepflegte Namensliste. */
+const KACHEL_NAVIGIERT=["go","openTab","kachelOpen","tmJump"];
+function _kachelNavId(){ return (document.querySelector("#main-nav .nb.active")||{}).id||""; }
 function kachelRun(fn,arg){
-  document.getElementById("kachel-modal")?.remove();
   const f=window[fn];
-  if(typeof f==="function"){arg===undefined?f():f(arg);}
-  else toast("Da fehlt noch eine Verknüpfung ("+fn+") – bitte kurz melden","err");
+  if(typeof f!=="function"){toast("Da fehlt noch eine Verknüpfung ("+fn+") – bitte kurz melden","err");return;}
+  const navVor=_kachelNavId(), navigiert=KACHEL_NAVIGIERT.includes(fn);
+  if(navigiert)document.getElementById("kachel-modal")?.remove();
+  arg===undefined?f():f(arg);
+  if(!navigiert)setTimeout(()=>{ if(_kachelNavId()!==navVor)document.getElementById("kachel-modal")?.remove(); },0);
 }
 // Untermenü-Kacheln: 2 Spalten, groß und tippfreundlich; Farbkante oben = Familienfarbe
 function kTiles(items,col){
@@ -4395,7 +4410,11 @@ function kachelOpen(key){
   document.getElementById("kachel-modal")?.remove();
   const m=document.createElement("div");m.id="kachel-modal";
   m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label",k.titel);
-  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  /* Das Kachel-Menü ist die UNTERSTE Ebene des Fensterstapels: seit v408 bleibt es offen,
+     während eine Aktion ihr Fenster darüber legt. Auf 10002 hätte es 18 dieser Fenster
+     verdeckt (die meisten liegen auf 9999–10002). 9500 liegt über der Seite und unter
+     jedem Dialog – dadurch braucht keiner von ihnen einen Sonderwert. */
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
     ${mdlHead("kachel-modal",k.emo,k.titel,k.sub,k.col)}
