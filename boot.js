@@ -991,6 +991,63 @@ function tpCoachSelect(stationId){
   </select>`;
 }
 
+/* ── Trainer-Chips in der Planung folgen den Rückmeldungen (PO v413) ─────────
+   „Die trainer die hier angeklickt sind sollen sich aus den Rückmeldungen der Trainer
+   automatisch befüllen bzw offen bleiben oder mit rot markiert werden wenn der Trainer
+   nicht kann oder gelb wenn es unsicher ist."
+
+   Vorher waren Sandy und Charles fest angehakt – geraten, nicht gewusst. Die Antwort
+   steht längst in `termine.trainer_status` (die „Bist du dabei?"-Kachel schreibt sie).
+
+   Regel: nur ZUGESAGT wird automatisch angehakt. Unsicher bleibt sichtbar offen – ein
+   Plan, der mit einem „vielleicht" rechnet, fällt am Platz auseinander; wer es trotzdem
+   will, tippt einmal. Abgesagt ist rot und ebenfalls offen.
+   Farbe ist nie der einzige Träger: jedes Chip trägt zusätzlich ein Zeichen (✓ 🤔 ✕). */
+let TP_RSVP={}, TP_TRAINER_MANUELL={}, TP_VORBELEGT="";
+const TP_RSVP_MARKE={ja:{ico:"✓",farbe:"var(--green)",titel:"hat zugesagt"},
+                     unsicher:{ico:"🤔",farbe:"var(--amber)",titel:"ist unsicher"},
+                     nein:{ico:"✕",farbe:"var(--red)",titel:"hat abgesagt"}};
+function tpTrainerChipsRender(){
+  const box=document.getElementById("tp-trainer-checks"); if(!box)return;
+  const liste=(typeof TRAINER!=="undefined"&&Array.isArray(TRAINER))?TRAINER:[];
+  box.innerHTML=liste.map(t=>{
+    const st=TP_RSVP[t]||"", m=TP_RSVP_MARKE[st];
+    const an=(t in TP_TRAINER_MANUELL)?TP_TRAINER_MANUELL[t]:(st==="ja");
+    // angehakt gewinnt optisch (grün wie bisher), das Zeichen bleibt trotzdem stehen –
+    // sonst sieht man nicht mehr, dass der Trainer eigentlich „unsicher" gesagt hat
+    const stil=an?"" : (m?`border-color:${m.farbe};color:${m.farbe}`:"");
+    const titel=(m?m.titel:"noch keine Rückmeldung")
+      +(an&&st!=="ja"?(t===TP_VORBELEGT?" – du planst gerade, deshalb vorbelegt":" – von dir eingeplant"):"");
+    return `<label class="tp-check"><input type="checkbox" value="${esc(t)}"${an?" checked":""}
+      onchange="tpTrainerManuell('${String(t).replace(/'/g,"")}',this.checked)">
+      <span style="${stil}" title="${esc(titel)}">${esc(t)}${m?" "+m.ico:""}</span></label>`;
+  }).join("");
+}
+function tpTrainerManuell(name,an){ TP_TRAINER_MANUELL[name]=!!an; tpTrainerChipsRender(); tpRenderTimeline(); }
+async function tpTrainerRsvpLaden(datum){
+  TP_RSVP={}; TP_TRAINER_MANUELL={}; TP_VORBELEGT="";   // neuer Termin, neue Lage
+  datum=datum||document.getElementById("tp-date")?.value||"";
+  if(datum&&typeof sbAuthHeaders==="function"){
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/termine?select=trainer_status&datum=eq.${encodeURIComponent(datum)}&order=uhrzeit.asc.nullslast&limit=1`,{headers:sbAuthHeaders()});
+      if(r.ok){const t=((await r.json())||[])[0];
+        if(t&&t.trainer_status&&typeof t.trainer_status==="object")TP_RSVP=t.trainer_status;}
+    }catch(e){}
+  }
+  /* Hat noch NIEMAND zugesagt, wäre nichts angehakt – „automatisch planen" bräche mit
+     „Mindestens 1 Trainer auswählen" ab. Dann den eingeloggten Trainer vorbelegen: wer
+     gerade plant, ist mit hoher Wahrscheinlichkeit dabei. Das ist immer noch eine
+     Annahme, aber eine begründete – und sie steht im Titel des Chips. */
+  const jemand=Object.keys(TP_RSVP).some(k=>TP_RSVP[k]==="ja");
+  if(!jemand&&typeof trainerMe==="function"){
+    try{
+      const me=await trainerMe();
+      if(me&&typeof TRAINER!=="undefined"&&TRAINER.includes(me)){ TP_TRAINER_MANUELL[me]=true; TP_VORBELEGT=me; }
+    }catch(e){}
+  }
+  tpTrainerChipsRender();
+  tpRenderTimeline();
+}
 function tpRenderTimeline(){
   const wrap=document.getElementById("tp-timeline");
   if(!wrap)return;

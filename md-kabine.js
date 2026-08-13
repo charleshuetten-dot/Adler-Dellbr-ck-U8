@@ -1479,7 +1479,10 @@ function renderTrainerUI(){
   if(typeof trainerMe==="function")trainerMe().then(me=>{if(me&&sel&&[...sel.options].some(o=>o.value===me))sel.value=me;}).catch(()=>{}); // eingeloggter Trainer als Default (war: immer der erste)
   if(sel)sel.innerHTML=TRAINER.map(t=>`<option value="${t}">${t}</option>`).join("");
   const tp=document.getElementById("tp-trainer-checks");
-  if(tp)tp.innerHTML=TRAINER.map(t=>`<label class="tp-check"><input type="checkbox" value="${t}"${(t==="Sandy"||t==="Charles")?" checked":""} onchange="tpRenderTimeline()"><span>${t}</span></label>`).join("");
+  /* v413: die Chip-Zeile der Planung gehoert jetzt tpTrainerChipsRender (boot.js) –
+     angehakt wird, wer ZUGESAGT hat, nicht mehr fest Sandy und Charles. */
+  if(tp&&typeof tpTrainerChipsRender==="function")tpTrainerChipsRender();
+  else if(tp)tp.innerHTML=TRAINER.map(t=>`<label class="tp-check"><input type="checkbox" value="${t}" onchange="tpRenderTimeline()"><span>${t}</span></label>`).join("");
   const aw=document.getElementById("aw-trainer-checks");
   if(aw)aw.innerHTML=TRAINER.map(t=>`<label class="tp-check"><input type="checkbox" value="${t}"><span>${t}</span></label>`).join("");
   const tn=document.getElementById("tn-autor");
