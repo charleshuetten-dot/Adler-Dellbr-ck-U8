@@ -608,7 +608,7 @@ async function elternDashLoad(){
     <span id="eltern-news-badge" style="display:none;background:#ef4444;color:#fff;font-weight:800;font-size:12px;border-radius:12px;padding:2px 9px">0</span>
     <span style="font-size:18px;opacity:.85">›</span>
   </button>`;
-  html+=`<div id="match-gruss-slot"></div>`;  // A1: persönlicher Nach-dem-Spiel-Gruß (positiv, kein To-Do)
+  // A1: persönlicher Nach-dem-Spiel-Gruß – der Slot steht jetzt UNTER den Terminen (s. u.).
   if(!termin){
     terminHtml=card('<div style="font-weight:700;margin-bottom:2px">📅 Nächster Termin</div><div style="color:#64748b;font-size:13px">Aktuell ist kein Termin geplant.</div>');
   }else{
@@ -663,7 +663,7 @@ async function elternDashLoad(){
       ${termin.typ==="turnier"?'<div id="turnierplan-card"></div>':""}
       ${(termin.datum===heute&&(termin.typ==="spiel"||termin.typ==="turnier"))?elternTickerHtml(termin):""}
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-        <button onclick="galerieOpen(${termin.id},'${(termin.titel||termin.gegner||m.label).replace(/'/g,'')}')" style="flex:1;min-width:130px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 Event-Fotos</button>
+        <button onclick="galerieOpen(${termin.id},'${(termin.titel||termin.gegner||m.label).replace(/'/g,'')}')" style="flex:1;min-width:130px;padding:9px;border:1.5px solid #7c3aed;border-radius:10px;background:#fff;color:#7c3aed;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 ${fotoLabel(termin.typ)}</button>
         <!-- „Alle Termine" entfernt: die Kachel „Alle Termine & Kalender-Abo" darunter kann dasselbe + mehr (PO) -->
       </div>
     </div>`;
@@ -679,6 +679,12 @@ async function elternDashLoad(){
   html+=sec("📅 Termine");
   html+=elternTermineCarouselHtml(termineListe,kids,rsvpAll); // Schnell-Zu-/Absage für alle Termine (deckt „kommende Termine × Kinder" ab)
   html+=card(`<button onclick="elternTermineOpen()" style="width:100%;min-height:46px;padding:12px;border:1.5px solid #1e3a8a;border-radius:10px;background:#fff;color:#1e3a8a;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">📅 Alle Termine &amp; Kalender-Abo</button>`);
+  /* PO: „Rückblick unter Termine setzen." Der Nach-dem-Spiel-Gruß stand über den Terminen
+     und drängte sich damit vor das, was zu tun ist. Er bleibt aber eine SICHTBARE Karte und
+     wandert bewusst nicht in eine Kategorie: er ist das einzige auf dieser Seite, das nichts
+     von einem will – hinter einem Tap versteckt würde er nie gelesen. Jetzt: erst der Termin,
+     dann die Antworten, dann die Termine – und danach der schöne Blick zurück. */
+  html+=`<div id="match-gruss-slot"></div>`;
   // ── FÜR DIE KINDER ── (gleiche Button-Optik wie die Kategorien unten: Kabine = Direktstart,
   //    je Kind ein Button, der ein Kind-Fenster im Overlay öffnet)
   html+=sec("🎮 Für die Kinder");
@@ -780,7 +786,9 @@ async function elternDashLoad(){
     <div id="push-slot-eltern"></div>`);
   html+=`</div>`; // /cat-kontakt
   html+=`</div></div>`; // /el-cat-overlay
+  const scrollVor=_epScrollMerken(body);   // Wischposition der Karussells retten
   body.innerHTML=html;
+  _epScrollZurueck(scrollVor,body);        // …und sofort wiederherstellen, vor dem ersten Bild
   try{ const tb=document.getElementById("cat-todo"); if(tb){ new MutationObserver(elternTodoSync).observe(tb,{childList:true,subtree:true}); elternTodoSync(); } }catch(e){}
   elternThemeInit();          // Observer für Modals/Slots (einmalig)
   elternThemeSweep(body);     // Dashboard bei Dark-Theme einfärben
@@ -942,6 +950,33 @@ function elternOffeneRsvpHtml(rows,kids,rsvpAll,ausserId){
     </div>
     ${zeilen}</div>`;
 }
+/* Jede Antwort baut das Dashboard komplett neu – und ein frisches Element fängt bei
+   scrollLeft 0 an. Wer im Termin-Karussell nach rechts gewischt hatte, stand nach dem
+   Antippen wieder ganz links und musste sich zum nächsten offenen Termin zurückwischen.
+   Elemente mit data-scrollkeep behalten deshalb ihre Position über den Neuaufbau hinweg.
+   Wichtig: der Schlüssel steht im Markup, nicht in einer Liste hier – ein neues Karussell
+   trägt sein Attribut mit und ist damit automatisch dabei. */
+function _epScrollMerken(wurzel){
+  const merk={};
+  (wurzel||document).querySelectorAll("[data-scrollkeep]").forEach(el=>{
+    if(el.scrollLeft>0)merk[el.dataset.scrollkeep]=el.scrollLeft;
+  });
+  return merk;
+}
+function _epScrollZurueck(merk,wurzel){
+  if(!merk)return;
+  (wurzel||document).querySelectorAll("[data-scrollkeep]").forEach(el=>{
+    const x=merk[el.dataset.scrollkeep];
+    // scroll-snap würde eine sanfte Bewegung mitanimieren – hier soll es einfach dastehen
+    if(x>0)el.scrollLeft=x;
+  });
+}
+/* PO: „Event fotos passt nicht zum training vom wording her. ist ja kein Event."
+   Stimmt – „Event" war der Name der Technik (event_helfer, Galerie am Termin), nicht der
+   Sache. Der Knopf heißt jetzt, was er zeigt. */
+function fotoLabel(typ){
+  return {training:"Trainings-Fotos",spiel:"Spiel-Fotos",turnier:"Turnier-Fotos"}[typ]||"Event-Fotos";
+}
 function elternTermineCarouselHtml(rows,kids,rsvpAll){
   const upcoming=(rows||[]).slice(0,10);
   if(upcoming.length<2)return ""; // bei nur 1 Termin steht der schon oben mit voller Info
@@ -974,7 +1009,7 @@ function elternTermineCarouselHtml(rows,kids,rsvpAll){
   return `<div style="background:#fff;border-radius:14px;padding:14px 14px 8px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">
     <div style="font-weight:700;margin-bottom:2px">📅 Deine nächsten Termine</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:10px">Schnell 👍 zusagen · 🤔 unsicher · 👎 absagen · „Alle Infos" für Details. Wischen →</div>
-    <div style="display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:8px;-webkit-overflow-scrolling:touch">${cards}</div>
+    <div data-scrollkeep="termine" style="display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:8px;-webkit-overflow-scrolling:touch">${cards}</div>
   </div>`;
 }
 
@@ -1044,7 +1079,7 @@ async function terminDetailOpen(id){
     <div id="td-buedchen"></div>
     <div id="td-helfer"></div>
     ${t.typ==="event"?'<div id="td-mitbring"></div>':""}
-    <button onclick="galerieOpen(${Number(t.id)},'${(t.titel||t.gegner||"").replace(/'/g,"")}')" style="width:100%;margin-top:14px;padding:11px;border:1.5px solid #7c3aed;border-radius:10px;background:#faf5ff;color:#6d28d9;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 Event-Fotos ansehen &amp; hochladen</button>
+    <button onclick="galerieOpen(${Number(t.id)},'${(t.titel||t.gegner||"").replace(/'/g,"")}')" style="width:100%;margin-top:14px;padding:11px;border:1.5px solid #7c3aed;border-radius:10px;background:#faf5ff;color:#6d28d9;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📸 ${fotoLabel(t.typ)} ansehen &amp; hochladen</button>
     <button onclick="document.getElementById('td-modal').remove()" style="width:100%;margin-top:8px;padding:11px;border:none;border-radius:10px;background:#f1f5f9;color:#334155;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Schließen</button>`;
   modal.appendChild(c);document.body.appendChild(modal);
   window._tdTermin=t; // fürs Nachladen der Mitbringliste nach dem Eintragen
@@ -1262,7 +1297,13 @@ async function elternHelferTodoLoad(){
    (Fahren, Aufbau, Fotografieren …). Alle eingeloggten sehen die Liste (Koordination). */
 /* PO-Feinschliff: Fahren raus (dafür gibt's die Fahrgemeinschaft), Getränke/Wäsche raus
    (organisiert jede Familie selbst). NEU: Live-Ticker – wer tippt während des Spiels? */
-const HELFER_TASKS=["🛠️ Aufbau","📸 Fotografieren","📻 Live-Ticker","👀 Betreuung"];
+/* PO: „live Ticker und Betreuung unten brauchen wir beim Training nicht. nur bei spiel und
+   turnier." Beides hängt am Spielbetrieb: getickert wird ein Spiel, und die Betreuung meint
+   die Kinder in den Pausen zwischen den Spielen. Beim Training gibt es weder das eine noch
+   das andere – dort steht die Frage „bleibst du vor Ort?" schon eine Karte weiter oben. */
+const HELFER_TASKS_ALLE=["🛠️ Aufbau","📸 Fotografieren","📻 Live-Ticker","👀 Betreuung"];
+const HELFER_TASKS_TRAINING=["🛠️ Aufbau","📸 Fotografieren"];
+function helferTasksFuer(typ){ return (typ==="spiel"||typ==="turnier")?HELFER_TASKS_ALLE:HELFER_TASKS_TRAINING; }
 function _sbUid(){ try{const t=sbToken();return t?JSON.parse(atob(t.split(".")[1])).sub:null;}catch(e){return null;} }
 function _helferName(){ const kids=window._elternKids||[]; const n=(kids[0]&&kids[0].kader&&kids[0].kader.name)?kids[0].kader.name:"Unsere"; return n+" Familie"; }
 async function tdHelferLoad(t){
@@ -1276,7 +1317,7 @@ async function tdHelferLoad(t){
       <span style="flex:1">${esc(x.aufgabe)} · <b>${esc(x.name)}</b></span>
       ${x.user_id===uid?`<button onclick="tdHelferDel(${x.id},${t.id})" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:14px">✕</button>`:""}
     </div>`).join(""):'<div style="font-size:12px;color:#94a3b8">Noch niemand eingetragen – mach den Anfang!</div>';
-  const buttons=HELFER_TASKS.map(task=>{const on=mine.has(task);const esct=task.replace(/'/g,"");
+  const buttons=helferTasksFuer(t.typ).map(task=>{const on=mine.has(task);const esct=task.replace(/'/g,"");
     return `<button onclick="${on?`tdHelferDelTask(${t.id},'${esct}')`:`tdHelferAdd(${t.id},'${esct}')`}" style="padding:7px 10px;border-radius:9px;border:1.5px solid ${on?"#16a34a":"#e2e8f0"};background:${on?"#f0fdf4":"#fff"};color:${on?"#15803d":"#334155"};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">${on?"✓ ":""}${esc(task)}</button>`;}).join("");
   box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
     <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🙌 Wer hilft mit?</div>
@@ -1285,7 +1326,15 @@ async function tdHelferLoad(t){
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${buttons}</div>
   </div>`;
 }
-function _helferReload(terminId){ const t=(ELTERN_TERMINE||[]).find(x=>Number(x.id)===Number(terminId))||{id:terminId,datum:new Date().toISOString().slice(0,10)}; tdHelferLoad(t); }
+/* Der Ersatz-Termin braucht seit v420 auch den TYP: ohne ihn fiele die Liste nach dem
+   Eintragen auf die Trainings-Auswahl zurück und Live-Ticker/Betreuung verschwänden
+   mitten im Spieltag. Deshalb zuerst der offene Termin-Dialog als Quelle. */
+function _helferReload(terminId){
+  const t=(ELTERN_TERMINE||[]).find(x=>Number(x.id)===Number(terminId))
+    ||((window._tdTermin&&Number(window._tdTermin.id)===Number(terminId))?window._tdTermin:null)
+    ||{id:terminId,datum:new Date().toISOString().slice(0,10)};
+  tdHelferLoad(t);
+}
 async function tdHelferAdd(terminId,task){
   if(tdHelferAdd._busy)return; tdHelferAdd._busy=true; setTimeout(()=>{tdHelferAdd._busy=false;},1500); // Doppel-Tap = doppelter Helfer-Eintrag
   try{const r=await fetch(`${SB_URL}/rest/v1/event_helfer`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({termin_id:terminId,name:_helferName(),aufgabe:task})});if(!r.ok){toast("Konnte nicht eintragen","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
@@ -1609,7 +1658,7 @@ const ELTERN_TOUR=[
   {emo:"🦅", t:"Willkommen im Eltern-Bereich", d:"Hier läuft alles rund um dein Kind bei der U9 zusammen. Du kannst diese Tour später jederzeit über das ❓ oben neu starten."},
   {emo:"📌", t:"Was oben steht", d:"Ganz oben steht immer der nächste Termin. Gleich darunter erscheinen die Termine der nächsten 14 Tage, für die deine Antwort noch fehlt – ist alles beantwortet, ist die Karte weg. Danach deine offenen Punkte: Mitbringlisten, Büdchen-Dienst und die „Wie war's?“-Frage nach Spielen. Adler News zeigt sich nur, wenn wirklich etwas Neues drin ist – gelesen ist gelesen. Wichtige 📣 Ansagen vom Trainerteam bestätigst du kurz mit „Gelesen“."},
   {emo:"👍", t:"Zu- & Absagen", d:"Melde dein Kind am nächsten Termin oder im Termin-Karussell zu oder ab – ein Tipp genügt, nochmal tippen entfernt die Antwort. Über „Alle Termine\" lädst du alles in deinen Kalender."},
-  {emo:"🙋", t:"Alles rund um den Termin", d:"Im Termin-Detail: Wetter, Adresse mit Route, Fahrgemeinschaft, Mitbringliste bei Events und „Wer hilft mit?“ (Aufbau, Fotos, Live-Ticker, Betreuung in den Pausen). Beim Training gibst du an, ob du vor Ort bleibst. Fällt einmal etwas aus oder wird der Platz getauscht, steht das direkt auf der Terminkarte – solange dort nichts steht, findet alles wie geplant statt."},
+  {emo:"🙋", t:"Alles rund um den Termin", d:"Im Termin-Detail: Wetter, Adresse mit Route, Fahrgemeinschaft, Mitbringliste bei Events und „Wer hilft mit?“ – beim Spiel und Turnier mit Aufbau, Fotos, Live-Ticker und Betreuung in den Pausen, beim Training nur Aufbau und Fotos. Beim Training gibst du stattdessen an, ob du vor Ort bleibst. Fällt einmal etwas aus oder wird der Platz getauscht, steht das direkt auf der Terminkarte – solange dort nichts steht, findet alles wie geplant statt."},
   {emo:"🎮", t:"Die Kabine (Kinder-Modus)", d:"Gib dein Handy bedenkenlos weiter: Quiz, Missionen, Galerie – und jetzt auch das Panini-Sammelalbum mit Sticker-Tüten & Tauschbörse, Komplimente an Mitspieler, die eigene Adler-Post und das Sammelalbum. Zurück geht es nur mit Code."},
   {emo:"🃏", t:"Für dein Kind", d:"Sammelkarte, Technik-Abzeichen (die hakst du zuhause ab), Saison-Statistik und Fan-Fakten. Foto- & Video-Freigaben und die Notfallkarte pflegst du unter „🔒 Datenschutz &amp; Freigaben\" – dort erklärt „🛡️ So schützen wir eure Fotos &amp; Daten\" auch, warum die App sicherer ist als jede WhatsApp-Gruppe."},
   {emo:"📰", t:"Team, Heft & Adler-Kasse", d:"Das „Adler Nest\" ist unser digitales Stadionheft – jetzt mit der Kabinen-Reporter-Rubrik der Kinder. Und über „Fan-Link teilen\" schickst du Oma, Opa und Fans den Spenden-Link. Viel Spaß! 🎉"},

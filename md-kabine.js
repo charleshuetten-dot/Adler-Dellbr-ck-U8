@@ -87,7 +87,7 @@ async function kabineOpen(){
 /* C1 – Kollektives Adler-Level: die ganze Mannschaft steigt gemeinsam (Summe aller Federn,
    RPC team_federn_total). Ein Wir-Ziel statt Einzel-Ranking. */
 const TEAM_LEVEL_STEP=500;
-const TEAM_LEVEL_TITLES=["Küken-Schwarm","Junge Adler","Adler-Rudel","Adler-Elite","Adler-Legenden","Adler-Dynastie"];
+const TEAM_LEVEL_TITLES=["Küken-Schwarm","Junge Adler","Adler-Flug","Adler-Elite","Adler-Legenden","Adler-Dynastie"];
 function teamLevelInfo(total){
   total=Math.max(0,total|0);
   const level=Math.floor(total/TEAM_LEVEL_STEP)+1, into=total%TEAM_LEVEL_STEP;
@@ -590,7 +590,7 @@ async function arenaEditOpen(){
   m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:420px;width:100%;margin:auto">
     ${mdlHead("arena-modal","🏟️","Team-Arena","","#8b5cf6")}
     <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Schlachtruf & Einlauf-Song – die Kinder sehen sie in der Kabine.</div>
-    <label style="font-size:11px;color:var(--text2)">📣 Schlachtruf<input id="ar-ruf" value="${esc(cfg.schlachtruf||"")}" placeholder="z. B. Adler, Adler – hui hui hui!" style="${fld}"></label>
+    <label style="font-size:11px;color:var(--text2)">📣 Schlachtruf<input id="ar-ruf" value="${esc(cfg.schlachtruf||"")}" placeholder="Adler Dellbrück, Adler Dellbrück!" style="${fld}"></label>
     <label style="font-size:11px;color:var(--text2);display:block;margin-top:10px">🎵 Einlauf-Song<input id="ar-song" value="${esc(cfg.einlauf_song||"")}" placeholder="z. B. We Are The Champions – Queen" style="${fld}"></label>
     <div style="display:flex;gap:8px;margin-top:14px">
       <button class="btn btn-p btn-sm" onclick="arenaSave(this)"><i class="ti ti-device-floppy"></i>Speichern</button>
@@ -872,7 +872,33 @@ async function kabineMilestoneLoad(){
    (kabine_post). Vordefinierte Texte (text_key) statt Freitext → keine Moderationslast.
    Anti-Spam: 1 Post je Absender→Empfänger & Tag (DB-Unique). Der Empfangs-Slot bündelt
    alles Persönliche in EINEM Briefkasten, damit die Kabine oben nicht zustaut. */
-const KUDOS_TEXTE=["⚽ Starker Pass!","🔥 Super gekämpft!","👏 Du hast mich angefeuert!","🤝 Du bist mega fair!","😄 Mit dir macht's am meisten Spaß!","🛡️ Starke Abwehr!","🎯 Tolles Tor!","💪 Du gibst nie auf!"];
+/* ⚠️ REIHENFOLGE IST DATEN. `kabine_post.text_key` speichert den INDEX in dieser Liste –
+   eine verschobene Zeile ändert rückwirkend den Text bereits verschickter Post. Also:
+   nur ANHÄNGEN, und einen vorhandenen Text nur umformulieren, wenn die Bedeutung bleibt.
+
+   PO: „ein kind gibt dem anderen kind ja nicht während des Spiels oder Training ein
+   Kompliment sondern eher von zu Hause über das Handy. Die inhalte sind dafür aber teilweise
+   unpassend." Stimmt: „Starker Pass!" ist ein Zuruf aus dem Moment. Von der Couch aus, zwei
+   Tage später, gilt zweierlei – der Rückblick braucht eine Zeitangabe („letztes Mal"), und
+   das meiste sollte gar nicht an einer einzelnen Szene hängen, sondern an der PERSON. Deshalb
+   sind 0–7 behutsam umformuliert (Bedeutung unverändert) und 8–13 neu: Sätze, die man auch
+   dann schicken kann, wenn beim letzten Spiel nichts Besonderes passiert ist. */
+const KUDOS_TEXTE=[
+  "⚽ Dein Pass letztes Mal war stark!",      // 0
+  "🔥 Du hast letztes Mal super gekämpft!",   // 1
+  "👏 Danke, dass du mich angefeuert hast!",  // 2
+  "🤝 Du bist mega fair!",                    // 3
+  "😄 Mit dir macht's am meisten Spaß!",      // 4
+  "🛡️ Deine Abwehr letztes Mal war stark!",   // 5
+  "🎯 Dein Tor letztes Mal war der Hammer!",  // 6
+  "💪 Du gibst nie auf!",                     // 7
+  "🦅 Schön, dass du in unserem Team bist!",  // 8  ── ab hier neu (v420)
+  "😊 Ich freu mich aufs nächste Training mit dir!",
+  "🤗 Du machst mir Mut, wenn mal was schiefgeht.",
+  "🏃 Du bist immer voll dabei!",
+  "🙌 Danke, dass du mir geholfen hast!",
+  "🌟 Du bist ein super Teamkollege!"
+];
 const GENESUNG_TEXTE=["💌 Gute Besserung!","🦅 Wir vermissen dich!","💪 Komm bald wieder!","⚽ Der Platz wartet auf dich!"];
 const HORST_TEXTE=["🎂 Alles Gute zum Geburtstag! Das ganze Nest feiert dich heute – dein Horst 🦅"];
 function kabinePostText(typ,key){ const L=typ==="genesung"?GENESUNG_TEXTE:typ==="horst"?HORST_TEXTE:KUDOS_TEXTE; return L[key]||L[0]; }
@@ -1114,15 +1140,39 @@ async function kabineStaerkenSave(){
 /* I-C – Kabinen-Reporter: das Kind beantwortet lustige Interview-Fragen per Antwort-Chips
    (8-Jährige tippen ungern). Antworten landen in einer Freigabe-Queue; der Trainer gibt
    im Adler Nest frei, was als Rubrik erscheint. */
+/* ⚠️ Die FRAGE ist der Schlüssel: `kabine_reporter.frage` speichert den Fragetext, und
+   `kabineReporterFor` filtert damit die schon beantworteten heraus. Fragetexte deshalb NIE
+   ändern – sonst taucht eine beantwortete Frage wieder auf. Antwortoptionen dürfen wachsen.
+
+   PO: „schaue ob alle Antworten immer passen. zb was vor dem Frühstück gegessen wird. nur 4
+   zur Auswahl passt zb nicht immer." Genau: bei einer Geschmacksfrage sind vier Kacheln nie
+   vollständig, und ein Kind, dessen Antwort fehlt, tippt irgendwas – dann steht Erfundenes im
+   Adler Nest. Zwei Regeln daraus:
+   1. Wo die Welt größer ist als die Liste, hat jede Frage einen ehrlichen Ausweg
+      („Mal was anderes", „Kommt drauf an") – der ist eine ECHTE Antwort und lässt sich
+      drucken, anders als ein leeres Feld.
+   2. Fragen, die eine Wertung über andere Kinder auslösen könnten („Wer ist der Beste?"),
+      kommen gar nicht erst rein. */
 const REPORTER_FRAGEN=[
-  {f:"Dein Traumtor?",o:["Fallrückzieher","Volle Pulle aus der Ferne","Solo durch alle durch","Lupfer über den Torwart"]},
-  {f:"Was isst du am Spieltag?",o:["Nudeln","Müsli","Brötchen","Gar nichts – zu aufgeregt!"]},
-  {f:"Dein Lieblings-Trick?",o:["Übersteiger","Schnelle Drehung","Tunnel","Hackentrick"]},
-  {f:"Was macht unser Team stark?",o:["Wir feuern uns an","Wir passen uns den Ball zu","Wir geben nie auf","Wir lachen ganz viel"]},
-  {f:"Dein bester Moment bisher?",o:["Mein erstes Tor","Ein richtig guter Pass","Eine Mega-Parade","Der Team-Jubel"]},
-  {f:"Dein Torjubel?",o:["Auf den Knien rutschen","Arme hoch und schreien","Ein Tänzchen","Alle umarmen"]},
-  {f:"Wo spielst du am liebsten?",o:["Im Tor","Hinten aufpassen","Mittendrin","Vorne Tore jagen"]},
-  {f:"Vor dem Spiel bin ich …",o:["Mega aufgeregt","Total ruhig","Voller Power","Am Kichern"]}
+  {f:"Dein Traumtor?",o:["Fallrückzieher","Volle Pulle aus der Ferne","Solo durch alle durch","Lupfer über den Torwart","Kopfball","Abstauber aus zwei Metern"]},
+  {f:"Was isst du am Spieltag?",o:["Nudeln","Müsli","Brötchen","Obst","Pfannkuchen","Mal dies, mal das","Gar nichts – zu aufgeregt!"]},
+  {f:"Dein Lieblings-Trick?",o:["Übersteiger","Schnelle Drehung","Tunnel","Hackentrick","Einfach dran vorbeirennen","Noch am Üben!"]},
+  {f:"Was macht unser Team stark?",o:["Wir feuern uns an","Wir passen uns den Ball zu","Wir geben nie auf","Wir lachen ganz viel","Wir helfen uns","Wir haben Spaß zusammen"]},
+  {f:"Dein bester Moment bisher?",o:["Mein erstes Tor","Ein richtig guter Pass","Eine Mega-Parade","Der Team-Jubel","Ein Sieg mit dem ganzen Team","Als ich etwas Neues konnte"]},
+  {f:"Dein Torjubel?",o:["Auf den Knien rutschen","Arme hoch und schreien","Ein Tänzchen","Alle umarmen","Zum Trainer rennen","Ganz cool bleiben"]},
+  {f:"Wo spielst du am liebsten?",o:["Im Tor","Hinten aufpassen","Mittendrin","Vorne Tore jagen","Überall – Hauptsache dabei"]},
+  {f:"Vor dem Spiel bin ich …",o:["Mega aufgeregt","Total ruhig","Voller Power","Am Kichern","Ein bisschen nervös","Kommt auf den Tag an"]},
+  // ── ab hier neu (v420) ──
+  {f:"Was machst du direkt nach dem Training?",o:["Erstmal was essen","Duschen","Draußen weiterspielen","Aufs Sofa fallen","Vom Training erzählen","Ganz unterschiedlich"]},
+  {f:"Wie kommst du zum Platz?",o:["Mit dem Rad","Zu Fuß","Mit dem Auto","Mit dem Roller","Mal so, mal so"]},
+  {f:"Was übst du gerade zuhause?",o:["Jonglieren","Schießen","Dribbeln","Passen an die Wand","Torwart-Sachen","Gerade nichts"]},
+  {f:"Was gefällt dir am Training am meisten?",o:["Das Abschlussspiel","Die Torschuss-Übungen","Die Staffeln","Die Spiele mit Ball","Einfach alles"]},
+  {f:"Bei welchem Wetter spielst du am liebsten?",o:["Sonne","Wolken","Regen und Matsch","Schnee","Ist mir völlig egal"]},
+  {f:"Was nimmst du immer mit zum Spiel?",o:["Meine Trinkflasche","Mein Lieblings-Shirt","Ein Kuscheltier","Extra Socken","Nur mich selbst"]},
+  {f:"Was rufst du beim Aufwärmen am lautesten?",o:["Adler Dellbrück!","Auf geht's!","Los Team!","Ich rufe lieber nichts"]},
+  {f:"Was sagst du jemandem, der ein Tor verschossen hat?",o:["Kopf hoch, nächstes Mal!","Guter Versuch!","Weiter geht's!","Ich klopf ihm auf die Schulter"]},
+  {f:"Wenn du eine Superkraft im Fußball hättest?",o:["Rennen wie der Blitz","Schießen wie eine Rakete","Immer richtig zielen","Überallhin springen","Nie müde werden"]},
+  {f:"Was wünschst du dir für diese Saison?",o:["Viele Tore","Viel Spaß","Dass wir zusammenhalten","Ein neuer Trick","Immer besser werden"]}
 ];
 let _krSid=null,_krName="",_krOffen=[];
 function kabineReporter(){
