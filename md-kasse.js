@@ -194,7 +194,9 @@ async function boerseFreigeben(id){
   boerseRender();
 }
 async function boerseDelete(id){
-  if(!confirm("Dieses Angebot entfernen?"))return;
+  if(!await frageJaNein({emoji:"🔄",titel:"Angebot entfernen?",
+    text:"Dein Angebot verschwindet aus der Börse.",
+    ja:"Entfernen",ton:"rot"}))return;
   try{const r=await fetch(`${SB_URL}/rest/v1/boerse_listings?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht entfernen"),"err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
   boerseRender();
 }
@@ -258,7 +260,9 @@ async function elternSkillLoad(kids){
   </div>`;
 }
 async function skillGeschafft(skillId,spielerId,name){
-  if(!confirm(`${name||"Dein Kind"} hat den Skill geschafft?\n\nEs gibt 50 Federn fürs Kind.`))return;
+  if(!await frageJaNein({emoji:"🏅",titel:"Skill geschafft?",
+    text:`${name||"Dein Kind"} hat den Skill der Woche geschafft.\n\nEs gibt 50 Federn fürs Kind.`,
+    ja:"Ja, geschafft",nein:"Noch nicht"}))return;
   let neu=0;
   try{
     const r=await fetch(`${SB_URL}/rest/v1/rpc/xp_award_event`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_spieler_id:spielerId,p_quelle:'skillwoche',p_quelle_id:String(skillId)})});
@@ -301,7 +305,9 @@ async function elternWaescheLoad(kids){
   </div>`;
 }
 async function waescheUebernehmen(spielerId,name){
-  if(!confirm(`${name||"Dein Kind"}s Familie übernimmt die nächste Wäsche?\n\nDanke! Es gibt 100 Federn fürs Kind.`))return;
+  if(!await frageJaNein({emoji:"🧺",titel:"Nächste Wäsche übernehmen?",
+    text:`${name||"Dein Kind"}s Familie wäscht die Trikots nach dem nächsten Spiel.\n\nDanke! Es gibt 100 Federn fürs Kind.`,
+    ja:"Wir übernehmen",nein:"Abbrechen"}))return;
   const heute=new Date().toISOString().slice(0,10);
   try{
     const r=await fetch(`${SB_URL}/rest/v1/waesche_log`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({spieler_id:spielerId,datum:heute})});
@@ -391,7 +397,9 @@ async function _mitbringAdd(terminId){
   if(document.getElementById("td-mitbring")&&window._tdTermin&&typeof tdMitbringLoad==="function")tdMitbringLoad(window._tdTermin);
 }
 async function mitbringDelete(id){
-  if(!confirm("Deinen Eintrag entfernen?"))return;
+  if(!await frageJaNein({emoji:"🍽️",titel:"Eintrag entfernen?",
+    text:"Dein Eintrag verschwindet aus der Mitbringliste.",
+    ja:"Entfernen",ton:"rot"}))return;
   try{
     const r=await fetch(`${SB_URL}/rest/v1/event_mitbringen?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});
     if(sbCheck401(r))return;
@@ -431,7 +439,9 @@ async function elternBuedchenLoad(termine,kids){
   slot.innerHTML=cards.join("");
 }
 async function buedchenOptout(terminId,spielerId){
-  if(!confirm("Ihr könnt beim Büdchen nicht? Dann rückt automatisch die nächste Familie nach."))return;
+  if(!await frageJaNein({emoji:"🍿",titel:"Beim Büdchen absagen?",
+    text:"Dann rückt automatisch die nächste Familie nach.",
+    ja:"Absagen",nein:"Doch, wir machen"}))return;
   try{
     const r=await fetch(`${SB_URL}/rest/v1/rpc/buedchen_optout`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_termin:terminId,p_spieler:spielerId})});
     if(sbCheck401(r))return;

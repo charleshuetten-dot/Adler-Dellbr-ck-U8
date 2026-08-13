@@ -150,7 +150,9 @@ async function galerieUpload(btn,terminId){
   galerieRender(terminId);
 }
 async function galerieDelete(id,path,terminId){
-  if(!confirm("Foto wirklich löschen?"))return;
+  if(!await frageJaNein({emoji:"🖼️",titel:"Foto löschen?",
+    text:"Das Foto verschwindet für alle aus der Galerie.",
+    ja:"Löschen",ton:"rot"}))return;
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termin_media?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});
     if(sbCheck401(r))return;
