@@ -818,7 +818,10 @@ async function kaderSaveAll(btn){
 async function backupExport(){
   if(!sbToken()){toast("Bitte zuerst als Trainer anmelden","err");return;}
   toast("Backup wird erstellt…");
-  const tables=["kader","spielerprofile","termine","matchday","blitz_ratings","match_actions","ticker_events","nominierungen","anwesenheit","trainings_eval"];
+  // Die trainer_poll-Tabellen fehlten hier von Anfang an – seit die Meetings Themen
+  // sammeln, steckt darin Inhalt und nicht nur eine Terminabstimmung.
+  const tables=["kader","spielerprofile","termine","matchday","blitz_ratings","match_actions","ticker_events","nominierungen","anwesenheit","trainings_eval",
+                "trainer_poll","trainer_poll_slot","trainer_poll_vote","trainer_poll_thema"];
   const dump={_meta:{app:"U9 Adler Dellbrück",exported_at:new Date().toISOString(),tables}};
   try{
     for(const t of tables){
@@ -2229,42 +2232,59 @@ async function trainerMeetingOpen(){
 }
 async function tpollRender(){
   const c=document.getElementById("tm-meet-card"); if(!c)return;
-  const FLD="padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
-  let polls=[],slots=[],votes=[];
+  // min-height:44px – die Felder im „Neues Meeting"-Block waren 33 px hoch und standen
+  // damit neben dem 44er-Themenfeld sichtbar aus der Reihe.
+  const FLD="padding:8px;min-height:44px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box";
+  let polls=[],slots=[],votes=[],themen=[];
   try{const r=await fetch(`${SB_URL}/rest/v1/trainer_poll?select=*&order=created_at.desc`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)polls=await r.json();}catch(e){}
   const pids=polls.map(p=>p.id);
   if(pids.length){
     try{const r=await fetch(`${SB_URL}/rest/v1/trainer_poll_slot?poll_id=in.(${pids.join(",")})&select=*&order=datum.asc,uhrzeit.asc.nullslast`,{headers:sbAuthHeaders()});if(r.ok)slots=await r.json();}catch(e){}
+    try{const r=await fetch(`${SB_URL}/rest/v1/trainer_poll_thema?poll_id=in.(${pids.join(",")})&select=*&order=erledigt.asc,created_at.asc`,{headers:sbAuthHeaders()});if(r.ok)themen=await r.json();}catch(e){}
     const sids=slots.map(s=>s.id);
     if(sids.length){try{const r=await fetch(`${SB_URL}/rest/v1/trainer_poll_vote?slot_id=in.(${sids.join(",")})&select=slot_id,voter,status`,{headers:sbAuthHeaders()});if(r.ok)votes=await r.json();}catch(e){}}
   }
   const myUid=(typeof sbUserId==="function")?sbUserId():null;
   const slotsByPoll={}; slots.forEach(s=>{(slotsByPoll[s.poll_id]=slotsByPoll[s.poll_id]||[]).push(s);});
   const votesBySlot={}; votes.forEach(v=>{(votesBySlot[v.slot_id]=votesBySlot[v.slot_id]||[]).push(v);});
+  const themenByPoll={}; themen.forEach(t=>{(themenByPoll[t.poll_id]=themenByPoll[t.poll_id]||[]).push(t);});
   const pollHtml=polls.map(p=>{
-    const ss=slotsByPoll[p.id]||[];
+    const steht=p.status==="entschieden";
+    /* Steht der Termin, hat die Abstimmung ihre Arbeit getan: die uebrigen Vorschlaege und
+       die ✓/?/✗-Knoepfe sind dann nur noch Krach. Ab hier geht es um den INHALT. */
+    const ss=(slotsByPoll[p.id]||[]).filter(s=>!steht||s.id===p.decided_slot_id);
     const slotHtml=ss.map(s=>{
       const vs=votesBySlot[s.id]||[];
       const ja=vs.filter(v=>v.status==="ja").length, viel=vs.filter(v=>v.status==="vielleicht").length, nein=vs.filter(v=>v.status==="nein").length;
       const mine=(vs.find(v=>v.voter===myUid)||{}).status||null;
-      const dstr=new Date(s.datum+"T00:00:00").toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"});
-      const zstr=s.uhrzeit?" · "+String(s.uhrzeit).slice(0,5):"";
-      const decided=p.decided_slot_id===s.id;
-      const voteBtns=["ja","vielleicht","nein"].map(st=>{const on=mine===st;const emo=st==="ja"?"✓":st==="vielleicht"?"?":"✗";const col=st==="ja"?"var(--green)":st==="vielleicht"?"#ca8a04":"var(--red)";
-        return `<button onclick="tpollVote(${s.id},'${st}')" style="min-width:44px;min-height:44px;border-radius:8px;border:1.5px solid ${on?col:"#cbd5e1"};background:${on?col:"var(--surface)"};color:${on?"#fff":"var(--text2)"};cursor:pointer;font-weight:800">${emo}</button>`;}).join("");
-      return `<div style="border:var(--border-s);${decided?"border-color:var(--green);background:#f0fdf4;color:#14532d;":""}border-radius:10px;padding:8px 10px;margin-top:6px">
+      const d=new Date(s.datum+"T00:00:00");
+      const dstr=d.toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"});
+      const zstr=s.uhrzeit?" · "+String(s.uhrzeit).slice(0,5)+" Uhr":"";
+      if(steht){
+        const tage=Math.round((d-new Date(new Date().toISOString().slice(0,10)+"T00:00:00"))/864e5);
+        const bald=tage<0?"war am":tage===0?"heute":tage===1?"morgen":"in "+tage+" Tagen";
+        return `<div style="border:1.5px solid var(--green);background:var(--green-bg);border-radius:10px;padding:10px 12px;margin-top:6px">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--green)">✅ Termin steht · ${esc(bald)}</div>
+          <div style="font-size:15px;font-weight:800;color:var(--text);margin-top:2px">${dstr}${zstr}</div>
+          <div style="font-size:10.5px;color:var(--text3);margin-top:3px">✓ ${ja} · ? ${viel} · ✗ ${nein} · <button onclick="tpollOeffnen(${p.id})" style="border:none;background:none;color:var(--blue-text);font-weight:700;cursor:pointer;font-size:10.5px;padding:0">Termin doch ändern</button></div>
+        </div>`;
+      }
+      const voteBtns=["ja","vielleicht","nein"].map(st=>{const on=mine===st;const emo=st==="ja"?"✓":st==="vielleicht"?"?":"✗";const col=st==="ja"?"var(--green)":st==="vielleicht"?"var(--amber)":"var(--red)";
+        return `<button onclick="tpollVote(${s.id},'${st}')" aria-label="${st}" style="min-width:44px;min-height:44px;border-radius:8px;border:${on?"1.5px solid "+col:"var(--border-s)"};background:${on?col:"var(--surface)"};color:${on?"#fff":"var(--text2)"};cursor:pointer;font-weight:800">${emo}</button>`;}).join("");
+      return `<div style="border:var(--border-s);border-radius:10px;padding:8px 10px;margin-top:6px">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <div style="flex:1;min-width:110px;font-size:12.5px;font-weight:700">${dstr}${zstr}${decided?' <span style="color:var(--green)">✅ festgelegt</span>':""}</div>
+          <div style="flex:1;min-width:110px;font-size:12.5px;font-weight:700">${dstr}${zstr}</div>
           <div style="display:flex;gap:4px">${voteBtns}</div>
         </div>
-        <div style="font-size:10.5px;color:var(--text3);margin-top:4px">✓ ${ja} · ? ${viel} · ✗ ${nein}${p.status!=="entschieden"?` · <button onclick="tpollDecide(${p.id},${s.id})" style="border:none;background:none;color:#2563eb;font-weight:700;cursor:pointer;font-size:10.5px">diesen Termin festlegen</button>`:""}</div>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:4px">✓ ${ja} · ? ${viel} · ✗ ${nein} · <button onclick="tpollDecide(${p.id},${s.id})" style="border:none;background:none;color:var(--blue-text);font-weight:700;cursor:pointer;font-size:10.5px;padding:0">diesen Termin festlegen</button></div>
       </div>`;
     }).join("");
     return `<div style="border:var(--border-s);border-radius:12px;padding:12px;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;font-weight:800;font-size:14px">🗓️ ${esc(p.titel)}</div>
-        <button onclick="tpollDelete(${p.id},'${jsq(p.titel)}')" aria-label="löschen" style="border:none;background:none;color:var(--red);cursor:pointer;min-width:32px;min-height:32px"><i class="ti ti-trash"></i></button></div>
-      ${p.status==="entschieden"?'<div style="font-size:11px;color:var(--green);font-weight:700">Termin steht ✓</div>':'<div style="font-size:11px;color:var(--text3)">Stimmt ab: ✓ passt · ? vielleicht · ✗ nicht</div>'}
+        <button onclick="tpollDelete(${p.id},'${jsq(p.titel)}')" aria-label="Meeting löschen" style="border:none;background:none;color:var(--red);cursor:pointer;min-width:44px;min-height:44px"><i class="ti ti-trash"></i></button></div>
+      ${steht?"":'<div style="font-size:11px;color:var(--text3)">Stimmt ab: ✓ passt · ? vielleicht · ✗ nicht</div>'}
       ${slotHtml||'<div style="font-size:11px;color:var(--text3)">Keine Termine.</div>'}
+      ${steht?tpollThemenHtml(p.id,themenByPoll[p.id]||[]):""}
     </div>`;
   }).join("");
   c.innerHTML=`${mdlHead("tm-meet-modal","🗓️","Trainer-Meetings","Nur Trainer · vorschlagen, abstimmen, festlegen","#334155")}
@@ -2279,6 +2299,64 @@ async function tpollRender(){
         <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('tm-meet-modal').remove()">Schließen</button>
       </div>
     </div>`;
+}
+/* Themen zum festgelegten Meeting: die Tagesordnung. Wer zwischendurch etwas einfällt,
+   schreibt es hier hin, statt es bis zum Abend zu behalten. Erledigtes bleibt stehen und
+   wird durchgestrichen – so sieht man am Ende, was wirklich besprochen wurde. */
+function tpollThemenHtml(pollId,liste){
+  const offen=liste.filter(t=>!t.erledigt).length;
+  const zeilen=liste.map(t=>`<div style="display:flex;align-items:center;gap:6px;padding:2px 0">
+      <button onclick="tpollThemaToggle(${t.id},${t.erledigt?"false":"true"})" aria-label="${t.erledigt?"wieder öffnen":"abhaken"}" style="border:none;background:transparent;font-size:16px;cursor:pointer;min-width:44px;min-height:44px;margin:-8px 0;flex:none">${t.erledigt?"✅":"⬜"}</button>
+      <div style="flex:1;min-width:0;font-size:13px;line-height:1.4;${t.erledigt?"text-decoration:line-through;color:var(--text3)":"color:var(--text)"}">${esc(t.text)}</div>
+      <button onclick="tpollThemaDelete(${t.id})" aria-label="Thema löschen" style="border:none;background:transparent;color:var(--text3);cursor:pointer;min-width:44px;min-height:44px;margin:-8px 0;flex:none"><i class="ti ti-x"></i></button>
+    </div>`).join("");
+  return `<div style="border-top:var(--border);margin-top:10px;padding-top:10px">
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">📝 Themen fürs Meeting${liste.length?` · ${offen} offen von ${liste.length}`:""}</div>
+    ${zeilen||'<div style="font-size:11.5px;color:var(--text3);padding:2px 0 6px">Noch kein Thema. Was soll besprochen werden?</div>'}
+    <div style="display:flex;gap:6px;margin-top:6px">
+      <input id="tpoll-thema-${pollId}" placeholder="z. B. Trikots nachbestellen" onkeydown="if(event.key==='Enter')tpollThemaAdd(${pollId})" style="flex:1;min-height:44px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box">
+      <button class="btn btn-sm" onclick="tpollThemaAdd(${pollId})" aria-label="Thema hinzufügen"><i class="ti ti-plus"></i>Thema</button>
+    </div>
+  </div>`;
+}
+async function tpollThemaAdd(pollId){
+  const el=document.getElementById("tpoll-thema-"+pollId);
+  const text=(el?.value||"").trim();
+  if(!text){toast("Bitte ein Thema eintippen","err");return;}
+  try{const r=await fetch(`${SB_URL}/rest/v1/trainer_poll_thema`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({poll_id:pollId,text})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  if(el)el.value="";
+  tpollRender();
+}
+async function tpollThemaToggle(id,erledigt){
+  try{const r=await fetch(`${SB_URL}/rest/v1/trainer_poll_thema?id=eq.${id}`,{method:"PATCH",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({erledigt})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht ändern"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  try{navigator.vibrate&&navigator.vibrate(15);}catch(e){}
+  tpollRender();
+}
+async function tpollThemaDelete(id){
+  if(!await frageJaNein({emoji:"📝",titel:"Thema löschen?",text:"Es verschwindet für alle Trainer aus der Liste.",ja:"Löschen",ton:"rot"}))return;
+  try{const r=await fetch(`${SB_URL}/rest/v1/trainer_poll_thema?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht löschen"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  tpollRender();
+}
+/* Zurück zur Abstimmung – ohne die Themen anzurühren, die gehören zum Meeting, nicht zum Termin. */
+async function tpollOeffnen(pollId){
+  if(!await frageJaNein({emoji:"🗓️",titel:"Termin doch ändern?",
+    text:"Die Abstimmung wird wieder geöffnet und alle Vorschläge erscheinen erneut.\n\nDie gesammelten Themen bleiben erhalten.",
+    ja:"Wieder öffnen",nein:"Abbrechen"}))return;
+  try{const r=await fetch(`${SB_URL}/rest/v1/trainer_poll?id=eq.${pollId}`,{method:"PATCH",headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({status:"offen",decided_slot_id:null})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht öffnen"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  toast("Abstimmung wieder offen");
+  tpollRender();
 }
 async function tpollCreate(btn){
   const titel=(document.getElementById("tpoll-titel")?.value||"").trim();
@@ -3271,7 +3349,7 @@ const HELP=[
     {t:"Termine", d:"Das Formular zeigt nur, was zum Typ gehört: eine Treffzeit gibt es bei Spiel, Turnier und Event (bei Spielen −45 Min. vom Anpfiff vorgeschlagen) – beim Training kommen ohnehin alle zur Trainingszeit. „Wiederholen“ steht beim Event, weil Spiele und Turniere jedes Mal andere sind. Dazu: anlegen/bearbeiten · Endzeit (danach automatisch ins Archiv) · Platz · Trainer-Verfügbarkeit · Wetter · Ferien-Warnung.", go:"termine"},
     {t:"Gegner-Datenbank", d:"Adresse, Ansprechpartner, Telefon/WhatsApp, bisherige Spiele.", run:"gegnerManageOpen()"},
     {t:"Pinnwand", d:"Team-Notizen fürs Trainerteam.", go:"team"},
-    {t:"Trainer-Meeting", d:"Terminvorschläge machen, im Trainerteam abstimmen (✓ / ? / ✗), einen Termin festlegen. Solange deine Stimme fehlt, erinnert dich die Startseite daran; sobald der Termin steht, erscheint er dort als eigene Zeile. Ein Trainer-Meeting landet bewusst NICHT bei den Terminen – die sehen die Eltern.", run:"trainerMeetingOpen()"},
+    {t:"Trainer-Meeting", d:"Zwei Phasen. Erst der Termin: Vorschläge machen, im Trainerteam abstimmen (✓ / ? / ✗), einen festlegen – solange deine Stimme fehlt, erinnert dich die Startseite. Steht der Termin, verschwinden Abstimmung und Vorschläge, und es geht um den Inhalt: eine Themenliste fürs Meeting, die alle Trainer füllen können. Abgehaktes bleibt durchgestrichen stehen, damit man am Ende sieht, was besprochen wurde. Auf der Startseite steht dann der Termin mit der Zahl offener Themen. Ein Trainer-Meeting landet bewusst NICHT bei den Terminen – die sehen die Eltern.", run:"trainerMeetingOpen()"},
     {t:"Saisonstart-Check", d:"Sechs Schritte für den Übergang in die neue Saison – Wrapped, Urkunden, Kader, Trainings-Serie, Eltern-Einladung, Ansage. Er steht Juni bis September im Orga-Menü; mit „Saisonstart abschließen“ blendest du ihn bis zur nächsten Saison aus. Von hier aus geht er immer auf.", run:"saisonStartOpen()"},
     {t:"Teamkasse", d:"Kassen-Link hinterlegen (kein Geld in der App).", run:"kasseOpen()"},
     {t:"Fundbüro", d:"Liegengebliebenes verwalten.", run:"fundbueroOpen()"},
@@ -4049,6 +4127,12 @@ async function trainerMeetingHomeLoad(){
     if(!rs.ok)return;
     const slots=(await rs.json())||[];
     if(!slots.length)return;
+    // Themen mitzählen – das ist der Grund, warum man vor dem Meeting hier hineintippt
+    const offen={};
+    try{
+      const rt=await fetch(`${SB_URL}/rest/v1/trainer_poll_thema?poll_id=in.(${polls.map(p=>p.id).join(",")})&erledigt=is.false&select=poll_id`,{headers:sbAuthHeaders()});
+      if(rt.ok)((await rt.json())||[]).forEach(t=>{offen[t.poll_id]=(offen[t.poll_id]||0)+1;});
+    }catch(e){}
     if(!document.getElementById("home-meeting"))return;   // Tab schon verlassen
     slot.innerHTML=slots.map(s=>{
       const p=polls.find(x=>x.decided_slot_id===s.id); if(!p)return "";
@@ -4061,7 +4145,7 @@ async function trainerMeetingHomeLoad(){
         <span style="flex:1;min-width:0">
           <span style="display:block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text2)">Trainer-Meeting · ${esc(bald)}</span>
           <span style="display:block;font-size:13.5px;font-weight:800;color:var(--text)">${esc(p.titel)}</span>
-          <span style="display:block;font-size:12px;color:var(--text2)">${esc(wann)}</span>
+          <span style="display:block;font-size:12px;color:var(--text2)">${esc(wann)} · ${offen[p.id]?`📝 ${offen[p.id]} ${offen[p.id]===1?"Thema":"Themen"}`:"noch keine Themen"}</span>
         </span>
         <span style="color:var(--text3);flex:none">›</span>
       </button>`;
