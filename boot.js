@@ -29,9 +29,16 @@ async function loadCustomForms(){
   // PO: Eigene/KI-Übungen ohne Zeichnung – KI liefert jetzt eine skizze-Spec (Spalte
   // trainingsformen.skizze), ältere und handangelegte bekommen die Kategorie-Symbolskizze.
   try{
+    /* PO v412: „die Zeichnung ist falsch weil nirgendwo gepasst werden soll."
+       Die Zeichnung war gar nicht seine – ohne eigene Skizze sprang bisher das
+       KATEGORIE-Symbolbild ein (SKZ_KAT), und das der Kategorie „raute" enthält nun mal
+       Pass-Pfeile. Beschriftet war es mit „Symbolskizze", aber niemand liest ein Bild als
+       „das ist NICHT deine Übung" – ein plausibel aussehendes falsches Bild ist schlimmer
+       als gar keines. Ohne echte Skizze bleibt das Feld jetzt leer; die Detailansicht
+       bietet stattdessen an, eine zu zeichnen. */
     CUSTOM_FORMS.forEach(f=>{
       if(f.svg&&f.svg.length>10)return;
-      f.svg=_skz(f.skizze&&typeof f.skizze==="object"?f.skizze:(SKZ_KAT[f.kat]||SKZ_KAT.technik));
+      f.svg=(f.skizze&&typeof f.skizze==="object")?_skz(f.skizze):"";
     });
   }catch(e){}
   renderTraining();
@@ -58,16 +65,19 @@ async function saveCustomTraining(){
   };
   try{
     // Trainer-Token statt anon (RLS: trainingsformen schreibbar nur fuer is_trainer). Kein svg-Feld (Spalte existiert nicht).
+    // return=representation: die id kommt zurueck und die Uebung ist sofort nachtraeglich
+    // bearbeitbar (Skizze nachtragen) – vorher ging das erst nach einem Neuladen.
     var res=await fetch(SB_URL+'/rest/v1/trainingsformen',{
       method:'POST',
-      headers:sbAuthHeaders({'Prefer':'return=minimal'}),
+      headers:sbAuthHeaders({'Prefer':'return=representation'}),
       body:JSON.stringify(form)
     });
     if(!res.ok){toast("Cloud-Speicherung fehlgeschlagen – nur lokal gespeichert","info");}
+    else{ try{const zeile=(await res.json())[0]; if(zeile&&zeile.id)form.id=zeile.id;}catch(e){} }
   }catch(e){toast("Offline – Übung nur lokal gespeichert","info");}
   // Bild sofort mitrechnen, damit die neue Übung in der Liste nicht erst nach einem
-  // Neuladen ihre Skizze zeigt (ladeCustomForms macht das sonst beim nächsten Start).
-  try{ form.svg=_skz(form.skizze||SKZ_KAT[form.kat]||SKZ_KAT.technik); }catch(e){}
+  // Neuladen ihre Skizze zeigt. OHNE eigene Skizze bleibt es leer (v412) – siehe oben.
+  try{ form.svg=form.skizze?_skz(form.skizze):""; }catch(e){}
   CUSTOM_FORMS.push(form);
   closeAddTraining();
   renderTraining();
@@ -927,16 +937,32 @@ function tpShowExercise(formIdx){
   if(!f)return;
   const hist=tpGetExerciseHistory(formIdx);
   const histHtml=hist.length?`<div style="margin-top:8px;font-size:11px;color:var(--text2)"><strong>Einsatz-Historie (${hist.length}×):</strong><br>${hist.slice(0,8).map(d=>'• '+new Date(d).toLocaleDateString("de-DE")).join('<br>')}</div>`:'<div style="margin-top:8px;font-size:11px;color:var(--text3)">Noch nie in einer Einheit verwendet.</div>';
+  /* PO v412: „oben die Zeile ist abgetrennt im text und unten steht der text komplett
+     nochmal." – `kurz` ist bei eigenen Übungen genau der abgeschnittene Anfang von
+     `ablauf` (slice(0,80)). Als Untertitel über demselben Text ist das keine
+     Zusammenfassung, sondern eine kaputte Dopplung. Nur zeigen, wenn es wirklich etwas
+     anderes ist. */
+  const kurz=String(f.kurz||"").trim(), ablauf=String(f.ablauf||"").trim();
+  const norm=s=>s.replace(/\s+/g," ").toLowerCase();
+  const zeigKurz=kurz&&!norm(ablauf).startsWith(norm(kurz).replace(/[.…]+$/,""));
+  const eigene=!!(f.custom||f.id);
   const modal=document.createElement("div");
+  modal.id="uebung-modal";
   modal.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px";
+  if(typeof zOben==="function")modal.style.zIndex=zOben(9999);
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   modal.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:380px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.25)">
     <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
       <div style="font-size:14px;font-weight:700;color:var(--text)">${esc(f.name)}</div>
       <button onclick="this.closest('div[style*=fixed]').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2)">×</button>
     </div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">${esc(f.kurz||"")}</div>
-    ${f.svg?`<div style="margin-bottom:2px">${f.svg}</div>${typeof skzLegende==="function"?skzLegende():""}`:""}
+    ${zeigKurz?`<div style="font-size:11px;color:var(--text2);margin-bottom:6px">${esc(kurz)}</div>`:""}
+    ${f.svg
+      ? `<div style="margin-bottom:2px">${f.svg}</div>${typeof skzLegende==="function"?skzLegende():""}`
+      : (eigene?`<div style="border:1px dashed var(--text3);border-radius:10px;padding:12px;margin-bottom:8px;text-align:center">
+          <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px">Für diese Übung gibt es noch keine Skizze.</div>
+          <button onclick="uebungSkizzeNachtragen(${formIdx})" style="min-height:44px;padding:8px 14px;border:var(--border-s);border-radius:10px;background:var(--surface);color:var(--text);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">🎨 Skizze zeichnen</button>
+        </div>`:"")}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
       <span style="font-size:10px;background:var(--surface);padding:2px 6px;border-radius:4px">⏱ ${f.dauer}</span>
       <span style="font-size:10px;background:var(--surface);padding:2px 6px;border-radius:4px">👥 ${f.spieler||"?"}</span>

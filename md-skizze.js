@@ -299,6 +299,32 @@ function skzEditorOpen(start,cb){
   skzEditorZeichnen();
 }
 
+/* Skizze zu einer schon gespeicherten Übung nachtragen (PO v412). Aufgerufen aus der
+   Detailansicht, wenn dort keine Skizze steht – statt eines falschen Kategorie-Bildes.
+   Nur für eigene Übungen: die 107 Bibliotheks-Übungen bringen ihre Zeichnung selbst mit. */
+async function uebungSkizzeNachtragen(idx){
+  const alle=(typeof tpAllForms==="function")?tpAllForms():[];
+  const f=alle[idx]; if(!f){toast("Übung nicht gefunden","err");return;}
+  skzEditorOpen(f.skizze||null, async spec=>{
+    if(!spec)return;
+    f.skizze=spec;
+    try{ f.svg=_skz(spec); }catch(e){}
+    if(f.id){
+      try{
+        const r=await fetch(`${SB_URL}/rest/v1/trainingsformen?id=eq.${f.id}`,{method:"PATCH",
+          headers:sbAuthHeaders(),body:JSON.stringify({skizze:spec})});
+        if(typeof sbCheck401==="function"&&sbCheck401(r))return;
+        toast(r.ok?"Skizze gespeichert ✓":"Skizze nur lokal gespeichert","info");
+      }catch(e){ toast("Offline – Skizze nur lokal gespeichert","info"); }
+    }else{
+      // Übung wurde in dieser Sitzung angelegt und hat noch keine Kennung aus der Cloud
+      toast("Skizze übernommen – dauerhaft nach dem nächsten Laden","info");
+    }
+    // Detailfenster neu aufbauen, damit die Zeichnung sofort dasteht
+    document.getElementById("uebung-modal")?.remove();
+    if(typeof tpShowExercise==="function")tpShowExercise(idx);
+  });
+}
 /* Anschluss an den „Eigene Übung"-Dialog: Vorschau füllen und den Editor öffnen.
    TF_SKIZZE hält die Beschreibung, bis gespeichert wird (saveCustomTraining liest sie). */
 function tfSkizzeVorschau(){
