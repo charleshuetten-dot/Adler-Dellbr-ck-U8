@@ -1088,11 +1088,24 @@ function grussLine(st){
   if((st.dribbling||0)>=3)return "Dribbel-Show gezeigt! 🌀";
   return "Toller Einsatz – weiter so! 💪";
 }
+/* Wie lange bleibt der Rückblick stehen? PO-Frage, und die Antwort war bisher: für immer.
+   Gezeigt wurde das jüngste vergangene Spiel – im Sommer hing dadurch ein 19 Tage alter
+   Rückblick auf der Startseite und ließ die App aussehen, als sei seither nichts passiert.
+
+   14 Tage. Zwei Gründe: in der Saison löst das nächste Spiel den Rückblick ohnehin ab, die
+   Grenze greift also nur in den Pausen – genau dort, wo sie soll. Und 14 Tage ist das
+   Fenster, das die App auch sonst benutzt („Bist du dabei?", offene Rückmeldungen); ein
+   Zeitraum, den man einmal lernt, statt drei verschiedener.
+   Verloren geht nichts: die Zahlen stehen weiter in der Saison-Statistik des Kindes. */
+const GRUSS_MAX_TAGE=14;
 async function elternMatchGrussLoad(kids){
   const slot=document.getElementById("match-gruss-slot"); if(!slot)return;
   const heute=new Date().toISOString().slice(0,10);
+  // Untergrenze gleich in die Abfrage: liegt das letzte Spiel länger zurück, kommt gar
+  // nichts – dann spart der Rückblick in der Pause auch die Statistik-Abfrage.
+  const ab=new Date(Date.now()-GRUSS_MAX_TAGE*864e5).toISOString().slice(0,10);
   let game=null;
-  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=datum,typ,titel,gegner&typ=in.(spiel,turnier)&datum=lt.${heute}&order=datum.desc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)game=(await r.json())[0];}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/termine?select=datum,typ,titel,gegner&typ=in.(spiel,turnier)&datum=lt.${heute}&datum=gte.${ab}&order=datum.desc&limit=1`,{headers:sbAuthHeaders()});if(r.ok)game=(await r.json())[0];}catch(e){}
   if(!game){slot.innerHTML="";return;}
   // R3: eine RPC liefert die Stats ALLER Kinder dieses Elternteils (kein N+1 mehr).
   let rows=[];
