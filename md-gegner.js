@@ -630,7 +630,7 @@ function tmEdit(id){
         <label style="font-size:11px;color:var(--text2)">Jugendtore<input type="number" id="te-jugendtore" min="0" max="40" step="1" inputmode="numeric" placeholder="Anzahl" value="${t.helfer_jugendtore==null?"":Number(t.helfer_jugendtore)}" style="${fld}"></label>
       </div>
       <div style="font-size:10.5px;color:var(--text2);margin-top:4px">Leer = Aufgabe ohne Zahl · <b>0</b> = wird nicht gebraucht</div>`:''}
-      <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Hinweis für Helfer<input id="te-helfer-hinweis" maxlength="140" placeholder="z. B. bitte auch die Leibchen mitbringen" value="${esc(t.helfer_hinweis||'')}" style="${fld}"></label>
+      <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Hinweis für Helfer<input id="te-helfer-hinweis" maxlength="140" placeholder="z. B. was heute anders ist als sonst" value="${esc(t.helfer_hinweis||'')}" style="${fld}"></label>
     </div>
     <div style="display:flex;gap:8px;margin-top:14px">
       <button class="btn btn-p btn-sm" onclick="tmEditSave(${Number(t.id)})"><i class="ti ti-device-floppy"></i>Speichern</button>
