@@ -360,8 +360,13 @@ async function tqEigeneKinder(){
   if(typeof sbRead!=="function")return null;
   const slot=sbRead();
   if(!slot||slot.key!==SB_TOKEN_KEY_ELTERN)return null;   // nur die Eltern-Sitzung kennt "eigene" Kinder
+  // Auch hier nach der eigenen E-Mail filtern: die RLS laesst einen Trainer ALLE
+  // Zuordnungen sehen, das Quiz haette ihm dann den ganzen Kader als „eigene Kinder"
+  // vorgeschlagen. Siehe md-eltern-portal.js.
+  const meineMail=(typeof sbEmail==="function")?sbEmail():null;
+  if(!meineMail)return null;
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?select=kader(name)`,{headers:sbAuthHeaders()});
+    const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?email=eq.${encodeURIComponent(meineMail)}&select=kader(name)`,{headers:sbAuthHeaders()});
     if(!r.ok)return null;
     const namen=[...new Set((await r.json()).map(x=>x.kader&&x.kader.name).filter(Boolean))];
     return namen.length?namen:null;
