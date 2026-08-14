@@ -433,7 +433,7 @@ async function chronikOpen(){
    (sortierbares Datum) hochsetzen und die Punkte austauschen – sonst entdecken
    Bestandsfamilien neue Funktionen nie (die Tour läuft nur beim ersten Login). */
 const ELTERN_WHATSNEW={key:"2026-08-14",titel:"Neu in eurer App",punkte:[
-  "🙌 „Wer hilft mit?“ sagt jetzt, worauf du dich einlässt: ab wann du da sein solltest, was zu tun ist und wie lange es dauert – und im Feld darunter kannst du auch etwas eintragen, das nicht in der Liste steht",
+  "🙌 „Wer hilft mit?“ steht jetzt direkt beim nächsten Termin auf der Startseite – mit Uhrzeit, damit du am Tag selbst entscheiden kannst, ob du es schaffst. Ein Tipp genügt, und im Feld darunter kannst du auch etwas eintragen, das nicht in der Liste steht",
   "🥅 Beim Training geht es konkret um die Funino-Tore und die Jugendtore, mit Anzahl",
   "👍 Zu- & Absagen: Die Terminübersicht springt nach deiner Antwort nicht mehr an den Anfang zurück",
   "🗣️ Elterngespräch: Die Abstimmung bleibt stehen, bis du alle Vorschläge beantwortet hast – nicht schon nach dem ersten",
@@ -672,6 +672,8 @@ async function elternDashLoad(){
            eine Einschränkung ohne Anlass. Der erste Satz gilt überall. -->
       <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Aktiven Status nochmal tippen = Rückmeldung entfernen.${(termin.typ==="spiel"||termin.typ==="turnier")?" Deine Rückmeldung ist ein Hinweis – die endgültige Aufstellung entscheidet der Trainer.":""}</div>
       ${termin.typ==="training"?'<div id="betreuung-card"></div>':""}
+      <div id="helfer-card"></div><!-- PO: Hilfe wird kurzfristig entschieden, nicht im Voraus -->
+
       ${termin.typ==="turnier"?'<div id="turnierplan-card"></div>':""}
       ${(termin.datum===heute&&(termin.typ==="spiel"||termin.typ==="turnier"))?elternTickerHtml(termin):""}
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
@@ -806,6 +808,7 @@ async function elternDashLoad(){
   elternThemeSweep(body);     // Dashboard bei Dark-Theme einfärben
   if(termin&&termin.datum)wetterInto("wetter-eltern",termin.datum,termin.ort,termin.uhrzeit); // Wetter am Termin-Ort + Uhrzeit
   if(termin&&termin.typ==="training")elternBetreuungLoad(termin.id,kids); // wer bleibt vor Ort
+  if(termin)elternHelferKachelLoad(termin);                               // Helfer-Aufgaben kompakt
   if(termin&&termin.typ==="turnier")elternTurnierplanLoad(termin);        // Begegnungen, Turnierbaum, Aushang
   if(termin&&(termin.typ==="spiel"||termin.typ==="turnier"))elternPauseLoad(termin,kids);
   if(!window._eTourChecked){window._eTourChecked=true;setTimeout(elternTourMaybe,700);} // Eltern-Tour einmalig
@@ -1277,34 +1280,49 @@ const HELFER_AUFGABEN=[
   /* Beim Training wird nicht „aufgebaut", da werden Tore getragen – und zwar zweierlei.
      Der Trainer sagt am Termin, wie viele; ohne Angabe steht die Aufgabe ohne Zahl da
      (nie eine erfinden), bei ausdruecklicher 0 entfaellt sie ganz (Halle, Techniktraining). */
-  {t:"🥅 Funino-Tore",   typen:["training"], zahl:t=>t&&t.helfer_funino,
-   d:t=>`${helferAbSatz(t)} da sein und ${helferAnzahl(t&&t.helfer_funino,"Funino-Tore")} aufstellen.`},
-  {t:"🥅 Jugendtore",    typen:["training"], zahl:t=>t&&t.helfer_jugendtore,
-   d:t=>`${helferAbSatz(t)} da sein und ${helferAnzahl(t&&t.helfer_jugendtore,"Jugendtore")} aufstellen.`},
-  {t:"🛠️ Aufbau",        typen:["spiel","turnier","event"],
-   d:t=>`${helferAbSatz(t)} da sein und mit dem Trainerteam Tore, Hütchen und Bälle aufbauen – etwa 15 Minuten.`},
+  {t:"🥅 Funino-Tore",   typen:["training"], zahl:t=>t&&t.helfer_funino, vor:15,
+   kurz:t=>helferAnzahl(t&&t.helfer_funino,"Funino-Tore",true),
+   d:t=>`${helferAbSatz(t,15)} da sein und ${helferAnzahl(t&&t.helfer_funino,"Funino-Tore")} aufstellen.`},
+  {t:"🥅 Jugendtore",    typen:["training"], zahl:t=>t&&t.helfer_jugendtore, vor:15,
+   kurz:t=>helferAnzahl(t&&t.helfer_jugendtore,"Jugendtore",true),
+   d:t=>`${helferAbSatz(t,15)} da sein und ${helferAnzahl(t&&t.helfer_jugendtore,"Jugendtore")} aufstellen.`},
+  {t:"🛠️ Aufbau",        typen:["spiel","turnier","event"], vor:30,
+   kurz:()=>"Aufbau",
+   d:t=>`${helferAbSatz(t,30)} da sein und mit dem Trainerteam Tore, Hütchen und Bälle aufbauen – etwa 15 Minuten.`},
   {t:"👀 Betreuung",     typen:["spiel","turnier"],
+   kurz:()=>"Betreuung in den Pausen",
    d:()=>"In den Pausen bei den Kindern bleiben, damit das Trainerteam das nächste Spiel vorbereiten kann. Auch eine Halbzeit hilft."},
   {t:"📻 Live-Ticker",   typen:["spiel","turnier"],
+   kurz:()=>"Live-Ticker tippen",
    d:()=>"Während des Spiels kurze Meldungen in der App tippen – für alle, die nicht dabei sein können."},
   {t:"📸 Fotografieren", typen:["spiel","turnier","event"],
+   kurz:()=>"Fotos machen",
    d:()=>"Ein paar Fotos machen und sie danach in die Galerie laden. Das Handy reicht völlig."}
 ];
 /* „8 Funino-Tore" wenn die Zahl steht, sonst „die Funino-Tore" – niemals eine geratene Zahl.
-   Die 0 kommt hier nie an: sie filtert die Aufgabe vorher aus der Liste. */
-function helferAnzahl(n,was){
-  return (n==null||n==="")?("die "+was):(Number(n)+" "+was);
+   Die 0 kommt hier nie an: sie filtert die Aufgabe vorher aus der Liste.
+   `knapp` fuer die Kachel: dort steht die Aufgabe allein in einer Zeile, ein „die" davor
+   liest sich wie ein angefangener Satz. */
+function helferAnzahl(n,was,knapp){
+  if(n==null||n==="")return knapp?was:("die "+was);
+  return Number(n)+" "+was;
 }
-/* „Ab wann?" beantwortet die App selbst, statt eine feste Uhrzeit in den Text zu schreiben:
-   Helfer kommen eine halbe Stunde vor allen anderen. Grundlage ist die Treffzeit, wenn es
-   eine gibt (Spiel/Turnier), sonst der Beginn – so stimmt EINE Regel für beide Fälle.
+/* „Ab wann?" beantwortet die App selbst, statt eine feste Uhrzeit in den Text zu schreiben.
+   Grundlage ist die Treffzeit, wenn es eine gibt (Spiel/Turnier), sonst der Beginn.
+   Der Vorlauf haengt an der AUFGABE, nicht an einer allgemeinen Regel: beim Training sind
+   zwei Tore in einer Viertelstunde aufgestellt (PO), ein Spieltags-Aufbau dauert laenger.
    Ohne verwertbare Zeit bleibt der Satz allgemein, statt eine Uhrzeit zu erfinden. */
-function helferAbSatz(t){
+function helferVorlaufWort(min){ return min===15?"Eine Viertelstunde":"Eine halbe Stunde"; }
+function helferZeit(t,min){
   const m=String((t&&t.treffzeit)||(t&&t.uhrzeit)||"").match(/(\d{1,2}):(\d{2})/);
-  if(!m)return "Eine halbe Stunde vor Beginn";
-  const min=(+m[1])*60+(+m[2])-30;
-  if(min<0)return "Eine halbe Stunde vor Beginn";
-  return `Ab ${String(Math.floor(min/60)).padStart(2,"0")}:${String(min%60).padStart(2,"0")} Uhr`;
+  if(!m)return "";
+  const x=(+m[1])*60+(+m[2])-(min||30);
+  if(x<0)return "";
+  return `${String(Math.floor(x/60)).padStart(2,"0")}:${String(x%60).padStart(2,"0")}`;
+}
+function helferAbSatz(t,min){
+  const z=helferZeit(t,min);
+  return z?`Ab ${z} Uhr`:`${helferVorlaufWort(min)} vor Beginn`;
 }
 /* Aufgaben je Termintyp – und eine mit ausdruecklicher 0 faellt raus. Der Termin (t) darf
    fehlen (Notnagel in _helferReload); dann greift nur der Typ-Filter. */
@@ -1345,7 +1363,7 @@ async function tdHelferLoad(t){
       <!-- Rahmen dunkler als bei den Aufgaben-Zeilen darueber (#e2e8f0): einen Knopf erkennt
            man an seiner Beschriftung, ein LEERES Eingabefeld nur an seinem Rand – deshalb
            gilt hier die 3:1-Regel fuer Bedienelemente. #7d8b99 = 3,49:1 auf Weiss. -->
-      <input id="helfer-eigen" maxlength="60" placeholder="Etwas anderes – was übernimmst du?" aria-label="Eigene Aufgabe eintragen" style="flex:1;min-width:0;min-height:44px;padding:9px;border:1.5px solid #7d8b99;border-radius:10px;font-family:inherit;font-size:12.5px;box-sizing:border-box" onkeydown="if(event.key==='Enter')tdHelferAddEigen(${Number(t.id)})">
+      <input id="helfer-eigen-td" maxlength="60" placeholder="Etwas anderes – was übernimmst du?" aria-label="Eigene Aufgabe eintragen" style="flex:1;min-width:0;min-height:44px;padding:9px;border:1.5px solid #7d8b99;border-radius:10px;font-family:inherit;font-size:12.5px;box-sizing:border-box" onkeydown="if(event.key==='Enter')tdHelferAddEigen(${Number(t.id)},this)">
       <button onclick="tdHelferAddEigen(${Number(t.id)},this)" aria-label="Eigene Aufgabe eintragen" style="min-height:44px;min-width:52px;border:none;border-radius:10px;background:#15803d;color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">✓</button>
     </div>
   </div>`;
@@ -1359,7 +1377,11 @@ function _helferReload(terminId){
   const t=(ELTERN_TERMINE||[]).find(x=>Number(x.id)===Number(terminId))
     ||((window._tdTermin&&Number(window._tdTermin.id)===Number(terminId))?window._tdTermin:null)
     ||{id:terminId,datum:new Date().toISOString().slice(0,10)};
+  /* BEIDE Darstellungen nachziehen. Seit die Aufgaben auch in der grossen Kachel stehen,
+     wuerde ein Eintrag aus der Kachel sonst erst beim naechsten Laden dort erscheinen –
+     man tippt, und nichts passiert. Beide steigen aus, wenn ihr Platz gerade fehlt. */
   tdHelferLoad(t);
+  if(typeof elternHelferKachelLoad==="function")elternHelferKachelLoad(t);
 }
 async function tdHelferAdd(terminId,task){
   /* Doppel-Tap-Sperre je AUFGABE, nicht global. Global hiess: wer eine Aufgabe antippt und
@@ -1374,11 +1396,16 @@ async function tdHelferAdd(terminId,task){
   _helferReload(terminId);
 }
 /* Eigene Aufgabe: freier Text statt einer der vorgegebenen Zeilen. Kein prompt() – im
-   Eltern-Bereich verbietet die Hausregel Systemdialoge (v415). */
-async function tdHelferAddEigen(terminId,btn){
-  const feld=document.getElementById("helfer-eigen");
-  const txt=(feld?.value||"").trim().slice(0,60);
-  if(!txt){ toast("Schreib kurz, was du übernimmst","err"); feld?.focus(); return; }
+   Eltern-Bereich verbietet die Hausregel Systemdialoge (v415).
+   Das Feld wird ueber das ausloesende ELEMENT gesucht, nicht ueber eine feste ID: seit die
+   Aufgaben auch in der grossen Kachel stehen, koennen Kachel und Termin-Fenster gleichzeitig
+   offen sein. getElementById haette dann immer das erste im Dokument geliefert – man tippt
+   im Fenster und speichert den leeren Kasten der Kachel. */
+async function tdHelferAddEigen(terminId,el){
+  const feld=el&&(el.tagName==="INPUT"?el:el.parentElement&&el.parentElement.querySelector("input"));
+  const txt=((feld&&feld.value)||"").trim().slice(0,60);
+  if(!txt){ toast("Schreib kurz, was du übernimmst","err"); if(feld)feld.focus(); return; }
+  const btn=(el&&el.tagName==="BUTTON")?el:null;
   if(btn)btn.disabled=true;
   await tdHelferAdd(terminId,"✏️ "+txt);
   if(btn)btn.disabled=false;
@@ -1687,6 +1714,66 @@ async function elternBetreuungLoad(terminId,kids){
     ${toggles}
   </div>`;
 }
+/* Helfer-Aufgaben KOMPAKT in der grossen Termin-Kachel.
+   PO: „Hilfe plane ich nicht so weit im Voraus als Eltern, sondern eher am Tag des Trainings,
+   ob ich es zeitlich schaffe." Eine Entscheidung, die kurzfristig faellt, gehoert dorthin,
+   wo man ohnehin zuerst hinsieht – nicht zwei Tipps tief im Termin-Fenster.
+   Kompakt heisst hier: EINE Zeile je Aufgabe. Links was, rechts wann (oder wer schon).
+   Die ausfuehrliche Fassung mit ganzen Saetzen bleibt im Termin-Fenster – dieselbe Sache
+   in zwei Tiefen, wie bei den Rueckmelde-Knoepfen auch. */
+async function elternHelferKachelLoad(t){
+  const box=document.getElementById("helfer-card"); if(!box)return;
+  const aufgaben=helferTasksFuer(t.typ,t);
+  if(!aufgaben.length||(typeof terminVorbei==="function"&&terminVorbei(t))){box.innerHTML="";return;}
+  let rows=[];
+  try{const r=await fetch(`${SB_URL}/rest/v1/event_helfer?termin_id=eq.${t.id}&select=id,name,aufgabe,user_id&order=created_at.asc`,{headers:sbAuthHeaders()});if(r.ok)rows=await r.json();}catch(e){}
+  const uid=_sbUid();
+  const je={}; rows.forEach(x=>{(je[x.aufgabe]=je[x.aufgabe]||[]).push(x);});
+  const namen=l=>l.length===1?esc(l[0].name):`${esc(l[0].name)} +${l.length-1}`;
+
+  const zeilen=aufgaben.map(a=>{
+    const wer=je[a.t]||[];
+    const on=wer.some(x=>x.user_id===uid);
+    const esct=a.t.replace(/'/g,"");
+    const zeit=a.vor?helferZeit(t,a.vor):"";
+    /* Rechts steht das, was gerade zaehlt: solange niemand da ist die Uhrzeit (die
+       entscheidet, ob ich es schaffe), danach der Name (der beantwortet die Frage schon). */
+    const rechts=wer.length?`<span style="color:#15803d;font-weight:700">✓ ${namen(wer)}</span>`
+                 :zeit?`<span style="color:#64748b">ab ${zeit} Uhr</span>`:"";
+    return `<button onclick="${on?`tdHelferDelTask(${t.id},'${esct}')`:`tdHelferAdd(${t.id},'${esct}')`}" aria-pressed="${on?"true":"false"}" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;min-height:44px;margin-top:6px;padding:8px 11px;border-radius:10px;border:1.5px solid ${on?"#16a34a":"#e2e8f0"};background:${on?"#f0fdf4":"#fff"};font-family:inherit;cursor:pointer">
+      <span style="flex:1;min-width:0;font-size:12.5px;font-weight:700;color:${on?"#15803d":"#334155"}">${on?"✓ ":""}${esc(a.t.split(" ")[0])} ${esc(a.kurz(t))}</span>
+      <span style="font-size:11px;flex:none">${rechts}</span>
+    </button>`;}).join("");
+
+  // Freie Eintraege (✏️ …) gehoeren dazu, sonst waeren sie in der Kachel unsichtbar.
+  const feste=new Set(aufgaben.map(a=>a.t));
+  const frei=rows.filter(x=>!feste.has(x.aufgabe));
+  const freiHtml=frei.map(x=>`<div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#475569;padding:3px 2px">
+      <span style="flex:1;min-width:0">${esc(x.aufgabe)} · <b>${esc(x.name)}</b></span>
+      ${x.user_id===uid?`<button onclick="tdHelferDel(${x.id},${t.id})" aria-label="Eintrag entfernen" style="border:none;background:none;color:#b91c1c;cursor:pointer;font-size:14px;min-width:32px;min-height:32px">✕</button>`:""}
+    </div>`).join("");
+
+  box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
+    <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🙌 Wer hilft mit?</div>
+    <div style="font-size:11.5px;color:#64748b;margin-bottom:2px">Ein Tipp genügt – nochmal tippen trägt dich wieder aus.</div>
+    ${t.helfer_hinweis?`<div style="font-size:11.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:6px 9px;margin-top:6px;line-height:1.4">💬 ${esc(t.helfer_hinweis)}</div>`:""}
+    ${zeilen}
+    ${freiHtml}
+    <!-- Das Eingabefeld erscheint erst auf Tippen: sonst kostet es 44 px in einer Kachel,
+         die schon lang ist – fuer etwas, das die wenigsten brauchen. -->
+    <button id="helfer-eigen-btn" onclick="elternHelferEigenAuf(${Number(t.id)})" style="width:100%;min-height:36px;margin-top:6px;padding:6px;border:none;background:none;color:#334155;font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer;text-align:left">✏️ Etwas anderes eintragen</button>
+    <div id="helfer-eigen-box" style="display:none;gap:6px;margin-top:2px">
+      <input id="helfer-eigen-k" maxlength="60" placeholder="Was übernimmst du?" aria-label="Eigene Aufgabe eintragen" style="flex:1;min-width:0;min-height:44px;padding:9px;border:1.5px solid #7d8b99;border-radius:10px;font-family:inherit;font-size:12.5px;box-sizing:border-box" onkeydown="if(event.key==='Enter')tdHelferAddEigen(${Number(t.id)},this)">
+      <button onclick="tdHelferAddEigen(${Number(t.id)},this)" aria-label="Eigene Aufgabe eintragen" style="min-height:44px;min-width:52px;border:none;border-radius:10px;background:#15803d;color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">✓</button>
+    </div>
+  </div>`;
+}
+function elternHelferEigenAuf(){
+  const b=document.getElementById("helfer-eigen-box"); if(!b)return;
+  b.style.display="flex";
+  document.getElementById("helfer-eigen-btn")?.remove();
+  document.getElementById("helfer-eigen-k")?.focus();
+}
 async function elternBetreuungToggle(terminId,spielerId,stay){
   try{
     const r=await fetch(`${SB_URL}/rest/v1/betreuung?on_conflict=termin_id,spieler_id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({termin_id:terminId,spieler_id:spielerId,will_stay:stay,updated_at:new Date().toISOString()})});
@@ -1700,7 +1787,7 @@ const ELTERN_TOUR=[
   {emo:"🦅", t:"Willkommen im Eltern-Bereich", d:"Hier läuft alles rund um dein Kind bei der U9 zusammen. Du kannst diese Tour später jederzeit über das ❓ oben neu starten."},
   {emo:"📌", t:"Was oben steht", d:"Ganz oben steht immer der nächste Termin. Gleich darunter erscheinen die Termine der nächsten 14 Tage, für die deine Antwort noch fehlt – ist alles beantwortet, ist die Karte weg. Danach deine offenen Punkte: Mitbringlisten, Büdchen-Dienst und die „Wie war's?“-Frage nach Spielen. Adler News zeigt sich nur, wenn wirklich etwas Neues drin ist – gelesen ist gelesen. Wichtige 📣 Ansagen vom Trainerteam bestätigst du kurz mit „Gelesen“."},
   {emo:"👍", t:"Zu- & Absagen", d:"Melde dein Kind am nächsten Termin oder im Termin-Karussell zu oder ab – ein Tipp genügt, nochmal tippen entfernt die Antwort. Über „Alle Termine\" lädst du alles in deinen Kalender."},
-  {emo:"🙋", t:"Alles rund um den Termin", d:"Im Termin-Detail: Wetter, Adresse mit Route, Fahrgemeinschaft, Mitbringliste bei Events und „Wer hilft mit?“ – jede Aufgabe sagt dir vorher, ab wann du da sein solltest und was zu tun ist: beim Spiel und Turnier Aufbau, Fotos, Live-Ticker und Betreuung in den Pausen, beim Training die Funino-Tore und Jugendtore. Steht 💬 etwas darüber, ist das ein Hinweis des Trainerteams für genau diesen Termin. Im Feld darunter kannst du auch etwas eintragen, das nicht in der Liste steht. Beim Training sagst du außerdem, ob du vor Ort bleibst. Fällt einmal etwas aus oder wird der Platz getauscht, steht das direkt auf der Terminkarte – solange dort nichts steht, findet alles wie geplant statt."},
+  {emo:"🙋", t:"Alles rund um den Termin", d:"Im Termin-Detail: Wetter, Adresse mit Route, Fahrgemeinschaft, Mitbringliste bei Events und „Wer hilft mit?“ – jede Aufgabe sagt dir vorher, ab wann du da sein solltest und was zu tun ist: beim Spiel und Turnier Aufbau, Fotos, Live-Ticker und Betreuung in den Pausen, beim Training die Funino-Tore und Jugendtore. Für den nächsten Termin stehen dieselben Aufgaben schon oben auf der Startseite, kurz und mit Uhrzeit – du musst dich also nicht vorab festlegen, sondern kannst am Tag selbst schauen, ob du es schaffst. Steht 💬 etwas darüber, ist das ein Hinweis des Trainerteams für genau diesen Termin. Im Feld darunter kannst du auch etwas eintragen, das nicht in der Liste steht. Beim Training sagst du außerdem, ob du vor Ort bleibst. Fällt einmal etwas aus oder wird der Platz getauscht, steht das direkt auf der Terminkarte – solange dort nichts steht, findet alles wie geplant statt."},
   {emo:"🎮", t:"Die Kabine (Kinder-Modus)", d:"Gib dein Handy bedenkenlos weiter: Quiz, Missionen, Galerie – und jetzt auch das Panini-Sammelalbum mit Sticker-Tüten & Tauschbörse, Komplimente an Mitspieler, die eigene Adler-Post und das Sammelalbum. Zurück geht es nur mit Code."},
   {emo:"🃏", t:"Für dein Kind", d:"Nach einem Spiel oder Turnier steht unter den Terminen zwei Wochen lang der Rückblick: was dein Kind an dem Tag alles gemacht hat. Danach verschwindet er – die Zahlen bleiben in der Saison-Statistik. Dort findest du außerdem Sammelkarte, Technik-Abzeichen (die hakst du zuhause ab) und Fan-Fakten. Foto- & Video-Freigaben und die Notfallkarte pflegst du unter „🔒 Datenschutz &amp; Freigaben\" – dort erklärt „🛡️ So schützen wir eure Fotos &amp; Daten\" auch, warum die App sicherer ist als jede WhatsApp-Gruppe."},
   {emo:"📰", t:"Team, Heft & Adler-Kasse", d:"Das „Adler Nest\" ist unser digitales Stadionheft – jetzt mit der Kabinen-Reporter-Rubrik der Kinder. Und über „Fan-Link teilen\" schickst du Oma, Opa und Fans den Spenden-Link. Viel Spaß! 🎉"},
