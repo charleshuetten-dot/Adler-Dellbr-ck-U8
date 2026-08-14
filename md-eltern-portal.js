@@ -432,15 +432,13 @@ async function chronikOpen(){
    Adler News (seen-Baseline). KONVENTION: Bei eltern-sichtbaren neuen Features den key
    (sortierbares Datum) hochsetzen und die Punkte austauschen – sonst entdecken
    Bestandsfamilien neue Funktionen nie (die Tour läuft nur beim ersten Login). */
-const ELTERN_WHATSNEW={key:"2026-07-24",titel:"Neu in eurer App",punkte:[
-  "🕒 Treffzeit bei Spielen: Ihr seht jetzt getrennt, wann ihr da sein sollt und wann Anstoß ist",
-  "📰 Vorbericht: Bei Spielen gegen bekannte Gegner zeigt das Termin-Fenster die bisherigen Duelle",
-  "📬 Sanfte Auto-Erinnerung: Wer noch nicht geantwortet hat, bekommt automatisch zwei Tage vorher einen Hinweis",
-  "🚸 „Wer holt ab?“ – tragt am Termin ein, wer euer Kind abholt; das Trainerteam sieht es am Platz",
-  "📖 Panini-Sammelalbum mit Sticker-Tüten, Raritäten und Tauschbörse – in der Kabine",
-  "🛡️ „So schützen wir eure Fotos & Daten“ – warum die Galerie sicherer ist als WhatsApp (unter Datenschutz & Freigaben)",
-  "📸 Mehrere Fotos auf einmal hochladen – direkt am Termin oder nach dem Spiel",
-  "📖 „Unsere Saison“ – die Chronik mit allen Spielen, Festen & Meilensteinen (unter Mehr vom Team)"
+const ELTERN_WHATSNEW={key:"2026-08-14",titel:"Neu in eurer App",punkte:[
+  "🙌 „Wer hilft mit?“ sagt jetzt, worauf du dich einlässt: ab wann du da sein solltest, was zu tun ist und wie lange es dauert – und im Feld darunter kannst du auch etwas eintragen, das nicht in der Liste steht",
+  "🥅 Beim Training geht es konkret um die Funino-Tore und die Jugendtore, mit Anzahl",
+  "👍 Zu- & Absagen: Die Terminübersicht springt nach deiner Antwort nicht mehr an den Anfang zurück",
+  "🗣️ Elterngespräch: Die Abstimmung bleibt stehen, bis du alle Vorschläge beantwortet hast – nicht schon nach dem ersten",
+  "🃏 Der Rückblick nach einem Spiel bleibt zwei Wochen stehen, danach findet ihr alles in der Saison-Statistik",
+  "🎤 Der Kabinen-Reporter hat viel mehr Fragen – und zu jeder passende Antworten, auch wenn mal nichts davon zutrifft"
 ]};
 function whatsNewOpen(){
   document.getElementById("wn-modal")?.remove();
@@ -1089,7 +1087,6 @@ async function terminDetailOpen(id){
     <div id="td-vorbericht"></div>
     <div id="td-nom"></div>
     <div id="td-betreuung"></div>
-    <div id="td-abhol"></div>
     <div id="td-buedchen"></div>
     <div id="td-helfer"></div>
     ${t.typ==="event"?'<div id="td-mitbring"></div>':""}
@@ -1103,7 +1100,6 @@ async function terminDetailOpen(id){
   if(t.typ==="training")tdBetreuungLoad(t,kids);
   if(istSpiel&&t.heim===true)tdBuedchenLoad(t,kids);
   tdHelferLoad(t); // G4: Elternhelfer-Board (nur kommende Termine)
-  tdAbholLoad(t,kids); // 🚸 Abhol-Info: wer holt heute ab? (Safeguarding)
   // „Wie war's" (Puls) lebt jetzt NUR im Zu-erledigen-Fenster (PO: der Termin wandert
   // nach der Endzeit ins Archiv, dort würde die Smiley-Frage niemand mehr finden).
   if(t.typ==="event")tdMitbringLoad(t); // Mitbringliste direkt im Termin ansehen & ändern
@@ -1238,50 +1234,6 @@ async function pulsNudgeLoad(){
   </div>`;
   tdPulsRender(first.id,null,true);
 }
-/* 🚸 Abhol-Info (Eltern): pro Kind kurz eintragen, wer heute abholt – Presets als Chips,
-   freier Text möglich („fährt bei Matteo mit"). Das Trainerteam sieht die Liste am Platz;
-   Einträge verfallen automatisch 14 Tage nach dem Termin (Datenhygiene-Cron). */
-async function tdAbholLoad(t,kids){
-  const box=document.getElementById("td-abhol"); if(!box)return;
-  kids=kids||window._elternKids||[];
-  if(!kids.length||!["training","spiel","turnier"].includes(t.typ)||(typeof terminVorbei==="function"&&terminVorbei(t))){box.innerHTML="";return;}
-  let cur={};
-  try{const ids=kids.map(k=>k.spieler_id).join(",");
-    const r=await fetch(`${SB_URL}/rest/v1/abhol_info?termin_id=eq.${t.id}&spieler_id=in.(${ids})&select=spieler_id,abholer`,{headers:sbAuthHeaders()});
-    if(r.ok)(await r.json()).forEach(x=>cur[x.spieler_id]=x.abholer);}catch(e){}
-  const presets=["Mama","Papa","Oma","Opa","fährt mit bei …"];
-  box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
-    <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🚸 Wer holt ab?</div>
-    <div style="font-size:11px;color:#64748b;margin-bottom:6px">Kurz eintragen – dann geben wir euer Kind am Platz nur in die richtigen Hände.</div>
-    ${kids.map(k=>{const kd=k.kader||{};const v=cur[k.spieler_id]||"";
-      return `<div style="margin-top:8px">
-        ${kids.length>1?`<div style="font-size:12px;font-weight:700;margin-bottom:4px">${esc(kd.name||"Kind")}</div>`:""}
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${presets.map(p=>`<button onclick="tdAbholPreset(${k.spieler_id},'${p.replace(/'/g,"")}')" style="padding:6px 10px;border-radius:9px;border:1.5px solid #e2e8f0;background:#fff;color:#334155;font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer">${p}</button>`).join("")}</div>
-        <div style="display:flex;gap:6px">
-          <input id="abhol-${k.spieler_id}" value="${esc(v)}" maxlength="60" placeholder="z. B. Oma, fährt bei Matteo mit …" style="flex:1;min-width:0;min-height:44px;padding:9px;border:1.5px solid ${v?"#16a34a":"#e2e8f0"};border-radius:10px;font-family:inherit;font-size:13px;box-sizing:border-box" onkeydown="if(event.key==='Enter')tdAbholSave(${t.id},${k.spieler_id})">
-          <button onclick="tdAbholSave(${t.id},${k.spieler_id},this)" aria-label="Abhol-Info speichern" style="min-height:44px;min-width:52px;border:none;border-radius:10px;background:#16a34a;color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">✓</button>
-        </div>
-        ${v?`<div style="font-size:10.5px;color:#16a34a;margin-top:3px">Eingetragen: ${esc(v)} · Feld leeren + ✓ = entfernen</div>`:""}
-      </div>`;}).join("")}
-  </div>`;
-}
-function tdAbholPreset(sid,txt){const i=document.getElementById("abhol-"+sid);if(i){i.value=txt;i.focus();}}
-async function tdAbholSave(terminId,sid,btn){
-  const v=(document.getElementById("abhol-"+sid)?.value||"").trim().slice(0,60);
-  if(btn)btn.disabled=true;
-  try{
-    if(!v){
-      await fetch(`${SB_URL}/rest/v1/abhol_info?termin_id=eq.${terminId}&spieler_id=eq.${sid}`,{method:"DELETE",headers:sbAuthHeaders()});
-    }else{
-      const r=await fetch(`${SB_URL}/rest/v1/abhol_info?on_conflict=termin_id,spieler_id`,{method:"POST",headers:sbAuthHeaders({'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify({termin_id:terminId,spieler_id:sid,abholer:v,updated_at:new Date().toISOString()})});
-      if(!r.ok&&r.status!==201){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");if(btn)btn.disabled=false;return;}
-    }
-  }catch(e){toast("Netzwerkfehler","err");if(btn)btn.disabled=false;return;}
-  try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
-  toast(v?"🚸 Abhol-Info gespeichert ✓":"Abhol-Info entfernt");
-  if(btn)btn.disabled=false;
-  if(window._tdTermin&&window._tdTermin.id===terminId)tdAbholLoad(window._tdTermin,window._elternKids||[]);
-}
 /* J3: Helfer-Erinnerung – hast du dich für HEUTE als Helfer eingetragen (Fotos, Live-Ticker,
    Aufbau, Betreuung)? Dann erscheint ein To-Do mit Direktlink zur passenden Funktion. */
 async function elternHelferTodoLoad(){
@@ -1315,9 +1267,51 @@ async function elternHelferTodoLoad(){
    turnier." Beides hängt am Spielbetrieb: getickert wird ein Spiel, und die Betreuung meint
    die Kinder in den Pausen zwischen den Spielen. Beim Training gibt es weder das eine noch
    das andere – dort steht die Frage „bleibst du vor Ort?" schon eine Karte weiter oben. */
-const HELFER_TASKS_ALLE=["🛠️ Aufbau","📸 Fotografieren","📻 Live-Ticker","👀 Betreuung"];
-const HELFER_TASKS_TRAINING=["🛠️ Aufbau","📸 Fotografieren"];
-function helferTasksFuer(typ){ return (typ==="spiel"||typ==="turnier")?HELFER_TASKS_ALLE:HELFER_TASKS_TRAINING; }
+/* PO/Markus: „sinnvoll, wenn wir vorher schreiben, was Hilfe beim Aufbau bedeutet." Bis v426
+   stand hier nur ein Wort auf einem Knopf – wer „Aufbau" antippte, sagte etwas zu, das er
+   nicht kannte (wann da sein? wie lange? was genau?). Null Eintraege in event_helfer sind
+   die Quittung. Jede Aufgabe sagt jetzt Zeitpunkt, Taetigkeit und Dauer.
+   ⚠️ Der Aufgaben-TEXT ist der Schluessel: event_helfer.aufgabe speichert ihn woertlich,
+   Ein- und Austragen vergleichen darauf. Beschreibungen duerfen sich aendern, `t` NICHT. */
+const HELFER_AUFGABEN=[
+  /* Beim Training wird nicht „aufgebaut", da werden Tore getragen – und zwar zweierlei.
+     Der Trainer sagt am Termin, wie viele; ohne Angabe steht die Aufgabe ohne Zahl da
+     (nie eine erfinden), bei ausdruecklicher 0 entfaellt sie ganz (Halle, Techniktraining). */
+  {t:"🥅 Funino-Tore",   typen:["training"], zahl:t=>t&&t.helfer_funino,
+   d:t=>`${helferAbSatz(t)} da sein und ${helferAnzahl(t&&t.helfer_funino,"Funino-Tore")} aufstellen.`},
+  {t:"🥅 Jugendtore",    typen:["training"], zahl:t=>t&&t.helfer_jugendtore,
+   d:t=>`${helferAbSatz(t)} da sein und ${helferAnzahl(t&&t.helfer_jugendtore,"Jugendtore")} aufstellen.`},
+  {t:"🛠️ Aufbau",        typen:["spiel","turnier","event"],
+   d:t=>`${helferAbSatz(t)} da sein und mit dem Trainerteam Tore, Hütchen und Bälle aufbauen – etwa 15 Minuten.`},
+  {t:"👀 Betreuung",     typen:["spiel","turnier"],
+   d:()=>"In den Pausen bei den Kindern bleiben, damit das Trainerteam das nächste Spiel vorbereiten kann. Auch eine Halbzeit hilft."},
+  {t:"📻 Live-Ticker",   typen:["spiel","turnier"],
+   d:()=>"Während des Spiels kurze Meldungen in der App tippen – für alle, die nicht dabei sein können."},
+  {t:"📸 Fotografieren", typen:["spiel","turnier","event"],
+   d:()=>"Ein paar Fotos machen und sie danach in die Galerie laden. Das Handy reicht völlig."}
+];
+/* „8 Funino-Tore" wenn die Zahl steht, sonst „die Funino-Tore" – niemals eine geratene Zahl.
+   Die 0 kommt hier nie an: sie filtert die Aufgabe vorher aus der Liste. */
+function helferAnzahl(n,was){
+  return (n==null||n==="")?("die "+was):(Number(n)+" "+was);
+}
+/* „Ab wann?" beantwortet die App selbst, statt eine feste Uhrzeit in den Text zu schreiben:
+   Helfer kommen eine halbe Stunde vor allen anderen. Grundlage ist die Treffzeit, wenn es
+   eine gibt (Spiel/Turnier), sonst der Beginn – so stimmt EINE Regel für beide Fälle.
+   Ohne verwertbare Zeit bleibt der Satz allgemein, statt eine Uhrzeit zu erfinden. */
+function helferAbSatz(t){
+  const m=String((t&&t.treffzeit)||(t&&t.uhrzeit)||"").match(/(\d{1,2}):(\d{2})/);
+  if(!m)return "Eine halbe Stunde vor Beginn";
+  const min=(+m[1])*60+(+m[2])-30;
+  if(min<0)return "Eine halbe Stunde vor Beginn";
+  return `Ab ${String(Math.floor(min/60)).padStart(2,"0")}:${String(min%60).padStart(2,"0")} Uhr`;
+}
+/* Aufgaben je Termintyp – und eine mit ausdruecklicher 0 faellt raus. Der Termin (t) darf
+   fehlen (Notnagel in _helferReload); dann greift nur der Typ-Filter. */
+function helferTasksFuer(typ,t){
+  return HELFER_AUFGABEN.filter(a=>a.typen.includes(typ||"training"))
+                        .filter(a=>!(a.zahl&&Number(a.zahl(t))===0));
+}
 function _sbUid(){ try{const t=sbToken();return t?JSON.parse(atob(t.split(".")[1])).sub:null;}catch(e){return null;} }
 function _helferName(){ const kids=window._elternKids||[]; const n=(kids[0]&&kids[0].kader&&kids[0].kader.name)?kids[0].kader.name:"Unsere"; return n+" Familie"; }
 async function tdHelferLoad(t){
@@ -1331,18 +1325,36 @@ async function tdHelferLoad(t){
       <span style="flex:1">${esc(x.aufgabe)} · <b>${esc(x.name)}</b></span>
       ${x.user_id===uid?`<button onclick="tdHelferDel(${x.id},${t.id})" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:14px">✕</button>`:""}
     </div>`).join(""):'<div style="font-size:12px;color:#94a3b8">Noch niemand eingetragen – mach den Anfang!</div>';
-  const buttons=helferTasksFuer(t.typ).map(task=>{const on=mine.has(task);const esct=task.replace(/'/g,"");
-    return `<button onclick="${on?`tdHelferDelTask(${t.id},'${esct}')`:`tdHelferAdd(${t.id},'${esct}')`}" style="padding:7px 10px;border-radius:9px;border:1.5px solid ${on?"#16a34a":"#e2e8f0"};background:${on?"#f0fdf4":"#fff"};color:${on?"#15803d":"#334155"};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">${on?"✓ ":""}${esc(task)}</button>`;}).join("");
+  /* Zeilen statt Chips: eine Beschreibung braucht Platz, und der Knopf muss sagen, worauf
+     man sich einlaesst, BEVOR man tippt. Weisse Karte, deshalb feste helle Farbwerte. */
+  const buttons=helferTasksFuer(t.typ,t).map(a=>{const on=mine.has(a.t);const esct=a.t.replace(/'/g,"");
+    return `<button onclick="${on?`tdHelferDelTask(${t.id},'${esct}')`:`tdHelferAdd(${t.id},'${esct}')`}" aria-pressed="${on?"true":"false"}" style="display:block;width:100%;text-align:left;margin-top:6px;padding:9px 11px;border-radius:10px;border:1.5px solid ${on?"#16a34a":"#e2e8f0"};background:${on?"#f0fdf4":"#fff"};font-family:inherit;cursor:pointer">
+      <span style="font-size:12.5px;font-weight:700;color:${on?"#15803d":"#334155"}">${on?"✓ ":""}${esc(a.t)}</span>
+      <span style="display:block;font-size:11px;font-weight:400;color:#64748b;margin-top:2px;line-height:1.35">${esc(a.d(t))}</span>
+    </button>`;}).join("");
   box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
     <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🙌 Wer hilft mit?</div>
-    <div style="font-size:11px;color:#64748b;margin-bottom:6px">Tippe eine Aufgabe an, um dich (als „${esc(_helferName())}") einzutragen.</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:6px">Tippe eine Aufgabe an, um dich (als „${esc(_helferName())}“) einzutragen. Nochmal tippen trägt dich wieder aus.</div>
+    ${t.helfer_hinweis?`<div style="font-size:11.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:7px 9px;margin-bottom:8px;line-height:1.4">💬 ${esc(t.helfer_hinweis)}</div>`:""}
     ${list}
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${buttons}</div>
+    <div style="margin-top:8px">${buttons}</div>
+    <!-- Freifeld: was die Liste nicht kennt. Der Text wird zur Aufgabe – deshalb das feste
+         ✏️ davor, damit ein getipptes „Aufbau" nie zufaellig auf einen festen Aufgaben-
+         schluessel faellt und dessen Knopf als angehakt erscheinen laesst. -->
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <!-- Rahmen dunkler als bei den Aufgaben-Zeilen darueber (#e2e8f0): einen Knopf erkennt
+           man an seiner Beschriftung, ein LEERES Eingabefeld nur an seinem Rand – deshalb
+           gilt hier die 3:1-Regel fuer Bedienelemente. #7d8b99 = 3,49:1 auf Weiss. -->
+      <input id="helfer-eigen" maxlength="60" placeholder="Etwas anderes – was übernimmst du?" aria-label="Eigene Aufgabe eintragen" style="flex:1;min-width:0;min-height:44px;padding:9px;border:1.5px solid #7d8b99;border-radius:10px;font-family:inherit;font-size:12.5px;box-sizing:border-box" onkeydown="if(event.key==='Enter')tdHelferAddEigen(${Number(t.id)})">
+      <button onclick="tdHelferAddEigen(${Number(t.id)},this)" aria-label="Eigene Aufgabe eintragen" style="min-height:44px;min-width:52px;border:none;border-radius:10px;background:#15803d;color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">✓</button>
+    </div>
   </div>`;
 }
 /* Der Ersatz-Termin braucht seit v420 auch den TYP: ohne ihn fiele die Liste nach dem
    Eintragen auf die Trainings-Auswahl zurück und Live-Ticker/Betreuung verschwänden
-   mitten im Spieltag. Deshalb zuerst der offene Termin-Dialog als Quelle. */
+   mitten im Spieltag. Seit v427 hängt zusätzlich die Uhrzeit im Aufbau-Text daran.
+   Deshalb zuerst der offene Termin-Dialog als Quelle; der Notnagel ganz unten kennt
+   beides nicht und fällt bewusst auf den allgemeinen Satz zurück, statt etwas zu erfinden. */
 function _helferReload(terminId){
   const t=(ELTERN_TERMINE||[]).find(x=>Number(x.id)===Number(terminId))
     ||((window._tdTermin&&Number(window._tdTermin.id)===Number(terminId))?window._tdTermin:null)
@@ -1350,10 +1362,26 @@ function _helferReload(terminId){
   tdHelferLoad(t);
 }
 async function tdHelferAdd(terminId,task){
-  if(tdHelferAdd._busy)return; tdHelferAdd._busy=true; setTimeout(()=>{tdHelferAdd._busy=false;},1500); // Doppel-Tap = doppelter Helfer-Eintrag
+  /* Doppel-Tap-Sperre je AUFGABE, nicht global. Global hiess: wer eine Aufgabe antippt und
+     innerhalb von 1,5 s noch etwas ins Freifeld schreibt, verliert den zweiten Eintrag –
+     ohne Meldung. Seit es das Freifeld gibt, ist genau das der Normalfall. */
+  const schl=terminId+"|"+task;
+  if(!tdHelferAdd._busy)tdHelferAdd._busy=new Set();
+  if(tdHelferAdd._busy.has(schl))return;
+  tdHelferAdd._busy.add(schl); setTimeout(()=>tdHelferAdd._busy.delete(schl),1500);
   try{const r=await fetch(`${SB_URL}/rest/v1/event_helfer`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({termin_id:terminId,name:_helferName(),aufgabe:task})});if(!r.ok){toast("Konnte nicht eintragen","err");return;}}catch(e){toast("Netzwerkfehler","err");return;}
   try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
   _helferReload(terminId);
+}
+/* Eigene Aufgabe: freier Text statt einer der vorgegebenen Zeilen. Kein prompt() – im
+   Eltern-Bereich verbietet die Hausregel Systemdialoge (v415). */
+async function tdHelferAddEigen(terminId,btn){
+  const feld=document.getElementById("helfer-eigen");
+  const txt=(feld?.value||"").trim().slice(0,60);
+  if(!txt){ toast("Schreib kurz, was du übernimmst","err"); feld?.focus(); return; }
+  if(btn)btn.disabled=true;
+  await tdHelferAdd(terminId,"✏️ "+txt);
+  if(btn)btn.disabled=false;
 }
 async function tdHelferDel(id,terminId){
   try{await fetch(`${SB_URL}/rest/v1/event_helfer?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});}catch(e){if(typeof toast==="function")toast("Austragen fehlgeschlagen – kein Netz?","err");}
@@ -1672,7 +1700,7 @@ const ELTERN_TOUR=[
   {emo:"🦅", t:"Willkommen im Eltern-Bereich", d:"Hier läuft alles rund um dein Kind bei der U9 zusammen. Du kannst diese Tour später jederzeit über das ❓ oben neu starten."},
   {emo:"📌", t:"Was oben steht", d:"Ganz oben steht immer der nächste Termin. Gleich darunter erscheinen die Termine der nächsten 14 Tage, für die deine Antwort noch fehlt – ist alles beantwortet, ist die Karte weg. Danach deine offenen Punkte: Mitbringlisten, Büdchen-Dienst und die „Wie war's?“-Frage nach Spielen. Adler News zeigt sich nur, wenn wirklich etwas Neues drin ist – gelesen ist gelesen. Wichtige 📣 Ansagen vom Trainerteam bestätigst du kurz mit „Gelesen“."},
   {emo:"👍", t:"Zu- & Absagen", d:"Melde dein Kind am nächsten Termin oder im Termin-Karussell zu oder ab – ein Tipp genügt, nochmal tippen entfernt die Antwort. Über „Alle Termine\" lädst du alles in deinen Kalender."},
-  {emo:"🙋", t:"Alles rund um den Termin", d:"Im Termin-Detail: Wetter, Adresse mit Route, Fahrgemeinschaft, Mitbringliste bei Events und „Wer hilft mit?“ – beim Spiel und Turnier mit Aufbau, Fotos, Live-Ticker und Betreuung in den Pausen, beim Training nur Aufbau und Fotos. Beim Training gibst du stattdessen an, ob du vor Ort bleibst. Fällt einmal etwas aus oder wird der Platz getauscht, steht das direkt auf der Terminkarte – solange dort nichts steht, findet alles wie geplant statt."},
+  {emo:"🙋", t:"Alles rund um den Termin", d:"Im Termin-Detail: Wetter, Adresse mit Route, Fahrgemeinschaft, Mitbringliste bei Events und „Wer hilft mit?“ – jede Aufgabe sagt dir vorher, ab wann du da sein solltest und was zu tun ist: beim Spiel und Turnier Aufbau, Fotos, Live-Ticker und Betreuung in den Pausen, beim Training die Funino-Tore und Jugendtore. Steht 💬 etwas darüber, ist das ein Hinweis des Trainerteams für genau diesen Termin. Im Feld darunter kannst du auch etwas eintragen, das nicht in der Liste steht. Beim Training sagst du außerdem, ob du vor Ort bleibst. Fällt einmal etwas aus oder wird der Platz getauscht, steht das direkt auf der Terminkarte – solange dort nichts steht, findet alles wie geplant statt."},
   {emo:"🎮", t:"Die Kabine (Kinder-Modus)", d:"Gib dein Handy bedenkenlos weiter: Quiz, Missionen, Galerie – und jetzt auch das Panini-Sammelalbum mit Sticker-Tüten & Tauschbörse, Komplimente an Mitspieler, die eigene Adler-Post und das Sammelalbum. Zurück geht es nur mit Code."},
   {emo:"🃏", t:"Für dein Kind", d:"Nach einem Spiel oder Turnier steht unter den Terminen zwei Wochen lang der Rückblick: was dein Kind an dem Tag alles gemacht hat. Danach verschwindet er – die Zahlen bleiben in der Saison-Statistik. Dort findest du außerdem Sammelkarte, Technik-Abzeichen (die hakst du zuhause ab) und Fan-Fakten. Foto- & Video-Freigaben und die Notfallkarte pflegst du unter „🔒 Datenschutz &amp; Freigaben\" – dort erklärt „🛡️ So schützen wir eure Fotos &amp; Daten\" auch, warum die App sicherer ist als jede WhatsApp-Gruppe."},
   {emo:"📰", t:"Team, Heft & Adler-Kasse", d:"Das „Adler Nest\" ist unser digitales Stadionheft – jetzt mit der Kabinen-Reporter-Rubrik der Kinder. Und über „Fan-Link teilen\" schickst du Oma, Opa und Fans den Spenden-Link. Viel Spaß! 🎉"},

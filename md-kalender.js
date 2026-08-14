@@ -85,6 +85,12 @@ function tmSetTyp(t,btn){
   /* Der „Was"-Block ist beim Training komplett leer – dann bliebe nur die Ueberschrift
      stehen. Eine Ueberschrift ohne Inhalt ist schlimmer als keine. */
   disp("tm-block-was", t!=="training");
+  /* Torzahlen nur beim Training: bei Spiel/Turnier heisst die Aufgabe schlicht „Aufbau",
+     beim Event wird kein Tor gebraucht. Ausgeblendete Felder werden GELEERT (v416) –
+     sonst wandert eine unsichtbare 8 vom Training in den naechsten Spieltag. */
+  disp("tm-tore-row", t==="training");
+  disp("tm-tore-hint", t==="training");
+  if(t!=="training"){const f=document.getElementById("tm-funino"),j=document.getElementById("tm-jugendtore");if(f)f.value="";if(j)j.value="";}
   const gdb=document.getElementById("tm-gegnerdb-btn"); if(gdb)gdb.style.display=istSpiel?"inline-flex":"none"; // Gegner-DB nur bei Spiel/Turnier (nicht bei Training/Event)
   const zeit=document.getElementById("tm-zeit"), datum=document.getElementById("tm-datum"), ort=document.getElementById("tm-ort");
   tmPlatzFill(t);                                         // Optionen + Vorbelegung passend zum Typ
@@ -148,6 +154,14 @@ function tmSerieToggle(){
   const o=document.getElementById("tm-serie-opts"); if(o)o.style.display=on?"block":"none";
   if(on&&typeof ferienLoad==="function")ferienLoad(); // Ferien vorladen fürs Auslassen
 }
+/* Zahlenfeld lesen: leer bleibt leer, 0 bleibt 0. Der uebliche `parseInt(v)||null` haette
+   die 0 verschluckt – und genau die ist hier eine Aussage („kein Tor noetig"). */
+function tmZahlFeld(id){
+  const v=(document.getElementById(id)?.value||"").trim();
+  if(v==="")return null;
+  const n=parseInt(v,10);
+  return isNaN(n)?null:Math.max(0,Math.min(40,n));
+}
 async function tmAdd(){
   if(tmAdd._busy)return; tmAdd._busy=true; // Doppel-Tap erzeugte doppelte Termine (bei Serien bis zu 30)
   try{
@@ -191,7 +205,12 @@ async function tmAdd(){
     gegner: istSpiel?(titel||null):null,
     heim: istSpiel?tmHeim:null,
     spieldauer_min: istSpiel?parseInt(document.getElementById("tm-dauer")?.value||"10"):20,
-    halbzeiten: istSpiel?(parseInt(document.getElementById("tm-halbzeiten")?.value)||1):2
+    halbzeiten: istSpiel?(parseInt(document.getElementById("tm-halbzeiten")?.value)||1):2,
+    // Leeres Feld → null (Aufgabe ohne Zahl), ausdrueckliche 0 → 0 (Aufgabe entfaellt).
+    // Deshalb NICHT parseInt(...)||null: das machte aus der 0 wieder ein null.
+    helfer_funino:     tmTyp==="training"?tmZahlFeld("tm-funino"):null,
+    helfer_jugendtore: tmTyp==="training"?tmZahlFeld("tm-jugendtore"):null,
+    helfer_hinweis:    (document.getElementById("tm-helfer-hinweis")?.value||"").trim()||null
   };
   try{
     const payload=daten.length>1?daten.map(ds=>Object.assign({},body,{datum:ds,saison:saisonForDate(ds)})):body;
@@ -205,6 +224,9 @@ async function tmAdd(){
       terminIdCacheClear();
       toast(daten.length>1?`🔁 ${daten.length} Termine angelegt${ausgelassen?` · ${ausgelassen} Ferienwoche${ausgelassen===1?"":"n"} ausgelassen 🏖️`:""} ✓`:"Termin angelegt ✓");
       document.getElementById("tm-titel").value="";
+      /* Hinweis leeren, Torzahlen NICHT: der Hinweis gilt fuer genau diesen Termin, der
+         Aufbau sieht beim naechsten Training genauso aus. */
+      const hh=document.getElementById("tm-helfer-hinweis"); if(hh)hh.value="";
       const sSel=document.getElementById("tm-serie"); if(sSel){sSel.value="";tmSerieToggle();}
       const sBis=document.getElementById("tm-serie-bis"); if(sBis)sBis.value="";
       const rb=document.getElementById("tm-addr-results");if(rb)rb.innerHTML="";tmSetTyp(tmTyp);tmLoad();

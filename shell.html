@@ -465,6 +465,21 @@
         </div>
       </div>
 
+      <!-- ── WER HILFT ── Was hier steht, landet als BESCHREIBUNG bei den Eltern-Aufgaben.
+           Ohne sie steht dort nur ein Wort auf einem Knopf, und niemand traegt sich ein.
+           Torzahlen nur beim Training (dort wird aufgebaut); der Hinweis gilt fuer alle. -->
+      <div class="tm-block" id="tm-block-helfen">
+        <div class="tm-block-t">Wer hilft</div>
+        <div class="mgrid" id="tm-tore-row" style="grid-template-columns:1fr 1fr;gap:8px;align-items:end;margin-bottom:0">
+          <div class="mg"><label for="tm-funino">Funino-Tore</label><input type="number" id="tm-funino" min="0" max="40" step="1" inputmode="numeric" placeholder="Anzahl"></div>
+          <div class="mg"><label for="tm-jugendtore">Jugendtore</label><input type="number" id="tm-jugendtore" min="0" max="40" step="1" inputmode="numeric" placeholder="Anzahl"></div>
+        </div>
+        <!-- KEIN class="mg": .mg ist ein flex-COLUMN-Container – das <b> waere darin ein
+             eigenes Flex-Element und der Satz stuende auf drei Zeilen (Falle wie v416). -->
+        <div id="tm-tore-hint" style="font-size:11px;color:var(--text2);margin-top:4px;line-height:1.4">Leer lassen = Aufgabe ohne Zahl anbieten · <b>0</b> = wird nicht gebraucht</div>
+        <div class="mg" style="margin-top:10px"><label for="tm-helfer-hinweis">Hinweis für Helfer (optional)</label><input type="text" id="tm-helfer-hinweis" maxlength="140" placeholder="z. B. bitte auch die Leibchen mitbringen"></div>
+      </div>
+
       <button class="btn btn-p tm-haupt" onclick="tmAdd()"><i class="ti ti-plus"></i>Termin anlegen</button>
       <!-- Nebenaktion: unter der Hauptaktion, volle Breite. Daneben gesetzt sah sie neben
            einem Vollbreite-Knopf wie ein Ueberbleibsel aus. -->
