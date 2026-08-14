@@ -29,15 +29,35 @@ function tmPlatzFill(typ){
   sel.innerHTML=`<option value="">– kein Platz –</option>`+opts.map(p=>`<option${p===def?" selected":""}>${esc(p)}</option>`).join("");
   const lbl=document.getElementById("tm-platz-lbl"); if(lbl)lbl.textContent=istSpiel?"Spielfeld-Aufteilung":"Platz (Training)";
 }
+/* Kopf und Akzentfarbe der Terminanlage je Typ. Feste Hexwerte statt --fam-*: die
+   Flaechen tragen weisse Schrift und malen ihren Grund selbst – var(--green) ist im
+   Dunkelmodus hell und kaeme damit auf 2:1. */
+const TM_LOOK={
+  training:{emo:"🏃", sub:"Zeit und Platz genügen",                     titel:"",        platz:""},
+  spiel:   {emo:"⚽", sub:"Gegner, Anpfiff, Endzeit",                   titel:"Gegner",  platz:"z. B. FC Musterstadt"},
+  turnier: {emo:"🏆", sub:"Endzeit nicht vergessen – danach ins Archiv", titel:"Titel",   platz:"z. B. Hallenturnier Dellbrück"},
+  event:   {emo:"🎉", sub:"Sommerfest, Weihnachtsfeier, Ausflug",       titel:"Titel",   platz:"z. B. Saisonabschluss"}
+};
 function tmSetTyp(t,btn){
   tmTyp=t;
   if(btn){btn.parentElement.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active"));btn.classList.add("active");}
+  else{const seg=document.getElementById("tm-typ-seg");
+    if(seg){seg.querySelectorAll(".seg-btn").forEach(b=>b.classList.toggle("active",b.dataset.val===t));}}
+  const look=TM_LOOK[t]||TM_LOOK.training;
+  const karte=document.getElementById("tm-karte");
+  if(karte)karte.dataset.typ=t;   // die Farben haengen daran (styles.css), nicht an einem Inlinestil
+  const ki=document.getElementById("tm-kopf-icon"); if(ki)ki.textContent=look.emo;
+  const ks=document.getElementById("tm-kopf-sub"); if(ks)ks.textContent=look.sub;
   const istSpiel=(t==="spiel"||t==="turnier");
   // display:"" statt "block": .mg ist per CSS ein flex-Container mit 4px Abstand zwischen
   // Label und Feld. Ein hart gesetztes "block" hat den Abstand jedes Mal geschluckt.
   const disp=(id,on)=>{const el=document.getElementById(id);if(el)el.style.display=on?"":"none";};
   disp("tm-titel-row", t!=="training");                 // Training braucht keinen Titel/Gegner
-  const lbl=document.getElementById("tm-titel-lbl"); if(lbl)lbl.textContent=t==="event"?"Titel (z. B. Saisonabschluss, Weihnachtsfeier)":"Gegner / Titel";
+  /* Kurzes Label, Beispiele in den Platzhalter: „Titel (z. B. Saisonabschluss,
+     Weihnachtsfeier)" brauchte auf dem Handy zwei Zeilen – dieselbe Falle wie beim
+     Ende-Feld in v416. Beispiele stehen ohnehin besser IM Feld als darüber. */
+  const lbl=document.getElementById("tm-titel-lbl"); if(lbl)lbl.textContent=look.titel||"Titel";
+  const tin=document.getElementById("tm-titel"); if(tin)tin.placeholder=look.platz||"";
   // Platz gibt es bei Training UND Spiel/Turnier (jeweils eigene Optionen) – nur beim Event nicht.
   const platzRow=document.getElementById("tm-platz")?.closest(".mg"); if(platzRow)platzRow.style.display=(t==="training"||istSpiel)?"":"none";
   disp("tm-spielform-row", istSpiel);
@@ -62,6 +82,9 @@ function tmSetTyp(t,btn){
   if(zLbl)zLbl.textContent=istSpiel?"Anpfiff":"Uhrzeit";
   const eLbl=document.getElementById("tm-ende-lbl");
   if(eLbl)eLbl.textContent=istSpiel?"Ende (Pflicht)":"Ende";
+  /* Der „Was"-Block ist beim Training komplett leer – dann bliebe nur die Ueberschrift
+     stehen. Eine Ueberschrift ohne Inhalt ist schlimmer als keine. */
+  disp("tm-block-was", t!=="training");
   const gdb=document.getElementById("tm-gegnerdb-btn"); if(gdb)gdb.style.display=istSpiel?"inline-flex":"none"; // Gegner-DB nur bei Spiel/Turnier (nicht bei Training/Event)
   const zeit=document.getElementById("tm-zeit"), datum=document.getElementById("tm-datum"), ort=document.getElementById("tm-ort");
   tmPlatzFill(t);                                         // Optionen + Vorbelegung passend zum Typ

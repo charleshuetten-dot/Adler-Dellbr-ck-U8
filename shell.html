@@ -364,82 +364,111 @@
   <!-- SUB: Termine (Kalender-Rückgrat) -->
   <div id="train-sub-termine" class="train-sub">
     <div class="sl nt"><i class="ti ti-calendar-plus"></i>Neuer Termin</div>
-    <div style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);padding:12px;margin-bottom:14px">
-      <div style="display:flex;gap:6px;margin-bottom:8px" id="tm-typ-seg">
+    <!-- Die Karte traegt eine Akzentfarbe (--tm-akzent), die tmSetTyp auf den Termintyp
+         setzt: gruen Training, blau Spiel/Turnier, lila Event. Kopf, aktiver Umschalter
+         und die Hauptaktion holen sie sich daraus – man sieht am Farbton, was man anlegt. -->
+    <div class="tm-karte" id="tm-karte">
+      <div class="tm-kopf">
+        <div class="tm-kopf-icon" id="tm-kopf-icon">🏃</div>
+        <div style="flex:1;min-width:0">
+          <div class="tm-kopf-t">Neuer Termin</div>
+          <div class="tm-kopf-s" id="tm-kopf-sub">Training – Zeit und Platz genügen</div>
+        </div>
+      </div>
+      <div class="seg-ctrl" id="tm-typ-seg">
         <button type="button" class="seg-btn active" data-val="training" onclick="tmSetTyp('training',this)">🏃 Training</button>
         <button type="button" class="seg-btn" data-val="spiel" onclick="tmSetTyp('spiel',this)">⚽ Spiel</button>
         <button type="button" class="seg-btn" data-val="turnier" onclick="tmSetTyp('turnier',this)">🏆 Turnier</button>
         <button type="button" class="seg-btn" data-val="event" onclick="tmSetTyp('event',this)">🎉 Event</button>
       </div>
-      <!-- align-items:end haelt die Eingabefelder auf einer Linie, auch wenn ein Label
-           laenger ist und umbricht. Die Labels bleiben trotzdem kurz (siehe tmSetTyp). -->
-      <div class="mgrid" style="grid-template-columns:1fr 1fr;gap:8px;align-items:end;margin-bottom:0">
-        <div class="mg"><label for="tm-datum">Datum</label><input type="date" id="tm-datum" onchange="ferienDatumHint(this,'tm-ferien-hint')"></div>
-        <div class="mg"><label for="tm-zeit" id="tm-zeit-lbl">Uhrzeit</label><input type="time" id="tm-zeit" onchange="tmEndeVorschlag()"></div>
-        <div class="mg"><label for="tm-treff">Treffen</label><input type="time" id="tm-treff" title="Wann sollen die Kinder da sein? Bei Spielen meist 45 Min. vor Anstoß"></div>
-        <div class="mg"><label for="tm-ende" id="tm-ende-lbl">Ende</label><input type="time" id="tm-ende"></div>
-      </div>
-      <!-- Ferien-Warnung ueber die volle Breite. In der Datums-Zelle sass sie UNTER dem Feld
-           und hat es bei align-items:end um ihre eigene Hoehe nach oben geschoben. -->
-      <div id="tm-ferien-hint"></div>
-      <!-- Wiederholen steht ueber die volle Breite: als halbe Rasterzelle sass darunter
-           noch das Bis-Datum und die Ferien-Option, das riss die Zeile auseinander. -->
-      <div class="mg" id="tm-serie-row" style="margin-top:8px"><label for="tm-serie">Wiederholen</label>
-        <select id="tm-serie" onchange="tmSerieToggle()">
-          <option value="">nicht wiederholen</option>
-          <option value="woche">jede Woche</option>
-        </select>
-        <div id="tm-serie-opts" style="display:none;margin-top:6px">
-          <label style="font-size:11px;color:var(--text2)">bis einschließlich<input type="date" id="tm-serie-bis" style="margin-top:2px"></label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);margin-top:6px;cursor:pointer"><input type="checkbox" id="tm-serie-ferien" checked style="width:auto">🏖️ Ferienwochen automatisch auslassen (NRW)</label>
+
+      <!-- ── WANN ── -->
+      <div class="tm-block">
+        <div class="tm-block-t">Wann</div>
+        <!-- align-items:end haelt die Eingabefelder auf einer Linie, auch wenn ein Label
+             laenger ist und umbricht. Die Labels bleiben trotzdem kurz (siehe tmSetTyp). -->
+        <div class="mgrid" style="grid-template-columns:1fr 1fr;gap:8px;align-items:end;margin-bottom:0">
+          <div class="mg"><label for="tm-datum">Datum</label><input type="date" id="tm-datum" onchange="ferienDatumHint(this,'tm-ferien-hint')"></div>
+          <div class="mg"><label for="tm-zeit" id="tm-zeit-lbl">Uhrzeit</label><input type="time" id="tm-zeit" onchange="tmEndeVorschlag()"></div>
+          <div class="mg"><label for="tm-treff">Treffen</label><input type="time" id="tm-treff" title="Wann sollen die Kinder da sein? Bei Spielen meist 45 Min. vor Anstoß"></div>
+          <div class="mg"><label for="tm-ende" id="tm-ende-lbl">Ende</label><input type="time" id="tm-ende"></div>
         </div>
-      </div>
-      <div class="mg" id="tm-spielform-row" style="margin-top:8px;display:none"><label>Spielform</label>
-        <div class="seg-ctrl" id="tm-spielform-seg">
-          <button type="button" class="seg-btn" data-val="funino" onclick="tmSetSpielform('funino',this)">FUNiño</button>
-          <button type="button" class="seg-btn active" data-val="4+1" onclick="tmSetSpielform('4+1',this)">4+1</button>
-          <button type="button" class="seg-btn" data-val="5+1" onclick="tmSetSpielform('5+1',this)">5+1</button>
-        </div>
-      </div>
-      <div class="mg" id="tm-dauer-row" style="margin-top:8px;display:none"><label for="tm-halbzeiten">Spieldauer</label>
-        <div style="display:flex;gap:6px">
-          <select id="tm-halbzeiten" style="flex:1">
-            <option value="1" selected>1 Spielzeit</option>
-            <option value="2">2 Halbzeiten</option>
+        <!-- Ferien-Warnung ueber die volle Breite. In der Datums-Zelle sass sie UNTER dem Feld
+             und hat es bei align-items:end um ihre eigene Hoehe nach oben geschoben. -->
+        <div id="tm-ferien-hint"></div>
+        <!-- Wiederholen steht ueber die volle Breite: als halbe Rasterzelle sass darunter
+             noch das Bis-Datum und die Ferien-Option, das riss die Zeile auseinander. -->
+        <div class="mg" id="tm-serie-row" style="margin-top:10px"><label for="tm-serie">Wiederholen</label>
+          <select id="tm-serie" onchange="tmSerieToggle()">
+            <option value="">nicht wiederholen</option>
+            <option value="woche">jede Woche</option>
           </select>
-          <select id="tm-dauer" style="flex:1">
-            <option value="8">8 Min.</option>
-            <option value="10" selected>10 Min.</option>
-            <option value="12">12 Min.</option>
-            <option value="15">15 Min.</option>
-            <option value="20">20 Min.</option>
-            <option value="25">25 Min.</option>
-            <option value="30">30 Min.</option>
+          <div id="tm-serie-opts" style="display:none;margin-top:8px">
+            <label style="font-size:11px;color:var(--text2)">bis einschließlich<input type="date" id="tm-serie-bis" style="margin-top:3px"></label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);margin-top:8px;cursor:pointer;min-height:44px"><input type="checkbox" id="tm-serie-ferien" checked style="width:auto;flex:none">🏖️ Ferienwochen automatisch auslassen (NRW)</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── WAS ── (nur bei Spiel, Turnier und Event; beim Training ist der Block leer
+           und wird von tmSetTyp ausgeblendet, damit keine leere Ueberschrift stehen bleibt) -->
+      <div class="tm-block" id="tm-block-was">
+        <div class="tm-block-t">Was</div>
+        <div class="mg" id="tm-titel-row" style="display:none"><label for="tm-titel" id="tm-titel-lbl">Gegner</label><input type="text" id="tm-titel" placeholder="z. B. FC Musterstadt" list="gegner-datalist" onchange="gegnerAutofill()"><datalist id="gegner-datalist"></datalist></div>
+        <div class="mg" id="tm-heim-row" style="margin-top:10px;display:none"><label>Heim oder Auswärts?</label>
+          <div class="seg-ctrl" id="tm-heim-seg">
+            <button type="button" class="seg-btn active" data-val="heim" onclick="tmSetHeim(true,this)">🏠 Heimspiel</button>
+            <button type="button" class="seg-btn" data-val="ausw" onclick="tmSetHeim(false,this)">✈️ Auswärts</button>
+          </div>
+        </div>
+        <div class="mg" id="tm-spielform-row" style="margin-top:10px;display:none"><label>Spielform</label>
+          <div class="seg-ctrl" id="tm-spielform-seg">
+            <button type="button" class="seg-btn" data-val="funino" onclick="tmSetSpielform('funino',this)">FUNiño</button>
+            <button type="button" class="seg-btn active" data-val="4+1" onclick="tmSetSpielform('4+1',this)">4+1</button>
+            <button type="button" class="seg-btn" data-val="5+1" onclick="tmSetSpielform('5+1',this)">5+1</button>
+          </div>
+        </div>
+        <div class="mg" id="tm-dauer-row" style="margin-top:10px;display:none"><label for="tm-halbzeiten">Spieldauer</label>
+          <div style="display:flex;gap:8px">
+            <select id="tm-halbzeiten" style="flex:1">
+              <option value="1" selected>1 Spielzeit</option>
+              <option value="2">2 Halbzeiten</option>
+            </select>
+            <select id="tm-dauer" style="flex:1">
+              <option value="8">8 Min.</option>
+              <option value="10" selected>10 Min.</option>
+              <option value="12">12 Min.</option>
+              <option value="15">15 Min.</option>
+              <option value="20">20 Min.</option>
+              <option value="25">25 Min.</option>
+              <option value="30">30 Min.</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── WO ── -->
+      <div class="tm-block" id="tm-block-wo">
+        <div class="tm-block-t">Wo</div>
+        <div class="mg"><label for="tm-ort">Ort / Adresse (optional)</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="tm-ort" placeholder="Sportplatz..." style="flex:1">
+            <button type="button" class="btn btn-sm tm-finden" onclick="gegnerAddrSearch()" title="Adresse per Vereins-/Platzname finden (OpenStreetMap)" aria-label="Adresse suchen"><i class="ti ti-map-search"></i>Finden</button>
+          </div>
+          <div id="tm-addr-results"></div>
+        </div>
+        <div class="mg" id="tm-platz-row" style="margin-top:10px"><label for="tm-platz" id="tm-platz-lbl">Platz (Training)</label>
+          <select id="tm-platz">
+            <option value="">– kein Platz –</option>
+            <option>Käfig</option><option>vorne links</option><option>vorne rechts</option><option>hinten links</option><option>hinten rechts</option><option>Halle</option>
           </select>
         </div>
       </div>
-      <div class="mg" id="tm-titel-row" style="margin-top:8px;display:none"><label for="tm-titel" id="tm-titel-lbl">Gegner / Titel</label><input type="text" id="tm-titel" placeholder="z. B. Heimspiel gegen FC..." list="gegner-datalist" onchange="gegnerAutofill()"><datalist id="gegner-datalist"></datalist></div>
-      <div class="mg" id="tm-heim-row" style="margin-top:8px;display:none"><label>Heim oder Auswärts?</label>
-        <div class="seg-ctrl" id="tm-heim-seg">
-          <button type="button" class="seg-btn active" data-val="heim" onclick="tmSetHeim(true,this)">🏠 Heimspiel</button>
-          <button type="button" class="seg-btn" data-val="ausw" onclick="tmSetHeim(false,this)">✈️ Auswärts</button>
-        </div>
-      </div>
-      <div class="mg" style="margin-top:8px"><label for="tm-ort">Ort / Adresse (optional)</label>
-        <div style="display:flex;gap:6px">
-          <input type="text" id="tm-ort" placeholder="Sportplatz..." style="flex:1">
-          <button type="button" class="btn btn-sm" onclick="gegnerAddrSearch()" title="Adresse per Vereins-/Platzname finden (OpenStreetMap)"><i class="ti ti-map-search"></i>Finden</button>
-        </div>
-        <div id="tm-addr-results"></div>
-      </div>
-      <div class="mg" style="margin-top:8px"><label for="tm-platz" id="tm-platz-lbl">Platz (Training)</label>
-        <select id="tm-platz" style="width:100%;padding:8px 12px;border:var(--border-s);border-radius:var(--r);font-size:13px;background:var(--surface);font-family:inherit;color:var(--text)">
-          <option value="">– kein Platz –</option>
-          <option>Käfig</option><option>vorne links</option><option>vorne rechts</option><option>hinten links</option><option>hinten rechts</option><option>Halle</option>
-        </select>
-      </div>
-      <button class="btn btn-p" style="margin-top:10px" onclick="tmAdd()"><i class="ti ti-plus"></i>Termin anlegen</button>
-      <button id="tm-gegnerdb-btn" class="btn btn-sm" style="margin-top:10px;margin-left:6px;display:none" onclick="gegnerManageOpen()"><i class="ti ti-address-book"></i>Gegner-Datenbank</button>
+
+      <button class="btn btn-p tm-haupt" onclick="tmAdd()"><i class="ti ti-plus"></i>Termin anlegen</button>
+      <!-- Nebenaktion: unter der Hauptaktion, volle Breite. Daneben gesetzt sah sie neben
+           einem Vollbreite-Knopf wie ein Ueberbleibsel aus. -->
+      <button id="tm-gegnerdb-btn" class="btn btn-sm" style="margin-top:8px;width:100%;justify-content:center;min-height:44px;display:none" onclick="gegnerManageOpen()"><i class="ti ti-address-book"></i>Gegner-Datenbank</button>
     </div>
     <div class="sl nt"><i class="ti ti-calendar"></i>Kommende Termine</div>
     <div id="tm-carousel"></div>
