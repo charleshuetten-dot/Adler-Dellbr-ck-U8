@@ -436,7 +436,6 @@ const ELTERN_WHATSNEW={key:"2026-07-24",titel:"Neu in eurer App",punkte:[
   "🕒 Treffzeit bei Spielen: Ihr seht jetzt getrennt, wann ihr da sein sollt und wann Anstoß ist",
   "📰 Vorbericht: Bei Spielen gegen bekannte Gegner zeigt das Termin-Fenster die bisherigen Duelle",
   "📬 Sanfte Auto-Erinnerung: Wer noch nicht geantwortet hat, bekommt automatisch zwei Tage vorher einen Hinweis",
-  "🚸 „Wer holt ab?“ – tragt am Termin ein, wer euer Kind abholt; das Trainerteam sieht es am Platz",
   "📖 Panini-Sammelalbum mit Sticker-Tüten, Raritäten und Tauschbörse – in der Kabine",
   "🛡️ „So schützen wir eure Fotos & Daten“ – warum die Galerie sicherer ist als WhatsApp (unter Datenschutz & Freigaben)",
   "📸 Mehrere Fotos auf einmal hochladen – direkt am Termin oder nach dem Spiel",
@@ -1089,7 +1088,6 @@ async function terminDetailOpen(id){
     <div id="td-vorbericht"></div>
     <div id="td-nom"></div>
     <div id="td-betreuung"></div>
-    <div id="td-abhol"></div>
     <div id="td-buedchen"></div>
     <div id="td-helfer"></div>
     ${t.typ==="event"?'<div id="td-mitbring"></div>':""}
@@ -1103,7 +1101,6 @@ async function terminDetailOpen(id){
   if(t.typ==="training")tdBetreuungLoad(t,kids);
   if(istSpiel&&t.heim===true)tdBuedchenLoad(t,kids);
   tdHelferLoad(t); // G4: Elternhelfer-Board (nur kommende Termine)
-  tdAbholLoad(t,kids); // 🚸 Abhol-Info: wer holt heute ab? (Safeguarding)
   // „Wie war's" (Puls) lebt jetzt NUR im Zu-erledigen-Fenster (PO: der Termin wandert
   // nach der Endzeit ins Archiv, dort würde die Smiley-Frage niemand mehr finden).
   if(t.typ==="event")tdMitbringLoad(t); // Mitbringliste direkt im Termin ansehen & ändern
@@ -1238,50 +1235,6 @@ async function pulsNudgeLoad(){
   </div>`;
   tdPulsRender(first.id,null,true);
 }
-/* 🚸 Abhol-Info (Eltern): pro Kind kurz eintragen, wer heute abholt – Presets als Chips,
-   freier Text möglich („fährt bei Matteo mit"). Das Trainerteam sieht die Liste am Platz;
-   Einträge verfallen automatisch 14 Tage nach dem Termin (Datenhygiene-Cron). */
-async function tdAbholLoad(t,kids){
-  const box=document.getElementById("td-abhol"); if(!box)return;
-  kids=kids||window._elternKids||[];
-  if(!kids.length||!["training","spiel","turnier"].includes(t.typ)||(typeof terminVorbei==="function"&&terminVorbei(t))){box.innerHTML="";return;}
-  let cur={};
-  try{const ids=kids.map(k=>k.spieler_id).join(",");
-    const r=await fetch(`${SB_URL}/rest/v1/abhol_info?termin_id=eq.${t.id}&spieler_id=in.(${ids})&select=spieler_id,abholer`,{headers:sbAuthHeaders()});
-    if(r.ok)(await r.json()).forEach(x=>cur[x.spieler_id]=x.abholer);}catch(e){}
-  const presets=["Mama","Papa","Oma","Opa","fährt mit bei …"];
-  box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
-    <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🚸 Wer holt ab?</div>
-    <div style="font-size:11px;color:#64748b;margin-bottom:6px">Kurz eintragen – dann geben wir euer Kind am Platz nur in die richtigen Hände.</div>
-    ${kids.map(k=>{const kd=k.kader||{};const v=cur[k.spieler_id]||"";
-      return `<div style="margin-top:8px">
-        ${kids.length>1?`<div style="font-size:12px;font-weight:700;margin-bottom:4px">${esc(kd.name||"Kind")}</div>`:""}
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${presets.map(p=>`<button onclick="tdAbholPreset(${k.spieler_id},'${p.replace(/'/g,"")}')" style="padding:6px 10px;border-radius:9px;border:1.5px solid #e2e8f0;background:#fff;color:#334155;font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer">${p}</button>`).join("")}</div>
-        <div style="display:flex;gap:6px">
-          <input id="abhol-${k.spieler_id}" value="${esc(v)}" maxlength="60" placeholder="z. B. Oma, fährt bei Matteo mit …" style="flex:1;min-width:0;min-height:44px;padding:9px;border:1.5px solid ${v?"#16a34a":"#e2e8f0"};border-radius:10px;font-family:inherit;font-size:13px;box-sizing:border-box" onkeydown="if(event.key==='Enter')tdAbholSave(${t.id},${k.spieler_id})">
-          <button onclick="tdAbholSave(${t.id},${k.spieler_id},this)" aria-label="Abhol-Info speichern" style="min-height:44px;min-width:52px;border:none;border-radius:10px;background:#16a34a;color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">✓</button>
-        </div>
-        ${v?`<div style="font-size:10.5px;color:#16a34a;margin-top:3px">Eingetragen: ${esc(v)} · Feld leeren + ✓ = entfernen</div>`:""}
-      </div>`;}).join("")}
-  </div>`;
-}
-function tdAbholPreset(sid,txt){const i=document.getElementById("abhol-"+sid);if(i){i.value=txt;i.focus();}}
-async function tdAbholSave(terminId,sid,btn){
-  const v=(document.getElementById("abhol-"+sid)?.value||"").trim().slice(0,60);
-  if(btn)btn.disabled=true;
-  try{
-    if(!v){
-      await fetch(`${SB_URL}/rest/v1/abhol_info?termin_id=eq.${terminId}&spieler_id=eq.${sid}`,{method:"DELETE",headers:sbAuthHeaders()});
-    }else{
-      const r=await fetch(`${SB_URL}/rest/v1/abhol_info?on_conflict=termin_id,spieler_id`,{method:"POST",headers:sbAuthHeaders({'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify({termin_id:terminId,spieler_id:sid,abholer:v,updated_at:new Date().toISOString()})});
-      if(!r.ok&&r.status!==201){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");if(btn)btn.disabled=false;return;}
-    }
-  }catch(e){toast("Netzwerkfehler","err");if(btn)btn.disabled=false;return;}
-  try{navigator.vibrate&&navigator.vibrate(30);}catch(e){}
-  toast(v?"🚸 Abhol-Info gespeichert ✓":"Abhol-Info entfernt");
-  if(btn)btn.disabled=false;
-  if(window._tdTermin&&window._tdTermin.id===terminId)tdAbholLoad(window._tdTermin,window._elternKids||[]);
-}
 /* J3: Helfer-Erinnerung – hast du dich für HEUTE als Helfer eingetragen (Fotos, Live-Ticker,
    Aufbau, Betreuung)? Dann erscheint ein To-Do mit Direktlink zur passenden Funktion. */
 async function elternHelferTodoLoad(){
@@ -1315,9 +1268,33 @@ async function elternHelferTodoLoad(){
    turnier." Beides hängt am Spielbetrieb: getickert wird ein Spiel, und die Betreuung meint
    die Kinder in den Pausen zwischen den Spielen. Beim Training gibt es weder das eine noch
    das andere – dort steht die Frage „bleibst du vor Ort?" schon eine Karte weiter oben. */
-const HELFER_TASKS_ALLE=["🛠️ Aufbau","📸 Fotografieren","📻 Live-Ticker","👀 Betreuung"];
-const HELFER_TASKS_TRAINING=["🛠️ Aufbau","📸 Fotografieren"];
-function helferTasksFuer(typ){ return (typ==="spiel"||typ==="turnier")?HELFER_TASKS_ALLE:HELFER_TASKS_TRAINING; }
+/* PO/Markus: „sinnvoll, wenn wir vorher schreiben, was Hilfe beim Aufbau bedeutet." Bis v426
+   stand hier nur ein Wort auf einem Knopf – wer „Aufbau" antippte, sagte etwas zu, das er
+   nicht kannte (wann da sein? wie lange? was genau?). Null Eintraege in event_helfer sind
+   die Quittung. Jede Aufgabe sagt jetzt Zeitpunkt, Taetigkeit und Dauer.
+   ⚠️ Der Aufgaben-TEXT ist der Schluessel: event_helfer.aufgabe speichert ihn woertlich,
+   Ein- und Austragen vergleichen darauf. Beschreibungen duerfen sich aendern, `t` NICHT. */
+const HELFER_AUFGABEN=[
+  {t:"🛠️ Aufbau",       d:t=>`${helferAbSatz(t)} da sein und mit dem Trainerteam Tore, Hütchen und Bälle aufbauen – etwa 15 Minuten.`},
+  {t:"📸 Fotografieren", d:()=>"Ein paar Fotos machen und sie danach in die Galerie laden. Das Handy reicht völlig."},
+  {t:"📻 Live-Ticker",   d:()=>"Während des Spiels kurze Meldungen in der App tippen – für alle, die nicht dabei sein können.",nur:"spiel"},
+  {t:"👀 Betreuung",     d:()=>"In den Pausen bei den Kindern bleiben, damit das Trainerteam das nächste Spiel vorbereiten kann. Auch eine Halbzeit hilft.",nur:"spiel"}
+];
+/* „Ab wann?" beantwortet die App selbst, statt eine feste Uhrzeit in den Text zu schreiben:
+   Helfer kommen eine halbe Stunde vor allen anderen. Grundlage ist die Treffzeit, wenn es
+   eine gibt (Spiel/Turnier), sonst der Beginn – so stimmt EINE Regel für beide Fälle.
+   Ohne verwertbare Zeit bleibt der Satz allgemein, statt eine Uhrzeit zu erfinden. */
+function helferAbSatz(t){
+  const m=String((t&&t.treffzeit)||(t&&t.uhrzeit)||"").match(/(\d{1,2}):(\d{2})/);
+  if(!m)return "Eine halbe Stunde vor Beginn";
+  const min=(+m[1])*60+(+m[2])-30;
+  if(min<0)return "Eine halbe Stunde vor Beginn";
+  return `Ab ${String(Math.floor(min/60)).padStart(2,"0")}:${String(min%60).padStart(2,"0")} Uhr`;
+}
+function helferTasksFuer(typ){
+  const spielbetrieb=(typ==="spiel"||typ==="turnier");
+  return HELFER_AUFGABEN.filter(a=>!a.nur||spielbetrieb);
+}
 function _sbUid(){ try{const t=sbToken();return t?JSON.parse(atob(t.split(".")[1])).sub:null;}catch(e){return null;} }
 function _helferName(){ const kids=window._elternKids||[]; const n=(kids[0]&&kids[0].kader&&kids[0].kader.name)?kids[0].kader.name:"Unsere"; return n+" Familie"; }
 async function tdHelferLoad(t){
@@ -1331,18 +1308,25 @@ async function tdHelferLoad(t){
       <span style="flex:1">${esc(x.aufgabe)} · <b>${esc(x.name)}</b></span>
       ${x.user_id===uid?`<button onclick="tdHelferDel(${x.id},${t.id})" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:14px">✕</button>`:""}
     </div>`).join(""):'<div style="font-size:12px;color:#94a3b8">Noch niemand eingetragen – mach den Anfang!</div>';
-  const buttons=helferTasksFuer(t.typ).map(task=>{const on=mine.has(task);const esct=task.replace(/'/g,"");
-    return `<button onclick="${on?`tdHelferDelTask(${t.id},'${esct}')`:`tdHelferAdd(${t.id},'${esct}')`}" style="padding:7px 10px;border-radius:9px;border:1.5px solid ${on?"#16a34a":"#e2e8f0"};background:${on?"#f0fdf4":"#fff"};color:${on?"#15803d":"#334155"};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">${on?"✓ ":""}${esc(task)}</button>`;}).join("");
+  /* Zeilen statt Chips: eine Beschreibung braucht Platz, und der Knopf muss sagen, worauf
+     man sich einlaesst, BEVOR man tippt. Weisse Karte, deshalb feste helle Farbwerte. */
+  const buttons=helferTasksFuer(t.typ).map(a=>{const on=mine.has(a.t);const esct=a.t.replace(/'/g,"");
+    return `<button onclick="${on?`tdHelferDelTask(${t.id},'${esct}')`:`tdHelferAdd(${t.id},'${esct}')`}" aria-pressed="${on?"true":"false"}" style="display:block;width:100%;text-align:left;margin-top:6px;padding:9px 11px;border-radius:10px;border:1.5px solid ${on?"#16a34a":"#e2e8f0"};background:${on?"#f0fdf4":"#fff"};font-family:inherit;cursor:pointer">
+      <span style="font-size:12.5px;font-weight:700;color:${on?"#15803d":"#334155"}">${on?"✓ ":""}${esc(a.t)}</span>
+      <span style="display:block;font-size:11px;font-weight:400;color:#64748b;margin-top:2px;line-height:1.35">${esc(a.d(t))}</span>
+    </button>`;}).join("");
   box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
     <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🙌 Wer hilft mit?</div>
-    <div style="font-size:11px;color:#64748b;margin-bottom:6px">Tippe eine Aufgabe an, um dich (als „${esc(_helferName())}") einzutragen.</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:6px">Tippe eine Aufgabe an, um dich (als „${esc(_helferName())}“) einzutragen. Nochmal tippen trägt dich wieder aus.</div>
     ${list}
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${buttons}</div>
+    <div style="margin-top:8px">${buttons}</div>
   </div>`;
 }
 /* Der Ersatz-Termin braucht seit v420 auch den TYP: ohne ihn fiele die Liste nach dem
    Eintragen auf die Trainings-Auswahl zurück und Live-Ticker/Betreuung verschwänden
-   mitten im Spieltag. Deshalb zuerst der offene Termin-Dialog als Quelle. */
+   mitten im Spieltag. Seit v427 hängt zusätzlich die Uhrzeit im Aufbau-Text daran.
+   Deshalb zuerst der offene Termin-Dialog als Quelle; der Notnagel ganz unten kennt
+   beides nicht und fällt bewusst auf den allgemeinen Satz zurück, statt etwas zu erfinden. */
 function _helferReload(terminId){
   const t=(ELTERN_TERMINE||[]).find(x=>Number(x.id)===Number(terminId))
     ||((window._tdTermin&&Number(window._tdTermin.id)===Number(terminId))?window._tdTermin:null)
