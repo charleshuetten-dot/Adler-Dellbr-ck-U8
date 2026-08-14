@@ -623,6 +623,15 @@ function tmEdit(id){
         <select id="te-hz" style="${fld}">${hzOpts}</select>
         <select id="te-dauer" style="${fld}">${dauerOpts}</select>
       </div></div>`:''}
+    <div style="border-top:var(--border-s);margin-top:12px;padding-top:10px">
+      <div style="font-size:11px;color:var(--text2);font-weight:700;margin-bottom:6px">Wer hilft</div>
+      ${isTraining?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label style="font-size:11px;color:var(--text2)">Funino-Tore<input type="number" id="te-funino" min="0" max="40" step="1" inputmode="numeric" placeholder="Anzahl" value="${t.helfer_funino==null?"":Number(t.helfer_funino)}" style="${fld}"></label>
+        <label style="font-size:11px;color:var(--text2)">Jugendtore<input type="number" id="te-jugendtore" min="0" max="40" step="1" inputmode="numeric" placeholder="Anzahl" value="${t.helfer_jugendtore==null?"":Number(t.helfer_jugendtore)}" style="${fld}"></label>
+      </div>
+      <div style="font-size:10.5px;color:var(--text2);margin-top:4px">Leer = Aufgabe ohne Zahl · <b>0</b> = wird nicht gebraucht</div>`:''}
+      <label style="font-size:11px;color:var(--text2);display:block;margin-top:8px">Hinweis für Helfer<input id="te-helfer-hinweis" maxlength="140" placeholder="z. B. bitte auch die Leibchen mitbringen" value="${esc(t.helfer_hinweis||'')}" style="${fld}"></label>
+    </div>
     <div style="display:flex;gap:8px;margin-top:14px">
       <button class="btn btn-p btn-sm" onclick="tmEditSave(${Number(t.id)})"><i class="ti ti-device-floppy"></i>Speichern</button>
       <button class="btn btn-sm" style="margin-left:auto" onclick="document.getElementById('tm-edit-modal').remove()">Abbrechen</button>
@@ -646,6 +655,12 @@ async function tmEditSave(id){
   if(g("te-sf"))body.spielform=g("te-sf").value||null;
   if(g("te-dauer"))body.spieldauer_min=parseInt(g("te-dauer").value)||10;
   if(g("te-hz"))body.halbzeiten=parseInt(g("te-hz").value)||2;
+  /* Torzahlen: leer bleibt null (Aufgabe ohne Zahl), eine ausdrueckliche 0 bleibt 0
+     (Aufgabe entfaellt). `parseInt(v)||null` haette die 0 zu null gemacht. */
+  const teZahl=id=>{const v=(g(id)?.value||"").trim(); if(v==="")return null; const n=parseInt(v,10); return isNaN(n)?null:Math.max(0,Math.min(40,n));};
+  if(g("te-funino"))body.helfer_funino=teZahl("te-funino");
+  if(g("te-jugendtore"))body.helfer_jugendtore=teZahl("te-jugendtore");
+  if(g("te-helfer-hinweis"))body.helfer_hinweis=(g("te-helfer-hinweis").value||"").trim()||null;
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify(body)});
     if(sbCheck401(r))return;
