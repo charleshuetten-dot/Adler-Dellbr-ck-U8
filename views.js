@@ -3748,8 +3748,11 @@ async function renderHome(){
       const setB=(id,t)=>{const b=document.getElementById(id);if(b&&t)b.textContent=kurz(t);};
       setB("kb-training",rows.find(x=>x.typ==="training"));
       setB("kb-spieltag",rows.find(x=>x.typ==="spiel"||x.typ==="turnier"));
-      const ob=document.getElementById("kb-orga");
-      if(ob&&rows.length)ob.textContent=rows.length+" Termin"+(rows.length===1?"":"e")+" geplant";
+      /* Der Orga-Zähler stand früher hier und zählte `rows` – das sind die nächsten ZEHN
+         (limit=10 in der Abfrage oben). Bei 33 Terminen las man deshalb „10 Termine
+         geplant", während der Knopf zwei Zeilen höher „Alle 33 Termine" sagte. Er wird
+         jetzt aus derselben Quelle gesetzt wie dieser Knopf (trainerTermineHomeLoad),
+         damit beide Zahlen gar nicht mehr auseinanderlaufen KÖNNEN. */
     }catch(e){}
     if(!rows.length){slot.innerHTML=card(`<div style="font-size:12.5px">📅 Kein Termin geplant. <a href="#" onclick="go('termine');return false" style="color:var(--blue-text)">Jetzt anlegen</a></div>`);return;}
     const t=rows[0];
@@ -4076,6 +4079,13 @@ function _trhomeKopfText(){
   return offen?`${offen} ohne deine Antwort`:"alles beantwortet ✓";
 }
 function _trsvpAlleOffen(){ return _trsvpRows.filter(t=>!(t.trainer_status||{})[_trsvpMe]).length; }
+/* Ein Zähler, eine Quelle: der Knopf „Alle N Termine" und das Abzeichen auf der
+   Orga-Kachel nennen dieselbe Zahl, weil beide aus _trsvpRows kommen. */
+function _trhomeOrgaBadge(){
+  const ob=document.getElementById("kb-orga"); if(!ob)return;
+  const n=_trsvpRows.length;
+  ob.textContent=n?n+" Termin"+(n===1?"":"e")+" geplant":"";
+}
 function _trhomeAlleKnopfHtml(){
   const offen=_trsvpAlleOffen();
   return `<button onclick="trainerRsvpQuickOpen()" style="display:flex;gap:6px;align-items:center;justify-content:center;width:100%;min-height:44px;margin-bottom:12px;background:var(--surface);border:var(--border-s);border-radius:10px;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text2);cursor:pointer">🗓️ Alle ${_trsvpRows.length} Termine${offen?`<span style="font-weight:500;color:var(--text3)"> · ${offen} ohne deine Antwort</span>`:""}<span style="color:var(--text3)">›</span></button>`;
@@ -4092,6 +4102,7 @@ async function trainerTermineHomeLoad(){
   // unten: Zugang zur Gesamtliste, unabhängig von der Erinnerung
   const alle=document.getElementById("trainer-alle-termine-slot");
   if(alle)alle.innerHTML=_trhomeAlleKnopfHtml();
+  _trhomeOrgaBadge();   // dieselbe Zahl auf die Orga-Kachel
   // oben: die Erinnerung – nur wenn wirklich etwas offen ist
   const offen=_trhomeOffeneImFenster();
   _trhomeIds=offen.map(t=>t.id);

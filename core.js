@@ -105,6 +105,14 @@ function sbUserId(){
   const t=sbToken(); if(!t)return null;
   try{ const p=JSON.parse(atob(t.split(".")[1].replace(/-/g,"+").replace(/_/g,"/"))); return p.sub||null; }catch(e){ return null; }
 }
+/* Eigene E-Mail aus dem JWT. `eltern_kinder` haengt an der E-Mail, nicht an der User-ID –
+   wer nach seinen eigenen Kindern fragt, muss danach FILTERN. Kleingeschrieben, weil die
+   RLS und die Spalte ebenfalls mit lower() vergleichen. */
+function sbEmail(){
+  const t=sbToken(); if(!t)return null;
+  try{ const p=JSON.parse(atob(t.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
+       return p.email?String(p.email).toLowerCase():null; }catch(e){ return null; }
+}
 /* 403 = die RLS hat abgelehnt (z. B. Eltern-Token in der Trainer-App). Das ist kein
    "Speicherfehler" und muss anders klingen, sonst sucht man an der falschen Stelle. */
 function sbDeniedMsg(res,fallback){

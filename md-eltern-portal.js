@@ -557,7 +557,18 @@ async function elternDashLoad(){
   // UX 3: kam der Elternteil über einen Deep-Link (?rsvp=…)? Dann Nudge erzwingen + hinscrollen.
   let rsvpIntent=null; try{rsvpIntent=sessionStorage.getItem("adler_rsvp_intent");}catch(e){}
   let kids=[], termin=null;
-  try{const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?select=spieler_id,label,kader(id,name,nr,foto_stadionheft_ok)`,{headers:sbAuthHeaders()});if(r.ok)kids=await r.json();}catch(e){}
+  /* ⚠️ Der Filter auf die eigene E-Mail ist KEINE Bequemlichkeit, sondern der Kern.
+     Die RLS auf `eltern_kinder` erlaubt „eigene E-Mail ODER is_trainer()" – ein Trainer
+     bekommt hier also ALLE Zuordnungen. Ohne Filter war kids[0] die erste Zeile der
+     Tabelle, und der Eltern-Zugang eines Trainers zeigte damit ein fremdes Kind:
+     dessen Notfallkarte, dessen Foto-Freigaben, dessen Rückmeldungen – bedienbar.
+     Fast alle Trainer sind selbst Eltern, der Fall ist also der Normalfall.
+     (Dieselbe Falle wie v401: Abfrage ohne Filter, die sich auf eine absichtlich weite
+     RLS verlaesst. Wer „meins" meint, muss „meins" hinschreiben.) */
+  const meineMail=(typeof sbEmail==="function")?sbEmail():null;
+  if(meineMail){
+    try{const r=await fetch(`${SB_URL}/rest/v1/eltern_kinder?email=eq.${encodeURIComponent(meineMail)}&select=spieler_id,label,kader(id,name,nr,foto_stadionheft_ok)&order=spieler_id.asc`,{headers:sbAuthHeaders()});if(r.ok)kids=await r.json();}catch(e){}
+  }
   if(!kids.length){ body.innerHTML=card('<div style="color:#475569;font-size:13px;line-height:1.6">Dein Trainer hat diese E-Mail noch <b>keinem Kind</b> zugeordnet.<br>Bitte gib ihm die E-Mail-Adresse, mit der du dich hier angemeldet hast.</div>'); return; }
   window._elternKids=kids;   // fürs Fairplay-Quiz (Federn fürs eigene Kind)
   let termineListe=[]; // UX 6: Timeline – die nächsten Termine, nicht nur der eine
