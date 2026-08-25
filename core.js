@@ -1008,7 +1008,7 @@ function frageJaNein(o){
     c.innerHTML=`${mdlHead("frage-modal",o.emoji||"❓",esc(o.titel||"Kurze Frage"),o.unter?esc(o.unter):"",akzent)}
       <div style="font-size:13.5px;line-height:1.55;color:var(--text);white-space:pre-line;margin:2px 2px 14px">${esc(o.text||"")}</div>
       <div style="display:flex;gap:8px">
-        <button type="button" id="frage-nein" style="flex:1;min-height:44px;border:var(--border-s);border-radius:12px;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">${esc(o.nein||"Abbrechen")}</button>
+        <button type="button" id="frage-nein" style="flex:1;min-height:44px;border:1px solid var(--rand-bedien);border-radius:12px;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">${esc(o.nein||"Abbrechen")}</button>
         <button type="button" id="frage-ja" style="flex:1;min-height:44px;border:none;border-radius:12px;background:${akzent};color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">${esc(o.ja||"Ja, weiter")}</button>
       </div>`;
     m.appendChild(c); document.body.appendChild(m);

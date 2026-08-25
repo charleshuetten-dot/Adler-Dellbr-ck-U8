@@ -257,7 +257,7 @@ function teamTrainerModalFill(t){
     let anderes=""; Object.keys(TEAM_TRAINER).forEach(k=>{ if(Number(k)!==t&&(TEAM_TRAINER[k]||[]).indexOf(s.name)>=0)anderes="Adler "+k; });
     const zus=s.zusage==="ja"?"✅ dabei":s.zusage==="unsicher"?"🤔 unsicher":s.zusage==="nein"?"❌ nicht dabei":"– keine Rückmeldung";
     return `<button onclick="teamTrainerToggle(${t},'${jsq(s.name)}')" aria-pressed="${meins?"true":"false"}"
-      style="width:100%;min-height:52px;display:flex;align-items:center;gap:10px;text-align:left;margin-bottom:6px;padding:8px 12px;border:var(--border-s);${meins?"border-color:transparent;background:var(--fam-spieltag);color:#fff;":"background:var(--surface2);color:var(--text);"}border-radius:12px;font-family:inherit;cursor:pointer">
+      style="width:100%;min-height:52px;display:flex;align-items:center;gap:10px;text-align:left;margin-bottom:6px;padding:8px 12px;border:1px solid var(--rand-bedien);${meins?"border-color:transparent;background:var(--fam-spieltag);color:#fff;":"background:var(--surface2);color:var(--text);"}border-radius:12px;font-family:inherit;cursor:pointer">
       <span style="font-size:17px">${meins?"✓":"🧢"}</span>
       <span style="flex:1;min-width:0">
         <span style="display:block;font-size:13.5px;font-weight:800">${esc(s.name)}</span>
@@ -590,7 +590,7 @@ function teamsRender(){
   html+=`<div style="font-size:12px;font-weight:600;margin:12px 0 6px">Trainer je Team</div>`;
   for(let t=1;t<=TEAM_ANZAHL;t++){
     const tr=TEAM_TRAINER[t]||[];
-    html+=`<button onclick="teamTrainerOpen(${t})" style="width:100%;min-height:48px;display:flex;align-items:center;gap:10px;text-align:left;margin-bottom:6px;padding:8px 12px;border:var(--border-s);border-left:3px solid var(--fam-spieltag);border-radius:12px;background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer">
+    html+=`<button onclick="teamTrainerOpen(${t})" style="width:100%;min-height:48px;display:flex;align-items:center;gap:10px;text-align:left;margin-bottom:6px;padding:8px 12px;border:1px solid var(--rand-bedien);border-left:3px solid var(--fam-spieltag);border-radius:12px;background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer">
       <span style="font-size:16px">🧢</span>
       <span style="flex:1;min-width:0">
         <span style="display:block;font-size:12.5px;font-weight:800">Adler ${t}</span>
@@ -655,7 +655,7 @@ function teamsRender(){
   const stCfg={dabei:{lbl:"Dabei",col:"var(--green)"},nicht:{lbl:"Nicht",col:"var(--text3)"},verletzt:{lbl:"Verletzt",col:"var(--red)"}};
   const rvEmo={zugesagt:"✅",abgesagt:"❌",krank:"🤒"};
   const btn=(inhalt,onclick,an,titel)=>`<button onclick="${onclick}" aria-pressed="${an?"true":"false"}"${titel?` title="${titel}"`:""}
-      style="flex:1;min-width:44px;min-height:44px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:${an?"700":"500"};background:${an?"var(--blue)":"var(--surface)"};color:${an?"#fff":"var(--text2)"}">${inhalt}</button>`;
+      style="flex:1;min-width:44px;min-height:44px;border:1px solid var(--rand-bedien);border-radius:var(--r);cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:${an?"700":"500"};background:${an?"var(--blue)":"var(--surface)"};color:${an?"#fff":"var(--text2)"}">${inhalt}</button>`;
 
   const zeile=(n)=>{
     const st=(typeof nomStatus==="object"&&nomStatus[n])||"offen";
@@ -670,7 +670,7 @@ function teamsRender(){
 
     const stKnoepfe=["dabei","nicht","verletzt"].map(s=>
       `<button onclick="nomSet('${jsq(n)}','${s}')" aria-pressed="${st===s?"true":"false"}"
-        style="flex:1;min-height:44px;border:var(--border-s);border-radius:var(--r);cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:${st===s?"700":"500"};background:${st===s?stCfg[s].col:"var(--surface)"};color:${st===s?"#fff":"var(--text2)"}">${stCfg[s].lbl}</button>`).join("");
+        style="flex:1;min-height:44px;border:1px solid var(--rand-bedien);border-radius:var(--r);cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:${st===s?"700":"500"};background:${st===s?stCfg[s].col:"var(--surface)"};color:${st===s?"#fff":"var(--text2)"}">${stCfg[s].lbl}</button>`).join("");
 
     let teamZeile="";
     if(dabei){
@@ -686,7 +686,7 @@ function teamsRender(){
       }
       teamZeile=`<div style="display:flex;gap:5px;margin-top:5px">${k}</div>`;
       if(!cur)teamZeile+=`<input id="nh-${teamKaderIdx(n)}" value="${esc(TEAM_GRUND[n]||"")}" placeholder="Grund für die Eltern (optional)"
-        style="width:100%;min-height:44px;margin-top:5px;padding:8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text);box-sizing:border-box">`;
+        style="width:100%;min-height:44px;margin-top:5px;padding:8px;border:1px solid var(--rand-bedien);border-radius:8px;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text);box-sizing:border-box">`;
     }
     return `<div style="padding:8px 0;border-top:var(--border)">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">

@@ -15,7 +15,7 @@ async function fundbueroOpen(){
     ${mdlHead("fb-modal","🧦","Fundbüro","Verlorenes & Gefundenes – hier sammelt das Team","#3b82f6")}
     <div style="padding:10px;border:1.5px dashed var(--text3);border-radius:10px;margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">Etwas gefunden?</div>
-      <input id="fb-titel" placeholder="Was? (z. B. blaue Trinkflasche)" maxlength="80" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:6px">
+      <input id="fb-titel" placeholder="Was? (z. B. blaue Trinkflasche)" maxlength="80" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--rand-bedien);border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:6px">
       <input id="fb-foto" type="file" accept="image/jpeg, image/png, image/webp" capture="environment" style="width:100%;font-size:12px;margin-bottom:8px">
       <button class="btn btn-p btn-sm" onclick="fundbueroUpload(this)">📸 Einstellen</button>
     </div>
@@ -42,7 +42,7 @@ async function fundbueroRender(){
         ${f.status==="offen"
           ?`<button onclick="fundbueroClaim(${f.id})" style="flex:1;min-height:44px;border:none;border-radius:10px;background:#059669;color:#fff;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer">🙋 Gehört uns!</button>`
           :`<div style="flex:1;font-size:12.5px;font-weight:700;color:#059669">✅ Geklärt${f.claimed_label?` – ${esc(f.claimed_label)}`:""}</div>`}
-        ${istTrainer?`<button onclick="fundbueroDelete(${f.id})" title="Löschen" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface);cursor:pointer">🗑</button>`:""}
+        ${istTrainer?`<button onclick="fundbueroDelete(${f.id})" title="Löschen" style="min-width:44px;min-height:44px;border:1px solid var(--rand-bedien);border-radius:10px;background:var(--surface);cursor:pointer">🗑</button>`:""}
       </div>
     </div>`).join("");
   items.forEach(f=>{if(f.foto_path)fundbueroFoto(f.id,f.foto_path);});

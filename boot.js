@@ -204,11 +204,11 @@ function renderTraining(){
   const kEl=document.getElementById("tf-kacheln");
   if(kEl){
     const counts={};alle.forEach(x=>{counts[x.gr]=(counts[x.gr]||0)+1;});
-    kEl.innerHTML=TF_GRUPPEN.filter(g=>counts[g.key]).map(g=>`<button onclick="_tfDb.gruppe=_tfDb.gruppe==='${g.key}'?null:'${g.key}';renderTraining()" style="min-height:64px;border:var(--border-s);${_tfDb.gruppe===g.key?"background:#16a34a;color:#fff;border-color:#16a34a;":"background:var(--surface);color:var(--text);"}border-top:3px solid #16a34a;border-radius:14px;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer;padding:8px 6px">${g.label}<span style="display:block;font-size:11px;font-weight:700;opacity:.7;margin-top:2px">${counts[g.key]} Übungen</span></button>`).join("");
+    kEl.innerHTML=TF_GRUPPEN.filter(g=>counts[g.key]).map(g=>`<button onclick="_tfDb.gruppe=_tfDb.gruppe==='${g.key}'?null:'${g.key}';renderTraining()" style="min-height:64px;border:1px solid var(--rand-bedien);${_tfDb.gruppe===g.key?"background:#16a34a;color:#fff;border-color:#16a34a;":"background:var(--surface);color:var(--text);"}border-top:3px solid #16a34a;border-radius:14px;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer;padding:8px 6px">${g.label}<span style="display:block;font-size:11px;font-weight:700;opacity:.7;margin-top:2px">${counts[g.key]} Übungen</span></button>`).join("");
   }
   const fEl=document.getElementById("tf-filter");
-  if(fEl)fEl.innerHTML=[0,1,2,3].map(s=>`<button onclick="_tfDb.stern=${s};renderTraining()" style="flex:1;min-height:44px;border:var(--border-s);${_tfDb.stern===s?"background:#16a34a;color:#fff;border-color:#16a34a;":"background:var(--surface2);color:var(--text2);"}border-radius:10px;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer">${s===0?"Alle":"⭐".repeat(s)}</button>`).join("")
-    +`<button onclick="_tfDb.lange=!_tfDb.lange;renderTraining()" title="Übungen, die 4+ Wochen nicht dran waren" style="flex:1.4;min-height:44px;border:var(--border-s);${_tfDb.lange?"background:#16a34a;color:#fff;border-color:#16a34a;":"background:var(--surface2);color:var(--text2);"}border-radius:10px;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer">🕘 lange her</button>`;
+  if(fEl)fEl.innerHTML=[0,1,2,3].map(s=>`<button onclick="_tfDb.stern=${s};renderTraining()" style="flex:1;min-height:44px;border:1px solid var(--rand-bedien);${_tfDb.stern===s?"background:#16a34a;color:#fff;border-color:#16a34a;":"background:var(--surface2);color:var(--text2);"}border-radius:10px;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer">${s===0?"Alle":"⭐".repeat(s)}</button>`).join("")
+    +`<button onclick="_tfDb.lange=!_tfDb.lange;renderTraining()" title="Übungen, die 4+ Wochen nicht dran waren" style="flex:1.4;min-height:44px;border:1px solid var(--rand-bedien);${_tfDb.lange?"background:#16a34a;color:#fff;border-color:#16a34a;":"background:var(--surface2);color:var(--text2);"}border-radius:10px;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer">🕘 lange her</button>`;
   // Ohne Auswahl nur die Kacheln zeigen – keine 100-Übungen-Liste
   if(!search&&!_tfDb.gruppe&&!_tfDb.stern&&!_tfDb.lange){
     wrap.innerHTML='<div style="text-align:center;padding:1.6rem 1rem;color:var(--text2)"><div style="font-size:30px;margin-bottom:6px">📚</div><div style="font-size:13.5px;font-weight:700;color:var(--text)">Gruppe antippen oder suchen</div></div>';
@@ -630,7 +630,7 @@ function kleingruppenOpen(){
 }
 function _kgChipsRender(){
   const el=document.getElementById("kg-chips"); if(!el)return;
-  el.innerHTML=[2,3,4].map(n=>`<button onclick="kgGroesse(${n})" style="flex:1;min-height:48px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;background:${_kgGroesse===n?"#16a34a":"var(--surface2)"};color:${_kgGroesse===n?"#fff":"var(--text2)"}">${n}er-Gruppen</button>`).join("");
+  el.innerHTML=[2,3,4].map(n=>`<button onclick="kgGroesse(${n})" style="flex:1;min-height:48px;border:1px solid var(--rand-bedien);border-radius:10px;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;background:${_kgGroesse===n?"#16a34a":"var(--surface2)"};color:${_kgGroesse===n?"#fff":"var(--text2)"}">${n}er-Gruppen</button>`).join("");
 }
 function kgGroesse(n){_kgGroesse=n;_kgChipsRender();}
 async function kgLos(modus){
@@ -727,7 +727,7 @@ function awUebersichtZeig(art){
   // einer eigenen Team-Kachel direkt daneben. Zwei aehnliche Einstiege nebeneinander –
   // jetzt eine Tuer, drei Reiter.
   if(tabs)tabs.innerHTML=[["spieler","🧒","Spieler"],["trainer","🧑‍🏫","Trainer"],["spiele","⚽","Spiele"]].map(([k,emo,l])=>
-    `<button onclick="awUebersichtZeig('${k}')" style="min-height:72px;border:var(--border-s);${art===k?"border-top:3px solid #16a34a;background:var(--surface2);":"border-top:3px solid transparent;background:var(--surface);"}border-radius:14px;color:var(--text);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 6px">
+    `<button onclick="awUebersichtZeig('${k}')" style="min-height:72px;border:1px solid var(--rand-bedien);${art===k?"border-top:3px solid #16a34a;background:var(--surface2);":"border-top:3px solid transparent;background:var(--surface);"}border-radius:14px;color:var(--text);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 6px">
       <span style="font-size:26px">${emo}</span><span style="font-size:13px;font-weight:800">${l}</span>
     </button>`).join("");
   const wrap=document.getElementById("awueb-inhalt"); if(!wrap)return;
@@ -961,7 +961,7 @@ function tpShowExercise(formIdx){
       ? `<div style="margin-bottom:2px">${f.svg}</div>${typeof skzLegende==="function"?skzLegende():""}`
       : (eigene?`<div style="border:1px dashed var(--text3);border-radius:10px;padding:12px;margin-bottom:8px;text-align:center">
           <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px">Für diese Übung gibt es noch keine Skizze.</div>
-          <button onclick="uebungSkizzeNachtragen(${formIdx})" style="min-height:44px;padding:8px 14px;border:var(--border-s);border-radius:10px;background:var(--surface);color:var(--text);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">🎨 Skizze zeichnen</button>
+          <button onclick="uebungSkizzeNachtragen(${formIdx})" style="min-height:44px;padding:8px 14px;border:1px solid var(--rand-bedien);border-radius:10px;background:var(--surface);color:var(--text);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">🎨 Skizze zeichnen</button>
         </div>`:"")}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
       <span style="font-size:10px;background:var(--surface);padding:2px 6px;border-radius:4px">⏱ ${f.dauer}</span>
@@ -1109,7 +1109,7 @@ function tpRenderTimeline(){
     if(parallel){
       const mains=tpSlots.map((s2,i2)=>({s2,i2})).filter(x=>(x.s2.typ||"main")==="main");
       html+=`<div class="tp-feld"><label>Läuft parallel zu</label>
-        <select onchange="tpSlots[${si}].parallelZu=Number(this.value);tpRenderTimeline()" style="width:100%;padding:8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text)">
+        <select onchange="tpSlots[${si}].parallelZu=Number(this.value);tpRenderTimeline()" style="width:100%;padding:8px;border:1px solid var(--rand-bedien);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text)">
           ${mains.map(x=>`<option value="${x.i2}"${slot.parallelZu===x.i2?" selected":""}>${x.s2.label}</option>`).join("")}
         </select></div>`;
     }
@@ -1205,7 +1205,7 @@ function tpRenderTimeline(){
   const sfq=(typeof tpSpielformQuote==="function")?null:null; // Quote wird nach dem DOM-Aufbau gefüllt (braucht die Selects)
   html+=`<div id="tp-sfq" style="text-align:right;font-size:11px;color:var(--text2);margin-top:8px"></div>`;
   html+=`<div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:12px;font-weight:${passt?"600":"800"};color:${passt?"var(--text2)":"#dc2626"};margin-top:6px">Gesamt: ${time} von
-    <select id="tp-dauer" onchange="tpRenderTimeline()" style="font-size:13px;min-height:40px;padding:4px 8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">${[60,75,90].map(d=>`<option value="${d}"${zielDauer===d?" selected":""}>${d}</option>`).join("")}</select>
+    <select id="tp-dauer" onchange="tpRenderTimeline()" style="font-size:13px;min-height:40px;padding:4px 8px;border:1px solid var(--rand-bedien);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">${[60,75,90].map(d=>`<option value="${d}"${zielDauer===d?" selected":""}>${d}</option>`).join("")}</select>
     Min.${passt?"":" – zu lang!"}</div>`;
   wrap.innerHTML=html;
   tpPrognoseLoad(); // G3: erwartete Kinderzahl fürs gewählte Datum
@@ -1335,7 +1335,7 @@ function rolleLosOpen(lbl,emo){
 }
 function _rolleChips(lbl,emo){
   const el=document.getElementById("rolle-chips"); if(!el)return;
-  el.innerHTML=[1,2].map(n=>`<button onclick="_rolleAnzahl=${n};_rolleChips('${lbl}','${emo}')" style="flex:1;min-height:48px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;background:${_rolleAnzahl===n?"#16a34a":"var(--surface2)"};color:${_rolleAnzahl===n?"#fff":"var(--text2)"}">${n} ${n===1?lbl.replace(/e$/,""):lbl}</button>`).join("");
+  el.innerHTML=[1,2].map(n=>`<button onclick="_rolleAnzahl=${n};_rolleChips('${lbl}','${emo}')" style="flex:1;min-height:48px;border:1px solid var(--rand-bedien);border-radius:10px;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;background:${_rolleAnzahl===n?"#16a34a":"var(--surface2)"};color:${_rolleAnzahl===n?"#fff":"var(--text2)"}">${n} ${n===1?lbl.replace(/e$/,""):lbl}</button>`).join("");
 }
 async function rolleLos(lbl,emo){
   if(typeof pauseLoad==="function")await pauseLoad();
@@ -1418,7 +1418,7 @@ function tpAddSlot(){
     {label:"Aufwärmen",dauer:10,farbe:"#059669",typ:"warmup",icon:"🔥"},
     {label:"Abschlussspiel",dauer:15,farbe:"#c2410c",typ:"abschluss",icon:"🏆"}
   ];
-  let btns=opts.map((o,i)=>`<button onclick="tpDoAddSlot(${i});this.closest('div[style*=fixed]').remove()" style="display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;border:var(--border-s);border-left:3px solid ${o.farbe};border-radius:var(--r);background:var(--surface);cursor:pointer;font-family:inherit;font-size:12px;text-align:left"><span style="font-size:18px">${o.icon}</span><div><strong>${o.label}</strong><br><span style="font-size:10px;color:var(--text2)">${o.dauer} Min.</span></div></button>`).join("");
+  let btns=opts.map((o,i)=>`<button onclick="tpDoAddSlot(${i});this.closest('div[style*=fixed]').remove()" style="display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;border:1px solid var(--rand-bedien);border-left:3px solid ${o.farbe};border-radius:var(--r);background:var(--surface);cursor:pointer;font-family:inherit;font-size:12px;text-align:left"><span style="font-size:18px">${o.icon}</span><div><strong>${o.label}</strong><br><span style="font-size:10px;color:var(--text2)">${o.dauer} Min.</span></div></button>`).join("");
   modal.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:320px;width:100%">
     <div style="font-size:13px;font-weight:700;margin-bottom:10px">Phase hinzufügen</div>
     <div style="display:flex;flex-direction:column;gap:6px">${btns}</div>
@@ -2284,7 +2284,7 @@ function tpPickerOpen(selId){
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
     ${mdlHead("tp-pick-modal","📚","Übung wählen","Suchen, Gruppe antippen oder aus „Zuletzt genutzt“","#16a34a")}
-    <input id="tp-pick-suche" type="text" placeholder="Suchen… (z. B. Dribbling)" oninput="_tpPick.suche=this.value;clearTimeout(window._tpPickDeb);window._tpPickDeb=setTimeout(tpPickerRender,160)" style="width:100%;box-sizing:border-box;min-height:46px;padding:10px 12px;border:1px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text)">
+    <input id="tp-pick-suche" type="text" placeholder="Suchen… (z. B. Dribbling)" oninput="_tpPick.suche=this.value;clearTimeout(window._tpPickDeb);window._tpPickDeb=setTimeout(tpPickerRender,160)" style="width:100%;box-sizing:border-box;min-height:46px;padding:10px 12px;border:1px solid var(--rand-bedien);border-radius:10px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text)">
     <div id="tp-pick-gruppen" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px"></div>
     <div id="tp-pick-sterne" style="display:flex;gap:6px;margin-top:8px"></div>
     <div id="tp-pick-liste" style="margin-top:10px"></div>
@@ -2323,10 +2323,10 @@ function tpPickerRender(){
     const kacheln=KAT_GRUPPEN.filter(g=>gruppenIm.has(g.key));
     if(gruppenIm.has("eigene"))kacheln.push({key:"eigene",label:"🧪 Eigene & KI"});
     gr.style.display=kacheln.length>1?"grid":"none";
-    gr.innerHTML=kacheln.map(g=>`<button onclick="_tpPick.gruppe=_tpPick.gruppe==='${g.key}'?null:'${g.key}';tpPickerRender()" style="min-height:56px;border:var(--border-s);${_tpPick.gruppe===g.key?"background:#16a34a;color:#fff;border-color:#16a34a;":"background:var(--surface2);color:var(--text2);"}border-radius:12px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;padding:8px">${g.label}</button>`).join("");
+    gr.innerHTML=kacheln.map(g=>`<button onclick="_tpPick.gruppe=_tpPick.gruppe==='${g.key}'?null:'${g.key}';tpPickerRender()" style="min-height:56px;border:1px solid var(--rand-bedien);${_tpPick.gruppe===g.key?"background:#16a34a;color:#fff;border-color:#16a34a;":"background:var(--surface2);color:var(--text2);"}border-radius:12px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;padding:8px">${g.label}</button>`).join("");
   }
   const st=document.getElementById("tp-pick-sterne");
-  if(st)st.innerHTML=[0,1,2,3].map(s=>`<button onclick="_tpPick.stern=${s};tpPickerRender()" style="flex:1;min-height:44px;border:var(--border-s);${_tpPick.stern===s?"background:#16a34a;color:#fff;border-color:#16a34a;":"background:var(--surface2);color:var(--text2);"}border-radius:10px;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer">${s===0?"Alle":"⭐".repeat(s)}</button>`).join("");
+  if(st)st.innerHTML=[0,1,2,3].map(s=>`<button onclick="_tpPick.stern=${s};tpPickerRender()" style="flex:1;min-height:44px;border:1px solid var(--rand-bedien);${_tpPick.stern===s?"background:#16a34a;color:#fff;border-color:#16a34a;":"background:var(--surface2);color:var(--text2);"}border-radius:10px;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer">${s===0?"Alle":"⭐".repeat(s)}</button>`).join("");
   const q=(_tpPick.suche||"").trim().toLowerCase();
   let items=alle;
   if(q)items=items.filter(x=>(x.f.name+" "+(x.f.kat||"")).toLowerCase().includes(q));
@@ -2359,7 +2359,7 @@ function _tpPickKarte(x){
       <span style="display:block;font-size:11.5px;color:var(--text2)">${x.f.dauer||"?"} Min. · ${esc(x.f.kat||"eigene")} · ${frische}</span>
     </button>
     <button onclick="tpSternTipp('${x.f.name.replace(/'/g,"\\'")}')" title="Schwierigkeit antippen zum Ändern" style="min-width:52px;min-height:44px;border:none;background:transparent;color:#f59e0b;font-size:13px;cursor:pointer;letter-spacing:1px">${"⭐".repeat(stern)}</button>
-    <button onclick="tpPickerInfo(${x.i})" aria-label="Übung ansehen" title="Skizze & Beschreibung ansehen" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-size:15px;cursor:pointer">ℹ️</button>
+    <button onclick="tpPickerInfo(${x.i})" aria-label="Übung ansehen" title="Skizze & Beschreibung ansehen" style="min-width:44px;min-height:44px;border:1px solid var(--rand-bedien);border-radius:10px;background:var(--surface2);color:var(--text);font-size:15px;cursor:pointer">ℹ️</button>
   </div>`;
 }
 function tpPickerSet(idx){
@@ -2793,7 +2793,7 @@ function tgKachelHtml(){
   const tg=tgFor();
   const sub=tg?tg.gruppen.map(g=>`${g.emo} ${g.name} (${g.kinder.length})`).join(" · ")
     :"Alle anwesenden Kinder in so viele Gruppen wie Trainer – antippen";
-  return `<button onclick="tgOpen()" style="width:100%;min-height:76px;margin:4px 0 10px;border:var(--border-s);border-top:3px solid #16a34a;border-radius:14px;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 8px;box-sizing:border-box">
+  return `<button onclick="tgOpen()" style="width:100%;min-height:76px;margin:4px 0 10px;border:1px solid var(--rand-bedien);border-top:3px solid #16a34a;border-radius:14px;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 8px;box-sizing:border-box">
     <span style="font-size:15px;font-weight:900">👥 Trainingsgruppen${tg?"":" bilden"}</span>
     <span style="font-size:11.5px;color:var(--text2);text-align:center">${sub}</span>
   </button>`;
@@ -2850,7 +2850,7 @@ function tgRender(){
     const kinder=tg.gruppen.reduce((s,g)=>s+g.kinder.length,0);
     az.innerHTML=`<span style="font-size:11.5px;color:var(--text2);margin-right:2px">Gruppen:</span>`
       +TG_NAMEN.map((_,i)=>{const n=i+1;const an=n===jetzt;
-        return `<button onclick="tgAnzahlSetzen(${n})" aria-pressed="${an?"true":"false"}" style="min-width:44px;min-height:40px;padding:0 12px;border:var(--border-s);${an?"border-color:transparent;background:var(--fam-training);color:#fff;":"background:var(--surface2);color:var(--text);"}border-radius:16px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">${an?"✓ ":""}${n}</button>`;
+        return `<button onclick="tgAnzahlSetzen(${n})" aria-pressed="${an?"true":"false"}" style="min-width:44px;min-height:40px;padding:0 12px;border:1px solid var(--rand-bedien);${an?"border-color:transparent;background:var(--fam-training);color:#fff;":"background:var(--surface2);color:var(--text);"}border-radius:16px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">${an?"✓ ":""}${n}</button>`;
       }).join("")
       +`<span style="font-size:11px;color:var(--text3);margin-left:2px">${kinder} Kinder</span>`;
   }
@@ -2858,10 +2858,10 @@ function tgRender(){
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <button onclick="tgRename(${gi})" title="Gruppe umbenennen" style="border:none;background:transparent;font-family:inherit;font-size:14px;font-weight:900;color:${g.farbe};cursor:pointer;min-height:44px;padding:0;margin:-8px 0">${g.emo} ${esc(g.name)} ✏️</button>
         <span style="font-size:11px;color:var(--text3)">${g.kinder.length} Kinder</span>
-        <button onclick="tgTrainerTipp(${gi})" title="Trainer wechseln" style="margin-left:auto;min-height:44px;padding:4px 12px;border:var(--border-s);border-radius:16px;background:var(--surface2);color:var(--text);font-family:inherit;font-size:12px;font-weight:800;cursor:pointer">🧢 ${esc(g.trainer||"– Trainer –")}</button>
+        <button onclick="tgTrainerTipp(${gi})" title="Trainer wechseln" style="margin-left:auto;min-height:44px;padding:4px 12px;border:1px solid var(--rand-bedien);border-radius:16px;background:var(--surface2);color:var(--text);font-family:inherit;font-size:12px;font-weight:800;cursor:pointer">🧢 ${esc(g.trainer||"– Trainer –")}</button>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-        ${g.kinder.map(k=>`<button onclick="tgKindTipp(${gi},'${k.replace(/'/g,"\\'")}')" title="Antippen = nächste Gruppe" style="min-height:44px;padding:6px 12px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12.5px;cursor:pointer;background:var(--surface2);color:var(--text)">${esc(k)}</button>`).join("")||'<span style="font-size:11px;color:var(--text3)">leer</span>'}
+        ${g.kinder.map(k=>`<button onclick="tgKindTipp(${gi},'${k.replace(/'/g,"\\'")}')" title="Antippen = nächste Gruppe" style="min-height:44px;padding:6px 12px;border:1px solid var(--rand-bedien);border-radius:18px;font-family:inherit;font-size:12.5px;cursor:pointer;background:var(--surface2);color:var(--text)">${esc(k)}</button>`).join("")||'<span style="font-size:11px;color:var(--text3)">leer</span>'}
       </div>
     </div>`).join("");
 }
