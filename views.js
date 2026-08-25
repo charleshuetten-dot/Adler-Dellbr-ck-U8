@@ -3346,6 +3346,7 @@ const HELP=[
     {t:"Quiz (Kinder)", d:"Kinder spielen über den Kids-Link (?quiz); Ergebnisse unter Eltern & Kinder → Quiz-Ergebnisse.", go:"quizresults"},
   ]},
   {cat:"📅 Orga", items:[
+    {t:"Trainerplan", d:"Alle kommenden Trainings, Spiele und Turniere als Tabelle: Termine untereinander, der Trainerstab als Spalten, ein Tap je Zelle wechselt zwischen dabei ✓, unsicher ?, nicht dabei ✕ und keine Antwort. Der farbige Balken links sagt, ob genug zusammenkommen – grün ab zwei Zusagen, gelb solange offene Antworten das noch schaffen können, rot wenn nicht mehr. Der Filter „Wo es eng wird“ zeigt nur die Termine, um die man sich kümmern muss. Unterschied zu „Bist du dabei?“ auf der Startseite: dort beantwortest DU deine Termine, hier siehst du das ganze Team.", run:"trainerPlanOpen()"},
     {t:"Termine", d:"Das Formular zeigt nur, was zum Typ gehört: eine Treffzeit gibt es bei Spiel, Turnier und Event (bei Spielen −45 Min. vom Anpfiff vorgeschlagen) – beim Training kommen ohnehin alle zur Trainingszeit. „Wiederholen“ steht beim Event, weil Spiele und Turniere jedes Mal andere sind. Unter „Wer hilft“ sagst du, was die Eltern übernehmen sollen: beim Training die Anzahl Funino-Tore und Jugendtore (leer = ohne Zahl anbieten, 0 = wird nicht gebraucht), dazu bei jedem Typ ein freier Hinweis. Das steht im Eltern-Bereich als Beschreibung unter der Aufgabe – ohne sie trägt sich niemand ein. Dazu: anlegen/bearbeiten · Endzeit (danach automatisch ins Archiv) · Platz · Trainer-Verfügbarkeit · Wetter · Ferien-Warnung.", go:"termine"},
     {t:"Gegner-Datenbank", d:"Adresse, Ansprechpartner, Telefon/WhatsApp, bisherige Spiele.", run:"gegnerManageOpen()"},
     {t:"Pinnwand", d:"Team-Notizen fürs Trainerteam.", go:"team"},
@@ -4050,6 +4051,169 @@ async function trainerRsvpSet(id,val){
   }catch(e){toast("Netzwerkfehler","err");return;}
   try{navigator.vibrate&&navigator.vibrate(15);}catch(e){}
 }
+
+/* ── TRAINERPLAN: die Team-Sicht auf die Verfügbarkeit ──────────────────────────
+   PO nach Markus' handgemachter Tabelle („Trainingsplan U9 I bis Herbstferien",
+   Termine als Zeilen, Trainer als Spalten, ja/nein/? je Zelle, Ampel „Klappt?").
+   Die Daten dafuer liegen laengst in termine.trainer_status – es fehlte nur die
+   Ansicht, die sie NEBENEINANDER legt.
+
+   Abgrenzung zu „Bist du dabei?" (trainerRsvpQuickOpen): das ist die ICH-Sicht zum
+   Beantworten – eine Zeile je Termin, drei grosse Knoepfe, nur meine Antwort. Hier
+   ist die TEAM-Sicht zum Planen: alle Antworten auf einen Blick, und die Frage ist
+   nicht „was sage ich?", sondern „wo wird es eng?".
+   Gleiche Daten (_trsvpRows), verschiedene Fragen – deshalb zwei Ansichten und
+   NICHT zwei Datenbestaende (Lehre aus v423). */
+const TP_MIN_TRAINER=2;   // ab so vielen Zusagen gilt ein Termin als abgedeckt
+
+/* Kurzform fuer die Spaltenkoepfe. Zwei Buchstaben reichen fuer den heutigen Stab,
+   aber ein neuer Name darf keine Dublette erzeugen – bei Gleichstand wird verlaengert,
+   statt zwei Spalten gleich zu beschriften. */
+function _tpKuerzel(namen){
+  const out={};
+  namen.forEach(n=>{
+    let len=2, k=n.slice(0,len);
+    while(len<n.length&&Object.values(out).indexOf(k)>=0){ len++; k=n.slice(0,len); }
+    out[n]=k;
+  });
+  return out;
+}
+/* Ampel je Termin. Die Regel bildet Markus' Blatt nach: gruen ab zwei Zusagen; gelb,
+   solange offene oder unsichere Antworten die zwei noch erreichen koennen; rot, wenn
+   selbst dann zu wenige zusammenkommen. „Rot" heisst also nicht „keiner da", sondern
+   „das geht nicht mehr auf" – und nur das ist ein Grund, jetzt etwas zu tun. */
+function _tpAmpel(status,namen){
+  const s=status||{};
+  let ja=0, offen=0;
+  namen.forEach(n=>{ const v=s[n]; if(v==="ja")ja++; else if(v!=="nein")offen++; });
+  if(ja>=TP_MIN_TRAINER)return {stufe:"gruen",farbe:"var(--green)",ja,offen};
+  if(ja+offen>=TP_MIN_TRAINER)return {stufe:"gelb",farbe:"var(--amber)",ja,offen};
+  return {stufe:"rot",farbe:"var(--red)",ja,offen};
+}
+let _tpNurEng=false;
+function _tpZeilen(){
+  return (_trsvpRows||[]).filter(t=>["training","spiel","turnier"].includes(t.typ));
+}
+function _tpNamen(){
+  // trainerstabNamen statt TRAINER: wer schon geantwortet hat, gehoert in die Tabelle,
+  // auch wenn er (noch) nicht im Trainingsdienst steht.
+  const alle={};
+  _tpZeilen().forEach(t=>Object.assign(alle,t.trainer_status||{}));
+  return (typeof trainerstabNamen==="function")?trainerstabNamen(alle)
+       :((typeof TRAINER!=="undefined"&&TRAINER)||[]).slice();
+}
+function _tpKopfHtml(namen,kurz){
+  const sp=`92px repeat(${namen.length},minmax(36px,1fr))`;
+  return `<div style="display:grid;grid-template-columns:${sp};gap:3px;position:sticky;top:0;z-index:2;background:var(--surface);padding:0 0 5px">
+    <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);align-self:end">Termin</div>
+    ${namen.map(n=>`<div title="${esc(n)}" style="text-align:center;font-size:10.5px;font-weight:800;color:var(--text2)">${esc(kurz[n])}</div>`).join("")}
+  </div>`;
+}
+function _tpZelleHtml(t,name){
+  const v=(t.trainer_status||{})[name];
+  const look=v==="ja"      ?{bg:"#15803d",fg:"#fff",z:"✓"}
+            :v==="unsicher"?{bg:"#a16207",fg:"#fff",z:"?"}
+            :v==="nein"    ?{bg:"#b91c1c",fg:"#fff",z:"✕"}
+            :               {bg:"var(--surface2)",fg:"var(--text3)",z:"·"};
+  const lbl=v==="ja"?"dabei":v==="unsicher"?"unsicher":v==="nein"?"nicht dabei":"keine Antwort";
+  return `<button onclick="tpZelleTippen(${Number(t.id)},'${String(name).replace(/'/g,"")}')"
+    title="${esc(name)}: ${lbl} – tippen wechselt"
+    aria-label="${esc(name)} am ${esc(t.datum)}: ${lbl}"
+    style="min-height:44px;border:none;border-radius:8px;background:${look.bg};color:${look.fg};font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">${look.z}</button>`;
+}
+function _tpZeileHtml(t,namen){
+  const a=_tpAmpel(t.trainer_status,namen);
+  const d=new Date(t.datum+"T00:00:00");
+  const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+  const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅"};
+  const sp=`92px repeat(${namen.length},minmax(36px,1fr))`;
+  return `<div id="tp-row-${t.id}" style="display:grid;grid-template-columns:${sp};gap:3px;align-items:center;padding:3px 0;border-top:var(--border)">
+    <div style="border-left:4px solid ${a.farbe};padding-left:6px;min-width:0;overflow:hidden">
+      <div style="font-size:11.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.icon} ${wtag} ${d.getDate()}.${d.getMonth()+1}.</div>
+      <div style="font-size:9.5px;color:${a.stufe==="gruen"?"var(--text3)":a.farbe};font-weight:${a.stufe==="gruen"?"400":"700"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.stufe==="rot"?a.ja+" · zu wenig":a.stufe==="gelb"?a.ja+" · offen":a.ja+" dabei"}</div>
+    </div>
+    ${namen.map(n=>_tpZelleHtml(t,n)).join("")}
+  </div>`;
+}
+function _tpListeHtml(){
+  const namen=_tpNamen(), kurz=_tpKuerzel(namen);
+  let rows=_tpZeilen();
+  if(_tpNurEng)rows=rows.filter(t=>_tpAmpel(t.trainer_status,namen).stufe!=="gruen");
+  if(!rows.length)return `<div style="font-size:12.5px;color:var(--text3);padding:16px;text-align:center">${
+    _tpNurEng?"Bei allen Terminen sind genug Trainer da ✓":"Keine kommenden Trainings, Spiele oder Turniere."}</div>`;
+  let html=_tpKopfHtml(namen,kurz), monat="";
+  rows.forEach(t=>{
+    const mn=new Date(t.datum+"T00:00:00").toLocaleDateString("de-DE",{month:"long",year:"numeric"});
+    if(mn!==monat){ monat=mn;
+      html+=`<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);padding:10px 2px 2px">${esc(mn)}</div>`; }
+    html+=_tpZeileHtml(t,namen);
+  });
+  return html;
+}
+function _tpFilterHtml(){
+  const namen=_tpNamen();
+  const alle=_tpZeilen(), eng=alle.filter(t=>_tpAmpel(t.trainer_status,namen).stufe!=="gruen");
+  const chip=(an,lbl,fn)=>`<button onclick="${fn}" aria-pressed="${an?"true":"false"}"
+    style="min-height:38px;padding:6px 14px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12px;font-weight:${an?"700":"500"};cursor:pointer;background:${an?"var(--blue)":"var(--surface)"};color:${an?"#fff":"var(--text2)"}">${lbl}</button>`;
+  return chip(!_tpNurEng,`Alle (${alle.length})`,"tpFilter(false)")+
+         chip(_tpNurEng,`Wo es eng wird (${eng.length})`,"tpFilter(true)");
+}
+function tpFilter(nurEng){
+  _tpNurEng=!!nurEng;
+  const l=document.getElementById("tp-liste"); if(l)l.innerHTML=_tpListeHtml();
+  const f=document.getElementById("tp-filter"); if(f)f.innerHTML=_tpFilterHtml();
+}
+/* Zelle tippen: ja → unsicher → nein → offen, derselbe Zyklus wie am Termin selbst
+   (tmTrainerToggle). Geschrieben wird die GANZE Statuskarte des Termins – zwei Trainer,
+   die gleichzeitig tippen, ueberschreiben sich damit gegenseitig; das ist beim Doodle
+   seit jeher so und bei sechs Leuten am selben Termin kein realistischer Fall. */
+async function tpZelleTippen(id,name){
+  const t=(_trsvpRows||[]).find(x=>Number(x.id)===Number(id)); if(!t)return;
+  const st=Object.assign({},t.trainer_status||{});
+  st[name]= st[name]==="ja"?"unsicher":st[name]==="unsicher"?"nein":st[name]==="nein"?undefined:"ja";
+  if(st[name]===undefined)delete st[name];
+  t.trainer_status=st;
+  // Nur die eine Zeile neu zeichnen: bei 30 Terminen wuerde ein Neuaufbau der Liste
+  // die Wischposition verlieren (Lehre aus v419).
+  const namen=_tpNamen();
+  const row=document.getElementById("tp-row-"+id); if(row)row.outerHTML=_tpZeileHtml(t,namen);
+  const f=document.getElementById("tp-filter"); if(f)f.innerHTML=_tpFilterHtml();
+  const k=document.getElementById("tp-kopf"); if(k)k.textContent=_tpKopfText();
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({trainer_status:st})});
+    if(sbCheck401(r))return;
+    if(!r.ok){toast(sbDeniedMsg(r,"Konnte nicht speichern"),"err");return;}
+  }catch(e){toast("Netzwerkfehler","err");return;}
+  try{navigator.vibrate&&navigator.vibrate(15);}catch(e){}
+}
+function _tpKopfText(){
+  const namen=_tpNamen(), alle=_tpZeilen();
+  const eng=alle.filter(t=>_tpAmpel(t.trainer_status,namen).stufe!=="gruen").length;
+  return `${alle.length} Termine · ${eng?eng+" brauchen noch jemanden":"überall genug Trainer ✓"}`;
+}
+async function trainerPlanOpen(){
+  await _trsvpLoad();
+  _tpNurEng=false;
+  document.getElementById("tp-modal")?.remove();
+  const modal=document.createElement("div"); modal.id="tp-modal";
+  modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Trainerplan");
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10050;display:flex;padding:14px";
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const c=document.createElement("div");
+  c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4);display:flex;flex-direction:column;max-height:100%";
+  const namen=_tpNamen(), kurz=_tpKuerzel(namen);
+  c.innerHTML=`${mdlHead("tp-modal","🧑‍🏫","Trainerplan","Wer ist wann da – und wo wird es eng?","var(--blue)")}
+    <div id="tp-kopf" style="font-size:11.5px;color:var(--text2);margin-bottom:8px">${_tpKopfText()}</div>
+    <div id="tp-filter" style="display:flex;gap:6px;margin-bottom:10px">${_tpFilterHtml()}</div>
+    <div id="tp-liste" style="flex:1;min-height:0;overflow:auto">${_tpListeHtml()}</div>
+    <div style="font-size:10.5px;color:var(--text3);line-height:1.5;margin-top:10px;padding-top:8px;border-top:var(--border)">
+      ${namen.map(n=>`<b>${esc(kurz[n])}</b> ${esc(n)}`).join(" · ")}<br>
+      Tippen wechselt: ✓ dabei → ? unsicher → ✕ nicht dabei → · keine Antwort.
+      Der Balken links zeigt, ob ${TP_MIN_TRAINER} Trainer zusammenkommen.
+    </div>`;
+  modal.appendChild(c); document.body.appendChild(modal);
+}
+
 /* Startseite, zwei getrennte Dinge (PO v404: „ich habe alle offenen Termine beantwortet.
    Dann kann die obere kachel verschwinden. es geht ja nur um die Erinnerung an nicht
    abgestimmte termine. darunter stehen ja dann die kommenden termine"):
@@ -4703,6 +4867,8 @@ function _kachelInhalt(key){
     +kSec("Termine")
     +kTiles([
       {emo:"📅",label:"Termine",fn:"go",arg:"termine"},
+      // Team-Sicht auf die Verfügbarkeit – NEBEN „Bist du dabei?" (Ich-Sicht), nicht statt.
+      {emo:"🧑‍🏫",label:"Trainerplan",fn:"trainerPlanOpen"},
       {emo:"📌",label:"Pinnwand",fn:"go",arg:"team"} // war nur über die Reiterzeile erreichbar
     ],col)
     +kSec("Events & Team-Orga")
