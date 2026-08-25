@@ -379,27 +379,27 @@ async function loadKader(){
 function kaderEditRow(k,i){
   return `<div class="kader-edit-row" data-id="${k._id||''}" style="border:var(--border-s);border-radius:var(--r);padding:8px;margin-bottom:8px">
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-      <input class="ke-name" value="${esc(k.name||'')}" placeholder="Name" style="flex:1;min-width:80px;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit">
-      <input class="ke-nr" type="number" value="${k.nr!=null?k.nr:''}" placeholder="Nr" style="width:56px;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit">
+      <input class="ke-name" value="${esc(k.name||'')}" placeholder="Name" style="flex:1;min-width:80px;padding:7px;border:1px solid var(--feld-rand);border-radius:6px;font-family:inherit">
+      <input class="ke-nr" type="number" value="${k.nr!=null?k.nr:''}" placeholder="Nr" style="width:56px;padding:7px;border:1px solid var(--feld-rand);border-radius:6px;font-family:inherit">
       <button onclick="kaderEditDelete(this,'${esc(k.name||'')}','${k._id||''}')" aria-label="Spieler aus dem Kader entfernen" title="Spieler entfernen" style="flex:none;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid #fca5a5;border-radius:10px;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:16px"><i class="ti ti-trash"></i></button>
     </div>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
       <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input class="ke-tw" type="checkbox" ${k.tw?"checked":""}>🥅 TW</label>
-      <select class="ke-prio" style="padding:6px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
+      <select class="ke-prio" style="padding:6px;border:1px solid var(--feld-rand);border-radius:6px;font-family:inherit;font-size:12px">
         <option value="0"${(k.twPrio||0)===0?" selected":""}>kein TW</option>
         <option value="1"${k.twPrio===1?" selected":""}>TW primär</option>
         <option value="2"${k.twPrio===2?" selected":""}>TW Option</option>
       </select>
-      <input class="ke-geb" type="date" value="${esc(k.geb||'')}" title="Geburtstag" style="padding:6px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
+      <input class="ke-geb" type="date" value="${esc(k.geb||'')}" title="Geburtstag" style="padding:6px;border:1px solid var(--feld-rand);border-radius:6px;font-family:inherit;font-size:12px">
     </div>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
-      <select class="ke-fuss" title="Starker Fuß" style="padding:6px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
+      <select class="ke-fuss" title="Starker Fuß" style="padding:6px;border:1px solid var(--feld-rand);border-radius:6px;font-family:inherit;font-size:12px">
         <option value=""${!k.starker_fuss?" selected":""}>Fuß?</option>
         <option value="R"${k.starker_fuss==="R"?" selected":""}>Rechts</option>
         <option value="L"${k.starker_fuss==="L"?" selected":""}>Links</option>
         <option value="B"${k.starker_fuss==="B"?" selected":""}>Beidfüßig</option>
       </select>
-      <input class="ke-pos" value="${esc(k.lieblingsposition||'')}" placeholder="Lieblingsposition" style="flex:1;min-width:90px;padding:6px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
+      <input class="ke-pos" value="${esc(k.lieblingsposition||'')}" placeholder="Lieblingsposition" style="flex:1;min-width:90px;padding:6px;border:1px solid var(--feld-rand);border-radius:6px;font-family:inherit;font-size:12px">
     </div>
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
       <span style="font-size:11px;color:var(--text2)">Foto (Karte):</span>
@@ -410,7 +410,7 @@ function kaderEditRow(k,i){
       <input class="ke-fotook" type="checkbox" ${k.foto_stadionheft_ok?"checked":""} style="margin-top:1px">
       <span>📰 Foto freigegeben für <b>„Adler Nest" &amp; Team-Galerie</b> <span style="color:var(--text3)">(Eltern-Einwilligung eingeholt)</span></span>
     </label>
-    <input class="ke-medical" value="${esc(k.medical||'')}" placeholder="Medical-Hinweis (z. B. Asthma, Allergie…)" style="width:100%;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
+    <input class="ke-medical" value="${esc(k.medical||'')}" placeholder="Medical-Hinweis (z. B. Asthma, Allergie…)" style="width:100%;padding:7px;border:1px solid var(--feld-rand);border-radius:6px;font-family:inherit;font-size:12px">
     ${k._id?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
       <button type="button" class="btn btn-sm" onclick="kontakteEditOpen(${k._id})" title="Kontakte & Eltern-Login" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;font-size:10px;line-height:1.2"><i class="ti ti-address-book" style="font-size:17px"></i>Kontakte</button>
       <button type="button" class="btn btn-sm" onclick="zieleOpen(${k._id})" title="Entwicklungs-Ziele setzen & verfolgen" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;font-size:10px;line-height:1.2"><i class="ti ti-target" style="font-size:17px"></i>Ziele</button>
@@ -641,7 +641,7 @@ async function wochenChallengeOpen(){
   const card=document.createElement("div");
   card.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   card.innerHTML=`${mdlHead("wc-modal","🏆","Wochen-Challenge","Heim-Aufgabe der Woche · geschafft = 🪶 20 Federn","var(--amber)")}
-    <textarea id="wc-input" rows="3" placeholder="z. B. „Diese Woche: 50 Ballkontakte im Garten – jeden Tag ein bisschen!&quot;" style="width:100%;padding:9px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box;resize:vertical">${esc(cur)}</textarea>
+    <textarea id="wc-input" rows="3" placeholder="z. B. „Diese Woche: 50 Ballkontakte im Garten – jeden Tag ein bisschen!&quot;" style="width:100%;padding:9px;border:1px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box;resize:vertical">${esc(cur)}</textarea>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
       <button class="btn btn-p" onclick="wochenChallengeSave()"><i class="ti ti-trophy"></i>Challenge aktiv setzen</button>
       <button class="btn btn-sm" onclick="document.getElementById('wc-modal').remove()">Schließen</button>
@@ -709,7 +709,7 @@ async function zieleOpen(spielerId){
     <div id="ziele-list" style="margin-bottom:12px"><div style="color:var(--text3);font-size:12px">Lade…</div></div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Vorlage antippen (verknüpft passende Übungen) – oder unten frei formulieren:</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${ZIEL_VORLAGEN.map((v,i)=>`<button onclick="zieleAddVorlage(${spielerId},${i})" style="padding:6px 10px;border:1.5px solid #c7d2fe;border-radius:16px;background:#eef2ff;color:#3730a3;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer">🎯 ${esc(v.ziel)}</button>`).join("")}</div>
-    <textarea id="ziele-input" rows="2" placeholder="Eigenes Ziel frei formulieren, z. B. „Ruhiger im Aufbau&quot;" style="width:100%;padding:9px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box;resize:vertical"></textarea>
+    <textarea id="ziele-input" rows="2" placeholder="Eigenes Ziel frei formulieren, z. B. „Ruhiger im Aufbau&quot;" style="width:100%;padding:9px;border:1px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box;resize:vertical"></textarea>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
       <button class="btn btn-p" onclick="zieleAdd(${spielerId})"><i class="ti ti-plus"></i>Ziel hinzufügen</button>
       <button class="btn btn-sm" onclick="document.getElementById('ziele-modal').remove()">Schließen</button>
@@ -892,10 +892,10 @@ async function pausenOpen(){
     ${paused.length?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin:4px 0 2px">Aktuell pausiert</div>${paused.map(k=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:var(--border)"><span style="flex:1;font-size:13px">${esc(k.name)} <span style="color:var(--amber);font-weight:700">· bis ${pauseBisLabel(k.name)}</span>${PAUSE_MAP[k.name].grund?`<span style="color:var(--text3);font-size:11px"> · ${esc(PAUSE_MAP[k.name].grund)}</span>`:""}</span><button class="btn btn-sm" title="Genesungsgrüße vom Team erlauben/stoppen (Familie vorher fragen)" onclick="pauseGruesse(${k._id},${PAUSE_MAP[k.name].gruesse_ok?"false":"true"})">${PAUSE_MAP[k.name].gruesse_ok?"💌 an":"💌 aus"}</button><button class="btn btn-sm" onclick="pauseEnd(${k._id})">Beenden</button></div>`).join("")}`:'<div style="font-size:12.5px;color:var(--text3);padding:4px 0">Aktuell pausiert niemand.</div>'}
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin:14px 0 4px">Kind pausieren</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-      <select id="pause-kid" style="flex:1;min-width:120px;min-height:40px;padding:6px 8px;border:var(--border-s);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">${frei.map(k=>`<option value="${k._id}">${esc(k.name)}</option>`).join("")}</select>
-      <input type="date" id="pause-bis" value="${defBis}" style="min-height:40px;padding:6px 8px;border:var(--border-s);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">
+      <select id="pause-kid" style="flex:1;min-width:120px;min-height:40px;padding:6px 8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">${frei.map(k=>`<option value="${k._id}">${esc(k.name)}</option>`).join("")}</select>
+      <input type="date" id="pause-bis" value="${defBis}" style="min-height:40px;padding:6px 8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">
     </div>
-    <input type="text" id="pause-grund" maxlength="80" placeholder="Grund (optional, keine Diagnosen)" style="width:100%;margin-top:6px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:12.5px;background:var(--surface);color:var(--text);box-sizing:border-box">
+    <input type="text" id="pause-grund" maxlength="80" placeholder="Grund (optional, keine Diagnosen)" style="width:100%;margin-top:6px;padding:8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:12.5px;background:var(--surface);color:var(--text);box-sizing:border-box">
     <label style="display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--text2);margin-top:8px;cursor:pointer"><input type="checkbox" id="pause-gruesse" style="margin-top:2px">💌 Team darf Genesungsgrüße schicken <span style="color:var(--text3)">(bitte vorher die Familie fragen – sichtbar wird nur „fehlt gerade", nie der Grund)</span></label>
     <button class="btn btn-p btn-sm" style="width:100%;margin-top:8px" onclick="pauseSetFromPicker()">⏸ Pausieren</button>
     ${reco.length?`<div style="font-size:11.5px;color:#9a3412;background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:7px 10px;margin-top:12px">🩹 Zuletzt krank gemeldet (letzte 14 T.): <b>${reco.map(esc).join(", ")}</b> – bei Bedarf hier als Pause setzen.</div>`:""}
@@ -2314,7 +2314,7 @@ function tpollThemenHtml(pollId,liste){
     <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">📝 Themen fürs Meeting${liste.length?` · ${offen} offen von ${liste.length}`:""}</div>
     ${zeilen||'<div style="font-size:11.5px;color:var(--text3);padding:2px 0 6px">Noch kein Thema. Was soll besprochen werden?</div>'}
     <div style="display:flex;gap:6px;margin-top:6px">
-      <input id="tpoll-thema-${pollId}" placeholder="z. B. Trikots nachbestellen" onkeydown="if(event.key==='Enter')tpollThemaAdd(${pollId})" style="flex:1;min-height:44px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box">
+      <input id="tpoll-thema-${pollId}" placeholder="z. B. Trikots nachbestellen" onkeydown="if(event.key==='Enter')tpollThemaAdd(${pollId})" style="flex:1;min-height:44px;padding:8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box">
       <button class="btn btn-sm" onclick="tpollThemaAdd(${pollId})" aria-label="Thema hinzufügen"><i class="ti ti-plus"></i>Thema</button>
     </div>
   </div>`;
@@ -2801,7 +2801,7 @@ function elternInviteTextZeigen(msg){
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:14px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   c.innerHTML=`${mdlHead("invite-modal","🔗","Einladungstext","Teilen ging nicht – hier zum Kopieren","#1e3a8a")}
-    <textarea id="invite-text" readonly style="width:100%;height:220px;border:var(--border-s);border-radius:12px;background:var(--surface2);color:var(--text);font-family:inherit;font-size:12.5px;line-height:1.5;padding:10px;resize:vertical">${esc(msg)}</textarea>
+    <textarea id="invite-text" readonly style="width:100%;height:220px;border:1px solid var(--feld-rand);border-radius:12px;background:var(--surface2);color:var(--text);font-family:inherit;font-size:12.5px;line-height:1.5;padding:10px;resize:vertical">${esc(msg)}</textarea>
     <button type="button" id="invite-copy" style="width:100%;min-height:44px;margin-top:10px;border:none;border-radius:12px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">Text markieren</button>`;
   m.appendChild(c); document.body.appendChild(m);
   c.querySelector("#invite-copy").onclick=()=>{
@@ -3016,7 +3016,7 @@ async function ansageTrainerOpen(prefill){
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
     ${mdlHead("ansage-modal","📣","Team-Ansage","Wichtige Info an alle Eltern – mit Gelesen-Status","#1e3a8a")}
-    <textarea id="ansage-text" rows="3" placeholder="z. B. Sonntag Treffpunkt schon 9:15 am Käfig – bitte pünktlich!" style="width:100%;box-sizing:border-box;padding:10px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text);resize:vertical"></textarea>
+    <textarea id="ansage-text" rows="3" placeholder="z. B. Sonntag Treffpunkt schon 9:15 am Käfig – bitte pünktlich!" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text);resize:vertical"></textarea>
     <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);margin-top:8px;cursor:pointer"><input type="checkbox" id="ansage-push" checked>Eltern per Push benachrichtigen</label>
     <button class="btn btn-p" style="width:100%;margin-top:10px" onclick="ansageSend(this)"><i class="ti ti-send"></i>Ansage senden</button>
     <div style="font-weight:800;font-size:13px;margin:16px 0 6px">Bisherige Ansagen</div>
@@ -3369,7 +3369,7 @@ function hilfeOpen(){
   c.style.cssText="background:var(--surface);color:var(--text);max-width:480px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   c.innerHTML=`${mdlHead("hilfe-modal","❓","Hilfe & Funktionen","Alles, was die App kann – tippe auf → zum Hinspringen","#475569")}
     <button class="btn btn-p btn-sm" style="width:100%" onclick="hilfeClose();tourStart()"><i class="ti ti-player-play"></i>Kurze Feature-Tour starten</button>
-    <input type="text" placeholder="Suchen… (z. B. Wetter, Aufstellung)" oninput="hilfeRender(this.value)" style="width:100%;margin-top:10px;padding:8px 12px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box">
+    <input type="text" placeholder="Suchen… (z. B. Wetter, Aufstellung)" oninput="hilfeRender(this.value)" style="width:100%;margin-top:10px;padding:8px 12px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box">
     <div id="hilfe-list"></div>
     <button class="btn btn-sm" style="margin-top:12px;width:100%" onclick="hilfeClose()">Schließen</button>`;
   modal.appendChild(c);document.body.appendChild(modal);
@@ -3455,7 +3455,7 @@ async function adlerWeltOpen(){
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🎵 Kabinen-Playlist</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Spotify-Link zur U9-Playlist. Die Kinder hören sie in der Kabine.</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <input id="aw-spotify" type="url" placeholder="https://open.spotify.com/playlist/…" style="flex:1;min-width:150px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text)">
+      <input id="aw-spotify" type="url" placeholder="https://open.spotify.com/playlist/…" style="flex:1;min-width:150px;padding:8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text)">
       <button class="btn btn-sm" onclick="spotifySave(this)"><i class="ti ti-device-floppy"></i>Speichern</button>
     </div>
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 0">Spieler · ${XP_ICON} Federn</div>
@@ -3463,7 +3463,7 @@ async function adlerWeltOpen(){
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🔒 Kabinen-Code</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Mit diesem Code verlassen die Eltern den Kinder-Modus. Er bremst ein Kind – ein Schutz ist er nicht.</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <input id="aw-kabinencode" type="text" inputmode="numeric" autocomplete="off" placeholder="Neuer Code (min. 4 Zeichen)" style="flex:1;min-width:150px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text)">
+      <input id="aw-kabinencode" type="text" inputmode="numeric" autocomplete="off" placeholder="Neuer Code (min. 4 Zeichen)" style="flex:1;min-width:150px;padding:8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text)">
       <button class="btn btn-sm" onclick="kabineCodeSave(this)"><i class="ti ti-device-floppy"></i>Code ändern</button>
     </div>
     <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px">🤝 Unsere Vereinbarung</div>

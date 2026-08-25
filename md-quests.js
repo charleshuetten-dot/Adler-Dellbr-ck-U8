@@ -221,12 +221,12 @@ function questEditorOpen(){
       <label style="font-weight:700;font-size:12.5px;color:#065f46">${XP_ICON} Federn, wenn das Team ALLE Quests schafft</label>
       <div style="font-size:11px;color:#047857;margin:2px 0 6px">Bekommt jedes mitspielende Kind gutgeschrieben – automatisch, einmal pro Spieltag.</div>
       <div style="display:flex;align-items:center;gap:8px">
-        <input id="qe-federn" type="number" min="0" max="200" value="${teamQuestFedern}" style="width:90px;padding:8px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:14px;font-weight:700;box-sizing:border-box">
+        <input id="qe-federn" type="number" min="0" max="200" value="${teamQuestFedern}" style="width:90px;padding:8px;border:1px solid var(--feld-rand);border-radius:6px;font-family:inherit;font-size:14px;font-weight:700;box-sizing:border-box">
         <span style="font-size:12px;color:var(--text2)">${XP_ICON} pro Kind</span>
       </div>
     </div>
     <label for="qe-belohnung" style="font-size:11px;color:var(--text2)">🎁 Zusätzliche Belohnung (Freitext, optional)</label>
-    <textarea id="qe-belohnung" rows="2" placeholder="z. B. Eis für alle beim nächsten Training!" style="width:100%;padding:8px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px;margin:4px 0 12px;box-sizing:border-box">${esc(teamBelohnung)}</textarea>
+    <textarea id="qe-belohnung" rows="2" placeholder="z. B. Eis für alle beim nächsten Training!" style="width:100%;padding:8px;border:1px solid var(--feld-rand);border-radius:6px;font-family:inherit;font-size:12px;margin:4px 0 12px;box-sizing:border-box">${esc(teamBelohnung)}</textarea>
     <div style="margin:0 0 12px;padding:10px;border:1.5px dashed #f59e0b;border-radius:10px;background:#fffbeb">
       <div style="font-weight:700;font-size:12.5px;color:#92400e;margin-bottom:2px">⚡ Doppel-${XP_LABEL}-Booster</div>
       <div style="font-size:11px;color:#78716c;margin-bottom:8px">${xpBoostActive()?`Aktiv bis ${new Date(teamDoubleXpUntil).toLocaleString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})} Uhr – alle ${XP_LABEL} zählen doppelt!`:"72-Stunden-Fenster (z. B. übers Wochenende). Den 2x-Multiplikator rechnet der Server."}</div>
@@ -251,10 +251,10 @@ function qeSyncFromInputs(){
 function qeRenderList(){
   const wrap=document.getElementById("qe-list"); if(!wrap)return;
   wrap.innerHTML=qeDraft.map((q,i)=>`<div style="display:flex;align-items:center;gap:5px;margin-bottom:8px">
-    <input data-i="${i}" data-f="icon" value="${esc(q.icon||"🏆")}" maxlength="2" style="width:34px;text-align:center;padding:7px 2px;border:var(--border-s);border-radius:6px;font-size:15px">
-    <input data-i="${i}" data-f="label" value="${esc(q.label||"")}" placeholder="Name" style="flex:1;min-width:70px;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
-    <select data-i="${i}" data-f="key" style="padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">${QUEST_KEYS.map(k=>`<option value="${k.key}"${k.key===q.key?" selected":""}>${k.label}</option>`).join("")}</select>
-    <input data-i="${i}" data-f="target" type="number" min="1" value="${q.target||10}" title="Ziel" style="width:52px;padding:7px;border:var(--border-s);border-radius:6px;font-family:inherit;font-size:12px">
+    <input data-i="${i}" data-f="icon" value="${esc(q.icon||"🏆")}" maxlength="2" style="width:34px;text-align:center;padding:7px 2px;border:1px solid var(--feld-rand);border-radius:6px;font-size:15px">
+    <input data-i="${i}" data-f="label" value="${esc(q.label||"")}" placeholder="Name" style="flex:1;min-width:70px;padding:7px;border:1px solid var(--feld-rand);border-radius:6px;font-family:inherit;font-size:12px">
+    <select data-i="${i}" data-f="key" style="padding:7px;border:1px solid var(--feld-rand);border-radius:6px;font-family:inherit;font-size:12px">${QUEST_KEYS.map(k=>`<option value="${k.key}"${k.key===q.key?" selected":""}>${k.label}</option>`).join("")}</select>
+    <input data-i="${i}" data-f="target" type="number" min="1" value="${q.target||10}" title="Ziel" style="width:52px;padding:7px;border:1px solid var(--feld-rand);border-radius:6px;font-family:inherit;font-size:12px">
     <button onclick="qeDelQuest(${i})" title="Löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:16px">🗑</button>
   </div>`).join("")||'<div style="font-size:12px;color:var(--text3);padding:6px">Noch keine Quests – füge eine hinzu.</div>';
 }

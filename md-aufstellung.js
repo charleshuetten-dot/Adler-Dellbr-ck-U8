@@ -44,7 +44,7 @@ function renderLineupEditor(){
       ${KOMBI_POS.map(p=>`
         <div style="display:flex;align-items:center;gap:8px">
           <span style="flex:0 0 92px;font-size:12px;font-weight:600;color:${p.col}">${p.label}</span>
-          <select onchange="kombiSetPos('${p.key}',this.value)" style="flex:1;min-height:44px;padding:8px 10px;border:var(--border-s);border-radius:var(--r);font-size:13px;font-family:inherit;background:var(--surface)">${opts(kombiLineup[p.key])}</select>
+          <select onchange="kombiSetPos('${p.key}',this.value)" style="flex:1;min-height:44px;padding:8px 10px;border:1px solid var(--feld-rand);border-radius:var(--r);font-size:13px;font-family:inherit;background:var(--surface)">${opts(kombiLineup[p.key])}</select>
         </div>`).join("")}
     </div>
     <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px"><i class="ti ti-users"></i> Auswechselbank (${bench.length})</div>
@@ -52,7 +52,7 @@ function renderLineupEditor(){
       ${bench.length?bench.map(n=>`<span style="font-size:12px;padding:5px 10px;background:var(--surface2);border:var(--border);border-radius:16px">${getKader(n)?.nr?getKader(n).nr+" ":""}${esc(n)}</span>`).join(""):'<span style="font-size:11px;color:var(--text3)">Alle Spieler in der Startelf</span>'}
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <input type="date" id="lineup-date" value="${today}" style="min-height:44px;padding:8px 10px;border:var(--border-s);border-radius:var(--r);font-family:inherit">
+      <input type="date" id="lineup-date" value="${today}" style="min-height:44px;padding:8px 10px;border:1px solid var(--feld-rand);border-radius:var(--r);font-family:inherit">
       <button class="btn btn-p" onclick="kombiSaveLineup()"><i class="ti ti-device-floppy"></i>Speichern</button>
       <button class="btn" onclick="kombiLoadLineup()"><i class="ti ti-cloud-download"></i>Laden</button>
       <button class="btn" onclick="kombiFromSuggestion()"><i class="ti ti-wand"></i>Vorschlag</button>
@@ -186,7 +186,7 @@ function kombiShareLineup(){
     modal.onclick=e=>{if(e.target===modal)modal.remove();};
     modal.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:380px;width:100%">
       <div style="font-weight:700;margin-bottom:8px">Aufstellung teilen</div>
-      <textarea readonly style="width:100%;height:180px;font-size:12px;font-family:monospace;border:var(--border-s);border-radius:var(--r);padding:8px;resize:none">${esc(text)}</textarea>
+      <textarea readonly style="width:100%;height:180px;font-size:12px;font-family:monospace;border:1px solid var(--feld-rand);border-radius:var(--r);padding:8px;resize:none">${esc(text)}</textarea>
       <div style="display:flex;gap:8px;margin-top:10px">
         <button class="btn btn-p" onclick="navigator.clipboard.writeText(this.closest('div[style*=fixed]').querySelector('textarea').value).then(()=>toast('Kopiert ✓'))"><i class="ti ti-copy"></i>Kopieren</button>
         <a class="btn" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener"><i class="ti ti-brand-whatsapp"></i>WhatsApp</a>

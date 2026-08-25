@@ -1109,7 +1109,7 @@ function tpRenderTimeline(){
     if(parallel){
       const mains=tpSlots.map((s2,i2)=>({s2,i2})).filter(x=>(x.s2.typ||"main")==="main");
       html+=`<div class="tp-feld"><label>Läuft parallel zu</label>
-        <select onchange="tpSlots[${si}].parallelZu=Number(this.value);tpRenderTimeline()" style="width:100%;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text)">
+        <select onchange="tpSlots[${si}].parallelZu=Number(this.value);tpRenderTimeline()" style="width:100%;padding:8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text)">
           ${mains.map(x=>`<option value="${x.i2}"${slot.parallelZu===x.i2?" selected":""}>${x.s2.label}</option>`).join("")}
         </select></div>`;
     }
@@ -1205,7 +1205,7 @@ function tpRenderTimeline(){
   const sfq=(typeof tpSpielformQuote==="function")?null:null; // Quote wird nach dem DOM-Aufbau gefüllt (braucht die Selects)
   html+=`<div id="tp-sfq" style="text-align:right;font-size:11px;color:var(--text2);margin-top:8px"></div>`;
   html+=`<div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:12px;font-weight:${passt?"600":"800"};color:${passt?"var(--text2)":"#dc2626"};margin-top:6px">Gesamt: ${time} von
-    <select id="tp-dauer" onchange="tpRenderTimeline()" style="font-size:13px;min-height:40px;padding:4px 8px;border:var(--border-s);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">${[60,75,90].map(d=>`<option value="${d}"${zielDauer===d?" selected":""}>${d}</option>`).join("")}</select>
+    <select id="tp-dauer" onchange="tpRenderTimeline()" style="font-size:13px;min-height:40px;padding:4px 8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">${[60,75,90].map(d=>`<option value="${d}"${zielDauer===d?" selected":""}>${d}</option>`).join("")}</select>
     Min.${passt?"":" – zu lang!"}</div>`;
   wrap.innerHTML=html;
   tpPrognoseLoad(); // G3: erwartete Kinderzahl fürs gewählte Datum
@@ -2284,7 +2284,7 @@ function tpPickerOpen(selId){
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto">
     ${mdlHead("tp-pick-modal","📚","Übung wählen","Suchen, Gruppe antippen oder aus „Zuletzt genutzt“","#16a34a")}
-    <input id="tp-pick-suche" type="text" placeholder="Suchen… (z. B. Dribbling)" oninput="_tpPick.suche=this.value;clearTimeout(window._tpPickDeb);window._tpPickDeb=setTimeout(tpPickerRender,160)" style="width:100%;box-sizing:border-box;min-height:46px;padding:10px 12px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text)">
+    <input id="tp-pick-suche" type="text" placeholder="Suchen… (z. B. Dribbling)" oninput="_tpPick.suche=this.value;clearTimeout(window._tpPickDeb);window._tpPickDeb=setTimeout(tpPickerRender,160)" style="width:100%;box-sizing:border-box;min-height:46px;padding:10px 12px;border:1px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text)">
     <div id="tp-pick-gruppen" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px"></div>
     <div id="tp-pick-sterne" style="display:flex;gap:6px;margin-top:8px"></div>
     <div id="tp-pick-liste" style="margin-top:10px"></div>

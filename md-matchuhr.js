@@ -116,7 +116,7 @@ function mcRenderLive(){
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:var(--border);font-size:11.5px;color:var(--text2)">
     <label for="mc-dauer">${mcHalbzeiten===1?"Spielzeit":"Je Halbzeit"}</label>
     <input id="mc-dauer" type="number" min="1" max="45" value="${mcSpieldauer}" onchange="mcSetDauer(this.value)"
-      style="width:72px;min-height:44px;padding:8px;border:var(--border-s);border-radius:var(--r);font-family:inherit;font-size:14px;font-weight:700;text-align:center;background:var(--surface);color:var(--text);box-sizing:border-box">
+      style="width:72px;min-height:44px;padding:8px;border:1px solid var(--feld-rand);border-radius:var(--r);font-family:inherit;font-size:14px;font-weight:700;text-align:center;background:var(--surface);color:var(--text);box-sizing:border-box">
     <span>Min.</span>
     <span style="margin-left:8px">Halbzeiten</span>${hzBtn(1)}${hzBtn(2)}
   </div>`:"");

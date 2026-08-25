@@ -281,7 +281,7 @@ async function edLoad(datum){
     <div style="font-weight:700;margin-bottom:8px">🙋 Wer ist beim Training dabei? (${rows.length})</div>
     ${liste}
     <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
-      <input type="text" id="ed-kind" placeholder="Name des Kindes" style="padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;font-family:inherit">
+      <input type="text" id="ed-kind" placeholder="Name des Kindes" style="padding:10px;border:1px solid var(--feld-rand);border-radius:10px;font-size:14px;font-family:inherit">
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155"><input type="checkbox" id="ed-betreuung"> Ein Elternteil bleibt während des Trainings vor Ort</label>
       <button onclick="edSignup('${datum}')" style="background:#1e3a8a;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:600;cursor:pointer;font-family:inherit">Eintragen</button>
     </div>
@@ -317,10 +317,10 @@ async function fgLoad(datum){
     ${liste}
     <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
       <div style="font-size:12px;color:#64748b">Ich biete eine Mitfahrgelegenheit an:</div>
-      <input type="text" id="fg-fahrer" placeholder="Dein Name" style="padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;font-family:inherit">
+      <input type="text" id="fg-fahrer" placeholder="Dein Name" style="padding:10px;border:1px solid var(--feld-rand);border-radius:10px;font-size:14px;font-family:inherit">
       <div style="display:flex;gap:6px">
-        <input type="number" id="fg-plaetze" min="1" max="6" placeholder="freie Plätze" style="width:110px;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;font-family:inherit">
-        <input type="text" id="fg-abfahrt" placeholder="Abfahrt (z. B. 9:00 Netto)" style="flex:1;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;font-family:inherit">
+        <input type="number" id="fg-plaetze" min="1" max="6" placeholder="freie Plätze" style="width:110px;padding:10px;border:1px solid var(--feld-rand);border-radius:10px;font-size:14px;font-family:inherit">
+        <input type="text" id="fg-abfahrt" placeholder="Abfahrt (z. B. 9:00 Netto)" style="flex:1;padding:10px;border:1px solid var(--feld-rand);border-radius:10px;font-size:14px;font-family:inherit">
       </div>
       <button onclick="fgOffer('${datum}')" style="background:#15803d;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:600;cursor:pointer;font-family:inherit">Fahrt anbieten</button>
     </div>
@@ -532,7 +532,7 @@ function rotRenderControls(){
   box.innerHTML=`
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
       <span style="font-size:11px;color:var(--text2)">Wechsel alle</span>
-      <select id="rot-interval" onchange="rotIntervalMin=parseInt(this.value)" style="min-height:40px;padding:6px 10px;border:var(--border-s);border-radius:var(--r);font-family:inherit">
+      <select id="rot-interval" onchange="rotIntervalMin=parseInt(this.value)" style="min-height:40px;padding:6px 10px;border:1px solid var(--feld-rand);border-radius:var(--r);font-family:inherit">
         ${[3,4,5,6,7].map(m=>`<option value="${m}"${m===rotIntervalMin?" selected":""}>${m} Min.</option>`).join("")}
       </select>
       <button class="btn btn-p" id="rot-startbtn" onclick="rotToggle()" style="min-height:44px">${running?'<i class="ti ti-player-pause"></i>Pause':'<i class="ti ti-player-play"></i>Start'}</button>
@@ -617,7 +617,7 @@ function rotRenderLive(){
       twRow=`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:var(--r);font-size:12.5px;color:#854d0e;margin-bottom:10px">🥅 <strong>Torwart (Fest): ${esc(rotTW)}</strong><button onclick="rotClearTW()" title="Torwart entfernen" style="border:none;background:transparent;color:#a16207;cursor:pointer;font-size:16px;line-height:1;padding:0 2px">×</button><span style="font-size:10px;color:#a16207;margin-left:auto">rotiert nicht mit</span></div>`;
     }else{
       const opts=[...rotField,...rotBench].map(n=>`<option value="${esc(n)}">${getKader(n)?.nr?getKader(n).nr+" ":""}${esc(n)}</option>`).join("");
-      twRow=`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fffbeb;border:1px dashed #fcd34d;border-radius:var(--r);font-size:12.5px;color:#854d0e;margin-bottom:10px">🥅 <strong>Torwart (Fest):</strong><select onchange="rotSetTW(this.value)" style="flex:1;padding:6px 8px;border:var(--border-s);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--surface)"><option value="">— Torwart wählen —</option>${opts}</select></div>`;
+      twRow=`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fffbeb;border:1px dashed #fcd34d;border-radius:var(--r);font-size:12.5px;color:#854d0e;margin-bottom:10px">🥅 <strong>Torwart (Fest):</strong><select onchange="rotSetTW(this.value)" style="flex:1;padding:6px 8px;border:1px solid var(--feld-rand);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--surface)"><option value="">— Torwart wählen —</option>${opts}</select></div>`;
     }
   }
   const recoNamen=[...rotField,...rotBench].filter(istRecovery);
