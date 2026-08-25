@@ -247,7 +247,7 @@ function skzEditorZeichnen(){
 }
 
 function skzVorlagenLeiste(){
-  return SKZ_VORLAGEN.map((v,i)=>`<button onclick="skzVorlage(${i})" style="flex:none;width:132px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface);padding:5px;cursor:pointer;font-family:inherit;scroll-snap-align:start">
+  return SKZ_VORLAGEN.map((v,i)=>`<button onclick="skzVorlage(${i})" style="flex:none;width:132px;min-height:44px;border:1px solid var(--rand-bedien);border-radius:10px;background:var(--surface);padding:5px;cursor:pointer;font-family:inherit;scroll-snap-align:start">
     <div style="pointer-events:none">${(typeof _skz==="function")?_skz(v.spec):""}</div>
     <div style="font-size:11px;font-weight:700;color:var(--text2);margin-top:2px">${esc(v.n)}</div>
   </button>`).join("");
@@ -272,18 +272,18 @@ function skzEditorOpen(start,cb){
     <div id="skz-buehne" style="position:relative;width:100%;max-width:340px;margin:0 auto 8px;aspect-ratio:280/180;border-radius:8px;overflow:hidden;touch-action:none;cursor:crosshair"></div>
     <div id="skz-hinweis" style="font-size:11.5px;color:var(--text2);text-align:center;margin-bottom:8px;min-height:16px"></div>
     <div id="skz-palette" style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:8px">
-      ${SKZ_WERK.map(w=>`<button data-werk="${w.id}" onclick="skzSetWerkzeug('${w.id}')" title="${w.lbl}" aria-label="${w.lbl}" style="min-height:46px;border:var(--border-s);border-radius:10px;background:var(--surface);color:var(--text2);font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:3px"><span style="font-size:16px;line-height:1">${w.emo}</span>${esc(w.lbl)}</button>`).join("")}
+      ${SKZ_WERK.map(w=>`<button data-werk="${w.id}" onclick="skzSetWerkzeug('${w.id}')" title="${w.lbl}" aria-label="${w.lbl}" style="min-height:46px;border:1px solid var(--rand-bedien);border-radius:10px;background:var(--surface);color:var(--text2);font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:3px"><span style="font-size:16px;line-height:1">${w.emo}</span>${esc(w.lbl)}</button>`).join("")}
     </div>
     <div id="skz-farbzeile" style="display:none;gap:8px;justify-content:center;margin-bottom:8px">
       ${SKZ_FARBEN.map(([k,n,c2])=>`<button data-farbe="${k}" onclick="skzSetFarbe('${k}')" title="${n}" aria-label="Farbe ${n}" style="width:44px;height:44px;border-radius:50%;border:2px solid rgba(0,0,0,.25);background:${c2};cursor:pointer"></button>`).join("")}
     </div>
     <div id="skz-textzeile" style="display:none;margin-bottom:10px">
       <label id="skz-textlabel" for="skz-text" style="display:block;font-size:11px;color:var(--text2);margin-bottom:3px"></label>
-      <input type="text" id="skz-text" maxlength="40" placeholder="z. B. „Startpunkt“ oder 7" style="width:100%;min-height:44px;padding:8px;border:1px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box">
+      <input type="text" id="skz-text" maxlength="40" placeholder="z. B. „Startpunkt“ oder 7" style="width:100%;min-height:44px;padding:8px;border:1px solid var(--rand-bedien);border-radius:10px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box">
     </div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
-      <button onclick="skzUndo()" style="flex:1;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface);color:var(--text2);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">↩︎ Zurück</button>
-      <button onclick="skzLeeren()" style="flex:1;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface);color:var(--text2);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">🧹 Leeren</button>
+      <button onclick="skzUndo()" style="flex:1;min-height:44px;border:1px solid var(--rand-bedien);border-radius:10px;background:var(--surface);color:var(--text2);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">↩︎ Zurück</button>
+      <button onclick="skzLeeren()" style="flex:1;min-height:44px;border:1px solid var(--rand-bedien);border-radius:10px;background:var(--surface);color:var(--text2);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">🧹 Leeren</button>
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-p" style="flex:1" onclick="skzSpeichern()"><i class="ti ti-device-floppy"></i>Übernehmen</button>

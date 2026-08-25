@@ -138,14 +138,14 @@ async function renderDelegateView(token){
       </div>
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin-bottom:12px">
         <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
-          ${squad.map(n=>`<button onclick="dgPick('${n.replace(/'/g,"")}')" style="font-size:12px;padding:7px 10px;border-radius:16px;border:1px solid #cbd5e1;background:${selected===n?"#1e3a8a":"#f1f5f9"};color:${selected===n?"#fff":"#1e293b"};cursor:pointer;font-family:inherit">${elternEsc(n)}</button>`).join("")}
+          ${squad.map(n=>`<button onclick="dgPick('${n.replace(/'/g,"")}')" style="font-size:12px;padding:7px 10px;border-radius:16px;border:1px solid var(--rand-bedien);background:${selected===n?"#1e3a8a":"#f1f5f9"};color:${selected===n?"#fff":"#1e293b"};cursor:pointer;font-family:inherit">${elternEsc(n)}</button>`).join("")}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <button onclick="dgSend('tor')" ${selected?"":"disabled"} style="min-height:52px;border:none;border-radius:12px;background:#15803d;color:#fff;font-weight:700;font-size:13px;cursor:pointer">⚽ Tor!</button>
           <button onclick="dgSend('aktion')" ${selected?"":"disabled"} style="min-height:52px;border:none;border-radius:12px;background:#1a56db;color:#fff;font-weight:700;font-size:13px;cursor:pointer">👏 Starke Aktion</button>
           ${(selected&&getKader(selected)?.tw)?`<button onclick="dgSend('parade')" style="min-height:52px;border:none;border-radius:12px;background:#854d0e;color:#fff;font-weight:700;font-size:13px;cursor:pointer;grid-column:span 2">🧤 Parade</button>`:""}
         </div>
-        <button onclick="dgSend('gegentor')" style="width:100%;margin-top:8px;min-height:44px;border:1px solid #cbd5e1;border-radius:12px;background:#f1f5f9;color:#334155;font-size:12.5px;cursor:pointer">Gegentor melden</button>
+        <button onclick="dgSend('gegentor')" style="width:100%;margin-top:8px;min-height:44px;border:1px solid var(--rand-bedien);border-radius:12px;background:#f1f5f9;color:#334155;font-size:12.5px;cursor:pointer">Gegentor melden</button>
       </div>
       <div id="dg-status" style="text-align:center;font-size:12px;color:#94a3b8;min-height:16px"></div>
       <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:14px">Danke fürs Mithelfen! · SV Adler Dellbrück e.V.</div>`;
@@ -281,7 +281,7 @@ async function edLoad(datum){
     <div style="font-weight:700;margin-bottom:8px">🙋 Wer ist beim Training dabei? (${rows.length})</div>
     ${liste}
     <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
-      <input type="text" id="ed-kind" placeholder="Name des Kindes" style="padding:10px;border:1px solid var(--feld-rand);border-radius:10px;font-size:14px;font-family:inherit">
+      <input type="text" id="ed-kind" placeholder="Name des Kindes" style="padding:10px;border:1px solid var(--rand-bedien);border-radius:10px;font-size:14px;font-family:inherit">
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155"><input type="checkbox" id="ed-betreuung"> Ein Elternteil bleibt während des Trainings vor Ort</label>
       <button onclick="edSignup('${datum}')" style="background:#1e3a8a;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:600;cursor:pointer;font-family:inherit">Eintragen</button>
     </div>
@@ -309,7 +309,7 @@ async function fgLoad(datum){
         <span style="font-size:11px;color:${frei>0?'#15803d':'#dc2626'}">${frei} frei</span>
       </div>
       ${mit.length?`<div style="font-size:11.5px;color:#64748b;margin-top:2px">Mit: ${mit.map(elternEsc).join(", ")}</div>`:''}
-      ${frei>0?`<button onclick="fgJoin(${Number(x.id)},'${datum}')" style="margin-top:6px;background:#f1f5f9;border:1px solid #cbd5e1;padding:7px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit">Mitfahren</button>`:''}
+      ${frei>0?`<button onclick="fgJoin(${Number(x.id)},'${datum}')" style="margin-top:6px;background:#f1f5f9;border:1px solid var(--rand-bedien);padding:7px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit">Mitfahren</button>`:''}
     </div>`;
   }).join(""):'<div style="font-size:12px;color:#94a3b8">Noch keine Fahrgemeinschaft angeboten.</div>';
   box.innerHTML=`<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px">
@@ -317,10 +317,10 @@ async function fgLoad(datum){
     ${liste}
     <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
       <div style="font-size:12px;color:#64748b">Ich biete eine Mitfahrgelegenheit an:</div>
-      <input type="text" id="fg-fahrer" placeholder="Dein Name" style="padding:10px;border:1px solid var(--feld-rand);border-radius:10px;font-size:14px;font-family:inherit">
+      <input type="text" id="fg-fahrer" placeholder="Dein Name" style="padding:10px;border:1px solid var(--rand-bedien);border-radius:10px;font-size:14px;font-family:inherit">
       <div style="display:flex;gap:6px">
-        <input type="number" id="fg-plaetze" min="1" max="6" placeholder="freie Plätze" style="width:110px;padding:10px;border:1px solid var(--feld-rand);border-radius:10px;font-size:14px;font-family:inherit">
-        <input type="text" id="fg-abfahrt" placeholder="Abfahrt (z. B. 9:00 Netto)" style="flex:1;padding:10px;border:1px solid var(--feld-rand);border-radius:10px;font-size:14px;font-family:inherit">
+        <input type="number" id="fg-plaetze" min="1" max="6" placeholder="freie Plätze" style="width:110px;padding:10px;border:1px solid var(--rand-bedien);border-radius:10px;font-size:14px;font-family:inherit">
+        <input type="text" id="fg-abfahrt" placeholder="Abfahrt (z. B. 9:00 Netto)" style="flex:1;padding:10px;border:1px solid var(--rand-bedien);border-radius:10px;font-size:14px;font-family:inherit">
       </div>
       <button onclick="fgOffer('${datum}')" style="background:#15803d;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:600;cursor:pointer;font-family:inherit">Fahrt anbieten</button>
     </div>
@@ -532,7 +532,7 @@ function rotRenderControls(){
   box.innerHTML=`
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
       <span style="font-size:11px;color:var(--text2)">Wechsel alle</span>
-      <select id="rot-interval" onchange="rotIntervalMin=parseInt(this.value)" style="min-height:40px;padding:6px 10px;border:1px solid var(--feld-rand);border-radius:var(--r);font-family:inherit">
+      <select id="rot-interval" onchange="rotIntervalMin=parseInt(this.value)" style="min-height:40px;padding:6px 10px;border:1px solid var(--rand-bedien);border-radius:var(--r);font-family:inherit">
         ${[3,4,5,6,7].map(m=>`<option value="${m}"${m===rotIntervalMin?" selected":""}>${m} Min.</option>`).join("")}
       </select>
       <button class="btn btn-p" id="rot-startbtn" onclick="rotToggle()" style="min-height:44px">${running?'<i class="ti ti-player-pause"></i>Pause':'<i class="ti ti-player-play"></i>Start'}</button>
@@ -617,7 +617,7 @@ function rotRenderLive(){
       twRow=`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:var(--r);font-size:12.5px;color:#854d0e;margin-bottom:10px">🥅 <strong>Torwart (Fest): ${esc(rotTW)}</strong><button onclick="rotClearTW()" title="Torwart entfernen" style="border:none;background:transparent;color:#a16207;cursor:pointer;font-size:16px;line-height:1;padding:0 2px">×</button><span style="font-size:10px;color:#a16207;margin-left:auto">rotiert nicht mit</span></div>`;
     }else{
       const opts=[...rotField,...rotBench].map(n=>`<option value="${esc(n)}">${getKader(n)?.nr?getKader(n).nr+" ":""}${esc(n)}</option>`).join("");
-      twRow=`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fffbeb;border:1px dashed #fcd34d;border-radius:var(--r);font-size:12.5px;color:#854d0e;margin-bottom:10px">🥅 <strong>Torwart (Fest):</strong><select onchange="rotSetTW(this.value)" style="flex:1;padding:6px 8px;border:1px solid var(--feld-rand);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--surface)"><option value="">— Torwart wählen —</option>${opts}</select></div>`;
+      twRow=`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fffbeb;border:1px dashed #fcd34d;border-radius:var(--r);font-size:12.5px;color:#854d0e;margin-bottom:10px">🥅 <strong>Torwart (Fest):</strong><select onchange="rotSetTW(this.value)" style="flex:1;padding:6px 8px;border:1px solid var(--rand-bedien);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--surface)"><option value="">— Torwart wählen —</option>${opts}</select></div>`;
     }
   }
   const recoNamen=[...rotField,...rotBench].filter(istRecovery);

@@ -75,13 +75,13 @@ function elternPortalLogin(root){
     <div style="text-align:center;font-size:12px;color:#64748b;margin:6px 0 18px">SV Adler Dellbrück U9</div>
     <div id="ep-step-email">
       <label for="ep-email" style="font-size:12px;color:#475569">E-Mail-Adresse</label>
-      <input id="ep-email" type="email" inputmode="email" autocomplete="email" placeholder="name@mail.de" style="width:100%;padding:11px;margin:6px 0 12px;border:1px solid var(--feld-rand);border-radius:10px;font-size:15px;box-sizing:border-box">
+      <input id="ep-email" type="email" inputmode="email" autocomplete="email" placeholder="name@mail.de" style="width:100%;padding:11px;margin:6px 0 12px;border:1px solid var(--rand-bedien);border-radius:10px;font-size:15px;box-sizing:border-box">
       <button id="ep-send" onclick="elternPortalSend()" style="width:100%;padding:13px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-size:15px;font-weight:700;cursor:pointer">Code anfordern</button>
       <button onclick="elternPortalHaveCode()" style="width:100%;padding:9px;margin-top:8px;border:none;background:none;color:#64748b;font-size:12px;cursor:pointer">Code schon erhalten? → eingeben</button>
     </div>
     <div id="ep-step-code" style="display:none">
       <div style="font-size:12px;color:#475569;margin-bottom:6px">Code aus der E-Mail an <b id="ep-email-show"></b>:</div>
-      <input id="ep-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Code eingeben" style="width:100%;padding:11px;margin:6px 0 12px;border:1px solid var(--feld-rand);border-radius:10px;font-size:22px;letter-spacing:4px;text-align:center;box-sizing:border-box">
+      <input id="ep-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Code eingeben" style="width:100%;padding:11px;margin:6px 0 12px;border:1px solid var(--rand-bedien);border-radius:10px;font-size:22px;letter-spacing:4px;text-align:center;box-sizing:border-box">
       <button id="ep-verify" onclick="elternPortalVerify()" style="width:100%;padding:13px;border:none;border-radius:10px;background:#059669;color:#fff;font-size:15px;font-weight:700;cursor:pointer">Anmelden</button>
       <button onclick="elternPortalLogin(document.getElementById('eltern-portal'))" style="width:100%;padding:9px;margin-top:8px;border:none;background:none;color:#64748b;font-size:12px;cursor:pointer">← andere E-Mail</button>
     </div>
@@ -137,8 +137,8 @@ function elternPortalDashboard(root){
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px 12px">
       <div style="font-size:18px;font-weight:800">🦅 Eltern-Bereich</div>
       <div style="display:flex;align-items:center;gap:10px">
-        <button id="theme-toggle" onclick="toggleTheme()" title="Hell / Dunkel umschalten" aria-label="Theme umschalten" style="border:1.5px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:15px;line-height:1">🌙</button>
-        <button onclick="elternTourStart()" title="Kurze Tour" aria-label="Hilfe/Tour" style="border:1.5px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:15px;line-height:1">❓</button>
+        <button id="theme-toggle" onclick="toggleTheme()" title="Hell / Dunkel umschalten" aria-label="Theme umschalten" style="border:1.5px solid var(--rand-bedien);background:#fff;color:#334155;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:15px;line-height:1">🌙</button>
+        <button onclick="elternTourStart()" title="Kurze Tour" aria-label="Hilfe/Tour" style="border:1.5px solid var(--rand-bedien);background:#fff;color:#334155;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:15px;line-height:1">❓</button>
         <button onclick="elternPortalLogout()" style="border:none;background:none;color:#64748b;font-size:12px;cursor:pointer">Abmelden</button>
       </div>
     </div>
@@ -358,7 +358,7 @@ async function elternNewsLoad(kids){
   const nbtn=document.getElementById("eltern-news-btn");
   if(nbtn)nbtn.style.display=items.length?"flex":"none";
   panel.innerHTML = items.length
-    ? items.map(i=>`<button onclick="${i.act}" style="display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:8px;font-family:inherit;cursor:pointer"><span style="font-size:20px;line-height:1">${i.emo}</span><span style="flex:1;font-size:13px;color:#334155;line-height:1.4">${i.txt}</span><span style="font-size:14px;color:#94a3b8">›</span></button>`).join("")
+    ? items.map(i=>`<button onclick="${i.act}" style="display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:#fff;border:1px solid var(--rand-bedien);border-radius:12px;padding:12px;margin-bottom:8px;font-family:inherit;cursor:pointer"><span style="font-size:20px;line-height:1">${i.emo}</span><span style="flex:1;font-size:13px;color:#334155;line-height:1.4">${i.txt}</span><span style="font-size:14px;color:#94a3b8">›</span></button>`).join("")
     : '<div style="background:#fff;border-radius:14px;padding:24px;text-align:center;color:#94a3b8;font-size:13px">Aktuell nichts Neues 🦅</div>';
 }
 function elternNewsMarkSeen(){
@@ -633,7 +633,7 @@ async function elternDashLoad(){
       const btns=Object.keys(EP_RSVP).map(s=>{
         const on=st===s, c=EP_RSVP[s];
         const act=on?`elternRsvpClear(${termin.id},${k.spieler_id})`:`elternRsvp(${termin.id},${k.spieler_id},'${s}')`;
-        return `<button onclick="${act}" style="flex:1;min-width:0;min-height:44px;padding:6px 3px;border-radius:10px;border:1.5px solid ${on?c.col:"#e2e8f0"};background:${on?c.col:"#fff"};color:${on?"#fff":"#334155"};font-family:inherit;font-size:11.5px;font-weight:700;line-height:1.15;cursor:pointer">${c.emo} ${c.lbl}</button>`;
+        return `<button onclick="${act}" style="flex:1;min-width:0;min-height:44px;padding:6px 3px;border-radius:10px;border:1.5px solid ${on?c.col:"var(--rand-bedien)"};background:${on?c.col:"#fff"};color:${on?"#fff":"#334155"};font-family:inherit;font-size:11.5px;font-weight:700;line-height:1.15;cursor:pointer">${c.emo} ${c.lbl}</button>`;
       }).join("");
       return `<div style="border-top:1px solid #f1f5f9;margin-top:10px;padding-top:10px">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
@@ -720,7 +720,7 @@ async function elternDashLoad(){
   //    Inhalte liegen (versteckt) im Overlay, damit die Async-Loader ihre Slots weiter füllen. ──
   // Einheitliche Aktions-Zeile für die Panel-Inhalte (Icon + Titel + Beschreibung + ›, farbiger
   // Akzent links in Tönen der Kategorie-Farbe). noClose=true lässt das Fenster offen (z. B. Export).
-  const elRow=(emo,label,d,onclick,col,noClose)=>`<button onclick="${noClose?"":"elternCatClose();"}${onclick}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1px solid #e2e8f0;border-left:4px solid ${col};border-radius:12px;padding:13px;margin-bottom:8px;font-family:inherit;cursor:pointer"><span style="font-size:20px;line-height:1">${emo}</span><span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:700;color:#0f172a">${label}</span><span style="display:block;font-size:11.5px;color:#64748b;margin-top:1px">${d}</span></span><span style="font-size:14px;color:#94a3b8">›</span></button>`;
+  const elRow=(emo,label,d,onclick,col,noClose)=>`<button onclick="${noClose?"":"elternCatClose();"}${onclick}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1px solid var(--rand-bedien);border-left:4px solid ${col};border-radius:12px;padding:13px;margin-bottom:8px;font-family:inherit;cursor:pointer"><span style="font-size:20px;line-height:1">${emo}</span><span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:700;color:#0f172a">${label}</span><span style="display:block;font-size:11.5px;color:#64748b;margin-top:1px">${d}</span></span><span style="font-size:14px;color:#94a3b8">›</span></button>`;
   const catBtn=(id,emoji,title,desc,grad)=>`<button onclick="elternCatOpen('${id}')" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:8px;border:none;border-radius:14px;background:${grad};color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.08)"><span style="font-size:22px;line-height:1">${emoji}</span><span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:800">${title}</span><span style="display:block;font-size:11.5px;opacity:.92;margin-top:1px">${desc}</span></span><span style="font-size:18px;opacity:.85">›</span></button>`;
   html+=sec("Mehr");
   html+=catBtn('mehr','📰','Mehr vom Team','Adler Nest, Börse, Fundbüro, Kasse','linear-gradient(135deg,#1e3a8a,#2563eb)');
@@ -869,11 +869,11 @@ function rsvpGrundFragen(status){
       <div style="font-size:16px;font-weight:800">${status==="krank"?"🤒 Kurzer Hinweis":"📝 Grund der Absage"}</div>
       <div style="font-size:12.5px;color:#64748b;margin:3px 0 12px">Freiwillig – hilft dem Trainerteam beim Planen.</div>
       <div id="rg-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        ${chips.map(c=>`<button data-c="${esc(c)}" style="min-height:44px;padding:8px 14px;border:1.5px solid #cbd5e1;border-radius:22px;background:#fff;color:#334155;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">${esc(c)}</button>`).join("")}
+        ${chips.map(c=>`<button data-c="${esc(c)}" style="min-height:44px;padding:8px 14px;border:1.5px solid var(--rand-bedien);border-radius:22px;background:#fff;color:#334155;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">${esc(c)}</button>`).join("")}
       </div>
-      <input id="rg-txt" type="text" maxlength="120" placeholder="oder kurz selbst schreiben…" style="width:100%;box-sizing:border-box;min-height:46px;padding:10px 12px;border:1.5px solid var(--feld-rand);border-radius:12px;font-family:inherit;font-size:14px">
+      <input id="rg-txt" type="text" maxlength="120" placeholder="oder kurz selbst schreiben…" style="width:100%;box-sizing:border-box;min-height:46px;padding:10px 12px;border:1.5px solid var(--rand-bedien);border-radius:12px;font-family:inherit;font-size:14px">
       <div style="display:flex;gap:8px;margin-top:12px">
-        <button id="rg-skip" style="flex:1;min-height:48px;border:1.5px solid #cbd5e1;border-radius:12px;background:#fff;color:#64748b;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Ohne Grund</button>
+        <button id="rg-skip" style="flex:1;min-height:48px;border:1.5px solid var(--rand-bedien);border-radius:12px;background:#fff;color:#64748b;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Ohne Grund</button>
         <button id="rg-ok" style="flex:1.4;min-height:48px;border:none;border-radius:12px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">Speichern</button>
       </div>
     </div>`;
@@ -947,7 +947,7 @@ function elternOffeneRsvpHtml(rows,kids,rsvpAll,ausserId){
       const kd=k.kader||{};
       const btns=EP_RSVP_QUICK.map(s=>{
         const c=EP_RSVP[s];
-        return `<button onclick="elternRsvp(${t.id},${k.spieler_id},'${s}')" aria-label="${esc(kd.name||"Kind")}: ${c.lbl}" style="flex:1;min-width:0;min-height:44px;padding:6px 3px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;color:#334155;font-family:inherit;font-size:11.5px;font-weight:700;line-height:1.15;cursor:pointer">${c.emo} ${c.lbl}</button>`;
+        return `<button onclick="elternRsvp(${t.id},${k.spieler_id},'${s}')" aria-label="${esc(kd.name||"Kind")}: ${c.lbl}" style="flex:1;min-width:0;min-height:44px;padding:6px 3px;border-radius:10px;border:1.5px solid var(--rand-bedien);background:#fff;color:#334155;font-family:inherit;font-size:11.5px;font-weight:700;line-height:1.15;cursor:pointer">${c.emo} ${c.lbl}</button>`;
       }).join("");
       return `<div style="margin-top:8px">
         <div style="font-size:12.5px;font-weight:700;margin-bottom:5px">${esc(kd.name||"Kind")}${kd.nr!=null?` <span style="color:#94a3b8;font-weight:600">#${kd.nr}</span>`:""}</div>
@@ -1007,7 +1007,7 @@ function elternTermineCarouselHtml(rows,kids,rsvpAll){
       const btns=EP_RSVP_QUICK.map(s=>{
         const on=st===s, c=EP_RSVP[s];
         const act=on?`elternRsvpClear(${t.id},${k.spieler_id})`:`elternRsvp(${t.id},${k.spieler_id},'${s}')`;
-        return `<button onclick="${act}" title="${c.lbl}" aria-label="${esc(kd.name||"Kind")}: ${c.lbl}" style="width:36px;height:36px;flex:none;border-radius:9px;border:1.5px solid ${on?c.col:"#e2e8f0"};background:${on?c.col:"#fff"};color:${on?"#fff":"#334155"};font-size:16px;line-height:1;cursor:pointer">${c.emo}</button>`;
+        return `<button onclick="${act}" title="${c.lbl}" aria-label="${esc(kd.name||"Kind")}: ${c.lbl}" style="width:36px;height:36px;flex:none;border-radius:9px;border:1.5px solid ${on?c.col:"var(--rand-bedien)"};background:${on?c.col:"#fff"};color:${on?"#fff":"#334155"};font-size:16px;line-height:1;cursor:pointer">${c.emo}</button>`;
       }).join("");
       return `<div style="display:flex;align-items:center;gap:5px;margin-top:7px">
         <span style="flex:1;min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(kd.name||"Kind")}</span>${btns}</div>`;
@@ -1062,7 +1062,7 @@ async function terminDetailOpen(id){
     const kd=k.kader||{}, st=rsvp[k.spieler_id]||null;
     const btns=Object.keys(EP_RSVP).map(s=>{const on=st===s,cc=EP_RSVP[s];
       const act=on?`tdRsvp(${t.id},${k.spieler_id},null)`:`tdRsvp(${t.id},${k.spieler_id},'${s}')`;
-      return `<button onclick="${act}" style="flex:1;min-width:0;min-height:44px;padding:6px 3px;border-radius:9px;border:1.5px solid ${on?cc.col:"#e2e8f0"};background:${on?cc.col:"#fff"};color:${on?"#fff":"#334155"};font-family:inherit;font-size:11.5px;font-weight:700;line-height:1.15;cursor:pointer">${cc.emo} ${cc.lbl}</button>`;
+      return `<button onclick="${act}" style="flex:1;min-width:0;min-height:44px;padding:6px 3px;border-radius:9px;border:1.5px solid ${on?cc.col:"var(--rand-bedien)"};background:${on?cc.col:"#fff"};color:${on?"#fff":"#334155"};font-family:inherit;font-size:11.5px;font-weight:700;line-height:1.15;cursor:pointer">${cc.emo} ${cc.lbl}</button>`;
     }).join("");
     return `<div style="margin-top:8px"><div style="font-size:13px;font-weight:700;margin-bottom:4px">${esc(kd.name||"Kind")}</div><div style="display:flex;gap:6px">${btns}</div></div>`;
   }).join("");
@@ -1126,8 +1126,8 @@ async function tdMitbringLoad(t){
     <div style="font-size:11.5px;color:#64748b;margin-bottom:6px">Wer bringt was mit? (Salat, Kuchen, Getränke, Pavillon …)</div>
     ${liste}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
-      <input id="mb-was-${t.id}" placeholder="Was bringst du mit?" style="flex:1;min-width:140px;min-height:44px;padding:9px;border:1.5px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:13px" onkeydown="if(event.key==='Enter')mitbringAdd(${t.id})">
-      ${kids.length>1?`<select id="mb-kid-${t.id}" style="min-height:44px;padding:9px;border:1.5px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:13px;background:#fff">${kidOpts}</select>`:""}
+      <input id="mb-was-${t.id}" placeholder="Was bringst du mit?" style="flex:1;min-width:140px;min-height:44px;padding:9px;border:1.5px solid var(--rand-bedien);border-radius:10px;font-family:inherit;font-size:13px" onkeydown="if(event.key==='Enter')mitbringAdd(${t.id})">
+      ${kids.length>1?`<select id="mb-kid-${t.id}" style="min-height:44px;padding:9px;border:1.5px solid var(--rand-bedien);border-radius:10px;font-family:inherit;font-size:13px;background:#fff">${kidOpts}</select>`:""}
       <button onclick="mitbringAdd(${t.id})" style="min-height:44px;padding:9px 16px;border:none;border-radius:10px;background:#16a34a;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Eintragen</button>
     </div>
   </div>`;
@@ -1150,9 +1150,9 @@ function tdPulsRender(terminId,mine,bare){
   box.innerHTML=`<div style="${bare?"":"border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px"}">
     ${bare?"":`<div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🌡️ Wie war's? <span style="font-weight:400;color:#94a3b8;font-size:11px">(anonym, nur fürs Trainerteam)</span></div>`}
     <div style="display:flex;gap:8px;margin:8px 0">
-      ${moods.map(mo=>{const on=cur===mo.v;return `<button onclick="tdPulsSave(${terminId},${mo.v})" style="flex:1;padding:10px 6px;border-radius:10px;border:1.5px solid ${on?"#1e3a8a":"#e2e8f0"};background:${on?"#eef2ff":"#fff"};cursor:pointer;font-family:inherit"><div style="font-size:22px">${mo.e}</div><div style="font-size:10px;color:#64748b">${mo.l}</div></button>`;}).join("")}
+      ${moods.map(mo=>{const on=cur===mo.v;return `<button onclick="tdPulsSave(${terminId},${mo.v})" style="flex:1;padding:10px 6px;border-radius:10px;border:1.5px solid ${on?"#1e3a8a":"var(--rand-bedien)"};background:${on?"#eef2ff":"#fff"};cursor:pointer;font-family:inherit"><div style="font-size:22px">${mo.e}</div><div style="font-size:10px;color:#64748b">${mo.l}</div></button>`;}).join("")}
     </div>
-    <input id="td-puls-txt" type="text" maxlength="200" value="${mine&&mine.kommentar?esc(mine.kommentar):""}" placeholder="Optional: ein Satz Feedback…" onblur="tdPulsSaveText(${terminId})" style="width:100%;padding:8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box">
+    <input id="td-puls-txt" type="text" maxlength="200" value="${mine&&mine.kommentar?esc(mine.kommentar):""}" placeholder="Optional: ein Satz Feedback…" onblur="tdPulsSaveText(${terminId})" style="width:100%;padding:8px;border:1px solid var(--rand-bedien);border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box">
     <div id="td-puls-done" style="font-size:11px;color:#16a34a;margin-top:4px">${cur?"Danke fürs Feedback ✓":""}</div>
   </div>`;
 }
@@ -1346,7 +1346,7 @@ async function tdHelferLoad(t){
   /* Zeilen statt Chips: eine Beschreibung braucht Platz, und der Knopf muss sagen, worauf
      man sich einlaesst, BEVOR man tippt. Weisse Karte, deshalb feste helle Farbwerte. */
   const buttons=helferTasksFuer(t.typ,t).map(a=>{const on=mine.has(a.t);const esct=a.t.replace(/'/g,"");
-    return `<button onclick="${on?`tdHelferDelTask(${t.id},'${esct}')`:`tdHelferAdd(${t.id},'${esct}')`}" aria-pressed="${on?"true":"false"}" style="display:block;width:100%;text-align:left;margin-top:6px;padding:9px 11px;border-radius:10px;border:1.5px solid ${on?"#16a34a":"#e2e8f0"};background:${on?"#f0fdf4":"#fff"};font-family:inherit;cursor:pointer">
+    return `<button onclick="${on?`tdHelferDelTask(${t.id},'${esct}')`:`tdHelferAdd(${t.id},'${esct}')`}" aria-pressed="${on?"true":"false"}" style="display:block;width:100%;text-align:left;margin-top:6px;padding:9px 11px;border-radius:10px;border:1.5px solid ${on?"#16a34a":"var(--rand-bedien)"};background:${on?"#f0fdf4":"#fff"};font-family:inherit;cursor:pointer">
       <span style="font-size:12.5px;font-weight:700;color:${on?"#15803d":"#334155"}">${on?"✓ ":""}${esc(a.t)}</span>
       <span style="display:block;font-size:11px;font-weight:400;color:#64748b;margin-top:2px;line-height:1.35">${esc(a.d(t))}</span>
     </button>`;}).join("");
@@ -1363,7 +1363,7 @@ async function tdHelferLoad(t){
       <!-- Rahmen dunkler als bei den Aufgaben-Zeilen darueber (#e2e8f0): einen Knopf erkennt
            man an seiner Beschriftung, ein LEERES Eingabefeld nur an seinem Rand – deshalb
            gilt hier die 3:1-Regel fuer Bedienelemente. #7d8b99 = 3,49:1 auf Weiss. -->
-      <input id="helfer-eigen-td" maxlength="60" placeholder="Etwas anderes – was übernimmst du?" aria-label="Eigene Aufgabe eintragen" style="flex:1;min-width:0;min-height:44px;padding:9px;border:1.5px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:12.5px;box-sizing:border-box" onkeydown="if(event.key==='Enter')tdHelferAddEigen(${Number(t.id)},this)">
+      <input id="helfer-eigen-td" maxlength="60" placeholder="Etwas anderes – was übernimmst du?" aria-label="Eigene Aufgabe eintragen" style="flex:1;min-width:0;min-height:44px;padding:9px;border:1.5px solid var(--rand-bedien);border-radius:10px;font-family:inherit;font-size:12.5px;box-sizing:border-box" onkeydown="if(event.key==='Enter')tdHelferAddEigen(${Number(t.id)},this)">
       <button onclick="tdHelferAddEigen(${Number(t.id)},this)" aria-label="Eigene Aufgabe eintragen" style="min-height:44px;min-width:52px;border:none;border-radius:10px;background:#15803d;color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">✓</button>
     </div>
   </div>`;
@@ -1441,8 +1441,8 @@ async function notfallOpen(spielerId,name){
   const c=document.createElement("div");
   c.style.cssText="background:#fff;color:#1a1a2e;max-width:480px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   const field=f=>`<label style="display:block;font-size:12px;font-weight:700;margin-top:10px">${f.l}</label>`+
-    (f.area?`<textarea id="nf-${f.k}" rows="2" placeholder="${f.ph}" style="width:100%;margin-top:3px;padding:8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box;resize:vertical">${esc(cur[f.k]||"")}</textarea>`
-      :`<input id="nf-${f.k}" type="${f.tel?"tel":"text"}" placeholder="${f.ph}" value="${esc(cur[f.k]||"")}" style="width:100%;margin-top:3px;padding:9px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box">`);
+    (f.area?`<textarea id="nf-${f.k}" rows="2" placeholder="${f.ph}" style="width:100%;margin-top:3px;padding:8px;border:1px solid var(--rand-bedien);border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box;resize:vertical">${esc(cur[f.k]||"")}</textarea>`
+      :`<input id="nf-${f.k}" type="${f.tel?"tel":"text"}" placeholder="${f.ph}" value="${esc(cur[f.k]||"")}" style="width:100%;margin-top:3px;padding:9px;border:1px solid var(--rand-bedien);border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box">`);
   c.innerHTML=`
     ${mdlHead("nf-modal","🚑",`Notfallkarte · ${esc(name)}`,"","#dc2626")}
     <div style="font-size:11.5px;color:#64748b;margin-bottom:6px">Diese Angaben sieht ausschließlich das <b>Trainerteam</b> – schreibgeschützt, damit im Notfall am Platz alles griffbereit ist. Du kannst sie jederzeit ändern oder leeren.</div>
@@ -1599,7 +1599,7 @@ async function tdBetreuungLoad(t,kids){
   try{const r=await fetch(`${SB_URL}/rest/v1/betreuung?termin_id=eq.${t.id}&spieler_id=in.(${ids.join(",")})&select=spieler_id,will_stay`,{headers:sbAuthHeaders()});if(r.ok)(await r.json()).forEach(x=>mine[x.spieler_id]=x.will_stay);}catch(e){}
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/betreuung_board`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_termin:t.id})});if(r.ok)board=((await r.json())||[]).map(x=>x.name);}catch(e){}
   const toggles=(kids||[]).map(k=>{const kd=k.kader||{}, stay=mine[k.spieler_id]===true;
-    return `<button onclick="tdBetreuungToggle(${t.id},${k.spieler_id},${stay?"false":"true"})" style="width:100%;margin-top:6px;padding:11px;border:1.5px solid ${stay?"#059669":"#cbd5e1"};border-radius:10px;background:${stay?"#059669":"#fff"};color:${stay?"#fff":"#334155"};font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">${stay?"✅ "+esc(kd.name||"Kind")+" – ich bleibe vor Ort":"🙋 "+esc(kd.name||"Kind")+": ich bleibe vor Ort"}</button>`;}).join("");
+    return `<button onclick="tdBetreuungToggle(${t.id},${k.spieler_id},${stay?"false":"true"})" style="width:100%;margin-top:6px;padding:11px;border:1.5px solid ${stay?"#059669":"var(--rand-bedien)"};border-radius:10px;background:${stay?"#059669":"#fff"};color:${stay?"#fff":"#334155"};font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">${stay?"✅ "+esc(kd.name||"Kind")+" – ich bleibe vor Ort":"🙋 "+esc(kd.name||"Kind")+": ich bleibe vor Ort"}</button>`;}).join("");
   const list=board.length?`<b style="color:#059669">${board.map(esc).join(", ")}</b>`:`<span style="color:#b45309;font-weight:700">noch niemand – bitte helft mit ⚠️</span>`;
   box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
     <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🙋 Betreuung beim Training</div>
@@ -1705,7 +1705,7 @@ async function elternBetreuungLoad(terminId,kids){
   let board=[];
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/betreuung_board`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_termin:terminId})});if(r.ok)board=((await r.json())||[]).map(x=>x.name);}catch(e){}
   const toggles=(kids||[]).map(k=>{const kd=k.kader||{};const stay=mine[k.spieler_id]===true;
-    return `<button onclick="elternBetreuungToggle(${terminId},${k.spieler_id},${stay?"false":"true"})" style="width:100%;margin-top:6px;padding:11px;border:1.5px solid ${stay?"#059669":"#cbd5e1"};border-radius:10px;background:${stay?"#059669":"#fff"};color:${stay?"#fff":"#334155"};font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">${stay?"✅ "+esc(kd.name||"Kind")+" – ich bleibe vor Ort":"🙋 "+esc(kd.name||"Kind")+": ich bleibe vor Ort"}</button>`;}).join("");
+    return `<button onclick="elternBetreuungToggle(${terminId},${k.spieler_id},${stay?"false":"true"})" style="width:100%;margin-top:6px;padding:11px;border:1.5px solid ${stay?"#059669":"var(--rand-bedien)"};border-radius:10px;background:${stay?"#059669":"#fff"};color:${stay?"#fff":"#334155"};font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">${stay?"✅ "+esc(kd.name||"Kind")+" – ich bleibe vor Ort":"🙋 "+esc(kd.name||"Kind")+": ich bleibe vor Ort"}</button>`;}).join("");
   const list=board.length?`<b style="color:#059669">${board.map(esc).join(", ")}</b>`:`<span style="color:#b45309;font-weight:700">noch niemand – bitte helft mit ⚠️</span>`;
   box.innerHTML=`<div style="border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">
     <div style="font-weight:700;font-size:13.5px;margin-bottom:2px">🙋 Betreuung beim Training</div>
@@ -1740,7 +1740,7 @@ async function elternHelferKachelLoad(t){
        entscheidet, ob ich es schaffe), danach der Name (der beantwortet die Frage schon). */
     const rechts=wer.length?`<span style="color:#15803d;font-weight:700">✓ ${namen(wer)}</span>`
                  :zeit?`<span style="color:#64748b">ab ${zeit} Uhr</span>`:"";
-    return `<button onclick="${on?`tdHelferDelTask(${t.id},'${esct}')`:`tdHelferAdd(${t.id},'${esct}')`}" aria-pressed="${on?"true":"false"}" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;min-height:44px;margin-top:6px;padding:8px 11px;border-radius:10px;border:1.5px solid ${on?"#16a34a":"#e2e8f0"};background:${on?"#f0fdf4":"#fff"};font-family:inherit;cursor:pointer">
+    return `<button onclick="${on?`tdHelferDelTask(${t.id},'${esct}')`:`tdHelferAdd(${t.id},'${esct}')`}" aria-pressed="${on?"true":"false"}" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;min-height:44px;margin-top:6px;padding:8px 11px;border-radius:10px;border:1.5px solid ${on?"#16a34a":"var(--rand-bedien)"};background:${on?"#f0fdf4":"#fff"};font-family:inherit;cursor:pointer">
       <span style="flex:1;min-width:0;font-size:12.5px;font-weight:700;color:${on?"#15803d":"#334155"}">${on?"✓ ":""}${esc(a.t.split(" ")[0])} ${esc(a.kurz(t))}</span>
       <span style="font-size:11px;flex:none">${rechts}</span>
     </button>`;}).join("");
@@ -1763,7 +1763,7 @@ async function elternHelferKachelLoad(t){
          die schon lang ist – fuer etwas, das die wenigsten brauchen. -->
     <button id="helfer-eigen-btn" onclick="elternHelferEigenAuf(${Number(t.id)})" style="width:100%;min-height:36px;margin-top:6px;padding:6px;border:none;background:none;color:#334155;font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer;text-align:left">✏️ Etwas anderes eintragen</button>
     <div id="helfer-eigen-box" style="display:none;gap:6px;margin-top:2px">
-      <input id="helfer-eigen-k" maxlength="60" placeholder="Was übernimmst du?" aria-label="Eigene Aufgabe eintragen" style="flex:1;min-width:0;min-height:44px;padding:9px;border:1.5px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:12.5px;box-sizing:border-box" onkeydown="if(event.key==='Enter')tdHelferAddEigen(${Number(t.id)},this)">
+      <input id="helfer-eigen-k" maxlength="60" placeholder="Was übernimmst du?" aria-label="Eigene Aufgabe eintragen" style="flex:1;min-width:0;min-height:44px;padding:9px;border:1.5px solid var(--rand-bedien);border-radius:10px;font-family:inherit;font-size:12.5px;box-sizing:border-box" onkeydown="if(event.key==='Enter')tdHelferAddEigen(${Number(t.id)},this)">
       <button onclick="tdHelferAddEigen(${Number(t.id)},this)" aria-label="Eigene Aufgabe eintragen" style="min-height:44px;min-width:52px;border:none;border-radius:10px;background:#15803d;color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">✓</button>
     </div>
   </div>`;
@@ -1810,7 +1810,7 @@ function elternTourRender(){
     <div style="font-size:13.5px;color:#475569;line-height:1.5;text-align:left">${esc(s.d)}</div>
     <div style="display:flex;gap:6px;justify-content:center;margin:16px 0 4px">${ELTERN_TOUR.map((_,i)=>`<span style="width:7px;height:7px;border-radius:50%;background:${i===elternTourIdx?'#1e3a8a':'#cbd5e1'}"></span>`).join("")}</div>
     <div style="display:flex;gap:8px;margin-top:8px">
-      ${elternTourIdx>0?`<button onclick="elternTourPrev()" style="padding:9px 14px;border:1.5px solid #cbd5e1;border-radius:10px;background:#fff;color:#334155;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Zurück</button>`:`<button onclick="elternTourClose()" style="padding:9px 14px;border:none;background:none;color:#64748b;font-family:inherit;font-size:13px;cursor:pointer">Überspringen</button>`}
+      ${elternTourIdx>0?`<button onclick="elternTourPrev()" style="padding:9px 14px;border:1.5px solid var(--rand-bedien);border-radius:10px;background:#fff;color:#334155;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Zurück</button>`:`<button onclick="elternTourClose()" style="padding:9px 14px;border:none;background:none;color:#64748b;font-family:inherit;font-size:13px;cursor:pointer">Überspringen</button>`}
       <button onclick="elternTourNext()" style="margin-left:auto;padding:9px 16px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">${last?"Fertig 🚀":"Weiter"}</button>
     </div>
   </div>`;

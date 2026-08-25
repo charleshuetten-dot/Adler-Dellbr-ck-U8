@@ -368,7 +368,7 @@ async function rollenPanelRender(){
     return `<div style="background:var(--surface);border:var(--border-s);border-radius:12px;padding:10px 12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px">
         <span style="flex:1;font-size:12.5px;font-weight:700">${icon} ${label}${cur?`: <span style="color:var(--blue)">${esc(cur)}</span>`:""}</span>
-        <select onchange="if(this.value)${setFn}(this.value)" style="padding:6px 8px;border:1px solid var(--feld-rand);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--surface2);color:var(--text)"><option value="">${cur?"wechseln…":"wählen…"}</option>${opts(cnt,cur)}</select>
+        <select onchange="if(this.value)${setFn}(this.value)" style="padding:6px 8px;border:1px solid var(--rand-bedien);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--surface2);color:var(--text)"><option value="">${cur?"wechseln…":"wählen…"}</option>${opts(cnt,cur)}</select>
       </div>
       ${offen.length?`<div style="font-size:10.5px;color:var(--text2);margin-top:5px">Noch nie dran ⭐: ${offen.map(esc).join(", ")}</div>`:`<div style="font-size:10.5px;color:var(--green);margin-top:5px">Alle waren schon dran – fair verteilt ✓</div>`}
     </div>`;
@@ -793,7 +793,7 @@ function blzRender(){
   el.innerHTML=(BLZ.phase==="setup")?_blzSetupHtml():_blzLiveHtml();
 }
 function _blzSetupHtml(){
-  const chip=(aktiv,label,onclick)=>`<button onclick="${onclick}" style="flex:1;min-width:30%;min-height:44px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;background:${aktiv?"#d97706":"var(--surface2)"};color:${aktiv?"#fff":"var(--text2)"}">${label}</button>`;
+  const chip=(aktiv,label,onclick)=>`<button onclick="${onclick}" style="flex:1;min-width:30%;min-height:44px;border:1px solid var(--rand-bedien);border-radius:10px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;background:${aktiv?"#d97706":"var(--surface2)"};color:${aktiv?"#fff":"var(--text2)"}">${label}</button>`;
   const duell=BLZ.spielmodus==="duell";
   const vorschlag=_blzTeamVorschlag();
   const mChips=chip(!duell,"⚽ Kinder-Turnier","blzModus('kinder')")+chip(duell,"👨‍👩‍👧 Kinder gegen Eltern","blzModus('duell')");
@@ -803,7 +803,7 @@ function _blzSetupHtml(){
   const bChips=[10,15,20,30,40,0].map(b=>chip((BLZ.budget||0)===b,b?b+" Min.":"frei",`blzBudget(${b})`)).join("");
   const fChips=[1,2,3,4].map(f=>chip((BLZ.felder||1)===f,f+(f===1?" Feld":" Felder"),`blzFelder(${f})`)).join("");
   const trainerChips=(typeof TRAINER!=="undefined"&&TRAINER.length)?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Trainer spielen mit <span style="font-weight:400;text-transform:none;letter-spacing:0">(landen erst bei den Kindern – antippen schiebt sie weiter${duell?", auch in die Eltern-Teams":""})</span></div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${TRAINER.map(t=>`<button onclick="blzTrainerToggle('${jsq(t)}')" style="min-height:44px;padding:6px 12px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;background:${(BLZ.trainer||[]).indexOf(t)>=0?"#d97706":"var(--surface2)"};color:${(BLZ.trainer||[]).indexOf(t)>=0?"#fff":"var(--text2)"}">🧢 ${esc(t)}</button>`).join("")}</div>`:"";
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${TRAINER.map(t=>`<button onclick="blzTrainerToggle('${jsq(t)}')" style="min-height:44px;padding:6px 12px;border:1px solid var(--rand-bedien);border-radius:18px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;background:${(BLZ.trainer||[]).indexOf(t)>=0?"#d97706":"var(--surface2)"};color:${(BLZ.trainer||[]).indexOf(t)>=0?"#fff":"var(--text2)"}">🧢 ${esc(t)}</button>`).join("")}</div>`:"";
   const nEltern=BLZ.teams.filter(t=>t.eltern).length;
   const teamKarte=(t,i)=>`<div style="border:var(--border-s);border-left:4px solid ${t.eltern?"#7c3aed":BLZ_FARBEN[i%BLZ_FARBEN.length]};border-radius:12px;padding:8px 10px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:6px">
@@ -811,7 +811,7 @@ function _blzSetupHtml(){
         <span style="margin-left:auto;font-size:11px;color:var(--text3)">${t.eltern?(t.spieler.length?"🧢 "+t.spieler.length+" dabei · ":"")+(nEltern>1?"Duell-Gegner im Wechsel":"tritt in jedem Duell an"):(t.spieler.length?t.spieler.length+" im Team":"ohne Kader-Kinder")}</span>
         ${t.fest?`<button onclick="blzTeamWeg(${i})" aria-label="Team entfernen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;min-width:44px;min-height:44px;margin:-8px -8px -8px 0"><i class="ti ti-trash"></i></button>`:""}
       </div>
-      ${t.spieler.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${t.spieler.map(n=>`<button onclick="blzCycle('${jsq(n)}')" title="Tippen = ins nächste Team" style="min-height:44px;padding:6px 12px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12.5px;cursor:pointer;background:var(--surface2);color:var(--text)">${esc(n)}</button>`).join("")}</div>`:""}
+      ${t.spieler.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${t.spieler.map(n=>`<button onclick="blzCycle('${jsq(n)}')" title="Tippen = ins nächste Team" style="min-height:44px;padding:6px 12px;border:1px solid var(--rand-bedien);border-radius:18px;font-family:inherit;font-size:12.5px;cursor:pointer;background:var(--surface2);color:var(--text)">${esc(n)}</button>`).join("")}</div>`:""}
     </div>`;
   // Im Duell sichtbar getrennt: erst die Eltern-Seite, dann die Kinder-Teams
   const gruppe=titel=>`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin:8px 0 4px">${titel}</div>`;
@@ -843,7 +843,7 @@ function _blzSetupHtml(){
     </div>
     ${!BLZ.budget?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <label for="blz-runde" style="font-size:12.5px;color:var(--text2)">Spielzeit je Begegnung</label>
-      <input id="blz-runde" type="number" min="1" max="30" value="${BLZ.runde}" style="width:64px;text-align:center;padding:8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text)"> <span style="font-size:12.5px;color:var(--text2)">Min.</span>
+      <input id="blz-runde" type="number" min="1" max="30" value="${BLZ.runde}" style="width:64px;text-align:center;padding:8px;border:1px solid var(--rand-bedien);border-radius:8px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text)"> <span style="font-size:12.5px;color:var(--text2)">Min.</span>
     </div>`:""}
     ${BLZ.plan&&BLZ.plan.length?`
       <div style="font-size:11.5px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 10px;margin-bottom:8px">💾 Turnier ist gebaut${BLZ.datum!==_blzHeute()?" (angelegt "+new Date(BLZ.datum+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})+")":""} und bleibt gespeichert, bis ihr es beendet. Kinder/Trainer umsetzen und Namen ändern geht jederzeit – nur Modus- oder Team-Anzahl-Änderungen verwerfen den Plan.</div>
@@ -947,9 +947,9 @@ function _blzLiveHtml(){
   const naechsterSlot=offene.length?Math.min(...offene.map(p=>p.slot)):-1;
   const slots=[...new Set(BLZ.plan.map(p=>p.slot))].sort((a,b)=>a-b);
   const step=(mi,seite,wert)=>`<span style="display:inline-flex;align-items:center;gap:2px;flex:none">
-      <button onclick="blzTor(${mi},'${seite}',-1)" aria-label="Tor zurücknehmen" style="min-width:42px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer;flex:none">−</button>
+      <button onclick="blzTor(${mi},'${seite}',-1)" aria-label="Tor zurücknehmen" style="min-width:42px;min-height:44px;border:1px solid var(--rand-bedien);border-radius:10px;background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer;flex:none">−</button>
       <b style="min-width:26px;text-align:center;font-size:17px">${wert==null?"–":wert}</b>
-      <button onclick="blzTor(${mi},'${seite}',1)" aria-label="Tor" style="min-width:42px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer;flex:none">+</button>
+      <button onclick="blzTor(${mi},'${seite}',1)" aria-label="Tor" style="min-width:42px;min-height:44px;border:1px solid var(--rand-bedien);border-radius:10px;background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer;flex:none">+</button>
     </span>`;
   const karte=p=>{
     const mi=BLZ.plan.indexOf(p);
@@ -1330,19 +1330,19 @@ function htRender(){
   const teamZeile=(name,i)=>`<div style="display:flex;align-items:center;gap:6px;padding:2px 0">
       ${istGruppen?`<span style="font-size:10px;font-weight:800;color:#b45309;width:18px">${grVon(i)}</span>`:""}
       <span style="flex:1;font-size:13px">${esc(name)}</span>
-      ${i>0?`<button onclick="htTeamHoch(${i})" aria-label="nach oben" style="min-width:44px;min-height:44px;margin:-8px 0;border:none;background:transparent;color:var(--text3);cursor:pointer"><i class="ti ti-arrow-up"></i></button>`:'<span style="min-width:44px"></span>'}
+      ${i>0?`<button onclick="htTeamHoch(${i})" aria-label="nach oben" style="min-width:44px;min-height:44px;margin:-8px 0;border:none;background:transparent;color:var(--text2);cursor:pointer"><i class="ti ti-arrow-up"></i></button>`:'<span style="min-width:44px"></span>'}
       <button onclick="htTeamWeg(${i})" aria-label="Team entfernen" style="min-width:44px;min-height:44px;margin:-8px 0;border:none;background:transparent;color:#dc2626;cursor:pointer"><i class="ti ti-trash"></i></button>
     </div>`;
   // Schnellwahl aus der Gegner-DB: Tippen fügt hinzu; nochmal tippen = zweite Mannschaft („… 2")
   const dbChips=(window._htGegner||[]).length?`<div style="font-size:11px;color:var(--text2);margin:6px 0 4px">Aus der Gegner-Datenbank (nochmal tippen = 2. Mannschaft):</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${(window._htGegner||[]).map(g=>`<button onclick="htTeamAusDB('${jsq(g)}')" style="min-height:44px;padding:6px 12px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12px;cursor:pointer;background:var(--surface2);color:var(--text)">${esc(g)}</button>`).join("")}</div>`:"";
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${(window._htGegner||[]).map(g=>`<button onclick="htTeamAusDB('${jsq(g)}')" style="min-height:44px;padding:6px 12px;border:1px solid var(--rand-bedien);border-radius:18px;font-family:inherit;font-size:12px;cursor:pointer;background:var(--surface2);color:var(--text)">${esc(g)}</button>`).join("")}</div>`:"";
   // Spielplan-Zeilen mit Ergebnis-Steppern (Platzhalter erst nach „Finalrunde füllen" spielbar)
   const spielZeile=(p,mi)=>{
     const echt=typeof p.a==="number"&&typeof p.b==="number";
     const step=(seite,wert)=>`<span style="display:inline-flex;align-items:center;gap:2px">
-      <button onclick="htTor(${mi},'${seite}',-1)" aria-label="Tor zurücknehmen" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-size:15px;cursor:pointer">−</button>
+      <button onclick="htTor(${mi},'${seite}',-1)" aria-label="Tor zurücknehmen" style="min-width:44px;min-height:44px;border:1px solid var(--rand-bedien);border-radius:10px;background:var(--surface2);color:var(--text);font-size:15px;cursor:pointer">−</button>
       <b style="min-width:24px;text-align:center;font-size:16px">${wert==null?"–":wert}</b>
-      <button onclick="htTor(${mi},'${seite}',1)" aria-label="Tor" style="min-width:44px;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface2);color:var(--text);font-size:15px;cursor:pointer">+</button>
+      <button onclick="htTor(${mi},'${seite}',1)" aria-label="Tor" style="min-width:44px;min-height:44px;border:1px solid var(--rand-bedien);border-radius:10px;background:var(--surface2);color:var(--text);font-size:15px;cursor:pointer">+</button>
     </span>`;
     return `<div style="border:var(--border-s);border-radius:12px;padding:8px 10px;margin-bottom:8px;${p.ta!=null?"opacity:.78;":""}">
       <div style="font-size:10.5px;color:var(--text2);display:flex;gap:8px"><b>${esc(p.zeit||"")}</b><span>Feld ${p.feld||1}</span><span style="margin-left:auto;color:#b45309;font-weight:700">${esc(p.phase||"")}</span></div>
@@ -1724,15 +1724,15 @@ function htPubEdit(mi){
   sh.innerHTML=`<div style="font-weight:800;font-size:14px;text-align:center">${esc(_htName(p.a,row.teams))} <span style="color:#94a3b8">vs</span> ${esc(_htName(p.b,row.teams))}</div>
     <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin:14px 0">
       <span style="display:inline-flex;align-items:center;gap:4px">
-        <button onclick="htPubTor(${mi},'ta',-1)" aria-label="Tor zurücknehmen" style="min-width:52px;min-height:52px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc;font-size:20px;cursor:pointer">−</button>
+        <button onclick="htPubTor(${mi},'ta',-1)" aria-label="Tor zurücknehmen" style="min-width:52px;min-height:52px;border:1px solid var(--rand-bedien);border-radius:12px;background:#f8fafc;font-size:20px;cursor:pointer">−</button>
         <b id="htpub-ta" style="min-width:36px;text-align:center;font-size:28px">${p.ta==null?0:p.ta}</b>
-        <button onclick="htPubTor(${mi},'ta',1)" aria-label="Tor" style="min-width:52px;min-height:52px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc;font-size:20px;cursor:pointer">+</button>
+        <button onclick="htPubTor(${mi},'ta',1)" aria-label="Tor" style="min-width:52px;min-height:52px;border:1px solid var(--rand-bedien);border-radius:12px;background:#f8fafc;font-size:20px;cursor:pointer">+</button>
       </span>
       <span style="font-weight:900;font-size:24px">:</span>
       <span style="display:inline-flex;align-items:center;gap:4px">
-        <button onclick="htPubTor(${mi},'tb',-1)" aria-label="Tor zurücknehmen" style="min-width:52px;min-height:52px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc;font-size:20px;cursor:pointer">−</button>
+        <button onclick="htPubTor(${mi},'tb',-1)" aria-label="Tor zurücknehmen" style="min-width:52px;min-height:52px;border:1px solid var(--rand-bedien);border-radius:12px;background:#f8fafc;font-size:20px;cursor:pointer">−</button>
         <b id="htpub-tb" style="min-width:36px;text-align:center;font-size:28px">${p.tb==null?0:p.tb}</b>
-        <button onclick="htPubTor(${mi},'tb',1)" aria-label="Tor" style="min-width:52px;min-height:52px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc;font-size:20px;cursor:pointer">+</button>
+        <button onclick="htPubTor(${mi},'tb',1)" aria-label="Tor" style="min-width:52px;min-height:52px;border:1px solid var(--rand-bedien);border-radius:12px;background:#f8fafc;font-size:20px;cursor:pointer">+</button>
       </span>
     </div>
     <button onclick="document.getElementById('htpub-sheet').remove();_htPubLoad()" style="width:100%;min-height:48px;border:none;border-radius:12px;background:#16a34a;color:#fff;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit">Fertig</button>`;
@@ -1763,7 +1763,7 @@ function _htPublicRender(wrap,row){
     const echt=typeof p.a==="number"&&typeof p.b==="number";
     const erg=p.ta!=null?p.ta+" : "+p.tb:"–";
     const ergZelle=(helfer&&echt)
-      ?`<button onclick="htPubEdit(${mi})" style="min-height:44px;min-width:70px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer">✏️ ${erg}</button>`
+      ?`<button onclick="htPubEdit(${mi})" style="min-height:44px;min-width:70px;border:1px solid var(--rand-bedien);border-radius:10px;background:#fff;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer">✏️ ${erg}</button>`
       :erg;
     return `<tr style="border-top:1px solid #e2e8f0;${p.ta!=null?"background:#f8fafc;":""}">
       <td style="padding:7px 6px;font-weight:700;white-space:nowrap">${esc(p.zeit||"")}</td>
@@ -1798,8 +1798,8 @@ function _htPublicRender(wrap,row){
     ${helfer?'<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:10px 12px;margin-top:10px;font-size:13px;color:#065f46;font-weight:700">✏️ Helfer-Modus: Ergebnis antippen und eintragen – mehr geht mit diesem Link nicht.</div>':""}
     ${cfg.durchsage?`<div style="background:#fffbeb;border:2px solid #f59e0b;border-radius:12px;padding:12px 14px;margin-top:10px;font-size:14.5px;color:#78350f;font-weight:800">📣 ${esc(cfg.durchsage)} <span style="font-weight:400;font-size:11px;color:#b45309">(Durchsage ${esc(cfg.durchsage_um||"")} Uhr)</span></div>`:""}
     ${plan.length?`<div style="display:flex;gap:6px;overflow-x:auto;padding:12px 2px 2px;-webkit-overflow-scrolling:touch">
-      <button onclick="htPubFilter(null)" style="flex:none;min-height:44px;padding:6px 14px;border-radius:20px;border:1px solid ${filter==null?"#1e3a8a":"#cbd5e1"};background:${filter==null?"#1e3a8a":"#fff"};color:${filter==null?"#fff":"#334155"};font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">Alle</button>
-      ${teams.map((t,i)=>`<button onclick="htPubFilter(${i})" style="flex:none;min-height:44px;padding:6px 14px;border-radius:20px;border:1px solid ${filter===i?"#1e3a8a":"#cbd5e1"};background:${filter===i?"#1e3a8a":"#fff"};color:${filter===i?"#fff":"#334155"};font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">${esc(t)}</button>`).join("")}
+      <button onclick="htPubFilter(null)" style="flex:none;min-height:44px;padding:6px 14px;border-radius:20px;border:1px solid ${filter==null?"#1e3a8a":"var(--rand-bedien)"};background:${filter==null?"#1e3a8a":"#fff"};color:${filter==null?"#fff":"#334155"};font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">Alle</button>
+      ${teams.map((t,i)=>`<button onclick="htPubFilter(${i})" style="flex:none;min-height:44px;padding:6px 14px;border-radius:20px;border:1px solid ${filter===i?"#1e3a8a":"var(--rand-bedien)"};background:${filter===i?"#1e3a8a":"#fff"};color:${filter===i?"#fff":"#334155"};font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">${esc(t)}</button>`).join("")}
     </div>${filter!=null?_htPubCountdown(row,filter):""}`:""}
     ${plan.length?`<div style="background:#fff;border-radius:14px;padding:8px 4px;margin-top:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:13px">${zeilen}</table>
@@ -1815,9 +1815,9 @@ function _htPublicRender(wrap,row){
     </div>`:""}
     ${cfg.fairplay!=null&&teams[cfg.fairplay]!=null?`<div style="background:#ecfdf5;border:2px solid #34d399;border-radius:14px;padding:12px 14px;margin-top:12px;font-size:14px;color:#065f46"><b>🤝 Fair-Play-Pokal: ${esc(teams[cfg.fairplay])}</b><div style="font-size:12px;margin-top:2px">Das fairste Team des Turniers – Glückwunsch!</div></div>`:""}
     <div style="display:flex;gap:8px;margin-top:14px">
-      <button onclick="location.reload()" style="flex:1;min-height:44px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🔄 Aktualisieren</button>
-      <button onclick="htPubMonitor()" style="flex:1;min-height:44px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📺 Monitor</button>
-      <button onclick="window.print()" style="flex:1;min-height:44px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🖨️ Drucken</button>
+      <button onclick="location.reload()" style="flex:1;min-height:44px;border:1px solid var(--rand-bedien);border-radius:10px;background:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🔄 Aktualisieren</button>
+      <button onclick="htPubMonitor()" style="flex:1;min-height:44px;border:1px solid var(--rand-bedien);border-radius:10px;background:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">📺 Monitor</button>
+      <button onclick="window.print()" style="flex:1;min-height:44px;border:1px solid var(--rand-bedien);border-radius:10px;background:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🖨️ Drucken</button>
     </div>
     <div style="text-align:center;font-size:10.5px;color:#94a3b8;margin-top:10px">Aktualisiert sich automatisch · Stand ${new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})} Uhr</div>`;
 }

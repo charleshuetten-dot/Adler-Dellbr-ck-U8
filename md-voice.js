@@ -147,7 +147,7 @@ function voiceDiaryOpen(datum){
   c.innerHTML=`${mdlHead("vd-modal","🎤","Trainer-Notiz","","#334155")}
     <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Direkt nach Abpfiff festhalten, bevor Details weg sind. Der Adler-Coach (KI) kann deine Notizen später einbeziehen.</div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">${micBtn}<span id="vd-interim" style="font-size:12px;color:var(--text3);flex:1"></span></div>
-    <textarea id="vd-text" rows="5" placeholder="z. B. Umschaltspiel war heute mies – wir standen nach Ballverlust zu offen." style="width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:13px;line-height:1.5;background:var(--surface2);color:var(--text);resize:vertical"></textarea>
+    <textarea id="vd-text" rows="5" placeholder="z. B. Umschaltspiel war heute mies – wir standen nach Ballverlust zu offen." style="width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--rand-bedien);border-radius:10px;font-family:inherit;font-size:13px;line-height:1.5;background:var(--surface2);color:var(--text);resize:vertical"></textarea>
     <div style="display:flex;gap:8px;margin-top:10px">
       <button class="btn btn-p btn-sm" onclick="vdSave(${datum?`'${jsq(datum)}'`:"null"})"><i class="ti ti-device-floppy"></i>Notiz speichern</button>
       <button class="btn btn-sm" style="margin-left:auto" onclick="vdOn=false;try{vdRec&&vdRec.stop()}catch(e){};document.getElementById('vd-modal').remove()">Schließen</button>

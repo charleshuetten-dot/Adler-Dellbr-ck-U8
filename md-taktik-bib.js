@@ -62,7 +62,7 @@ async function ttRender(){
       ${t.formation==="KI-Übung"
         ?`<button class="btn btn-sm" onclick="ttViewKi(${t.id})"><i class="ti ti-eye"></i>Ansehen</button>`
         :`<button class="btn btn-p btn-sm" onclick="ttLoad(${t.id})">Laden</button>`}
-      <button onclick="ttDelete(${t.id})" title="Löschen" style="min-width:40px;min-height:40px;border:var(--border-s);border-radius:10px;background:var(--surface);cursor:pointer">🗑</button>
+      <button onclick="ttDelete(${t.id})" title="Löschen" style="min-width:40px;min-height:40px;border:1px solid var(--rand-bedien);border-radius:10px;background:var(--surface);cursor:pointer">🗑</button>
     </div>`).join("");
 }
 async function ttLoad(id){

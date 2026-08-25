@@ -213,7 +213,7 @@ function tqShareQuiz(){
     modal.onclick=e=>{if(e.target===modal)modal.remove();};
     modal.innerHTML=`<div style="background:white;border-radius:12px;padding:20px;max-width:360px;width:90%;text-align:center">
       <div style="font-size:14px;font-weight:700;margin-bottom:12px">Quiz teilen</div>
-      <input type="text" value="${url}" readonly style="width:100%;padding:8px;border:1px solid var(--feld-rand);border-radius:6px;font-size:12px;margin-bottom:10px;text-align:center" onclick="this.select()">
+      <input type="text" value="${url}" readonly style="width:100%;padding:8px;border:1px solid var(--rand-bedien);border-radius:6px;font-size:12px;margin-bottom:10px;text-align:center" onclick="this.select()">
       <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
         <button class="btn btn-p btn-sm" onclick="navigator.clipboard.writeText('${url}');toast('Link kopiert ✓');this.closest('div[style*=fixed]').remove()"><i class="ti ti-copy"></i>Kopieren</button>
         <a href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" class="btn btn-sm" style="background:#25D366;color:white;border-color:#25D366;text-decoration:none"><i class="ti ti-brand-whatsapp"></i>WhatsApp</a>
@@ -599,7 +599,7 @@ function tqLoadScenario(idx){
       </div>
       <div style="display:flex;align-items:flex-start;gap:8px">
         <div class="tq-situation" style="flex:1">${sc.title}</div>
-        <button onclick="tqSpeak(this)" title="Vorlesen" aria-label="Aufgabe vorlesen" style="flex:none;min-width:44px;min-height:44px;border:var(--border-s);border-radius:var(--r);background:var(--surface);font-size:20px;cursor:pointer">🔊</button>
+        <button onclick="tqSpeak(this)" title="Vorlesen" aria-label="Aufgabe vorlesen" style="flex:none;min-width:44px;min-height:44px;border:1px solid var(--rand-bedien);border-radius:var(--r);background:var(--surface);font-size:20px;cursor:pointer">🔊</button>
       </div>
       <div class="tq-hint">${tqPersonalize(sc.desc)}</div>
       <div class="tq-task">📋 ${esc(pName)}, ${sc.task.charAt(0).toLowerCase()+sc.task.slice(1)}</div>
