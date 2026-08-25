@@ -3346,7 +3346,7 @@ const HELP=[
     {t:"Quiz (Kinder)", d:"Kinder spielen über den Kids-Link (?quiz); Ergebnisse unter Eltern & Kinder → Quiz-Ergebnisse.", go:"quizresults"},
   ]},
   {cat:"📅 Orga", items:[
-    {t:"Trainerplan", d:"Alle kommenden Trainings, Spiele und Turniere als Tabelle: Termine untereinander, der Trainerstab als Spalten, ein Tap je Zelle wechselt zwischen dabei ✓, unsicher ?, nicht dabei ✕ und keine Antwort. Der farbige Balken links sagt, ob genug zusammenkommen – grün ab zwei Zusagen, gelb solange offene Antworten das noch schaffen können, rot wenn nicht mehr. Der Filter „Wo es eng wird“ zeigt nur die Termine, um die man sich kümmern muss. Unterschied zu „Bist du dabei?“ auf der Startseite: dort beantwortest DU deine Termine, hier siehst du das ganze Team.", run:"trainerPlanOpen()"},
+    {t:"Trainerplan", d:"Alle kommenden Trainings, Spiele und Turniere als Tabelle: Termine untereinander, der Trainerstab als Spalten, ein Tap je Zelle wechselt zwischen dabei ✓, unsicher ?, nicht dabei ✕ und keine Antwort. Der Balken links zeigt die Zahl der Zusagen – rot keine, orange eine, hellgrün zwei, dunkelgrün ab drei. Er bewertet nicht, er zählt: ob ein Termin damit läuft, entscheidet ihr. Der Filter „Höchstens eine Zusage“ zeigt nur die Termine, bei denen noch wenig steht. Unterschied zu „Bist du dabei?“ auf der Startseite: dort beantwortest DU deine Termine, hier siehst du das ganze Team.", run:"trainerPlanOpen()"},
     {t:"Termine", d:"Das Formular zeigt nur, was zum Typ gehört: eine Treffzeit gibt es bei Spiel, Turnier und Event (bei Spielen −45 Min. vom Anpfiff vorgeschlagen) – beim Training kommen ohnehin alle zur Trainingszeit. „Wiederholen“ steht beim Event, weil Spiele und Turniere jedes Mal andere sind. Unter „Wer hilft“ sagst du, was die Eltern übernehmen sollen: beim Training die Anzahl Funino-Tore und Jugendtore (leer = ohne Zahl anbieten, 0 = wird nicht gebraucht), dazu bei jedem Typ ein freier Hinweis. Das steht im Eltern-Bereich als Beschreibung unter der Aufgabe – ohne sie trägt sich niemand ein. Dazu: anlegen/bearbeiten · Endzeit (danach automatisch ins Archiv) · Platz · Trainer-Verfügbarkeit · Wetter · Ferien-Warnung.", go:"termine"},
     {t:"Gegner-Datenbank", d:"Adresse, Ansprechpartner, Telefon/WhatsApp, bisherige Spiele.", run:"gegnerManageOpen()"},
     {t:"Pinnwand", d:"Team-Notizen fürs Trainerteam.", go:"team"},
@@ -4064,8 +4064,6 @@ async function trainerRsvpSet(id,val){
    nicht „was sage ich?", sondern „wo wird es eng?".
    Gleiche Daten (_trsvpRows), verschiedene Fragen – deshalb zwei Ansichten und
    NICHT zwei Datenbestaende (Lehre aus v423). */
-const TP_MIN_TRAINER=2;   // ab so vielen Zusagen gilt ein Termin als abgedeckt
-
 /* Kurzform fuer die Spaltenkoepfe. Zwei Buchstaben reichen fuer den heutigen Stab,
    aber ein neuer Name darf keine Dublette erzeugen – bei Gleichstand wird verlaengert,
    statt zwei Spalten gleich zu beschriften. */
@@ -4078,17 +4076,18 @@ function _tpKuerzel(namen){
   });
   return out;
 }
-/* Ampel je Termin. Die Regel bildet Markus' Blatt nach: gruen ab zwei Zusagen; gelb,
-   solange offene oder unsichere Antworten die zwei noch erreichen koennen; rot, wenn
-   selbst dann zu wenige zusammenkommen. „Rot" heisst also nicht „keiner da", sondern
-   „das geht nicht mehr auf" – und nur das ist ein Grund, jetzt etwas zu tun. */
+/* Ampel je Termin – vier Stufen, allein nach der ZAHL der Zusagen (PO: „eine Schwelle
+   gibt es auch nicht"). Die frueheste Fassung rechnete offene Antworten mit („kann noch
+   klappen") und behauptete damit eine Mindestbesetzung, die es im Verein gar nicht gibt.
+   Jetzt beschreibt die Farbe nur, was DA IST – die Bewertung macht das Trainerteam.
+   Die Farbwerte stehen in styles.css (--tp-0…3): sie muessen im Dunkelmodus kippen, und
+   ein Inlinestil laesst sich von einer @media-dark-Regel nicht ueberschreiben (v424). */
 function _tpAmpel(status,namen){
   const s=status||{};
-  let ja=0, offen=0;
-  namen.forEach(n=>{ const v=s[n]; if(v==="ja")ja++; else if(v!=="nein")offen++; });
-  if(ja>=TP_MIN_TRAINER)return {stufe:"gruen",farbe:"var(--green)",ja,offen};
-  if(ja+offen>=TP_MIN_TRAINER)return {stufe:"gelb",farbe:"var(--amber)",ja,offen};
-  return {stufe:"rot",farbe:"var(--red)",ja,offen};
+  let ja=0;
+  namen.forEach(n=>{ if(s[n]==="ja")ja++; });
+  const stufe = ja===0?0 : ja===1?1 : ja===2?2 : 3;
+  return {stufe, ja, farbe:`var(--tp-${stufe})`};
 }
 let _tpNurEng=false;
 function _tpZeilen(){
@@ -4130,7 +4129,7 @@ function _tpZeileHtml(t,namen){
   return `<div id="tp-row-${t.id}" style="display:grid;grid-template-columns:${sp};gap:3px;align-items:center;padding:3px 0;border-top:var(--border)">
     <div style="border-left:4px solid ${a.farbe};padding-left:6px;min-width:0;overflow:hidden">
       <div style="font-size:11.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.icon} ${wtag} ${d.getDate()}.${d.getMonth()+1}.</div>
-      <div style="font-size:9.5px;color:${a.stufe==="gruen"?"var(--text3)":a.farbe};font-weight:${a.stufe==="gruen"?"400":"700"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.stufe==="rot"?a.ja+" · zu wenig":a.stufe==="gelb"?a.ja+" · offen":a.ja+" dabei"}</div>
+      <div style="font-size:9.5px;color:${a.stufe<=1?a.farbe:"var(--text3)"};font-weight:${a.stufe<=1?"700":"400"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.ja===0?"niemand":a.ja+" dabei"}</div>
     </div>
     ${namen.map(n=>_tpZelleHtml(t,n)).join("")}
   </div>`;
@@ -4138,9 +4137,9 @@ function _tpZeileHtml(t,namen){
 function _tpListeHtml(){
   const namen=_tpNamen(), kurz=_tpKuerzel(namen);
   let rows=_tpZeilen();
-  if(_tpNurEng)rows=rows.filter(t=>_tpAmpel(t.trainer_status,namen).stufe!=="gruen");
+  if(_tpNurEng)rows=rows.filter(t=>_tpAmpel(t.trainer_status,namen).stufe<=1); // 0 oder 1 Zusage
   if(!rows.length)return `<div style="font-size:12.5px;color:var(--text3);padding:16px;text-align:center">${
-    _tpNurEng?"Bei allen Terminen sind genug Trainer da ✓":"Keine kommenden Trainings, Spiele oder Turniere."}</div>`;
+    _tpNurEng?"Überall mindestens zwei Zusagen ✓":"Keine kommenden Trainings, Spiele oder Turniere."}</div>`;
   let html=_tpKopfHtml(namen,kurz), monat="";
   rows.forEach(t=>{
     const mn=new Date(t.datum+"T00:00:00").toLocaleDateString("de-DE",{month:"long",year:"numeric"});
@@ -4152,11 +4151,11 @@ function _tpListeHtml(){
 }
 function _tpFilterHtml(){
   const namen=_tpNamen();
-  const alle=_tpZeilen(), eng=alle.filter(t=>_tpAmpel(t.trainer_status,namen).stufe!=="gruen");
+  const alle=_tpZeilen(), eng=alle.filter(t=>_tpAmpel(t.trainer_status,namen).stufe<=1);
   const chip=(an,lbl,fn)=>`<button onclick="${fn}" aria-pressed="${an?"true":"false"}"
     style="min-height:38px;padding:6px 14px;border:var(--border-s);border-radius:18px;font-family:inherit;font-size:12px;font-weight:${an?"700":"500"};cursor:pointer;background:${an?"var(--blue)":"var(--surface)"};color:${an?"#fff":"var(--text2)"}">${lbl}</button>`;
   return chip(!_tpNurEng,`Alle (${alle.length})`,"tpFilter(false)")+
-         chip(_tpNurEng,`Wo es eng wird (${eng.length})`,"tpFilter(true)");
+         chip(_tpNurEng,`Höchstens eine Zusage (${eng.length})`,"tpFilter(true)");
 }
 function tpFilter(nurEng){
   _tpNurEng=!!nurEng;
@@ -4188,8 +4187,8 @@ async function tpZelleTippen(id,name){
 }
 function _tpKopfText(){
   const namen=_tpNamen(), alle=_tpZeilen();
-  const eng=alle.filter(t=>_tpAmpel(t.trainer_status,namen).stufe!=="gruen").length;
-  return `${alle.length} Termine · ${eng?eng+" brauchen noch jemanden":"überall genug Trainer ✓"}`;
+  const ohne=alle.filter(t=>_tpAmpel(t.trainer_status,namen).ja===0).length;
+  return `${alle.length} Termine · ${ohne?ohne+" noch ohne Zusage":"überall mindestens eine Zusage ✓"}`;
 }
 async function trainerPlanOpen(){
   await _trsvpLoad();
@@ -4202,14 +4201,16 @@ async function trainerPlanOpen(){
   const c=document.createElement("div");
   c.style.cssText="background:var(--surface);color:var(--text);max-width:460px;width:100%;margin:auto;border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.4);display:flex;flex-direction:column;max-height:100%";
   const namen=_tpNamen(), kurz=_tpKuerzel(namen);
-  c.innerHTML=`${mdlHead("tp-modal","🧑‍🏫","Trainerplan","Wer ist wann da – und wo wird es eng?","var(--blue)")}
+  c.innerHTML=`${mdlHead("tp-modal","🧑‍🏫","Trainerplan","Alle Zusagen auf einen Blick","var(--blue)")}
     <div id="tp-kopf" style="font-size:11.5px;color:var(--text2);margin-bottom:8px">${_tpKopfText()}</div>
     <div id="tp-filter" style="display:flex;gap:6px;margin-bottom:10px">${_tpFilterHtml()}</div>
     <div id="tp-liste" style="flex:1;min-height:0;overflow:auto">${_tpListeHtml()}</div>
     <div style="font-size:10.5px;color:var(--text3);line-height:1.5;margin-top:10px;padding-top:8px;border-top:var(--border)">
       ${namen.map(n=>`<b>${esc(kurz[n])}</b> ${esc(n)}`).join(" · ")}<br>
-      Tippen wechselt: ✓ dabei → ? unsicher → ✕ nicht dabei → · keine Antwort.
-      Der Balken links zeigt, ob ${TP_MIN_TRAINER} Trainer zusammenkommen.
+      Tippen wechselt: ✓ dabei → ? unsicher → ✕ nicht dabei → · keine Antwort.<br>
+      Balken links nach Zusagen: ${[[0,"keine"],[1,"eine"],[2,"zwei"],[3,"drei und mehr"]].map(([i,w])=>
+        `<span style="white-space:nowrap"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--tp-${i});vertical-align:-1px;margin-right:3px"></span>${w}</span>`
+      ).join(" · ")}.
     </div>`;
   modal.appendChild(c); document.body.appendChild(modal);
 }
