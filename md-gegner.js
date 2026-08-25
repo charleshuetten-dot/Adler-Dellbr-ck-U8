@@ -406,6 +406,16 @@ async function platzAmpelNote(id,val){
   const t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(id)); if(t)t.platz_status_note=note;
   toast("Hinweis gespeichert ✓");
 }
+/* „Mehr" auf-/zuklappen. Die Karte wird woanders per outerHTML ersetzt (Trainer-Chips,
+   Ergebnis) – der Zustand ueberlebt das bewusst NICHT: nach einem Neuaufbau ist wieder
+   alles zu, und das ist richtig, weil die Karte dann auch wieder von vorn gelesen wird. */
+function tmMehrToggle(id){
+  const box=document.getElementById("tm-mehr-"+id), btn=document.getElementById("tm-mehr-btn-"+id);
+  if(!box)return;
+  const offen=box.style.display==="none";
+  box.style.display=offen?"grid":"none";
+  if(btn)btn.setAttribute("aria-expanded",offen?"true":"false");
+}
 function tmCard(t){
   const m=TM_META[t.typ]||TM_META.training;
   const routeAddr=t.ort||(t.heim===true?VEREIN_ADRESSE:""); // F3: Route auch bei Heimspiel ohne Extra-Adresse
@@ -413,38 +423,61 @@ function tmCard(t){
   const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
   const datumStr=wtag+" "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
   const istSpiel=t.typ==="spiel"||t.typ==="turnier";
-  // Schnell-Aktionen je Typ
-  let actions="";
-  if(t.typ==="training"){
-    actions=`<button class="btn btn-p btn-sm" onclick="tmJump('planung','${t.datum}')"><i class="ti ti-clipboard-list"></i>Plan</button>
-      <button class="btn btn-sm" onclick="mdOpen('${t.datum}','training')"><i class="ti ti-users"></i>Eltern-Info</button>`;
-  }else if(istSpiel){
-    actions=`<button class="btn btn-p btn-sm" onclick="tmJump('aufstellung','${t.datum}','${t.spielform||''}')"><i class="ti ti-users-group"></i>Aufstellung</button>
-      <button class="btn btn-sm" onclick="tmJump('blitz','${t.datum}','${t.spielform||''}')"><i class="ti ti-bolt"></i>Auswertung</button>
-      <button class="btn btn-sm" onclick="mdOpen('${t.datum}','${t.typ}')"><i class="ti ti-users"></i>Eltern-Info</button>`;
-  }else{ // Event (Grillfest & Co.) – keine Trainingsplanung/Aufstellung, sondern die Mitbringliste
-    actions=`<button class="btn btn-p btn-sm" onclick="mitbringTrainerOpen()"><i class="ti ti-basket"></i>Mitbringliste</button>
-      <button class="btn btn-sm" onclick="mdOpen('${t.datum}','${t.typ}')"><i class="ti ti-users"></i>Eltern-Info</button>`;
-  }
-  actions+=`<button class="btn btn-sm" onclick="tmEdit(${Number(t.id)})" title="Termin bearbeiten"><i class="ti ti-edit"></i>Bearbeiten</button>`;
-  actions+=`<button class="btn btn-sm" onclick="tmIcsOne(${Number(t.id)})" title="In den Kalender"><i class="ti ti-calendar-plus"></i>Kalender</button>`;
-  if(t.datum>=new Date().toISOString().slice(0,10)) actions+=`<button class="btn btn-sm" onclick="rsvpOverviewOpen(${Number(t.id)})" title="Wer hat schon geantwortet?"><i class="ti ti-list-check"></i>Rückmeldungen</button>`;
   const zeitStr=t.uhrzeit?String(t.uhrzeit).slice(0,5):((/Uhrzeit:\s*(\d{1,2}:\d{2})/.exec(t.notiz||"")||[])[1]||"");
   const sfBadge=(istSpiel&&t.spielform)?`<span style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;background:${m.col}22;color:${m.col}">${esc(t.spielform)}</span>`:"";
   const hb=heimLabel(t), hBadge=hb?`<span style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;background:${t.heim?"#dcfce7":"#fef3c7"};color:${t.heim?"#15803d":"#b45309"}">${hb}</span>`:"";
   const notizClean=(t.notiz&&!/^Uhrzeit:/.test(t.notiz))?t.notiz:"";
-  // UX 3: Trainer-Erinnerung per WhatsApp – Deep-Link (?portal&rsvp=…) fuehrt Eltern direkt zur
-  // Rueckmeldung. Fuellt nur die Nachricht vor; Absenden/Empfaenger waehlt der Trainer selbst.
-  // J6: Ansage direkt vom Termin – Text vorbefüllt, Rest tippt der Trainer
-  if(t.datum>=new Date().toISOString().slice(0,10)){
-    actions+=`<button class="btn btn-sm" onclick="ansageVomTermin(${Number(t.id)})" title="Ansage an alle Eltern zu diesem Termin (mit Gelesen-Status)"><i class="ti ti-speakerphone"></i>Ansage</button>`;
+  /* PO: „Die Kacheln sehen ungeordnet aus und sind teils bunt, teils weiss. Sind alle
+     noetig?" – Es waren ELF Knoepfe in einer umbrechenden Reihe, dazu ein rot abgesetzter
+     Papierkorb ganz rechts. Sie werden alle gebraucht, aber nicht alle gleich oft; was
+     ungeordnet aussieht, ist die fehlende Rangfolge, nicht die Zahl.
+     Deshalb STAFFELN statt loeschen: die Hauptaktion des Typs und „Rueckmeldungen" bleiben
+     sichtbar, alles Weitere liegt hinter „Mehr" in einem geordneten Zweispalter. Loeschen
+     wandert mit hinein – es war als einziger farbig abgesetzte Knopf am rechten Rand
+     optisch die auffaelligste Aktion der Karte, obwohl es die seltenste ist. */
+  const kommt=t.datum>=new Date().toISOString().slice(0,10);
+  const mehr=[];                       // {i:icon, l:label, c:onclick} oder {href:…}
+  let haupt="";
+  if(t.typ==="training"){
+    haupt=`<button class="btn btn-p btn-sm" onclick="tmJump('planung','${t.datum}')"><i class="ti ti-clipboard-list"></i>Plan</button>`;
+  }else if(istSpiel){
+    haupt=`<button class="btn btn-p btn-sm" onclick="tmJump('aufstellung','${t.datum}','${t.spielform||''}')"><i class="ti ti-users-group"></i>Aufstellung</button>`;
+    mehr.push({i:"ti-bolt",l:"Auswertung",c:`tmJump('blitz','${t.datum}','${t.spielform||''}')`});
+  }else{ // Event (Grillfest & Co.) – keine Trainingsplanung/Aufstellung, sondern die Mitbringliste
+    haupt=`<button class="btn btn-p btn-sm" onclick="mitbringTrainerOpen()"><i class="ti ti-basket"></i>Mitbringliste</button>`;
   }
-  let remindBtn="";
-  if(t.datum>=new Date().toISOString().slice(0,10)){
+  mehr.push({i:"ti-edit",l:"Bearbeiten",c:`tmEdit(${Number(t.id)})`});
+  mehr.push({i:"ti-users",l:"Eltern-Info",c:`mdOpen('${t.datum}','${t.typ}')`});
+  // J6: Ansage direkt vom Termin – Text vorbefüllt, Rest tippt der Trainer
+  if(kommt)mehr.push({i:"ti-speakerphone",l:"Ansage",c:`ansageVomTermin(${Number(t.id)})`});
+  // UX 3: Erinnerung per WhatsApp – der Deep-Link (?portal&rsvp=…) fuehrt Eltern direkt zur
+  // Rueckmeldung. Fuellt nur die Nachricht vor; Absenden/Empfaenger waehlt der Trainer selbst.
+  if(kommt){
     const deepLink=appRoot()+"?portal&rsvp="+t.id;
     const waText=`🦅 SV Adler U9 – bitte kurz rückmelden fürs nächste ${m.label}:\n${t.titel||m.label} am ${datumStr}${zeitStr?" um "+zeitStr+" Uhr":""}${t.ort?" ("+t.ort+")":""}\n👉 Zu-/absagen: ${deepLink}`;
-    remindBtn=`<a class="btn btn-sm" href="https://wa.me/?text=${encodeURIComponent(waText)}" target="_blank" rel="noopener noreferrer"><i class="ti ti-bell"></i>Erinnerung</a>`;
+    mehr.push({i:"ti-bell",l:"Erinnerung",href:`https://wa.me/?text=${encodeURIComponent(waText)}`});
   }
+  mehr.push({i:"ti-calendar-plus",l:"Kalender",c:`tmIcsOne(${Number(t.id)})`});
+  if(routeAddr)mehr.push({i:"ti-navigation",l:"Route",href:mapsUrl(routeAddr)});
+  if(kommt)mehr.push({i:"ti-user-share",l:"Vertretung",c:`handoverOpen(${Number(t.id)})`});
+  mehr.push({i:"ti-photo",l:"Fotos",c:`galerieOpen(${Number(t.id)},'${(t.titel||m.label).replace(/'/g,"")}')`});
+  const mehrBtn=o=>o.href
+    ? `<a class="btn btn-sm" href="${o.href}" target="_blank" rel="noopener noreferrer" style="min-height:44px;justify-content:flex-start;text-decoration:none"><i class="ti ${o.i}"></i>${o.l}</a>`
+    : `<button class="btn btn-sm" onclick="${o.c}" style="min-height:44px;justify-content:flex-start"><i class="ti ${o.i}"></i>${o.l}</button>`;
+  /* Drei Knoepfe in EINER Zeile, aber in ihrer natuerlichen Breite. Zwei Sackgassen davor:
+     margin-left:auto schob „Mehr" an den rechten Rand (beim Spiel brach die Reihe um),
+     flex:1 machte alle gleich breit und schnitt dafuer „Rueckmeldungen" ab. Deshalb
+     stattdessen das WORT gekuerzt – „Antworten" sagt dasselbe und passt neben
+     „Aufstellung" und „Mehr" auf 390 px. flex-wrap bleibt als Notnagel. */
+  const actions=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+      ${haupt}
+      ${kommt?`<button class="btn btn-sm" onclick="rsvpOverviewOpen(${Number(t.id)})" title="Wer hat schon geantwortet?"><i class="ti ti-list-check"></i>Antworten</button>`:""}
+      <button class="btn btn-sm" id="tm-mehr-btn-${t.id}" onclick="tmMehrToggle(${Number(t.id)})" aria-expanded="false" aria-controls="tm-mehr-${t.id}"><i class="ti ti-dots"></i>Mehr</button>
+    </div>
+    <div id="tm-mehr-${t.id}" style="display:none;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">
+      ${mehr.map(mehrBtn).join("")}
+      <button class="btn btn-sm btn-d" onclick="tmDelete(${Number(t.id)})" style="grid-column:1/-1;min-height:44px;justify-content:center"><i class="ti ti-trash"></i>Termin löschen</button>
+    </div>`;
   return `<div id="tm-card-${t.id}" style="background:var(--surface);border:var(--border-s);border-radius:var(--rl);overflow:hidden;margin-bottom:10px;box-shadow:0 1px 3px rgba(15,23,42,.05);scroll-margin-top:60px">
     <div style="display:flex;align-items:center;gap:11px;padding:11px 13px;background:linear-gradient(90deg,${m.col}14,transparent);border-left:4px solid ${m.col}">
       <div style="width:40px;height:40px;flex:none;border-radius:12px;background:${m.col};display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 2px 6px ${m.col}55">${m.icon}</div>
@@ -467,12 +500,7 @@ function tmCard(t){
     </div>`:""}
     ${notizClean?`<div style="font-size:11px;color:var(--text3)">${esc(notizClean)}</div>`:""}
     ${istSpiel?`<div style="display:flex;align-items:center;gap:6px;margin:6px 0"><span style="font-size:11px;color:var(--text2)">Ergebnis:</span><input type="text" value="${esc(t.ergebnis||"")}" placeholder="z. B. 3:2" onchange="tmSetResult(${Number(t.id)},this.value)" style="width:90px;padding:5px 8px;border:var(--border-s);border-radius:var(--r);font-size:12px;font-family:inherit"></div>`:""}
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-      ${actions}${remindBtn}${routeAddr?routeBtn(routeAddr):""}
-      ${t.datum>=new Date().toISOString().slice(0,10)?`<button class="btn btn-sm" onclick="handoverOpen(${Number(t.id)})" title="Read-Only-Paket für eine Vertretung"><i class="ti ti-user-share"></i>Vertretung</button>`:""}
-      <button class="btn btn-sm" onclick="galerieOpen(${Number(t.id)},'${(t.titel||m.label).replace(/'/g,'')}')"><i class="ti ti-photo"></i>Fotos</button>
-      <button class="btn btn-sm btn-d" style="margin-left:auto" onclick="tmDelete(${Number(t.id)})"><i class="ti ti-trash"></i></button>
-    </div>
+    ${actions}
     </div>
   </div>`;
 }

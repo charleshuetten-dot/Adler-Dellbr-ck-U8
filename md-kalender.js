@@ -122,6 +122,17 @@ function tmSetSpielform(f,btn){
   btn.parentElement.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active"));
   btn.classList.add("active");
 }
+/* Formular auf-/zuklappen. Zugeklappt ist der Standard – der Knopf traegt den Zustand
+   auch fuer Vorlesesoftware (aria-expanded), nicht nur im gedrehten Pfeil. */
+function tmNeuToggle(auf){
+  const k=document.getElementById("tm-karte"), b=document.getElementById("tm-neu-toggle"), c=document.getElementById("tm-neu-chev");
+  if(!k)return;
+  const offen=(auf===undefined)?(k.style.display==="none"):!!auf;
+  k.style.display=offen?"":"none";
+  if(b)b.setAttribute("aria-expanded",offen?"true":"false");
+  if(c)c.style.transform=offen?"rotate(180deg)":"";
+  if(offen)k.scrollIntoView({block:"nearest",behavior:"smooth"});
+}
 function tmInit(){
   tmSetTyp("training"); // Standard-Typ + Vorbelegung (Zeit 16:45, Platz „vorne links", Vereinsadresse, nächstes Mo/Fr)
   tmLoad();
