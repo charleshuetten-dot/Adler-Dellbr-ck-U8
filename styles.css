@@ -12,6 +12,14 @@
   --purple:#6d28d9;--purple-bg:#f5f3ff;
   --teal:#0e7490;--teal-bg:#ecfeff;
   --orange:#c2410c;--orange-bg:#fff7ed;
+  /* Trainerplan-Ampel: vier Stufen nach der ZAHL der Zusagen (PO: 0 rot, 1 orange,
+     2 hellgruen, ab 3 dunkelgruen). Eigene Toene statt --red/--green, weil hier VIER
+     Stufen unterscheidbar sein muessen und die beiden Gruens sich auch voneinander
+     abheben sollen. Sie liegen als 4-px-Balken auf der Karte, gelten also als Flaeche
+     (min 3:1) – nachgerechnet auf #fff: 6,47 · 5,18 · 3,30 · 9,11.
+     Als SCHRIFT taugt --tp-2 nicht (3,3:1) – der Text der beiden Gruen-Stufen bleibt
+     deshalb neutral, die Zahl daneben („2 dabei") traegt die Unterscheidung. */
+  --tp-0:#b91c1c;--tp-1:#c2410c;--tp-2:#16a34a;--tp-3:#14532d;
   --yellow:#854d0e;--yellow-bg:#fef9c3;
   /* Bereichsfarben der sechs Startseiten-Kacheln. Dieselbe Farbe traegt der aktive
      Unterreiter (renderSubbar) und der aktive Punkt der unteren Leiste (go) – ein
@@ -43,6 +51,10 @@
      Rot 5,29/6,45 · Grün 8,40/10,25 · Bernstein 8,76/10,69 · Blau 5,75/7,02).
      --blue selbst bleibt unverändert: es ist Fläche unter weißer Schrift. */
   --red:#f87171;--green:#4ade80;--amber:#fbbf24;--blue-text:#60a5fa;
+  /* Dunkelmodus: die Ampel dreht sich um. Ein dunkles Gruen (#14532d) verschwindet auf
+     #1e293b (1,7:1) – die Stufen muessen HELLER werden, nicht dunkler, und dabei ihre
+     Reihenfolge behalten. Nachgerechnet auf --surface: 5,29 · 6,46 · 10,42 · 6,42. */
+  --tp-0:#f87171;--tp-1:#fb923c;--tp-2:#86efac;--tp-3:#22c55e;
   --shadow:0 1px 3px rgba(0,0,0,.4);--shadow-md:0 4px 14px rgba(0,0,0,.5);
 }}
 :root[data-theme="dark"]{
@@ -56,6 +68,10 @@
      Rot 5,29/6,45 · Grün 8,40/10,25 · Bernstein 8,76/10,69 · Blau 5,75/7,02).
      --blue selbst bleibt unverändert: es ist Fläche unter weißer Schrift. */
   --red:#f87171;--green:#4ade80;--amber:#fbbf24;--blue-text:#60a5fa;
+  /* Dunkelmodus: die Ampel dreht sich um. Ein dunkles Gruen (#14532d) verschwindet auf
+     #1e293b (1,7:1) – die Stufen muessen HELLER werden, nicht dunkler, und dabei ihre
+     Reihenfolge behalten. Nachgerechnet auf --surface: 5,29 · 6,46 · 10,42 · 6,42. */
+  --tp-0:#f87171;--tp-1:#fb923c;--tp-2:#86efac;--tp-3:#22c55e;
   --shadow:0 1px 3px rgba(0,0,0,.4);--shadow-md:0 4px 14px rgba(0,0,0,.5);
 }
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
