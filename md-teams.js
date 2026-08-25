@@ -686,7 +686,7 @@ function teamsRender(){
       }
       teamZeile=`<div style="display:flex;gap:5px;margin-top:5px">${k}</div>`;
       if(!cur)teamZeile+=`<input id="nh-${teamKaderIdx(n)}" value="${esc(TEAM_GRUND[n]||"")}" placeholder="Grund für die Eltern (optional)"
-        style="width:100%;min-height:44px;margin-top:5px;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text);box-sizing:border-box">`;
+        style="width:100%;min-height:44px;margin-top:5px;padding:8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text);box-sizing:border-box">`;
     }
     return `<div style="padding:8px 0;border-top:var(--border)">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">

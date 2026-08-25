@@ -75,13 +75,13 @@ function elternPortalLogin(root){
     <div style="text-align:center;font-size:12px;color:#64748b;margin:6px 0 18px">SV Adler Dellbrück U9</div>
     <div id="ep-step-email">
       <label for="ep-email" style="font-size:12px;color:#475569">E-Mail-Adresse</label>
-      <input id="ep-email" type="email" inputmode="email" autocomplete="email" placeholder="name@mail.de" style="width:100%;padding:11px;margin:6px 0 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:15px;box-sizing:border-box">
+      <input id="ep-email" type="email" inputmode="email" autocomplete="email" placeholder="name@mail.de" style="width:100%;padding:11px;margin:6px 0 12px;border:1px solid var(--feld-rand);border-radius:10px;font-size:15px;box-sizing:border-box">
       <button id="ep-send" onclick="elternPortalSend()" style="width:100%;padding:13px;border:none;border-radius:10px;background:#1e3a8a;color:#fff;font-size:15px;font-weight:700;cursor:pointer">Code anfordern</button>
       <button onclick="elternPortalHaveCode()" style="width:100%;padding:9px;margin-top:8px;border:none;background:none;color:#64748b;font-size:12px;cursor:pointer">Code schon erhalten? → eingeben</button>
     </div>
     <div id="ep-step-code" style="display:none">
       <div style="font-size:12px;color:#475569;margin-bottom:6px">Code aus der E-Mail an <b id="ep-email-show"></b>:</div>
-      <input id="ep-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Code eingeben" style="width:100%;padding:11px;margin:6px 0 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:22px;letter-spacing:4px;text-align:center;box-sizing:border-box">
+      <input id="ep-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Code eingeben" style="width:100%;padding:11px;margin:6px 0 12px;border:1px solid var(--feld-rand);border-radius:10px;font-size:22px;letter-spacing:4px;text-align:center;box-sizing:border-box">
       <button id="ep-verify" onclick="elternPortalVerify()" style="width:100%;padding:13px;border:none;border-radius:10px;background:#059669;color:#fff;font-size:15px;font-weight:700;cursor:pointer">Anmelden</button>
       <button onclick="elternPortalLogin(document.getElementById('eltern-portal'))" style="width:100%;padding:9px;margin-top:8px;border:none;background:none;color:#64748b;font-size:12px;cursor:pointer">← andere E-Mail</button>
     </div>
@@ -871,7 +871,7 @@ function rsvpGrundFragen(status){
       <div id="rg-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
         ${chips.map(c=>`<button data-c="${esc(c)}" style="min-height:44px;padding:8px 14px;border:1.5px solid #cbd5e1;border-radius:22px;background:#fff;color:#334155;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer">${esc(c)}</button>`).join("")}
       </div>
-      <input id="rg-txt" type="text" maxlength="120" placeholder="oder kurz selbst schreiben…" style="width:100%;box-sizing:border-box;min-height:46px;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:12px;font-family:inherit;font-size:14px">
+      <input id="rg-txt" type="text" maxlength="120" placeholder="oder kurz selbst schreiben…" style="width:100%;box-sizing:border-box;min-height:46px;padding:10px 12px;border:1.5px solid var(--feld-rand);border-radius:12px;font-family:inherit;font-size:14px">
       <div style="display:flex;gap:8px;margin-top:12px">
         <button id="rg-skip" style="flex:1;min-height:48px;border:1.5px solid #cbd5e1;border-radius:12px;background:#fff;color:#64748b;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Ohne Grund</button>
         <button id="rg-ok" style="flex:1.4;min-height:48px;border:none;border-radius:12px;background:#1e3a8a;color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">Speichern</button>
@@ -1126,8 +1126,8 @@ async function tdMitbringLoad(t){
     <div style="font-size:11.5px;color:#64748b;margin-bottom:6px">Wer bringt was mit? (Salat, Kuchen, Getränke, Pavillon …)</div>
     ${liste}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
-      <input id="mb-was-${t.id}" placeholder="Was bringst du mit?" style="flex:1;min-width:140px;min-height:44px;padding:9px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:13px" onkeydown="if(event.key==='Enter')mitbringAdd(${t.id})">
-      ${kids.length>1?`<select id="mb-kid-${t.id}" style="min-height:44px;padding:9px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:13px;background:#fff">${kidOpts}</select>`:""}
+      <input id="mb-was-${t.id}" placeholder="Was bringst du mit?" style="flex:1;min-width:140px;min-height:44px;padding:9px;border:1.5px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:13px" onkeydown="if(event.key==='Enter')mitbringAdd(${t.id})">
+      ${kids.length>1?`<select id="mb-kid-${t.id}" style="min-height:44px;padding:9px;border:1.5px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:13px;background:#fff">${kidOpts}</select>`:""}
       <button onclick="mitbringAdd(${t.id})" style="min-height:44px;padding:9px 16px;border:none;border-radius:10px;background:#16a34a;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Eintragen</button>
     </div>
   </div>`;
@@ -1152,7 +1152,7 @@ function tdPulsRender(terminId,mine,bare){
     <div style="display:flex;gap:8px;margin:8px 0">
       ${moods.map(mo=>{const on=cur===mo.v;return `<button onclick="tdPulsSave(${terminId},${mo.v})" style="flex:1;padding:10px 6px;border-radius:10px;border:1.5px solid ${on?"#1e3a8a":"#e2e8f0"};background:${on?"#eef2ff":"#fff"};cursor:pointer;font-family:inherit"><div style="font-size:22px">${mo.e}</div><div style="font-size:10px;color:#64748b">${mo.l}</div></button>`;}).join("")}
     </div>
-    <input id="td-puls-txt" type="text" maxlength="200" value="${mine&&mine.kommentar?esc(mine.kommentar):""}" placeholder="Optional: ein Satz Feedback…" onblur="tdPulsSaveText(${terminId})" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box">
+    <input id="td-puls-txt" type="text" maxlength="200" value="${mine&&mine.kommentar?esc(mine.kommentar):""}" placeholder="Optional: ein Satz Feedback…" onblur="tdPulsSaveText(${terminId})" style="width:100%;padding:8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box">
     <div id="td-puls-done" style="font-size:11px;color:#16a34a;margin-top:4px">${cur?"Danke fürs Feedback ✓":""}</div>
   </div>`;
 }
@@ -1363,7 +1363,7 @@ async function tdHelferLoad(t){
       <!-- Rahmen dunkler als bei den Aufgaben-Zeilen darueber (#e2e8f0): einen Knopf erkennt
            man an seiner Beschriftung, ein LEERES Eingabefeld nur an seinem Rand – deshalb
            gilt hier die 3:1-Regel fuer Bedienelemente. #7d8b99 = 3,49:1 auf Weiss. -->
-      <input id="helfer-eigen-td" maxlength="60" placeholder="Etwas anderes – was übernimmst du?" aria-label="Eigene Aufgabe eintragen" style="flex:1;min-width:0;min-height:44px;padding:9px;border:1.5px solid #7d8b99;border-radius:10px;font-family:inherit;font-size:12.5px;box-sizing:border-box" onkeydown="if(event.key==='Enter')tdHelferAddEigen(${Number(t.id)},this)">
+      <input id="helfer-eigen-td" maxlength="60" placeholder="Etwas anderes – was übernimmst du?" aria-label="Eigene Aufgabe eintragen" style="flex:1;min-width:0;min-height:44px;padding:9px;border:1.5px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:12.5px;box-sizing:border-box" onkeydown="if(event.key==='Enter')tdHelferAddEigen(${Number(t.id)},this)">
       <button onclick="tdHelferAddEigen(${Number(t.id)},this)" aria-label="Eigene Aufgabe eintragen" style="min-height:44px;min-width:52px;border:none;border-radius:10px;background:#15803d;color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">✓</button>
     </div>
   </div>`;
@@ -1441,8 +1441,8 @@ async function notfallOpen(spielerId,name){
   const c=document.createElement("div");
   c.style.cssText="background:#fff;color:#1a1a2e;max-width:480px;width:100%;margin:auto;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)";
   const field=f=>`<label style="display:block;font-size:12px;font-weight:700;margin-top:10px">${f.l}</label>`+
-    (f.area?`<textarea id="nf-${f.k}" rows="2" placeholder="${f.ph}" style="width:100%;margin-top:3px;padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box;resize:vertical">${esc(cur[f.k]||"")}</textarea>`
-      :`<input id="nf-${f.k}" type="${f.tel?"tel":"text"}" placeholder="${f.ph}" value="${esc(cur[f.k]||"")}" style="width:100%;margin-top:3px;padding:9px;border:1px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box">`);
+    (f.area?`<textarea id="nf-${f.k}" rows="2" placeholder="${f.ph}" style="width:100%;margin-top:3px;padding:8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box;resize:vertical">${esc(cur[f.k]||"")}</textarea>`
+      :`<input id="nf-${f.k}" type="${f.tel?"tel":"text"}" placeholder="${f.ph}" value="${esc(cur[f.k]||"")}" style="width:100%;margin-top:3px;padding:9px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box">`);
   c.innerHTML=`
     ${mdlHead("nf-modal","🚑",`Notfallkarte · ${esc(name)}`,"","#dc2626")}
     <div style="font-size:11.5px;color:#64748b;margin-bottom:6px">Diese Angaben sieht ausschließlich das <b>Trainerteam</b> – schreibgeschützt, damit im Notfall am Platz alles griffbereit ist. Du kannst sie jederzeit ändern oder leeren.</div>
@@ -1763,7 +1763,7 @@ async function elternHelferKachelLoad(t){
          die schon lang ist – fuer etwas, das die wenigsten brauchen. -->
     <button id="helfer-eigen-btn" onclick="elternHelferEigenAuf(${Number(t.id)})" style="width:100%;min-height:36px;margin-top:6px;padding:6px;border:none;background:none;color:#334155;font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer;text-align:left">✏️ Etwas anderes eintragen</button>
     <div id="helfer-eigen-box" style="display:none;gap:6px;margin-top:2px">
-      <input id="helfer-eigen-k" maxlength="60" placeholder="Was übernimmst du?" aria-label="Eigene Aufgabe eintragen" style="flex:1;min-width:0;min-height:44px;padding:9px;border:1.5px solid #7d8b99;border-radius:10px;font-family:inherit;font-size:12.5px;box-sizing:border-box" onkeydown="if(event.key==='Enter')tdHelferAddEigen(${Number(t.id)},this)">
+      <input id="helfer-eigen-k" maxlength="60" placeholder="Was übernimmst du?" aria-label="Eigene Aufgabe eintragen" style="flex:1;min-width:0;min-height:44px;padding:9px;border:1.5px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:12.5px;box-sizing:border-box" onkeydown="if(event.key==='Enter')tdHelferAddEigen(${Number(t.id)},this)">
       <button onclick="tdHelferAddEigen(${Number(t.id)},this)" aria-label="Eigene Aufgabe eintragen" style="min-height:44px;min-width:52px;border:none;border-radius:10px;background:#15803d;color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">✓</button>
     </div>
   </div>`;

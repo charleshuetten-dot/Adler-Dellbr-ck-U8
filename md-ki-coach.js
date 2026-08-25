@@ -30,11 +30,11 @@ function kiCoachOpen(){
         <label style="font-size:10.5px;color:var(--text2)">Wo<select id="ki-ort" style="${feld}">${KI_ORTE.map(o=>`<option>${o}</option>`).join("")}</select></label>
         <label style="font-size:10.5px;color:var(--text2)">Material<select id="ki-material" style="${feld}">${KI_MATERIAL.map(m=>`<option>${m}</option>`).join("")}</select></label>
       </div>
-      <textarea id="ki-prompt" rows="2" placeholder="Optional: was dir wichtig ist – z. B. „viele Ballkontakte, die Schnellen sollen nicht dominieren“" style="width:100%;box-sizing:border-box;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px"></textarea>
+      <textarea id="ki-prompt" rows="2" placeholder="Optional: was dir wichtig ist – z. B. „viele Ballkontakte, die Schnellen sollen nicht dominieren“" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:13px"></textarea>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${chip("Dribbling & Ballführung")}${chip("Passspiel in der Raute")}${chip("Torschuss mit Spaß")}${chip("Zweikampf & Mut")}</div>
     </div>
     <div id="ki-block-text" style="display:none">
-      <textarea id="ki-text" rows="8" placeholder="Übungsbeschreibung hier einfügen – von einer Webseite, aus WhatsApp, aus einem Buch oder aus der Beschreibung unter einem Video." style="width:100%;box-sizing:border-box;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px"></textarea>
+      <textarea id="ki-text" rows="8" placeholder="Übungsbeschreibung hier einfügen – von einer Webseite, aus WhatsApp, aus einem Buch oder aus der Beschreibung unter einem Video." style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:13px"></textarea>
       <div style="font-size:10.5px;color:var(--text3);margin:4px 0 8px">Der Coach ordnet den Text in Aufbau, Ablauf, Varianten und Coaching-Punkte und zeichnet die Skizze dazu. Er erfindet nichts hinzu – was nicht dasteht, bleibt leer.</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -199,7 +199,7 @@ function kiCoachRender(uebungen,rest){
     ${u.coaching?`<div style="font-size:11.5px;color:var(--text2);margin-top:5px">📣 ${esc(u.coaching)}</div>`:""}
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px">
       <label style="font-size:11px;color:var(--text2)">Kategorie:
-        <select id="ki-kat-${i}" style="padding:6px 8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text)">
+        <select id="ki-kat-${i}" style="padding:6px 8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text)">
           ${KI_KATS.map(([k,l])=>`<option value="${k}"${k===(u.kat||"technik")?" selected":""}>${l}</option>`).join("")}
         </select>
       </label>

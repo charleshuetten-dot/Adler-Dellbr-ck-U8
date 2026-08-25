@@ -279,7 +279,7 @@ function skzEditorOpen(start,cb){
     </div>
     <div id="skz-textzeile" style="display:none;margin-bottom:10px">
       <label id="skz-textlabel" for="skz-text" style="display:block;font-size:11px;color:var(--text2);margin-bottom:3px"></label>
-      <input type="text" id="skz-text" maxlength="40" placeholder="z. B. „Startpunkt“ oder 7" style="width:100%;min-height:44px;padding:8px;border:var(--border-s);border-radius:10px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box">
+      <input type="text" id="skz-text" maxlength="40" placeholder="z. B. „Startpunkt“ oder 7" style="width:100%;min-height:44px;padding:8px;border:1px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);box-sizing:border-box">
     </div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <button onclick="skzUndo()" style="flex:1;min-height:44px;border:var(--border-s);border-radius:10px;background:var(--surface);color:var(--text2);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer">↩︎ Zurück</button>

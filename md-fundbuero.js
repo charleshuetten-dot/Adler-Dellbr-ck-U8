@@ -15,7 +15,7 @@ async function fundbueroOpen(){
     ${mdlHead("fb-modal","🧦","Fundbüro","Verlorenes & Gefundenes – hier sammelt das Team","#3b82f6")}
     <div style="padding:10px;border:1.5px dashed var(--text3);border-radius:10px;margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">Etwas gefunden?</div>
-      <input id="fb-titel" placeholder="Was? (z. B. blaue Trinkflasche)" maxlength="80" style="width:100%;box-sizing:border-box;padding:9px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:6px">
+      <input id="fb-titel" placeholder="Was? (z. B. blaue Trinkflasche)" maxlength="80" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:6px">
       <input id="fb-foto" type="file" accept="image/jpeg, image/png, image/webp" capture="environment" style="width:100%;font-size:12px;margin-bottom:8px">
       <button class="btn btn-p btn-sm" onclick="fundbueroUpload(this)">📸 Einstellen</button>
     </div>

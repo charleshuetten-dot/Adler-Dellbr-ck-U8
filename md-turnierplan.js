@@ -368,7 +368,7 @@ async function rollenPanelRender(){
     return `<div style="background:var(--surface);border:var(--border-s);border-radius:12px;padding:10px 12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px">
         <span style="flex:1;font-size:12.5px;font-weight:700">${icon} ${label}${cur?`: <span style="color:var(--blue)">${esc(cur)}</span>`:""}</span>
-        <select onchange="if(this.value)${setFn}(this.value)" style="padding:6px 8px;border:var(--border-s);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--surface2);color:var(--text)"><option value="">${cur?"wechseln…":"wählen…"}</option>${opts(cnt,cur)}</select>
+        <select onchange="if(this.value)${setFn}(this.value)" style="padding:6px 8px;border:1px solid var(--feld-rand);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--surface2);color:var(--text)"><option value="">${cur?"wechseln…":"wählen…"}</option>${opts(cnt,cur)}</select>
       </div>
       ${offen.length?`<div style="font-size:10.5px;color:var(--text2);margin-top:5px">Noch nie dran ⭐: ${offen.map(esc).join(", ")}</div>`:`<div style="font-size:10.5px;color:var(--green);margin-top:5px">Alle waren schon dran – fair verteilt ✓</div>`}
     </div>`;
@@ -843,7 +843,7 @@ function _blzSetupHtml(){
     </div>
     ${!BLZ.budget?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <label for="blz-runde" style="font-size:12.5px;color:var(--text2)">Spielzeit je Begegnung</label>
-      <input id="blz-runde" type="number" min="1" max="30" value="${BLZ.runde}" style="width:64px;text-align:center;padding:8px;border:var(--border-s);border-radius:8px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text)"> <span style="font-size:12.5px;color:var(--text2)">Min.</span>
+      <input id="blz-runde" type="number" min="1" max="30" value="${BLZ.runde}" style="width:64px;text-align:center;padding:8px;border:1px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text)"> <span style="font-size:12.5px;color:var(--text2)">Min.</span>
     </div>`:""}
     ${BLZ.plan&&BLZ.plan.length?`
       <div style="font-size:11.5px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 10px;margin-bottom:8px">💾 Turnier ist gebaut${BLZ.datum!==_blzHeute()?" (angelegt "+new Date(BLZ.datum+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})+")":""} und bleibt gespeichert, bis ihr es beendet. Kinder/Trainer umsetzen und Namen ändern geht jederzeit – nur Modus- oder Team-Anzahl-Änderungen verwerfen den Plan.</div>

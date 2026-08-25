@@ -362,13 +362,13 @@ async function elternMitbringLoad(kids){
           ${(uid&&it.created_by===uid)?`<button onclick="mitbringDelete(${it.id})" aria-label="Eintrag löschen" style="border:none;background:transparent;color:#dc2626;cursor:pointer;min-width:32px;min-height:32px;font-size:15px">✕</button>`:""}
         </div>`).join("")
       : `<div style="font-size:12px;color:#94a3b8;padding:4px 0">Noch nichts eingetragen – mach den Anfang! 🎉</div>`;
-    const kidSel=(kids&&kids.length>1)?`<select id="mb-kid-${ev.id}" style="min-height:44px;padding:9px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:13px;background:#fff">${kidOpts}</select>`:"";
+    const kidSel=(kids&&kids.length>1)?`<select id="mb-kid-${ev.id}" style="min-height:44px;padding:9px;border:1.5px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:13px;background:#fff">${kidOpts}</select>`:"";
     return `<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">
       <div style="font-weight:700;margin-bottom:2px">🎉 ${esc(ev.titel||"Event")} · Mitbringliste</div>
       <div style="font-size:12px;color:#64748b;margin-bottom:8px">${fmtD(ev.datum)}${ev.ort?" · "+esc(ev.ort):""} — wer bringt was mit? (Salat, Kuchen, Getränke, Pavillon …)</div>
       ${liste}
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
-        <input id="mb-was-${ev.id}" placeholder="Was bringst du mit?" style="flex:1;min-width:150px;min-height:44px;padding:9px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:13px" onkeydown="if(event.key==='Enter')mitbringAdd(${ev.id})">
+        <input id="mb-was-${ev.id}" placeholder="Was bringst du mit?" style="flex:1;min-width:150px;min-height:44px;padding:9px;border:1.5px solid var(--feld-rand);border-radius:10px;font-family:inherit;font-size:13px" onkeydown="if(event.key==='Enter')mitbringAdd(${ev.id})">
         ${kidSel}
         <button onclick="mitbringAdd(${ev.id})" style="min-height:44px;padding:9px 16px;border:none;border-radius:10px;background:#16a34a;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Eintragen</button>
       </div>
@@ -465,12 +465,12 @@ function elternGespraechOpen(){
   const m=document.createElement("div");m.id="eg-modal";
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10041;display:flex;align-items:center;justify-content:center;padding:16px";
   m.onclick=e=>{if(e.target===m)m.remove();};
-  const kidSel=(kids.length>1)?`<label style="font-size:11px;color:#64748b;display:block;margin-bottom:8px">Um welches Kind geht es?<select id="eg-kid" style="width:100%;padding:9px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:14px;margin-top:2px">${kids.map(k=>`<option value="${k.spieler_id}">${esc((k.kader&&k.kader.name)||"Kind")}</option>`).join("")}</select></label>`:"";
+  const kidSel=(kids.length>1)?`<label style="font-size:11px;color:#64748b;display:block;margin-bottom:8px">Um welches Kind geht es?<select id="eg-kid" style="width:100%;padding:9px;border:1.5px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:14px;margin-top:2px">${kids.map(k=>`<option value="${k.spieler_id}">${esc((k.kader&&k.kader.name)||"Kind")}</option>`).join("")}</select></label>`:"";
   m.innerHTML=`<div style="background:#fff;color:#1a1a2e;max-width:380px;width:100%;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)">
     ${mdlHead("eg-modal","🗣️","Elterngespräch anfragen","","#475569")}
     <div style="font-size:12px;color:#64748b;margin-bottom:12px">Der Trainer bekommt deinen Wunsch und meldet sich zur Terminabstimmung.</div>
     ${kidSel}
-    <label style="font-size:11px;color:#64748b">Worum geht es? (optional)<textarea id="eg-thema" rows="3" placeholder="z. B. Entwicklung, Position, eine Frage …" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:14px;margin-top:2px;resize:vertical"></textarea></label>
+    <label style="font-size:11px;color:#64748b">Worum geht es? (optional)<textarea id="eg-thema" rows="3" placeholder="z. B. Entwicklung, Position, eine Frage …" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid var(--feld-rand);border-radius:8px;font-family:inherit;font-size:14px;margin-top:2px;resize:vertical"></textarea></label>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button onclick="elternGespraechSave(this)" style="flex:1;min-height:44px;border:none;border-radius:10px;background:#7c3aed;color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">Anfrage senden</button>
       <button onclick="document.getElementById('eg-modal').remove()" style="min-height:44px;padding:0 16px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;color:#334155;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Abbrechen</button>
