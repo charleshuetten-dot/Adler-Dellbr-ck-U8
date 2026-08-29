@@ -996,7 +996,7 @@ function tpCoachSelect(stationId){
    automatisch befüllen bzw offen bleiben oder mit rot markiert werden wenn der Trainer
    nicht kann oder gelb wenn es unsicher ist."
 
-   Vorher waren Sandy und Charles fest angehakt – geraten, nicht gewusst. Die Antwort
+   Vorher waren zwei Namen fest angehakt – geraten, nicht gewusst. Die Antwort
    steht längst in `termine.trainer_status` (die „Bist du dabei?"-Kachel schreibt sie).
 
    Regel: nur ZUGESAGT wird automatisch angehakt. Unsicher bleibt sichtbar offen – ein

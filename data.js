@@ -29,7 +29,7 @@
    davon abhängen, dass md-kabine.js aus Welle 2 schon geladen ist. Frueher lag sie
    dort, und drei Stellen trugen deshalb eine hartkodierte Notfall-Kopie mit sich
    herum – vier Namenslisten, die auseinanderlaufen konnten. */
-const TRAINER=["Sandy","Charles","Finn","Kenneth","Peter","Markus"];
+const TRAINER=["Charles","Finn","Kenneth","Peter","Markus"];
 
 /* ═══ KRITERIEN FELDSPIELER (DIMS_FELD) ═══ */
 const DIMS_FELD=[

@@ -1530,7 +1530,7 @@ function renderTrainerUI(){
   if(sel)sel.innerHTML=TRAINER.map(t=>`<option value="${t}">${t}</option>`).join("");
   const tp=document.getElementById("tp-trainer-checks");
   /* v413: die Chip-Zeile der Planung gehoert jetzt tpTrainerChipsRender (boot.js) –
-     angehakt wird, wer ZUGESAGT hat, nicht mehr fest Sandy und Charles. */
+     angehakt wird, wer ZUGESAGT hat, nicht mehr zwei fest verdrahtete Namen. */
   if(tp&&typeof tpTrainerChipsRender==="function")tpTrainerChipsRender();
   else if(tp)tp.innerHTML=TRAINER.map(t=>`<label class="tp-check"><input type="checkbox" value="${t}" onchange="tpRenderTimeline()"><span>${t}</span></label>`).join("");
   const aw=document.getElementById("aw-trainer-checks");
@@ -1539,7 +1539,7 @@ function renderTrainerUI(){
   if(tn)tn.innerHTML=TRAINER.map(t=>`<option value="${t}">${t}</option>`).join("");
   const tv=document.getElementById("tv-autor");
   if(tv)tv.innerHTML=TRAINER.map(t=>`<option value="${t}">${t}</option>`).join("");
-  // Die Kopfzeile listete frueher die Trainernamen ("4+1 Raute · Sandy, …"). HOTFIX 1
+  // Die Kopfzeile listete frueher die Trainernamen ("4+1 Raute · …"). HOTFIX 1
   // hatte das nur dynamisch gemacht, weil Finn fehlte – gebraucht hat es dort niemand.
   // Jetzt steht im Untertitel der naechste Termin (topbarNaechsterTermin in views.js).
 }
