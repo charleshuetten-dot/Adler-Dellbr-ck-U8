@@ -527,7 +527,7 @@ function loadPlayerToForm(p){
   if(elSeg){elSeg.querySelectorAll(".seg-btn").forEach(b=>{b.classList.toggle("active",b.dataset.val===(p.eltern||"2"));});}
   document.getElementById("p-age").value=p.age||"8";
   document.getElementById("p-grp").value=p.grp||"flex";
-  document.getElementById("p-trainer").value=p.trainer||"Sandy";
+  document.getElementById("p-trainer").value=p.trainer||(typeof _meTrainer==="string"&&_meTrainer)||((typeof TRAINER!=="undefined"&&TRAINER[0])||"");
   document.getElementById("p-notes").value=p.notes||"";
   const tw=getKader(p.name)?.tw||false;
   if(builtDimsTw!==tw){

@@ -1328,7 +1328,17 @@ function helferAbSatz(t,min){
    fehlen (Notnagel in _helferReload); dann greift nur der Typ-Filter. */
 function helferTasksFuer(typ,t){
   return HELFER_AUFGABEN.filter(a=>a.typen.includes(typ||"training"))
-                        .filter(a=>!(a.zahl&&Number(a.zahl(t))===0));
+                        .filter(a=>{
+                          if(!a.zahl)return true;
+                          const n=a.zahl(t);
+                          /* Nur eine AUSDRUECKLICHE 0 laesst die Aufgabe entfallen (Halle,
+                             Techniktraining). Fehlt die Angabe, steht sie ohne Zahl da.
+                             Ein reiner Zahlenvergleich reicht dafuer nicht: Number(null)
+                             ist 0, damit galt „nichts gesagt" wie „null Tore" – und die
+                             beiden einzigen Trainings-Aufgaben verschwanden aus der
+                             Eltern-Kachel, solange der Trainer nichts eingetragen hatte. */
+                          return !(n!=null&&n!==""&&Number(n)===0);
+                        });
 }
 function _sbUid(){ try{const t=sbToken();return t?JSON.parse(atob(t.split(".")[1])).sub:null;}catch(e){return null;} }
 function _helferName(){ const kids=window._elternKids||[]; const n=(kids[0]&&kids[0].kader&&kids[0].kader.name)?kids[0].kader.name:"Unsere"; return n+" Familie"; }
