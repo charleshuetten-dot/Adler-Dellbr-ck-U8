@@ -625,6 +625,57 @@ function _blzAuto(n){
   });
   return {teams,quelle:pool.quelle};
 }
+/* ── PLATZRECHNER ───────────────────────────────────────────────────────────────
+   Wie viele Kinder stehen bei dieser Feld-/Spielform-Kombination GLEICHZEITIG auf
+   dem Platz? Die Frage entscheidet vor dem Aufbauen, ob eine Kombination ueberhaupt
+   aufgeht – und sie wurde bisher nirgends beantwortet. Beispiel aus der Praxis:
+   zwei FUNiño-Felder plus ein 4+1-Feld braucht 6+6+10 = 22 Kinder. Bei 15 im Kader
+   geht das nicht, egal wie gut der Spielplan ist.
+
+   Die Mannschaftsgroesse steht schon in BLZ_SPIELFORM (funino:3, f4:5 …) – hier wird
+   sie nur zu Ende gerechnet, statt sie im Kopf des Trainers zu lassen. */
+function _blzSpielformKurz(label){ return String(label||"").split(" · ")[0]; }
+function _blzPlatz(){
+  const form=BLZ_SPIELFORM[BLZ.spielform];
+  const groesse=(form||[])[1]||0;               // 0 = „frei", keine feste Groesse
+  const felder=Math.max(1,BLZ.felder||1);
+  const pool=_blzPool();
+  const trainerMit=(BLZ.trainer||[]).length;
+  const da=pool.namen.length+trainerMit;
+  const proFeld=groesse*2;
+  const bedarf=proFeld*felder;
+  return {groesse,felder,proFeld,bedarf,da,kinder:pool.namen.length,trainerMit,
+          quelle:pool.quelle,label:form?form[0]:"",
+          passtFelder:proFeld?Math.floor(da/proFeld):0,
+          fehlt:Math.max(0,bedarf-da), uebrig:Math.max(0,da-bedarf)};
+}
+function _blzPlatzHtml(){
+  const p=_blzPlatz();
+  // Pro-Feld-Bedarf aller Spielformen: die Grundlage fuer eine Kombination aus
+  // verschiedenen Feldern, die von Hand aufgebaut wird.
+  const tabelle=Object.keys(BLZ_SPIELFORM).map(k=>BLZ_SPIELFORM[k]).filter(v=>v[1]>0)
+    .map(v=>`${esc(_blzSpielformKurz(v[0]))} <b>${v[1]*2}</b>`).join(" · ");
+  /* Die farbigen Kaesten haben einen FEST hellen Grund. var(--text3) waere dort im
+     dunklen Modus hell auf hell (2,8:1 – Hausregel verlangt 4,5:1), deshalb je Kasten
+     eine feste Fussfarbe; nur der neutrale Kasten folgt dem Thema. */
+  const fuss=farbe=>`<div style="font-size:10.5px;color:${farbe};margin-top:5px">Pro Feld: ${tabelle} — zum Kombinieren verschiedener Felder zusammenzählen.</div>`;
+  if(!p.groesse){
+    return `<div style="font-size:11.5px;color:var(--text2);background:var(--surface2);border:var(--border-s);border-radius:9px;padding:7px 9px;margin-bottom:8px;line-height:1.4">
+      📐 Ohne feste Spielform lässt sich der Platzbedarf nicht rechnen.${fuss("var(--text3)")}</div>`;
+  }
+  const wer=`${p.kinder} Kind${p.kinder===1?"":"er"}`+(p.trainerMit?` + ${p.trainerMit} Trainer`:"");
+  const kopf=`${p.felder} Feld${p.felder===1?"":"er"} × ${esc(_blzSpielformKurz(p.label))} = <b>${p.bedarf}</b> gleichzeitig auf dem Platz`;
+  if(p.fehlt>0){
+    const rat=p.passtFelder>=1
+      ? `Es ${p.passtFelder===1?"passt":"passen"} <b>${p.passtFelder} Feld${p.passtFelder===1?"":"er"}</b>.`
+      : `Für ein volles Feld fehlen Kinder.`;
+    return `<div style="font-size:11.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:7px 9px;margin-bottom:8px;line-height:1.45">
+      📐 ${kopf}.<br>${wer} dabei (${esc(p.quelle)}) → <b>${p.fehlt} zu wenig</b>. ${rat}${fuss("#8a5a17")}</div>`;
+  }
+  const rest=p.uebrig?`<b>${p.uebrig}</b> wechseln durch`:`alle spielen gleichzeitig`;
+  return `<div style="font-size:11.5px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:9px;padding:7px 9px;margin-bottom:8px;line-height:1.45">
+    📐 ${kopf}.<br>${wer} dabei (${esc(p.quelle)}) → ${rest}.${fuss("#2f6b45")}</div>`;
+}
 /* Struktur-Änderung (Modus, Team-Anzahl) macht einen gebauten Spielplan ungültig.
    Ohne Ergebnisse wird er still verworfen; mit Ergebnissen erst nach Rückfrage. */
 function _blzPlanVerwerfen(){
@@ -886,6 +937,7 @@ function _blzSetupHtml(){
     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px">${bChips}</div>
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Spielfelder <span style="font-weight:400;text-transform:none;letter-spacing:0">(3–4 = FUNiño/Kleinfelder · ein Pfiff für alle)</span></div>
     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px">${fChips}</div>
+    ${_blzPlatzHtml()}
     ${duell?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Eltern-Teams</div>
     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px">${eChips}</div>`:""}
     ${_blzVorschauHtml()}
