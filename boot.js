@@ -1103,7 +1103,8 @@ function tpRenderTimeline(){
     html+=`<div class="tp-slot" style="border-left:3px solid ${slot.farbe};${parallel?"margin-left:14px;":""}">
       <div class="tp-slot-head">
         <span class="tp-slot-label">${parallel?tpParallelIcon(typ):""}${slot.label}</span>
-        <span class="tp-slot-time">${startMin}' – ${endMin}'${parallel?` · parallel zu ${tpSlots[slot.parallelZu].label}`:` (${slot.dauer} Min.)`}</span>
+        <span class="tp-slot-time">${startMin}' – ${endMin}'${parallel?` · parallel zu ${tpSlots[slot.parallelZu].label}`:""}</span>
+        ${parallel?"":tpDauerSelect(si,slot)}
         <button class="tp-remove" onclick="tpRemoveSlot(${si})"><i class="ti ti-trash"></i></button>
       </div>`;
     if(parallel){
@@ -1201,12 +1202,15 @@ function tpRenderTimeline(){
   });
   const zielDauer=parseInt(document.getElementById("tp-dauer")?.value)||75; // H3 (Wert VOR dem Neuzeichnen gelesen)
   const passt=time<=zielDauer;
+  /* Gewarnt wurde bisher nur nach oben. Loescht man eine Phase, sinkt „Gesamt" still –
+     25 unverplante Minuten sahen genauso aus wie ein perfekt gefuellter Plan. */
+  const frei=zielDauer-time;
   // Ziel-Dauer wohnt jetzt HIER statt als eigene „Zeitplan"-Zeile im Kopf (PO: schlanker)
   const sfq=(typeof tpSpielformQuote==="function")?null:null; // Quote wird nach dem DOM-Aufbau gefüllt (braucht die Selects)
   html+=`<div id="tp-sfq" style="text-align:right;font-size:11px;color:var(--text2);margin-top:8px"></div>`;
   html+=`<div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:12px;font-weight:${passt?"600":"800"};color:${passt?"var(--text2)":"#dc2626"};margin-top:6px">Gesamt: ${time} von
     <select id="tp-dauer" onchange="tpRenderTimeline()" style="font-size:13px;min-height:40px;padding:4px 8px;border:1px solid var(--rand-bedien);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">${[60,75,90].map(d=>`<option value="${d}"${zielDauer===d?" selected":""}>${d}</option>`).join("")}</select>
-    Min.${passt?"":" – zu lang!"}</div>`;
+    Min.${passt?(frei>0?` · noch ${frei} Min. frei`:""):" – zu lang!"}</div>`;
   wrap.innerHTML=html;
   tpPrognoseLoad(); // G3: erwartete Kinderzahl fürs gewählte Datum
   if(typeof zielUebungenHint==="function")zielUebungenHint(); // B: Übungen zu offenen Entwicklungszielen
@@ -1411,13 +1415,10 @@ function tpAddSlot(){
   const modal=document.createElement("div");
   modal.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px";
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
-  const opts=[
-    {label:"Hauptteil",dauer:20,farbe:"#1a56db",typ:"main",icon:"⚽"},
-    {label:"Torwart-Training",dauer:15,farbe:"#854d0e",typ:"tw",icon:"🧤"},
-    {label:"Individual-Training",dauer:15,farbe:"#0e7490",typ:"individual",icon:"🎯"},
-    {label:"Aufwärmen",dauer:10,farbe:"#059669",typ:"warmup",icon:"🔥"},
-    {label:"Abschlussspiel",dauer:15,farbe:"#c2410c",typ:"abschluss",icon:"🏆"}
-  ];
+  /* Frueher stand hier eine ZWEITE Liste. Sie war auseinandergelaufen: der Knopf versprach
+     „Abschlussspiel · 15 Min.", eingefuegt wurden 20, und aus „Torwart-Training" wurde in
+     der Leiste „Torwart-Spielen (rotierend)". Jetzt beschreibt TP_ADD_OPTS beides. */
+  const opts=TP_ADD_OPTS;
   let btns=opts.map((o,i)=>`<button onclick="tpDoAddSlot(${i});this.closest('div[style*=fixed]').remove()" style="display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;border:1px solid var(--rand-bedien);border-left:3px solid ${o.farbe};border-radius:var(--r);background:var(--surface);cursor:pointer;font-family:inherit;font-size:12px;text-align:left"><span style="font-size:18px">${o.icon}</span><div><strong>${o.label}</strong><br><span style="font-size:10px;color:var(--text2)">${o.dauer} Min.</span></div></button>`).join("");
   modal.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:320px;width:100%">
     <div style="font-size:13px;font-weight:700;margin-bottom:10px">Phase hinzufügen</div>
@@ -1425,16 +1426,36 @@ function tpAddSlot(){
   </div>`;
   document.body.appendChild(modal);
 }
+/* EINE Quelle fuer den Hinzufuegen-Dialog UND das tatsaechliche Einfuegen: Beschriftung,
+   Dauer und Farbe muessen dasselbe sagen wie das, was hinterher in der Leiste steht. */
 const TP_ADD_OPTS=[
-  {label:"Hauptteil",dauer:20,farbe:"#1a56db",typ:"main"},
-  {label:"Torwart-Spielen (rotierend)",dauer:15,farbe:"#854d0e",typ:"tw"},
-  {label:"Individual-Training",dauer:15,farbe:"#0e7490",typ:"individual"},
-  {label:"Aufwärmen",dauer:10,farbe:"#059669",typ:"warmup"},
-  {label:"Abschlussspiel",dauer:20,farbe:"#c2410c",typ:"abschluss"}
+  {label:"Hauptteil",dauer:20,farbe:"#1a56db",typ:"main",icon:"⚽"},
+  {label:"Torwart-Spielen (rotierend)",dauer:15,farbe:"#854d0e",typ:"tw",icon:"🧤"},
+  {label:"Individual-Training",dauer:15,farbe:"#0e7490",typ:"individual",icon:"🎯"},
+  {label:"Aufwärmen",dauer:10,farbe:"#059669",typ:"warmup",icon:"🔥"},
+  {label:"Abschlussspiel",dauer:20,farbe:"#c2410c",typ:"abschluss",icon:"🏆"}
 ];
+/* Die Dauer stand bisher nur als Text da. Wer eine Phase loeschte, konnte die frei
+   gewordene Zeit nirgends verteilen – ein Abschlussspiel liess sich nicht verlaengern. */
+const TP_DAUER_WERTE=[5,10,15,20,25,30,35,40,45,50,60];
+function tpDauerSelect(si,slot){
+  const jetzt=Number(slot.dauer)||10;
+  // Altbestand kann krumme Werte tragen (z. B. 12) – die duerfen beim Anzeigen nicht
+  // stillschweigend auf einen Nachbarwert springen.
+  const werte=TP_DAUER_WERTE.includes(jetzt)?TP_DAUER_WERTE:TP_DAUER_WERTE.concat(jetzt).sort((a,b)=>a-b);
+  return `<select class="tp-dauer-sel" aria-label="Dauer von ${esc(slot.label||"Phase")} in Minuten" onchange="tpSetDauer(${si},this.value)">`
+    +werte.map(d=>`<option value="${d}"${d===jetzt?" selected":""}>${d} Min.</option>`).join("")
+    +`</select>`;
+}
+function tpSetDauer(si,wert){
+  if(!tpSlots[si])return;
+  tpSlots[si].dauer=Math.max(1,Number(wert)||10);
+  tpRenderTimeline();
+}
 function tpDoAddSlot(idx){
   const o=TP_ADD_OPTS[idx];
-  const neu={...o};
+  const {icon,...ohneIcon}=o;   // das Symbol ist Dialog-Schmuck und hat im Plan nichts zu suchen
+  const neu={...ohneIcon};
   // Torwart/Individual hängen sich parallel an den letzten Hauptteil (PO: nie ans Ende der Kette)
   if(tpKannParallel(neu.typ)){
     let mi=-1; tpSlots.forEach((s,i)=>{if((s.typ||"main")==="main")mi=i;});
