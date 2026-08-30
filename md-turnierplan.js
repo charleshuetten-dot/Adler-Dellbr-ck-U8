@@ -649,6 +649,39 @@ function _blzPlatz(){
           passtFelder:proFeld?Math.floor(da/proFeld):0,
           fehlt:Math.max(0,bedarf-da), uebrig:Math.max(0,da-bedarf)};
 }
+/* „es soll immer gespielt werden mit kurzen Pausen zum Trinken und Platzwechsel."
+   Ob das aufgeht, haengt an ZWEI Bedingungen – gemessen, nicht geschaetzt:
+     • gerade Teamzahl: bei ungerader hat in JEDER Runde ein Team spielfrei,
+       egal wie viele Felder stehen;
+     • genug Felder: es laufen hoechstens so viele Spiele wie Felder, also
+       braucht es Teams/2 Felder, damit kein Team wartet.
+   Ein Kind auf der Bank eines spielenden Teams zaehlt als im Spiel (fliegender
+   Wechsel) – daneben steht nur, wessen TEAM pausiert. */
+function _blzDurchspielen(){
+  if(BLZ.spielmodus==="duell")return null;
+  const teams=BLZ.teams.filter(t=>!t.eltern).length;
+  if(teams<2)return null;
+  const felder=Math.max(1,BLZ.felder||1);
+  const noetig=Math.ceil(teams/2);
+  const gerade=teams%2===0;
+  const v=_blzTeamVorschlag();
+  return {teams,felder,noetig,gerade,ok:gerade&&felder>=noetig,
+          vTeams:v?v.teams:null,vFelder:v?v.felder:null};
+}
+function _blzDurchspielHtml(){
+  const d=_blzDurchspielen(); if(!d)return "";
+  if(d.ok){
+    return `<div style="font-size:11.5px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:9px;padding:7px 9px;margin-bottom:8px;line-height:1.45">
+      ▶️ <b>Alle Teams sind durchgehend im Spiel</b> – kein Team wartet. Zwischen den Runden liegt ${BLZ_W} Min. für Trinken und Platzwechsel.</div>`;
+  }
+  const grund=!d.gerade
+    ? `Bei <b>${d.teams} Teams</b> (ungerade) hat in jeder Runde eines spielfrei – daran ändert auch ein zusätzliches Feld nichts.`
+    : `<b>${d.teams} Teams</b> brauchen <b>${d.noetig} Felder</b>, damit alle gleichzeitig spielen – aufgebaut ${d.felder}.`;
+  const rat=(d.vTeams&&d.vFelder)
+    ? ` Durchgehend spielen alle mit <b>${d.vTeams} Teams auf ${d.vFelder} Feld${d.vFelder===1?"":"ern"}</b>.`:"";
+  return `<div style="font-size:11.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:7px 9px;margin-bottom:8px;line-height:1.45">
+    ⏸️ ${grund}${rat}</div>`;
+}
 function _blzPlatzHtml(){
   const p=_blzPlatz();
   // Pro-Feld-Bedarf aller Spielformen: die Grundlage fuer eine Kombination aus
@@ -737,7 +770,17 @@ function _blzTeamVorschlag(){
   const pool=_blzPool().namen.length;
   if(!pool)return null;
   const max=BLZ.spielmodus==="duell"?4:6; // 2 gegen 2 braucht viele Teams (13 Kinder → 6)
-  return {pool,teams:Math.min(max,Math.max(BLZ.spielmodus==="duell"?1:2,Math.round(pool/groesse)))};
+  if(BLZ.spielmodus==="duell")
+    return {pool,teams:Math.min(max,Math.max(1,Math.round(pool/groesse)))};
+  /* GERADE Teamzahl. Bei ungerader Zahl hat in jeder Runde ein Team spielfrei – der
+     PO-Wunsch „es soll immer gespielt werden" ist dann strukturell unmöglich, egal wie
+     viele Felder aufgebaut sind. Vorher rundete hier Math.round(15/3) auf 5 Teams und
+     schrieb damit ein Dauer-Pausenteam fest.
+     Grundlage ist, wie viele Teams der Pool VOLL besetzen kann (abrunden), davon die
+     nächstkleinere gerade Zahl; die Restkinder verteilen sich als Auswechsler. */
+  const passen=Math.floor(pool/groesse);
+  const teams=Math.min(max-(max%2),Math.max(2,passen-(passen%2)));
+  return {pool,teams,felder:teams/2};
 }
 function blzModus(m){
   if(m===BLZ.spielmodus)return;
@@ -776,7 +819,7 @@ function _blzSlots(matches,felder){
   }
   return matches.length?Math.max(...matches.map(m=>m.slot))+1:0;
 }
-/* Zeitbudget-Automatik. Liefert {ms,slots,z,modus,dauer,hinweis,finaleBonus}:
+/* Zeitbudget-Automatik. Liefert {ms,slots,z,modus,dauer,hinweis,rueckrunde}:
    ms = fertige Spielliste (Finals als Platzhalter a/b=null, werden live aufgelöst),
    hinweis = fehlende Minuten, wenn selbst das kürzeste faire Format nicht passt. */
 function _blzPlanen(n,budget,felder,spielmodus,elternAnzahl){
@@ -799,13 +842,13 @@ function _blzPlanen(n,budget,felder,spielmodus,elternAnzahl){
       const slots=_blzSlots(ms,felder);
       return {ms,slots};
     };
-    if(!budget||budget<=0)return {...runde(2),z:null,modus:"duell",dauer:null,hinweis:null,finaleBonus:false};
+    if(!budget||budget<=0)return {...runde(2),z:null,modus:"duell",dauer:null,hinweis:null,rueckrunde:false};
     for(let d=3;d>=1;d--){
       const v=runde(d), z=zMax(v.slots);
-      if(z>=BLZ_MIN){const z2=Math.min(BLZ_MAX,z);return {...v,z:z2,modus:"duell",dauer:dauer(v.slots,z2),hinweis:null,finaleBonus:false};}
+      if(z>=BLZ_MIN){const z2=Math.min(BLZ_MAX,z);return {...v,z:z2,modus:"duell",dauer:dauer(v.slots,z2),hinweis:null,rueckrunde:false};}
     }
     const v=runde(1), braucht=dauer(v.slots,BLZ_MIN);
-    return {...v,z:BLZ_MIN,modus:"duell",dauer:braucht,hinweis:braucht-budget,finaleBonus:false};
+    return {...v,z:BLZ_MIN,modus:"duell",dauer:braucht,hinweis:braucht-budget,rueckrunde:false};
   }
   const bau=modus=>{
     let ms=[],finals=[];
@@ -816,7 +859,11 @@ function _blzPlanen(n,budget,felder,spielmodus,elternAnzahl){
       const rb=_blzRR(B.length).map(([x,y])=>({a:B[x],b:B[y],phase:"gruppeB",ta:null,tb:null}));
       const max=Math.max(ra.length,rb.length);
       for(let i=0;i<max;i++){if(ra[i])ms.push(ra[i]);if(rb[i])ms.push(rb[i]);}
-      finals=[{a:null,b:null,phase:"kfinale",ta:null,tb:null},{a:null,b:null,phase:"finale",ta:null,tb:null}];
+      /* PO: „beim Training soll es kein klassisches Finale geben, damit keine Kinder am
+         Ende nur zugucken müssen." Vorher standen hier kleines Finale + Finale – bei einem
+         Feld zwei Zeitfenster, in denen von 15 Kindern 9 danebenstanden. Jetzt spielen die
+         Gruppen ihre Runde zu Ende und hören gemeinsam auf. */
+      finals=[];
     }else if(n===2){
       ms=[{a:0,b:1,phase:"runde",ta:null,tb:null},{a:1,b:0,phase:"runde",ta:null,tb:null}];
     }else{
@@ -827,41 +874,46 @@ function _blzPlanen(n,budget,felder,spielmodus,elternAnzahl){
     return {ms:ms.concat(finals),slots};
   };
   // Ohne Budget (frei): volles Programm, Spielzeit stellt der Trainer selbst
-  if(!budget||budget<=0){const v0=bau("rr");return {...v0,z:null,modus:"rr",dauer:null,hinweis:null,finaleBonus:false};}
-  // Stufe 1: volle Runde, Spielzeit 10 → 5. Finale als Krönung obendrauf, wenn es
-  // MIT voller Hauptrunde und mindestens 5-Minuten-Spielen noch ins Budget passt –
-  // dafür darf die Spielzeit etwas sinken (Konzept: 40 Min./3 Teams → à 9 + Finale).
+  if(!budget||budget<=0){const v0=bau("rr");return {...v0,z:null,modus:"rr",dauer:null,hinweis:null,rueckrunde:false};}
+  /* Stufe 1: volle Runde, Spielzeit 10 → 5. Bleibt Zeit übrig, geht sie in eine
+     RÜCKRUNDE statt in ein Finale. Ein Finale beschäftigt zwei Teams; alle anderen
+     schauen zu – genau das soll beim Training nicht passieren. Eine Rückrunde
+     beschäftigt wieder alle. */
   const v=bau("rr");
   let z=zMax(v.slots);
   if(z>=BLZ_MIN){
-    let finaleBonus=false;
-    const zF=n>=3?zMax(v.slots+1):0;
-    if(zF>=BLZ_MIN){
-      z=Math.min(BLZ_MAX,zF);
-      v.ms.push({a:null,b:null,phase:"finale",ta:null,tb:null,slot:v.slots,feld:1});
-      v.slots++; finaleBonus=true;
-    }else{
-      z=Math.min(BLZ_MAX,z);
+    if(n>=3){
+      const hin=v.ms.filter(m=>m.phase==="runde");
+      const rueck=hin.map(m=>({a:m.b,b:m.a,phase:"runde",ta:null,tb:null}));
+      const alle=hin.concat(rueck);
+      const slots2=_blzSlots(alle,felder);          // verteilt Fenster und Felder neu
+      const z2=zMax(slots2);
+      if(z2>=BLZ_MIN){
+        const zR=Math.min(BLZ_MAX,z2);
+        return {ms:alle,slots:slots2,z:zR,modus:"rr",dauer:dauer(slots2,zR),hinweis:null,rueckrunde:true};
+      }
+      _blzSlots(v.ms,felder);                        // Fensterzuteilung wiederherstellen
     }
-    return {...v,z,modus:"rr",dauer:dauer(v.slots,z),hinweis:null,finaleBonus};
+    z=Math.min(BLZ_MAX,z);
+    return {...v,z,modus:"rr",dauer:dauer(v.slots,z),hinweis:null,rueckrunde:false};
   }
   // Stufe 2 (ab 4 Teams): 2 Los-Gruppen + kleines Finale + Finale – jedes Team gleich viele Spiele
   if(n>=4){
     const g=bau("gruppen");
     const zg=zMax(g.slots);
-    if(zg>=BLZ_MIN){const z2=Math.min(BLZ_MAX,zg);return {...g,z:z2,modus:"gruppen",dauer:dauer(g.slots,z2),hinweis:null,finaleBonus:false};}
+    if(zg>=BLZ_MIN){const z2=Math.min(BLZ_MAX,zg);return {...g,z:z2,modus:"gruppen",dauer:dauer(g.slots,z2),hinweis:null,rueckrunde:false};}
     const braucht=dauer(g.slots,BLZ_MIN);
-    return {...g,z:BLZ_MIN,modus:"gruppen",dauer:braucht,hinweis:braucht-budget,finaleBonus:false};
+    return {...g,z:BLZ_MIN,modus:"gruppen",dauer:braucht,hinweis:braucht-budget,rueckrunde:false};
   }
   // Stufe 3 (2–3 Teams): ehrlich sagen, was das kürzeste faire Format braucht
   if(n===2){
     const eins={ms:[{a:0,b:1,phase:"runde",ta:null,tb:null,slot:0,feld:1}],slots:1};
     const z1=Math.min(BLZ_MAX,budget);
-    if(z1>=BLZ_MIN)return {...eins,z:z1,modus:"rr",dauer:z1,hinweis:null,finaleBonus:false};
-    return {...eins,z:BLZ_MIN,modus:"rr",dauer:BLZ_MIN,hinweis:BLZ_MIN-budget,finaleBonus:false};
+    if(z1>=BLZ_MIN)return {...eins,z:z1,modus:"rr",dauer:z1,hinweis:null,rueckrunde:false};
+    return {...eins,z:BLZ_MIN,modus:"rr",dauer:BLZ_MIN,hinweis:BLZ_MIN-budget,rueckrunde:false};
   }
   const braucht=dauer(v.slots,BLZ_MIN);
-  return {...v,z:BLZ_MIN,modus:"rr",dauer:braucht,hinweis:braucht-budget,finaleBonus:false};
+  return {...v,z:BLZ_MIN,modus:"rr",dauer:braucht,hinweis:braucht-budget,rueckrunde:false};
 }
 // Vorschau-Text für das Setup (transparent: Format, Spielzeit, Gesamtdauer, Warnung)
 function _blzVorschauHtml(){
@@ -870,8 +922,10 @@ function _blzVorschauHtml(){
   if(p.fehler)return `<div style="background:#fef3c7;color:#92400e;border-radius:10px;padding:10px 12px;font-size:12.5px;font-weight:700;margin-bottom:8px">⚠️ ${esc(p.fehler)} – lege noch ein Team an.</div>`;
   const nKids=BLZ.teams.filter(t=>!t.eltern).length;
   const fmt=p.modus==="duell"?`Kinder gegen Eltern – ${Math.round(p.ms.length/Math.max(1,nKids))} Durchgang${p.ms.length/Math.max(1,nKids)>1?"e":""} je Kinder-Team`
-    :p.modus==="gruppen"?"2 Los-Gruppen + kleines Finale + Finale":(BLZ.teams.length===2?(p.slots===1?"ein Spiel":"Hin- und Rückspiel"):"jeder gegen jeden"+(p.finaleBonus?" + Finale":""));
+    :p.modus==="gruppen"?"2 Los-Gruppen, jede Gruppe für sich":(BLZ.teams.length===2?(p.slots===1?"ein Spiel":"Hin- und Rückspiel"):"jeder gegen jeden"+(p.rueckrunde?" + Rückrunde":""));
   const felderTxt=(BLZ.felder||1)>1?` · ${BLZ.felder} Felder, ein Pfiff für alle`:"";
+  // BLZ_W gab es immer, benannt wurde es nie – der Trainer sah nur, dass die Rechnung
+  // nicht ganz aufging. Es ist die Trinkpause zwischen den Runden.
   if(p.hinweis>0)return `<div style="font-size:12px;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:8px 10px;margin-bottom:8px">⏰ Fair (min. ${BLZ_MIN} Min. je Spiel) braucht das kürzeste Format <b>${p.dauer} Min.</b> – das sind <b>${p.hinweis} Min. mehr</b> als geplant. Budget erhöhen, ein Feld dazu – oder bewusst überziehen und trotzdem starten.</div>`;
   return `<div style="font-size:12px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 10px;margin-bottom:8px">✅ Vorschlag: <b>${fmt}</b> à <b>${p.z} Min.</b> → ${p.ms.length} Spiele, ca. <b>${p.dauer} von ${BLZ.budget} Min.</b>${felderTxt}</div>`;
 }
@@ -938,6 +992,7 @@ function _blzSetupHtml(){
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Spielfelder <span style="font-weight:400;text-transform:none;letter-spacing:0">(3–4 = FUNiño/Kleinfelder · ein Pfiff für alle)</span></div>
     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px">${fChips}</div>
     ${_blzPlatzHtml()}
+    ${_blzDurchspielHtml()}
     ${duell?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Eltern-Teams</div>
     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px">${eChips}</div>`:""}
     ${_blzVorschauHtml()}
