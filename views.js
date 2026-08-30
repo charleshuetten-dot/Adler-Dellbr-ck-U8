@@ -828,7 +828,10 @@ async function backupExport(){
   // Das Trainingsturnier haengt seit v444 am Termin und liegt in der Datenbank -
   // damit gehoert es in die Sicherung.
   const tables=["kader","spielerprofile","termine","matchday","blitz_ratings","match_actions","ticker_events","nominierungen","anwesenheit","trainings_eval",
-                "trainer_poll","trainer_poll_slot","trainer_poll_vote","trainer_poll_thema","trainingsturnier"];
+                "trainer_poll","trainer_poll_slot","trainer_poll_vote","trainer_poll_thema","trainingsturnier",
+                // Beim Saisonstart wandern die alten Spielerbewertungen hierher. Ohne diese
+                // Zeile enthielte eine Sicherung nach dem Reset nur noch leere Tabellen.
+                "archiv_bewertungen"];
   const dump={_meta:{app:"U9 Adler Dellbrück",exported_at:new Date().toISOString(),tables}};
   try{
     for(const t of tables){
