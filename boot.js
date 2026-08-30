@@ -1124,7 +1124,7 @@ function tpRenderTimeline(){
       // PO-Wunsch: das Abschlussspiel kann direkt als Blitzturnier laufen – die Slot-Dauer
       // wird zum Zeitbudget (auch 2 gegen 2 ohne Torwart mit bis zu 6 Teams).
       html+=`<div style="font-size:11px;color:var(--text2);padding:4px 0">Freies Spiel – Standard: 3 gegen 3 auf 4 Minitore (FUNiño), ohne Torwart</div>
-        <button class="btn btn-sm" style="margin-top:4px" onclick="blitzOpen(${Number(slot.dauer)||15})" title="Blitzturnier mit dieser Slot-Dauer als Zeitbudget – Spielform wählbar, z. B. 2 gegen 2 ohne Torwart">⚡ Als Blitzturnier spielen (${slot.dauer} Min.)</button>`;
+        <button class="btn btn-sm" style="margin-top:4px" onclick="blitzOpen(${Number(slot.dauer)||15})" title="Trainingsturnier mit dieser Slot-Dauer als Zeitbudget – vorab planbar, wird zum Termin gespeichert">🏆 Als Trainingsturnier spielen (${slot.dauer} Min.)</button>`;
     } else if(typ==="tw"){
       const twPlayers=KADER.filter(k=>k.tw);
       html+=`<div style="margin-top:6px">
@@ -2455,7 +2455,7 @@ function _tlSnapshot(){
         kinder:tgg?tgg.kinder.slice():null
       });
     });
-    if(!gruppen.length)gruppen.push({trainer:"Alle",uebung:(slot.typ==="abschluss")?"Freies Spiel / Blitzturnier":"(frei)",gruppe:null,kinder:null});
+    if(!gruppen.length)gruppen.push({trainer:"Alle",uebung:(slot.typ==="abschluss")?"Freies Spiel / Trainingsturnier":"(frei)",gruppe:null,kinder:null});
     stationen.push({si,label:slot.label||("Station "+(si+1)),dauer:Math.max(1,slot.dauer||10),farbe:slot.farbe||"#16a34a",gruppen});
   });
   /* Parallele Blöcke docken an ihre Ziel-Station an. Die beteiligten Kinder werden dort
