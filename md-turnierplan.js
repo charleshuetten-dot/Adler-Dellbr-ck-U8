@@ -525,7 +525,56 @@ const BLZ_FARBEN=["#1a56db","#dc2626","#059669","#7c3aed","#d97706"];
 const BLZ_MIN=5, BLZ_MAX=10, BLZ_W=1; // Spielzeit-Grenzen + Wechselminute zwischen Fenstern
 let BLZ=null;
 function _blzHeute(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
-function blzSave(){try{localStorage.setItem("adler_blitz",JSON.stringify(BLZ));}catch(e){}}
+/* ── Speichern: Gerät UND Server ────────────────────────────────────────────────
+   Bisher lag das Turnier nur im localStorage – an kein Datum gebunden, eines auf
+   einmal, weg beim Gerätewechsel. Damit war „am Mittwoch für Freitag planen"
+   unmöglich. Jetzt hängt es am TERMINDATUM und liegt zusätzlich in der Datenbank.
+
+   Das Datum wird beim Anlegen festgeschrieben (BLZ.datum) und beim Speichern NICHT
+   neu aus #tp-date gelesen: sonst wanderte ein offenes Turnier in einen anderen
+   Termin, sobald jemand die Terminauswahl umstellt. */
+function _blzBindeDatum(){
+  const sel=document.getElementById("tp-date");
+  return (sel&&sel.value)||_blzHeute();
+}
+let _blzDbTimer=null;
+function blzSave(){
+  try{localStorage.setItem("adler_blitz",JSON.stringify(BLZ));}catch(e){}
+  clearTimeout(_blzDbTimer);
+  _blzDbTimer=setTimeout(_blzDbSpeichern,1200);   // gebündelt: ein Tipp = ein Schreibvorgang
+}
+async function _blzDbSpeichern(){
+  if(!BLZ||!BLZ.datum)return;
+  if(typeof sbToken!=="function"||!sbToken())return;   // ohne Anmeldung bleibt es lokal
+  try{
+    await fetch(`${SB_URL}/rest/v1/trainingsturnier?on_conflict=datum`,{method:"POST",
+      headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify({datum:BLZ.datum,data:BLZ,updated_at:new Date().toISOString()})});
+  }catch(e){/* lokal ist gespeichert – der Server ist die Kür, nicht die Pflicht */}
+}
+async function _blzDbLaden(datum){
+  if(typeof sbToken!=="function"||!sbToken())return null;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/trainingsturnier?datum=eq.${encodeURIComponent(datum)}&select=data`,{headers:sbAuthHeaders()});
+    if(typeof sbCheck401==="function"&&sbCheck401(r))return null;
+    if(!r.ok)return null;
+    const rows=await r.json();
+    return (rows[0]&&rows[0].data)||null;
+  }catch(e){return null;}
+}
+/* Wurde für DIESEN Termin schon etwas vorbereitet – auf einem anderen Gerät oder vor
+   Tagen? Dann nachladen. Nur wenn lokal nichts zu diesem Termin liegt: was der Trainer
+   gerade in der Hand hat, wird nie vom Server überschrieben. */
+async function _blzVomServer(datum){
+  const vom=await _blzDbLaden(datum);
+  if(!vom||!document.getElementById("blitz-modal"))return;
+  vom.datum=datum;
+  BLZ=vom;
+  try{localStorage.setItem("adler_blitz",JSON.stringify(BLZ));}catch(e){}
+  if(BLZ.phase==="setup")_blzTeamsAufraeumen();
+  blzRender();
+  if(typeof toast==="function")toast("Vorbereitetes Turnier für diesen Termin geladen ✓");
+}
 function _blzLoad(){
   try{
     // Bewusst KEINE Tages-Grenze mehr: ein vorbereitetes Turnier (z. B. am Vorabend
@@ -943,22 +992,33 @@ function _blzVorschauHtml(){
 }
 function blitzOpen(vorgabeBudget){
   const alt=_blzLoad();
-  if(alt){BLZ=alt;}
-  else{const a=_blzAuto(2);BLZ={datum:_blzHeute(),phase:"setup",spielmodus:"kinder",anzahl:2,elternAnzahl:1,spielform:"frei",runde:8,budget:20,felder:1,modus:"rr",quelle:a.quelle,teams:a.teams,trainer:[],plan:[]};blzSave();}
+  const datum=_blzBindeDatum();
+  /* Ein Turnier gehört jetzt zu EINEM Termin. Der lokale Stand zählt deshalb nur,
+     wenn er zu diesem Termin gehört – sonst zeigte die App beim Freitagstermin das
+     Turnier vom Mittwoch. Ausnahme: ein LAUFENDES Turnier mit Ergebnissen bleibt in
+     jedem Fall stehen; mitten im Turnier darf nichts verschwinden. */
+  const laeuft=!!(alt&&(alt.plan||[]).some(x=>x.ta!=null));
+  const lokalPasst=!!(alt&&(alt.datum===datum||laeuft));
+  if(lokalPasst){BLZ=alt;}
+  else{const a=_blzAuto(2);BLZ={datum:_blzBindeDatum(),phase:"setup",spielmodus:"kinder",anzahl:2,elternAnzahl:1,spielform:"frei",runde:8,budget:20,felder:1,modus:"rr",quelle:a.quelle,teams:a.teams,trainer:[],plan:[]};blzSave();}
   // Aus dem Trainingsplan geöffnet: die Dauer des Abschluss-Slots wird zum Zeitbudget
   if(vorgabeBudget>0&&BLZ.phase==="setup"){BLZ.budget=Math.round(vorgabeBudget);blzSave();}
+  if(!BLZ.datum)BLZ.datum=_blzBindeDatum();          // Altbestand ohne Termin-Bindung
   if(alt&&BLZ.phase==="setup")_blzTeamsAufraeumen(); // gespeicherte Teams gegen den heutigen Pool halten
   document.getElementById("blitz-modal")?.remove();
   const m=document.createElement("div");m.id="blitz-modal";
-  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Blitzturnier");
+  m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Trainingsturnier");
   m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:460px;width:100%;margin:auto;overflow-x:hidden;box-sizing:border-box">
-    ${mdlHead("blitz-modal","⚡","Blitzturnier","Zeit vorgeben, Teams tippen – die Automatik baut das Turnier","#d97706")}
+    ${mdlHead("blitz-modal","🏆","Trainingsturnier","Vorab planen und speichern – die Automatik baut den Spielplan","#d97706")}
     <div id="blitz-body" style="max-width:100%;overflow-x:hidden"></div>
   </div>`;
   document.body.appendChild(m);
   blzRender();
+  // Nur nachladen, wenn lokal nichts zu diesem Termin lag: was der Trainer gerade in
+  // der Hand hat, wird nie vom Server überschrieben.
+  if(!lokalPasst)_blzVomServer(datum);
 }
 function blzRender(){
   const el=document.getElementById("blitz-body");if(!el||!BLZ)return;
@@ -1229,13 +1289,13 @@ function blzEnde(){
     kopf=`<div style="text-align:center;padding:14px 0">
       <div style="font-size:56px">🏆</div>
       <div style="font-size:20px;font-weight:900;margin:8px 0">${erste.map(z=>esc(z.name)).join(" & ")}</div>
-      <div style="font-size:12.5px;color:var(--text2)">${erste.length>1?"Geteilter Turniersieg":"gewinnt das Blitzturnier"} – stark gespielt, alle zusammen! 🦅</div>
+      <div style="font-size:12.5px;color:var(--text2)">${erste.length>1?"Geteilter Turniersieg":"gewinnt das Trainingsturnier"} – stark gespielt, alle zusammen! 🦅</div>
     </div>`;
   }
   const el=document.getElementById("blitz-body");if(!el)return;
   el.innerHTML=kopf
     +BLZ.plan.filter(p=>p.a!=null&&p.ta!=null).map(p=>`<div style="display:flex;gap:8px;font-size:12.5px;padding:2px 0;justify-content:center"><span>${BLZ_PHASE[p.phase]?BLZ_PHASE[p.phase]+": ":""}${esc(BLZ.teams[p.a].name)}</span><b>${p.ta}:${p.tb}</b><span>${esc(BLZ.teams[p.b].name)}</span></div>`).join("")
-    +`<button class="btn btn-sm" style="width:100%;margin-top:12px" onclick="blzReset()">Neues Blitzturnier</button>`;
+    +`<button class="btn btn-sm" style="width:100%;margin-top:12px" onclick="blzReset()">Neues Trainingsturnier</button>`;
   try{if(typeof confetti==="function")confetti(el);}catch(e){}
   try{navigator.vibrate&&navigator.vibrate([60,40,60]);}catch(e){}
   try{localStorage.removeItem("adler_blitz");}catch(e){}
@@ -1303,7 +1363,7 @@ function _blzTimerRender(){
   }
   const mm=Math.floor(_blzT.left/60),ss=_blzT.left%60;
   ov.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:90vh">
-    <div style="font-size:15px;opacity:.7">⚡ Blitzturnier${(BLZ&&BLZ.felder>1)?" · "+BLZ.felder+" Felder":""}</div>
+    <div style="font-size:15px;opacity:.7">🏆 Trainingsturnier${(BLZ&&BLZ.felder>1)?" · "+BLZ.felder+" Felder":""}</div>
     <div style="font-size:88px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:2px">${mm+":"+(ss<10?"0":"")+ss}</div>
     <div style="display:flex;gap:10px;margin-top:24px">
       <button onclick="_blzT.paused=!_blzT.paused;_blzTimerRender()" style="padding:14px 24px;border:none;border-radius:12px;background:#334155;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer">${_blzT.paused?"▶ Weiter":"⏸ Pause"}</button>
