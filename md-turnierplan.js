@@ -821,19 +821,19 @@ function _blzSetupHtml(){
       +gruppe("⚽ Kinder-Teams")
       +BLZ.teams.map((t,i)=>t.eltern?"":teamKarte(t,i)).join("")
     :BLZ.teams.map(teamKarte).join("");
-  return `<div style="display:flex;gap:6px;margin-bottom:10px">${mChips}</div>
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${mChips}</div>
     ${duell?`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Duell-Tag: Gespielt wird NUR Kinder gegen Eltern – nie Kinder gegen Kinder, nie Eltern gegen Eltern. Bei gleich vielen Teams laufen die Duelle parallel auf den Feldern.</div>`:""}
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Spielform</div>
-    <div style="display:flex;gap:6px;margin-bottom:8px">${sfChips}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px">${sfChips}</div>
     ${vorschlag?`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">💡 ${vorschlag.pool} Kinder → Vorschlag: <b>${vorschlag.teams} Kinder-Team${vorschlag.teams>1?"s":""}</b> (${BLZ_SPIELFORM[BLZ.spielform][0]})${duell?" – und genauso viele Eltern-Teams, dann spielt alles parallel":""}</div>`:""}
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Zeitbudget</div>
-    <div style="display:flex;gap:6px;margin-bottom:8px">${bChips}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px">${bChips}</div>
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Spielfelder <span style="font-weight:400;text-transform:none;letter-spacing:0">(3–4 = FUNiño/Kleinfelder · ein Pfiff für alle)</span></div>
-    <div style="display:flex;gap:6px;margin-bottom:8px">${fChips}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px">${fChips}</div>
     ${duell?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Eltern-Teams</div>
-    <div style="display:flex;gap:6px;margin-bottom:8px">${eChips}</div>`:""}
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px">${eChips}</div>`:""}
     ${_blzVorschauHtml()}
-    <div style="display:flex;gap:8px;margin-bottom:10px">${nChips}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:10px">${nChips}</div>
     ${trainerChips}
     <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Quelle: ${esc(BLZ.quelle)} · Kind antippen = wandert ins nächste Team · Würfel = neu mischen</div>
     ${teams}
