@@ -50,12 +50,13 @@ function istTorwart(n){ const k=getKader(n); return !!(k&&k.tw); }
    bleiben als Sicherheitsnetz drin – falls die Nominierung noch nicht geladen ist. */
 function teamZusagen(){
   const namen=new Set();
+  const aktive=KADER.filter(k=>k.aktiv!==false);   // aus dem Betrieb genommene Kinder nie aufstellen
   if(typeof nomStatus==="object"&&nomStatus)
-    KADER.forEach(k=>{ if(nomStatus[k.name]==="dabei")namen.add(k.name); });
+    aktive.forEach(k=>{ if(nomStatus[k.name]==="dabei")namen.add(k.name); });
   Object.keys(TEAMS||{}).forEach(n=>{ if(TEAMS[n])namen.add(n); });
   if(!namen.size)  // ganz am Anfang: noch keine Nominierung geladen
-    KADER.forEach(k=>{ if(nomRsvp[k.name]&&nomRsvp[k.name].status==="zugesagt")namen.add(k.name); });
-  return KADER.map(k=>k.name).filter(n=>namen.has(n));   // Kader-Reihenfolge beibehalten
+    aktive.forEach(k=>{ if(nomRsvp[k.name]&&nomRsvp[k.name].status==="zugesagt")namen.add(k.name); });
+  return aktive.map(k=>k.name).filter(n=>namen.has(n));   // Kader-Reihenfolge beibehalten
 }
 /* Kleinste sinnvolle Teamgröße: alle auf dem Feld plus ein Kind zum Wechseln.
    Darunter steht ein Kind 60 Minuten durch – das ist keine Alternative zum Pausieren. */

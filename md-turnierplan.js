@@ -442,7 +442,7 @@ async function nomLoad(){
   }catch(e){}
   // HOTFIX 14: strikte Trennung Orga/Match – KEIN pauschales "dabei" mehr. Nur explizit
   // Gesetzte (gespeichert / Eltern-Zusage / Trainer-Override) sind dabei; der Rest bleibt "offen".
-  KADER.forEach(k=>{if(!nomStatus[k.name])nomStatus[k.name]="offen";});
+  KADER.filter(k=>k.aktiv!==false).forEach(k=>{if(!nomStatus[k.name])nomStatus[k.name]="offen";});
   await nomLoadRsvp();
   await recoveryLoad();   // Return-to-Play: kürzlich krank gemeldete Kinder markieren
   await kapitaenLoad();   // Kapitän dieses Spiels + Fairness-Zählung
@@ -484,7 +484,7 @@ async function nomSave(){
    unveraendert. Alles, was einen Kader braucht (Rotation, Aufstellung, Blitz-Rating,
    Spielbericht, Aktions-Tracker), haengt an dieser einen Funktion. */
 function nominierteSpieler(){
-  const dabei=KADER.map(k=>k.name).filter(n=>nomStatus[n]==="dabei");
+  const dabei=KADER.filter(k=>k.aktiv!==false).map(k=>k.name).filter(n=>nomStatus[n]==="dabei");
   if(typeof TEAMS!=="object"||!TEAMS||!Object.keys(TEAMS).length)return dabei;
   const t=(typeof spieltagTeam!=="undefined")?spieltagTeam:1;
   return dabei.filter(n=>TEAMS[n]===t);
@@ -500,7 +500,7 @@ function nomRender(){
   const hasRsvp=Object.keys(nomRsvp).length>0;
   // Bewusst die GLOBALE Zahl, nicht nominierteSpieler() – das zaehlt seit v393 nur das
   // gerade gewaehlte Team, und hier steht die Frage „wer ist heute ueberhaupt dabei".
-  const dabeiAlle=KADER.filter(k=>nomStatus[k.name]==="dabei").length;
+  const dabeiAlle=KADER.filter(k=>k.aktiv!==false&&nomStatus[k.name]==="dabei").length;
   let sum="";
   if(hasRsvp){
     const c={zugesagt:0,abgesagt:0,krank:0};
@@ -548,15 +548,70 @@ function _blzLoad(){
   }catch(e){}
   return null;
 }
-// Spielerpool: heutige Anwesenheit (nur wer da ist), sonst alle aktiven Kader-Kinder
+function _blzDatumKurz(d){
+  try{ return new Date(d+"T00:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"}); }
+  catch(e){ return d; }
+}
+/* Spielerpool: die Anwesenheit des GEPLANTEN Trainings (nur wer da ist), sonst alle
+   aktiven Kader-Kinder.
+
+   Vorher stand hier _blzHeute(). Ein Blitzturnier wird aber am Vorabend geplant – die
+   Anwesenheit steht dann schon fuer den Trainingstag, fuer HEUTE gibt es keine. Der
+   Griff ins Leere fiel still auf „ganzer Kader" zurueck und teilte damit auch Kinder
+   ein, die fuer den Tag ausdruecklich abgemeldet waren. */
+function _blzPoolDatum(){
+  const sel=document.getElementById("tp-date");
+  return (sel&&sel.value)||_blzHeute();
+}
 function _blzPool(){
   const aktive=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false).map(k=>k.name);
   try{
-    const day=(typeof AW_DATA!=="undefined"?AW_DATA:{})[_blzHeute()]||{};
+    const datum=_blzPoolDatum();
+    const day=(typeof AW_DATA!=="undefined"?AW_DATA:{})[datum]||{};
     const da=aktive.filter(n=>day[n]&&day[n].da===true);
-    if(da.length>=4)return {namen:da,quelle:"Anwesenheit heute"};
+    if(da.length>=4)return {namen:da,quelle:"Anwesenheit "+_blzDatumKurz(datum)};
   }catch(e){}
   return {namen:aktive,quelle:"ganzer Kader"};
+}
+/* Eine gebaute Einteilung bleibt gespeichert – auch ueber Tage. Wird ein Kind danach
+   inaktiv gesetzt oder fuer den Tag abgemeldet, stand es trotzdem weiter in seinem Team:
+   die Teams wurden beim Oeffnen nie gegen den aktuellen Pool gehalten. Trainer (🧢) und
+   von Hand angelegte Teams bleiben unangetastet. */
+let _blzEntfernt=[], _blzErgaenzt=[];
+function _blzTeamsAufraeumen(){
+  _blzEntfernt=[]; _blzErgaenzt=[];
+  if(!BLZ||!Array.isArray(BLZ.teams))return;
+  const pool=_blzPool();
+  const erlaubt=new Set(pool.namen);
+  const ziele=BLZ.teams.filter(t=>!t.eltern);
+  if(!ziele.length)return;
+
+  // a) Wer nicht (mehr) in den Pool gehoert, fliegt raus
+  ziele.forEach(t=>{
+    t.spieler=(t.spieler||[]).filter(n=>{
+      if(typeof n!=="string"||n.indexOf("🧢 ")===0)return true;   // Trainer bleiben
+      if(erlaubt.has(n))return true;
+      _blzEntfernt.push(n);
+      return false;
+    });
+  });
+
+  /* b) Und der umgekehrte Fall: wer laut Anwesenheit DA ist, aber in der gespeicherten
+        Einteilung fehlt, stuende sonst ohne Team am Platz. Kommt jeweils ins kleinste. */
+  const drin=new Set(); ziele.forEach(t=>(t.spieler||[]).forEach(n=>drin.add(n)));
+  pool.namen.forEach(n=>{
+    if(drin.has(n))return;
+    let ziel=ziele[0];
+    ziele.forEach(t=>{ if((t.spieler||[]).length<(ziel.spieler||[]).length)ziel=t; });
+    ziel.spieler=(ziel.spieler||[]).concat(n);
+    _blzErgaenzt.push(n);
+  });
+
+  if(_blzEntfernt.length||_blzErgaenzt.length){
+    // Die Einteilung deckt sich jetzt mit dem Pool – dann darf die Quelle das auch sagen.
+    BLZ.quelle=pool.quelle;
+    blzSave();
+  }
 }
 // Ausgewogene Auto-Einteilung: stärkstes Kind ins momentan schwächste Team (wie Spieltag-Einteilung)
 function _blzAuto(n){
@@ -775,6 +830,7 @@ function blitzOpen(vorgabeBudget){
   else{const a=_blzAuto(2);BLZ={datum:_blzHeute(),phase:"setup",spielmodus:"kinder",anzahl:2,elternAnzahl:1,spielform:"frei",runde:8,budget:20,felder:1,modus:"rr",quelle:a.quelle,teams:a.teams,trainer:[],plan:[]};blzSave();}
   // Aus dem Trainingsplan geöffnet: die Dauer des Abschluss-Slots wird zum Zeitbudget
   if(vorgabeBudget>0&&BLZ.phase==="setup"){BLZ.budget=Math.round(vorgabeBudget);blzSave();}
+  if(alt&&BLZ.phase==="setup")_blzTeamsAufraeumen(); // gespeicherte Teams gegen den heutigen Pool halten
   document.getElementById("blitz-modal")?.remove();
   const m=document.createElement("div");m.id="blitz-modal";
   m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label","Blitzturnier");
@@ -835,6 +891,9 @@ function _blzSetupHtml(){
     ${_blzVorschauHtml()}
     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:10px">${nChips}</div>
     ${trainerChips}
+    ${(_blzEntfernt.length||_blzErgaenzt.length)?`<div style="font-size:11.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:7px 9px;margin-bottom:8px;line-height:1.4">ℹ️ Gespeicherte Einteilung an diesen Termin angepasst.${
+      _blzEntfernt.length?`<br>Nicht dabei, deshalb herausgenommen: <b>${_blzEntfernt.map(n=>esc(n)).join(", ")}</b>`:""}${
+      _blzErgaenzt.length?`<br>Dabei, aber ohne Team – ergänzt: <b>${_blzErgaenzt.map(n=>esc(n)).join(", ")}</b>`:""}</div>`:""}
     <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Quelle: ${esc(BLZ.quelle)} · Kind antippen = wandert ins nächste Team · Würfel = neu mischen</div>
     ${teams}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">

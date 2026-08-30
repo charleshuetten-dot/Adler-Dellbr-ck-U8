@@ -531,7 +531,7 @@ function awRenderList(){
   // (grün = da). Die Sterne aus „Einheit bewerten" bleiben klein auf der Kachel sichtbar.
   let html=`<button class="btn btn-sm" style="margin:8px 0" onclick="awAlleDa()">✅ Alle da (dann Fehlende abwählen)</button>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">`;
-  KADER.forEach(k=>{
+  KADER.filter(k=>k.aktiv!==false).forEach(k=>{
     const p=existing[k.name]||{da:false,qual:0};
     html+=`<button class="aw-tile${p.da?" on":""}" onclick="awToggle(this,'${jsq(k.name)}')" data-player="${esc(k.name)}">
       <span class="aw-ok">✓</span>
@@ -1224,13 +1224,25 @@ async function tpPrognoseLoad(){
   const el=document.getElementById("tp-prognose"); if(!el)return;
   if(typeof pauseLoad==="function")await pauseLoad(); // C: Pausen berücksichtigen
   const datum=document.getElementById("tp-date")?.value;
+  /* Inaktive Kinder zaehlten bisher mit: KADER wurde ungefiltert durchlaufen, ein
+     ausgetragenes Kind steuerte seine Quote (oder 0.7) zur Erwartung bei. */
+  const aktive=KADER.filter(k=>k.aktiv!==false);
+  /* Steht die Anwesenheit fuer DIESEN Termin schon fest, ist nichts mehr zu schaetzen.
+     Vorher rechnete die Prognose stur mit historischen Quoten weiter und widersprach
+     damit der Liste, die der Trainer eine Ansicht weiter selbst abgehakt hatte. */
+  const tag=datum?AW_DATA[datum]:null;
+  if(tag&&Object.keys(tag).some(k=>k.charAt(0)!=="_")){
+    const da=aktive.filter(k=>tag[k.name]&&tag[k.name].da===true).length;
+    el.innerHTML=`<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;background:var(--surface2);border:var(--border);border-radius:20px;padding:4px 12px">👥 ${da} Kinder eingetragen <span style="font-weight:400;color:var(--text2)">(Anwesenheit)</span></span>`;
+    return;
+  }
   const dates=Object.keys(AW_DATA); const anyHist=dates.length>0;
   const rate={};
-  KADER.forEach(k=>{ let tot=0,da=0; dates.forEach(d=>{const day=AW_DATA[d]; if(day&&(k.name in day)){tot++; if(day[k.name].da)da++;}}); rate[k.name]=tot?da/tot:0.7; });
+  aktive.forEach(k=>{ let tot=0,da=0; dates.forEach(d=>{const day=AW_DATA[d]; if(day&&(k.name in day)){tot++; if(day[k.name].da)da++;}}); rate[k.name]=tot?da/tot:0.7; });
   let rsvp={};
   if(datum){ try{ const tid=await terminIdForDatum(datum); if(tid){ const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${tid}&select=spieler_id,status`,{headers:sbAuthHeaders()}); if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(x=>rsvp[x.spieler_id]=x.status); } }catch(e){} }
   let exp=0, sure=0;
-  KADER.forEach(k=>{
+  aktive.forEach(k=>{
     if(typeof istPaused==="function"&&istPaused(k.name))return; // pausiert -> zählt 0
     const st=rsvp[k.id];
     if(st==="zugesagt"){exp+=1;sure++;}
