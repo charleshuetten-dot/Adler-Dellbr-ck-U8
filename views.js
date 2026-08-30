@@ -362,7 +362,12 @@ async function loadKader(){
     const rows=await r.json();
     if(rows.length){
       KADER.splice(0,KADER.length,...rows.map(x=>{
-        const o={name:x.name,tw:!!x.tw,twPrio:x.tw_prio||0,_id:x.id,sort_order:x.sort_order};
+        /* `aktiv` fehlte hier. Damit war k.aktiv ueberall undefined und die elf
+           Filter der Form `k.aktiv!==false` liessen JEDES Kind durch – ein aus dem
+           Betrieb genommenes Kind stand weiter in Anwesenheit, Nominierung, Teams
+           und Blitzturnier. Der Kader-Editor schickt `aktiv` nicht mit; bei einem
+           PostgREST-Upsert bleiben nicht mitgeschickte Spalten unangetastet. */
+        const o={name:x.name,tw:!!x.tw,twPrio:x.tw_prio||0,_id:x.id,sort_order:x.sort_order,aktiv:x.aktiv!==false};
         if(x.nr!=null)o.nr=x.nr;
         if(x.geb)o.geb=x.geb;
         if(x.medical)o.medical=x.medical;

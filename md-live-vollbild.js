@@ -15,7 +15,7 @@ function atOnFieldPlayers(){
   if(typeof rotTW!=="undefined"&&rotTW)onField.push(rotTW);
   if(typeof rotField!=="undefined"&&rotField.length)onField.push(...rotField);
   if(onField.length)return onField;
-  return (typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():KADER.map(k=>k.name);
+  return (typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():KADER.filter(k=>k.aktiv!==false).map(k=>k.name);
 }
 let atLiveClockId=null;
 function atLiveOpen(){
