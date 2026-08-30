@@ -1033,7 +1033,11 @@ function _blzSetupHtml(){
   const nChips=(duell?[1,2,3,4]:[2,3,4,5,6]).map(n=>chip(BLZ.anzahl===n,n+(duell?" Kinder-Team"+(n>1?"s":""):" Teams")+(vorschlag&&vorschlag.teams===n?" ✦":""),`blzAnzahl(${n})`)).join("");
   const eChips=[1,2,3,4].map(m=>chip((BLZ.elternAnzahl||1)===m,m+" Eltern-Team"+(m>1?"s":""),`blzElternAnzahl(${m})`)).join("");
   const sfChips=Object.entries(BLZ_SPIELFORM).map(([k,v])=>chip((BLZ.spielform||"frei")===k,v[0],`blzSpielform('${k}')`)).join("");
-  const bChips=[10,15,20,30,40,0].map(b=>chip((BLZ.budget||0)===b,b?b+" Min.":"frei",`blzBudget(${b})`)).join("");
+  /* 25 und 35 ergänzt (PO): die Sprünge 20→30→40 waren für einen Abschluss-Slot zu
+     grob. Die Automatik rechnet sie ohne Zusatzarbeit mit – geprüft über alle 7 Budgets
+     × 5 Teamzahlen × 3 Feldzahlen: die Gesamtdauer bleibt im Budget, und wo es nicht
+     reicht, wird weiterhin ehrlich gesagt, wie viele Minuten fehlen. */
+  const bChips=[10,15,20,25,30,35,40,0].map(b=>chip((BLZ.budget||0)===b,b?b+" Min.":"frei",`blzBudget(${b})`)).join("");
   const fChips=[1,2,3,4].map(f=>chip((BLZ.felder||1)===f,f+(f===1?" Feld":" Felder"),`blzFelder(${f})`)).join("");
   const trainerChips=(typeof TRAINER!=="undefined"&&TRAINER.length)?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px">Trainer spielen mit <span style="font-weight:400;text-transform:none;letter-spacing:0">(landen erst bei den Kindern – antippen schiebt sie weiter${duell?", auch in die Eltern-Teams":""})</span></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${TRAINER.map(t=>`<button onclick="blzTrainerToggle('${jsq(t)}')" style="min-height:44px;padding:6px 12px;border:1px solid var(--rand-bedien);border-radius:18px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;background:${(BLZ.trainer||[]).indexOf(t)>=0?"#d97706":"var(--surface2)"};color:${(BLZ.trainer||[]).indexOf(t)>=0?"#fff":"var(--text2)"}">🧢 ${esc(t)}</button>`).join("")}</div>`:"";
