@@ -613,13 +613,25 @@ function _blzTeamsAufraeumen(){
     blzSave();
   }
 }
+/* Fisher-Yates. Ohne das war „🎲 Neu mischen" wirkungslos: die Verteilung unten ist
+   deterministisch, und bei U9 liefert teamStaerke für alle 0 – also war die Reihenfolge
+   immer die Kader-Reihenfolge und jede Neuverteilung erzeugte exakt dieselben Teams.
+   Der Knopf reagierte, das Ergebnis änderte sich nie. */
+function _blzMischen(liste){
+  const a=liste.slice();
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
 // Ausgewogene Auto-Einteilung: stärkstes Kind ins momentan schwächste Team (wie Spieltag-Einteilung)
 function _blzAuto(n){
   const pool=_blzPool();
   const st=x=>(typeof teamStaerke==="function")?Math.max(0,teamStaerke(x)):0;
   const teams=[];for(let i=0;i<n;i++)teams.push({name:"Adler "+(i+1),spieler:[],fest:false});
   const summe=new Array(n).fill(0);
-  pool.namen.slice().sort((a,b)=>st(b)-st(a)).forEach(name=>{
+  /* Erst mischen, dann nach Stärke sortieren: Array.sort ist stabil, also bleibt die
+     Balance erhalten (stärkstes Kind zuerst) und nur GLEICH starke Kinder landen in
+     wechselnder Reihenfolge – genau das, was „neu mischen" meint. */
+  _blzMischen(pool.namen).sort((a,b)=>st(b)-st(a)).forEach(name=>{
     let ziel=0;for(let t=1;t<n;t++){if(teams[t].spieler.length<teams[ziel].spieler.length||(teams[t].spieler.length===teams[ziel].spieler.length&&summe[t]<summe[ziel]))ziel=t;}
     teams[ziel].spieler.push(name);summe[ziel]+=st(name);
   });
