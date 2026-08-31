@@ -1853,7 +1853,11 @@ async function tpPlanSave(){
   try{
     await fetch(`${SB_URL}/rest/v1/trainingsplan?on_conflict=datum`,{method:"POST",
       headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates,return=minimal'},
-      body:JSON.stringify({datum,plan,updated_at:new Date().toISOString()})});
+      /* `slots` traegt die STRUKTUR der Einheit (welche Phasen, wie lang, was parallel).
+         Ohne sie kam beim zweiten Trainer nur die Uebungsauswahl an, und die Phasen
+         standen wieder auf der Standardvorlage - eine geloeschte Phase oder ein auf
+         45 Minuten verlaengertes Abschlussspiel waren fuer alle anderen unsichtbar. */
+      body:JSON.stringify({datum,plan,slots:tpSlots,updated_at:new Date().toISOString()})});
   }catch(e){/* Plan ist Komfort, kein Muss */}
 }
 async function tpPlanLoad(datum){
@@ -1865,12 +1869,33 @@ async function tpPlanLoad(datum){
     return (rows[0]&&rows[0].plan)||[];
   }catch(e){return [];}
 }
+/* Eigene Funktion statt einer Erweiterung von tpPlanLoad: vier Stellen erwarten dort
+   ein Uebungs-Array (Einheit bewerten, Eltern-Info, Sprachlob, Vorplanung). */
+async function tpSlotsLoad(datum){
+  if(!sbToken())return null;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/trainingsplan?datum=eq.${encodeURIComponent(datum)}&select=slots`,{headers:sbAuthHeaders()});
+    if(sbCheck401(r)||!r.ok)return null;
+    const rows=await r.json();
+    const sl=rows[0]&&rows[0].slots;
+    return (Array.isArray(sl)&&sl.length)?sl:null;   // Altbestand ohne Struktur: null
+  }catch(e){return null;}
+}
 /* Weg B (Bucket-List, jetzt gebaut): den gespeicherten Plan beim Öffnen/Terminwechsel
    wieder in die Übungs-Dropdowns laden. Damit sind Übungen FEST pro Termin vorgemerkt
    und mehrere Einheiten im Voraus planbar. Zuordnung über das Phasen-Label; bei
    Form-Index-Drift (gelöschte eigene Übungen) wird der Eintrag lieber ausgelassen. */
 async function tpPlanRestore(datum){
   datum=datum||document.getElementById("tp-date")?.value; if(!datum)return;
+  /* Reihenfolge ist entscheidend: erst die Phasen herstellen, dann die Uebungen
+     einsetzen. Andersherum gaebe es die Auswahlfelder noch gar nicht, in die sie
+     gehoeren - und die Zuordnung ueber das Phasen-Label ginge ins Leere. */
+  const slots=await tpSlotsLoad(datum);
+  if(slots){
+    tpSlots.length=0;
+    slots.forEach(s=>tpSlots.push({...s}));
+    tpRenderTimeline();
+  }
   const plan=await tpPlanLoad(datum); if(!plan||!plan.length)return;
   const allForms=tpAllForms();
   const sels=[...document.querySelectorAll(".tp-form-sel")];

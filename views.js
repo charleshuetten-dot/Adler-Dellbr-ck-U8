@@ -831,7 +831,12 @@ async function backupExport(){
                 "trainer_poll","trainer_poll_slot","trainer_poll_vote","trainer_poll_thema","trainingsturnier",
                 // Beim Saisonstart wandern die alten Spielerbewertungen hierher. Ohne diese
                 // Zeile enthielte eine Sicherung nach dem Reset nur noch leere Tabellen.
-                "archiv_bewertungen"];
+                "archiv_bewertungen",
+                /* Fehlten hier von Anfang an. Der Trainingsplan haelt seit v447 die ganze
+                   Einheit (Phasen, Dauern, Uebungen) und ist damit die Vorbereitung
+                   mehrerer Wochen - eine Sicherung ohne ihn sichert die Arbeit nicht,
+                   um die es geht. */
+                "trainingsplan","trainingsgruppen"];
   const dump={_meta:{app:"U9 Adler Dellbrück",exported_at:new Date().toISOString(),tables}};
   try{
     for(const t of tables){
