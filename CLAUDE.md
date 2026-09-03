@@ -81,6 +81,7 @@ caches.keys().then(ks => ks.forEach(k => caches.delete(k)));
 3. **Neue Tabellen** in die Backup-Funktion aufnehmen, sonst fehlen sie in der Sicherung.
 4. **Offline-Fallbacks synchron halten.** Inhaltslisten (Vereinbarung, Fairplay-Regeln) leben in der Datenbank *und* als JS-Array. Supabase-URLs sind vom SW-Cache ausgenommen — offline greift immer der Fallback. Eine Änderung ohne die andere führt dazu, dass Eltern ohne Netz eine veraltete Liste sehen.
 5. **Hilfe und Rundgang mitziehen**, wenn Funktionen umziehen oder neu dazukommen.
+6. **`node tests/run.js` vor dem Bump.** Ein Lauf parst alle Dateien, prüft die Ladearchitektur (MODUL_WACHE, Loader, PRECACHE, Wellen) und spielt die bekannten Fallen am echten DOM durch. Erst wenn er grün ist, wird `sw.js` hochgezählt. Ein neuer Fehler bekommt eine neue Datei in `tests/checks/` — mit der Versionsnummer, aus der er stammt.
 
 ## Datenbank
 
@@ -118,3 +119,5 @@ supabase/functions/ Edge Functions (weitere sind nur deployed)
 ## Testen ohne Anmeldedaten
 
 PIN und Passwörter niemals selbst ausfüllen. Prüfbar ist trotzdem viel: Dateien parsen, im Browser die Konsole lesen, per JavaScript prüfen ob erwartete Funktionen existieren, anonym lesbare Ansichten aufrufen (`?turnier=…`, `?heft`, `?quiz`).
+
+Das Prüfwerkzeug in `tests/` macht genau das reproduzierbar: es lädt die echten `trainer/index.html` und `eltern/index.html` in einem Playwright-Chromium, ersetzt Supabase durch eine Attrappe je Prüfung und misst am gerenderten DOM. Kindernamen kennt es nicht — nur „Kind A" bis „Kind O". `npm install` einmalig, dann `node tests/run.js` (Filter als Argument: `node tests/run.js turnier`). Gegenprobe gegen eine alte Fassung: `REPO=/pfad/zur/alten/fassung node tests/run.js`. Näheres in `tests/README.md`.
