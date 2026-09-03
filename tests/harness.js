@@ -89,7 +89,7 @@ async function starten(opt = {}) {
   });
   /* Rauschen der Attrappe, gegen die vorige Fassung als identisch belegt: kein Konto,
      kein Kader vom Server, kein Icon-Font. */
-  const bekannt = /favicon|manifest|404|Failed to load resource|KADER is not defined|setting .className.|unknown error occurred when fetching the script/i;
+  const bekannt = /favicon|manifest|404|Failed to load resource|setting .className.|unknown error occurred when fetching the script/i;
   return {
     browser, ctx, page, gesendet,
     fehler: () => fehler.filter(t => !bekannt.test(t)),

@@ -125,7 +125,7 @@ async function teamStatsLoad(){
   noms.forEach(row=>{
     const basis=String(row.datum).replace(/__t\d+$/,"").replace(/__teams$/,"");
     if(!spieltage.has(basis)||/__teams$/.test(row.datum))return;
-    Object.entries(row.data||{}).forEach(([name,status])=>{
+    Object.entries(kidMapFromIds(row.data||{})).forEach(([name,status])=>{
       if(name==="_ovr"||status!=="dabei")return;
       (gezaehlt[name]=gezaehlt[name]||new Set()).add(basis);
     });
@@ -391,7 +391,7 @@ async function teamsLoad(){
     if(!sbCheck401(r)&&r.ok){
       const rows=await r.json();
       if(rows.length&&rows[0].data){
-        const d={...rows[0].data};
+        const d=kidMapFromIds(rows[0].data);
         if(d._anzahl)TEAM_ANZAHL=d._anzahl;
         if(d._trainer&&typeof d._trainer==="object")TEAM_TRAINER=d._trainer;
         // BEIDE Sonderschluessel raus, sonst haelt die App "_trainer" fuer ein Kind
@@ -415,7 +415,7 @@ async function teamsSpeichern(){
   try{
     await fetch(`${SB_URL}/rest/v1/nominierungen?on_conflict=datum`,{method:"POST",
       headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({datum:teamsKey(),data:{_anzahl:TEAM_ANZAHL,_trainer:TEAM_TRAINER,...TEAMS}})});
+      body:JSON.stringify({datum:teamsKey(),data:kidMapToIds({_anzahl:TEAM_ANZAHL,_trainer:TEAM_TRAINER,...TEAMS})})});
   }catch(e){}
 }
 /* Die Team-Zeilen ("<datum>", "<datum>__t2", …) sind ABGELEITET aus der globalen
@@ -435,7 +435,7 @@ async function teamsZeilenSchreiben(){
   const d=spieltagRawDate(), alle=KADER.map(k=>k.name);
   for(let t=1;t<=TEAM_ANZAHL;t++){
     const key=t>1?`${d}__t${t}`:d;
-    const data={_ovr:alle};
+    const data={_ovr:kidListToIds(alle)};
     alle.forEach(n=>{
       data[n]=(TEAMS[n]===t)?"dabei"
              :(nomStatus[n]==="dabei"&&!TEAMS[n])?"offen":"nicht";
@@ -443,7 +443,7 @@ async function teamsZeilenSchreiben(){
     try{
       const r=await fetch(`${SB_URL}/rest/v1/nominierungen?on_conflict=datum`,{method:"POST",
         headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},
-        body:JSON.stringify({datum:key,data})});
+        body:JSON.stringify({datum:key,data:kidMapToIds(data)})});
       if(!r.ok)return false;
     }catch(e){ return false; }
   }

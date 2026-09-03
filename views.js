@@ -353,11 +353,42 @@ document.addEventListener("click",e=>{
    damit die const-Bindung + alle getKader()/KADER.map()-Aufrufe unveraendert bleiben.
    Anon-Modi (Eltern/Delegate/Quiz) rufen loadKader NIE auf und sehen nie geb/medical.
 ═══════════════════════════════════ */
+/* Globaler Kader – leer bis loadKader() ihn aus der Datenbank fuellt. `var`, damit die
+   Bindung an window haengt (Pruefwerkzeug setzt window.KADER); Welle 1, damit kein
+   Welle-1-Code je ueber „KADER is not defined" stolpert. */
+var KADER=[];
+
+/* ── Kinder am Speicherrand: ID in der Datenbank, Name im Speicher ─────────────
+   Bis v450 standen Kinder in sechs jsonb-Spalten (Anwesenheit, Nominierungen,
+   Trainingsgruppen, Buddy-Listen, Live-Training, Trainingsturnier) mit ihrem NAMEN
+   als Schluessel. Ein umbenanntes Kind verlor damit still seine Historie. Jetzt
+   traegt die Datenbank die kader.id; im Speicher rechnet die App weiter mit Namen,
+   umgesetzt wird nur beim Laden und Speichern. Beide Richtungen lassen Unbekanntes
+   unangetastet: alte Zeilen mit Namen laden weiter, Sonderschluessel (_trainers,
+   _ovr, _anzahl, _trainer) und Trainer-Marken („🧢 Name") bleiben Text. */
+function kidId(name){ const k=KADER.find(x=>x.name===name); return k?(k._id!=null?k._id:(k.id!=null?k.id:null)):null; }
+function kidName(id){ const n=Number(id); const k=KADER.find(x=>(x._id!=null?x._id:x.id)===n); return k?k.name:null; }
+function kidKeyToName(key){
+  const s=String(key);
+  if(s.charAt(0)==="_")return s;
+  if(/^\d+$/.test(s))return kidName(s)||("#"+s);   // unbekannte ID bleibt sichtbar, aber harmlos
+  return s;
+}
+function kidNameToKey(name){
+  const s=String(name);
+  if(s.charAt(0)==="_")return s;
+  const m=s.match(/^#(\d+)$/); if(m)return m[1];
+  const id=kidId(s); return id!=null?String(id):s;     // unbekannter Name bleibt Name
+}
+function kidMapFromIds(obj){ if(!obj||typeof obj!=="object"||Array.isArray(obj))return obj; const out={}; Object.keys(obj).forEach(k=>{out[kidKeyToName(k)]=obj[k];}); return out; }
+function kidMapToIds(obj){ if(!obj||typeof obj!=="object"||Array.isArray(obj))return obj; const out={}; Object.keys(obj).forEach(k=>{out[kidNameToKey(k)]=obj[k];}); return out; }
+function kidListFromIds(arr){ if(!Array.isArray(arr))return arr; return arr.map(x=>(typeof x==="number"||/^\d+$/.test(String(x)))?(kidName(x)||("#"+x)):x); }
+function kidListToIds(arr){ if(!Array.isArray(arr))return arr; return arr.map(x=>{ if(typeof x!=="string")return x; const m=x.match(/^#(\d+)$/); if(m)return Number(m[1]); const id=kidId(x); return id!=null?id:x; }); }
 async function loadKader(){
   try{
     const r=await fetch(`${SB_URL}/rest/v1/kader?select=*&order=sort_order.asc,name.asc`,{headers:sbAuthHeaders()});
     // Bewusst KEIN sbCheck401: laeuft auch im Eltern-/Delegate-Modus (Top-Level-Init).
-    // Ohne Trainer-Token liefert die RLS 401 -> hartkodierter KADER bleibt (name/nr/tw only).
+    // Ohne Trainer-Token liefert die RLS 401 -> KADER bleibt leer.
     if(!r.ok)return;
     const rows=await r.json();
     if(rows.length){
@@ -382,8 +413,8 @@ async function loadKader(){
 }
 /* Ein Kind verlaesst den Verein: bis v448 gab es dafuer NUR den Papierkorb – also
    hartes Loeschen samt Punkten und Freigaben, und der Name blieb trotzdem in
-   Anwesenheit, Nominierung und Trainingsgruppen stehen (die halten Namen als Text,
-   nicht als Verweis). Der Saisonstart-Check forderte derweil „Abgaenge deaktivieren“
+   Anwesenheit, Nominierung und Trainingsgruppen stehen (bis v451 hielten die Namen
+   als Text, seither die kader.id). Der Saisonstart-Check forderte derweil „Abgaenge deaktivieren“
    – fuer etwas, das keinen Schalter hatte. Hier ist er. */
 function kaderAktivToggle(cb){
   const row=cb&&cb.closest(".kader-edit-row"); if(!row)return;
@@ -471,10 +502,11 @@ function kaderEditAdd(){
 }
 async function kaderEditDelete(btn,name,id){
   /* Hartes Loeschen raeumt per CASCADE rund 25 Tabellen ab – darunter gesammelte
-     Punkte und die Foto-Freigabe. Gleichzeitig bleibt der Name in Anwesenheit,
-     Nominierung und Trainingsgruppen stehen, weil die ihn als Text halten. Fuer
-     einen Vereinswechsel ist deshalb fast immer der Haken die richtige Wahl. */
-  if(!confirm(`${name||"Spieler"} ENDGÜLTIG löschen?\n\nDamit verschwinden auch gesammelte Punkte, Foto-Freigabe und Eltern-Zugang. In vergangenen Anwesenheitslisten bleibt der Name trotzdem stehen.\n\nWer den Verein verlässt: besser das Häkchen „Im Kader“ entfernen – dann ist das Kind überall raus und die Historie bleibt heil.`))return;
+     Punkte und die Foto-Freigabe. In Anwesenheit, Nominierung und Trainingsgruppen
+     steht seit v451 die kader.id; ohne Kader-Zeile zeigt die App dort nur noch
+     „#<Nummer>". Fuer einen Vereinswechsel ist deshalb fast immer der Haken die
+     richtige Wahl. */
+  if(!confirm(`${name||"Spieler"} ENDGÜLTIG löschen?\n\nDamit verschwinden auch gesammelte Punkte, Foto-Freigabe und Eltern-Zugang. In vergangenen Anwesenheitslisten bleibt nur noch eine Nummer statt des Namens.\n\nWer den Verein verlässt: besser das Häkchen „Im Kader“ entfernen – dann ist das Kind überall raus und die Historie bleibt heil.`))return;
   if(id){
     try{const r=await fetch(`${SB_URL}/rest/v1/kader?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
   }
@@ -813,7 +845,9 @@ async function kaderSaveAll(btn){
     const medical=row.querySelector(".ke-medical").value.trim();
     const fuss=row.querySelector(".ke-fuss")?.value||"";
     const pos=row.querySelector(".ke-pos")?.value.trim()||"";
+    const id=parseInt(row.dataset.id)||null;      // bestehende Zeile: ID mitschicken
     payload.push({
+      ...(id?{id}:{}),
       name, nr:nrV!==""?parseInt(nrV):null,
       tw:row.querySelector(".ke-tw").checked,
       tw_prio:parseInt(row.querySelector(".ke-prio").value)||0,
@@ -828,8 +862,13 @@ async function kaderSaveAll(btn){
   if(!payload.length){toast("Kein Spieler eingetragen","err");return;}
   if(btn)btn.disabled=true;
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/kader?on_conflict=name`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(payload)});
+    /* on_conflict=id statt name: mit dem Namen als Schluessel legte eine Umbenennung
+       eine ZWEITE Zeile mit neuer ID an, an der alten hingen Punkte, Pausen und
+       Rueckmeldungen weiter. Jetzt ist Umbenennen eine normale Aenderung; die
+       namens-gefuehrten Texttabellen zieht ein Trigger in der Datenbank nach. */
+    const r=await fetch(`${SB_URL}/rest/v1/kader?on_conflict=id`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(payload)});
     if(sbCheck401(r)){return;}
+    if(r.status===409){toast("Name schon vergeben – jedes Kind braucht einen eigenen","err");return;}
     if(r.ok||r.status===201){
       await loadKader();
       renderKader();
@@ -1524,7 +1563,7 @@ async function entwicklungsReport(){
   const staerken=badges.slice(0,3).map(b=>`<span style="display:inline-block;background:#eef2ff;color:#3730a3;border-radius:14px;padding:3px 10px;font-size:12px;margin:2px 4px 2px 0">${b.icon} ${esc(b.label)}</span>`).join("")||"—";
   // Anwesenheit
   let trP=0,trT=0; try{Object.keys(AW_DATA||{}).forEach(d=>{const e=(AW_DATA[d]||{})[name];if(e&&typeof e.da==="boolean"){trT++;if(e.da)trP++;}});}catch(e){}
-  let gmP=0,gmT=0; try{const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data`,{headers:sbAuthHeaders()});if(r.ok)(await r.json()).forEach(row=>{const s=(row.data||{})[name];if(s==="dabei"||s==="nicht"||s==="verletzt"){gmT++;if(s==="dabei")gmP++;}});}catch(e){}
+  let gmP=0,gmT=0; try{const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data`,{headers:sbAuthHeaders()});if(r.ok)(await r.json()).forEach(row=>{const s=kidMapFromIds(row.data||{})[name];if(s==="dabei"||s==="nicht"||s==="verletzt"){gmT++;if(s==="dabei")gmP++;}});}catch(e){}
   const q=(p,t)=>t?Math.round(p/t*100)+"% ("+p+"/"+t+")":"—";
   // Aktuelle Ziele
   let goals=[]; if(k.id){try{const r=await fetch(`${SB_URL}/rest/v1/entwicklungsziele?spieler_id=eq.${k.id}&status=eq.offen&select=ziel&order=created_at.desc`,{headers:sbAuthHeaders()});if(r.ok)goals=(await r.json()).map(z=>z.ziel).filter(Boolean);}catch(e){}}
@@ -1937,11 +1976,11 @@ async function adlerCardStats(name){
   }catch(e){}
   try{
     const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data`,{headers:sbAuthHeaders()});
-    if(r.ok){out.spiele=(await r.json()).filter(x=>x.data&&x.data[name]==="dabei").length;}
+    if(r.ok){out.spiele=(await r.json()).filter(x=>x.data&&kidMapFromIds(x.data)[name]==="dabei").length;}
   }catch(e){}
   try{
     const r=await fetch(`${SB_URL}/rest/v1/anwesenheit?select=data`,{headers:sbAuthHeaders()});
-    if(r.ok){out.trainings=(await r.json()).filter(x=>x.data&&x.data[name]&&x.data[name].da===true).length;}
+    if(r.ok){out.trainings=(await r.json()).filter(x=>{const d=x.data&&kidMapFromIds(x.data);return d&&d[name]&&d[name].da===true;}).length;}
   }catch(e){}
   try{ // Quiz-Fortschritt ist seit v201 nur noch für Angemeldete lesbar (vorher: Anon-Key)
     const r=await fetch(`${SB_URL}/rest/v1/quiz_progress?player=eq.${enc}&select=score,block`,{headers:sbAuthHeaders()});
@@ -2765,7 +2804,7 @@ async function anwesenheitQuoteInto(el){
   // Training: AW_DATA[datum][name].da (true=da, false=gefehlt); ohne Eintrag = unbekannt
   try{Object.keys(AW_DATA||{}).forEach(d=>{const day=AW_DATA[d]||{};active.forEach(k=>{const e=day[k.name];if(e&&typeof e.da==="boolean"){tr[k.name].t++;if(e.da)tr[k.name].p++;}});});}catch(e){}
   // Spiele/Turniere: nominierungen.data[name] = dabei/nicht/verletzt
-  try{const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data&datum=gte.${ab}`,{headers:sbAuthHeaders()});if(r.ok){(await r.json()).forEach(row=>{const data=row.data||{};active.forEach(k=>{const s=data[k.name];if(s&&(s==="dabei"||s==="nicht"||s==="verletzt")){gm[k.name].t++;if(s==="dabei")gm[k.name].p++;}});});}}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data&datum=gte.${ab}`,{headers:sbAuthHeaders()});if(r.ok){(await r.json()).forEach(row=>{const data=kidMapFromIds(row.data||{});active.forEach(k=>{const s=data[k.name];if(s&&(s==="dabei"||s==="nicht"||s==="verletzt")){gm[k.name].t++;if(s==="dabei")gm[k.name].p++;}});});}}catch(e){}
   const pct=(o)=>o.t?Math.round(o.p/o.t*100):null;
   const col=(p)=>p==null?"var(--text3)":p>=75?"var(--green)":p>=50?"var(--amber)":"var(--red)";
   const cell=(o)=>{const p=pct(o);return `<span style="font-weight:700;color:${col(p)}">${p==null?"–":p+"%"}</span> <span style="color:var(--text3);font-size:10px">${o.t?`(${o.p}/${o.t})`:""}</span>`;};
@@ -3214,7 +3253,7 @@ async function saisonCockpitOpen(){
   const att={}, einsatz={}; active.forEach(k=>{att[k.name]={p:0,t:0};einsatz[k.name]=0;});
   let trainings=0;
   try{Object.keys(AW_DATA||{}).forEach(d=>{trainings++;const day=AW_DATA[d]||{};active.forEach(k=>{const e=day[k.name];if(e&&typeof e.da==="boolean"){att[k.name].t++;if(e.da)att[k.name].p++;}});});}catch(e){}
-  try{const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data&datum=gte.${ab}`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(row=>{const data=row.data||{};active.forEach(k=>{const s=data[k.name];if(s==="dabei"||s==="nicht"||s==="verletzt"){att[k.name].t++;if(s==="dabei"){att[k.name].p++;einsatz[k.name]++;}}});});}catch(e){}
+  try{const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data&datum=gte.${ab}`,{headers:sbAuthHeaders()});if(!sbCheck401(r)&&r.ok)(await r.json()).forEach(row=>{const data=kidMapFromIds(row.data||{});active.forEach(k=>{const s=data[k.name];if(s==="dabei"||s==="nicht"||s==="verletzt"){att[k.name].t++;if(s==="dabei"){att[k.name].p++;einsatz[k.name]++;}}});});}catch(e){}
   // G2: Eltern-Puls-Saisontrend (anonym, via RPC – keine user_ids)
   let puls=null;
   try{const r=await fetch(`${SB_URL}/rest/v1/rpc/puls_season`,{method:"POST",headers:{...sbAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_from:ab})});if(!sbCheck401(r)&&r.ok)puls=await r.json();}catch(e){}

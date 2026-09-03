@@ -216,7 +216,7 @@ function atRender(){
     <button onclick="atLiveOpen()" style="width:100%;min-height:64px;margin-bottom:10px;border:none;border-radius:14px;background:linear-gradient(135deg,#0ea5e9,#2563eb);color:#fff;font-size:17px;font-weight:800;font-family:inherit;cursor:pointer">⚡ Live-Aktion starten (Vollbild)</button>
     ${voiceSupported?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <button id="voice-btn" class="btn btn-sm" onclick="voiceToggle()"><i class="ti ti-microphone"></i>Voice<span style="font-size:9px;background:#f59e0b;color:#fff;padding:1px 5px;border-radius:8px;margin-left:5px">Beta</span></button>
-      <span style="font-size:10px;color:var(--text3);flex:1;min-width:140px">Sag z. B. „Pass Leon" – du bestätigst vor dem Senden. Braucht Netz &amp; Ruhe.</span>
+      <span style="font-size:10px;color:var(--text3);flex:1;min-width:140px">Sag z. B. „Pass“ und den Namen – du bestätigst vor dem Senden. Braucht Netz &amp; Ruhe.</span>
     </div>`:''}
     <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:2px">Alle Aktionen – Pässe, Dribblings, Ballgewinne, Paraden, Tore &amp; Gegentore – erfasst du im Vollbild. Ein Elternteil kann per <b>Helfer-Link</b> übernehmen.</div>`;
 }

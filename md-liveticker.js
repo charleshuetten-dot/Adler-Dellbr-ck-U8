@@ -18,7 +18,7 @@ const TICKER_PHRASES={
   kapitaen:["©️ {name} führt die Adler heute als Kapitän aufs Feld!","©️ Heute trägt {name} die Kapitänsbinde – viel Erfolg!","©️ {name} ist heute unser Kapitän!"]
 };
 /* Der Ticker ist über ?ticker=<datum> OHNE Login lesbar, solange der Trainer ihn offen
-   hat. Deshalb wandert nur „Vorname + Initial" in den gespeicherten Text (Mika S.) –
+   hat. Deshalb wandert nur „Vorname + Initial" in den gespeicherten Text („Vorname S.") –
    dieselbe Linie wie im Stadionheft. Volle Namen stehen weiter im internen Spielbericht. */
 function tickerKurzName(name){
   const t=String(name||"").trim(); if(!t)return "";
