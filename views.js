@@ -380,15 +380,29 @@ async function loadKader(){
     }
   }catch(e){}
 }
-// Kader-Verwaltung: Modal mit editierbaren Zeilen (name/nr/tw/twPrio/geb/medical).
+/* Ein Kind verlaesst den Verein: bis v448 gab es dafuer NUR den Papierkorb – also
+   hartes Loeschen samt Punkten und Freigaben, und der Name blieb trotzdem in
+   Anwesenheit, Nominierung und Trainingsgruppen stehen (die halten Namen als Text,
+   nicht als Verweis). Der Saisonstart-Check forderte derweil „Abgaenge deaktivieren“
+   – fuer etwas, das keinen Schalter hatte. Hier ist er. */
+function kaderAktivToggle(cb){
+  const row=cb&&cb.closest(".kader-edit-row"); if(!row)return;
+  row.style.opacity=cb.checked?"":"0.62";
+  const hin=row.querySelector(".ke-raus-hinweis");
+  if(hin)hin.style.display=cb.checked?"none":"";
+}
+// Kader-Verwaltung: Modal mit editierbaren Zeilen (name/nr/tw/twPrio/geb/medical/aktiv).
 function kaderEditRow(k,i){
-  return `<div class="kader-edit-row" data-id="${k._id||''}" style="border:var(--border-s);border-radius:var(--r);padding:8px;margin-bottom:8px">
+  const drin=k.aktiv!==false;
+  return `<div class="kader-edit-row" data-id="${k._id||''}" style="border:var(--border-s);border-radius:var(--r);padding:8px;margin-bottom:8px${drin?"":";opacity:0.62"}">
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
       <input class="ke-name" value="${esc(k.name||'')}" placeholder="Name" style="flex:1;min-width:80px;padding:7px;border:1px solid var(--rand-bedien);border-radius:6px;font-family:inherit">
       <input class="ke-nr" type="number" value="${k.nr!=null?k.nr:''}" placeholder="Nr" style="width:56px;padding:7px;border:1px solid var(--rand-bedien);border-radius:6px;font-family:inherit">
       <button onclick="kaderEditDelete(this,'${esc(k.name||'')}','${k._id||''}')" aria-label="Spieler aus dem Kader entfernen" title="Spieler entfernen" style="flex:none;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid var(--red);border-radius:10px;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:16px"><i class="ti ti-trash"></i></button>
     </div>
+    <div class="ke-raus-hinweis" style="font-size:11px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:5px 8px;margin-bottom:6px;line-height:1.4${drin?";display:none":""}">Nicht mehr im Kader – taucht in Anwesenheit, Nominierung, Aufstellung und Turnier nicht mehr auf. Alles Bisherige bleibt gespeichert.</div>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+      <label style="font-size:12px;display:flex;align-items:center;gap:4px" title="Häkchen weg = nicht mehr im Kader. Verschwindet aus Anwesenheit, Nominierung, Aufstellung und Turnier – die Historie bleibt erhalten."><input class="ke-aktiv" type="checkbox" ${drin?"checked":""} onchange="kaderAktivToggle(this)">👥 Im Kader</label>
       <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input class="ke-tw" type="checkbox" ${k.tw?"checked":""}>🥅 TW</label>
       <select class="ke-prio" style="padding:6px;border:1px solid var(--rand-bedien);border-radius:6px;font-family:inherit;font-size:12px">
         <option value="0"${(k.twPrio||0)===0?" selected":""}>kein TW</option>
@@ -442,7 +456,7 @@ function kaderEditOpen(){
   modal.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:440px;width:100%;margin:auto">
     <div style="font-weight:700;margin-bottom:4px">Spieler verwalten</div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Geburtstag & Medical-Hinweise sind nur für Trainer sichtbar (nicht für Eltern).</div>
-    <div id="kader-edit-list">${KADER.map((k,i)=>kaderEditRow(k,i)).join("")}</div>
+    <div id="kader-edit-list">${KADER.slice().sort((a,b)=>((a.aktiv===false)-(b.aktiv===false))).map((k,i)=>kaderEditRow(k,i)).join("")}</div>
     <button class="btn btn-sm" onclick="kaderEditAdd()" style="margin-bottom:12px"><i class="ti ti-plus"></i>Spieler hinzufügen</button>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-p" onclick="kaderSaveAll(this)"><i class="ti ti-device-floppy"></i>Speichern</button>
@@ -456,7 +470,11 @@ function kaderEditAdd(){
   if(list)list.insertAdjacentHTML("beforeend",kaderEditRow({name:"",tw:false,twPrio:0},KADER.length));
 }
 async function kaderEditDelete(btn,name,id){
-  if(!confirm(`${name||"Spieler"} aus dem Kader entfernen?`))return;
+  /* Hartes Loeschen raeumt per CASCADE rund 25 Tabellen ab – darunter gesammelte
+     Punkte und die Foto-Freigabe. Gleichzeitig bleibt der Name in Anwesenheit,
+     Nominierung und Trainingsgruppen stehen, weil die ihn als Text halten. Fuer
+     einen Vereinswechsel ist deshalb fast immer der Haken die richtige Wahl. */
+  if(!confirm(`${name||"Spieler"} ENDGÜLTIG löschen?\n\nDamit verschwinden auch gesammelte Punkte, Foto-Freigabe und Eltern-Zugang. In vergangenen Anwesenheitslisten bleibt der Name trotzdem stehen.\n\nWer den Verein verlässt: besser das Häkchen „Im Kader“ entfernen – dann ist das Kind überall raus und die Historie bleibt heil.`))return;
   if(id){
     try{const r=await fetch(`${SB_URL}/rest/v1/kader?id=eq.${id}`,{method:"DELETE",headers:sbAuthHeaders()});if(sbCheck401(r))return;}catch(e){}
   }
@@ -801,6 +819,9 @@ async function kaderSaveAll(btn){
       tw_prio:parseInt(row.querySelector(".ke-prio").value)||0,
       geb:geb||null, medical:medical||null,
       starker_fuss:fuss||null, lieblingsposition:pos||null, sort_order:i+1,
+      // Ohne diese Zeile bliebe der Haken wirkungslos: PostgREST setzt beim Upsert nur
+      // die mitgeschickten Spalten, `aktiv` waere also nie beschrieben worden.
+      aktiv:row.querySelector(".ke-aktiv")?.checked!==false,
       foto_stadionheft_ok:row.querySelector(".ke-fotook")?.checked||false // HOTFIX 19 digital: Foto-Freigabe
     });
   });
