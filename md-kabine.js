@@ -1500,26 +1500,9 @@ function elternPortalTrainerNotice(root){
   </div>`;
 }
 
-// Kader: tw = hat TW-Option, twPrio = TW-Priorität (1=primär, 2=zweite Option)
-// nr = Trikotnummer (ohne nr = wird nicht angezeigt)
-// TODO Charles: Nummern für Kolja, Azem, Lukas, Matteo, Piet, Samu, Tom nachtragen
-const KADER=[
-  {name:"Hugo",   tw:true,  twPrio:2, nr:5},
-  {name:"Mika",   tw:false, twPrio:0, nr:6},
-  {name:"Kolja",  tw:true,  twPrio:2},
-  {name:"Leon",   tw:false, twPrio:0, nr:8},
-  {name:"Azem",   tw:false, twPrio:0},
-  {name:"Sevan",  tw:false, twPrio:0, nr:10},
-  {name:"Lukas",  tw:true,  twPrio:1},
-  {name:"Matteo", tw:false, twPrio:0},
-  {name:"Piet",   tw:false, twPrio:0},
-  {name:"Jonas",  tw:false, twPrio:0, nr:16},
-  {name:"Leif",   tw:false, twPrio:0, nr:15},
-  {name:"Samu",   tw:false, twPrio:0},
-  {name:"Jari",   tw:false, twPrio:0, nr:9},
-  {name:"Tom",    tw:false, twPrio:0},
-  {name:"Fabio",  tw:false, twPrio:0, nr:2}
-];
+/* Der Kader kommt ausschliesslich aus der Datenbank (loadKader in views.js, Welle 1).
+   Bis v449 stand hier eine feste Liste mit echten Vornamen als Startwert – in einem
+   oeffentlichen Repo. Die Liste wurde beim Laden ohnehin komplett ersetzt. */
 
 // D2: Trainerliste speist Select + beide Checkbox-Leisten.
 // TRAINER steht seit v386 in data.js (Welle 1) – hier NICHT erneut definieren,

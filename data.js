@@ -157,7 +157,7 @@ const DIMS_FELD=[
 ];
 
 /* ═══ KRITERIEN TORWART (DIMS_TW) ═══ */
-/* TW-Kriterien (für Lukas, Hugo, Kolja als Erweiterung) */
+/* TW-Kriterien (Erweiterung für Kinder mit Torwart-Option) */
 const DIMS_TW=[
 {id:'tw_tech',label:'TW-Technik & Aktion',icon:'ti-hand-stop',col:'#854d0e',w:0.55,
  tier:[
@@ -3468,7 +3468,7 @@ coaching:'Konzentration ist ein Muskel – man kann sie trainieren!\nWenn du abg
   kurz:'Abschlussritual: Jedes Kind nennt eine Sache, die einem MITSPIELER heute gut gelungen ist.',
   spieler:'alle',feld:'Abschlusskreis',dauer:'5',
   spass:4,diff:1,
-  ablauf:'Zum Trainingsende Kreis bilden. Reihum nennt jedes Kind EINE Sache, die einem Mitspieler (nicht sich selbst!) heute gut gelungen ist – konkret ("Piet hat mir zweimal super aufgelegt"), nicht allgemein ("alle waren gut").\n\nDer Trainer beginnt und macht die Konkretheit vor. Wer nicht mag, darf passen – meist mag nach zwei Wochen niemand mehr passen.\n\nHintergrund: "Three Good Things" aus der Positiven Psychologie (Seligman), auf Team-Ebene gedreht: schult Wahrnehmung der Mitspieler, baut Sozialklima und Selbstvertrauen der Genannten auf.',
+  ablauf:'Zum Trainingsende Kreis bilden. Reihum nennt jedes Kind EINE Sache, die einem Mitspieler (nicht sich selbst!) heute gut gelungen ist – konkret ("Du hast mir zweimal super aufgelegt"), nicht allgemein ("alle waren gut").\n\nDer Trainer beginnt und macht die Konkretheit vor. Wer nicht mag, darf passen – meist mag nach zwei Wochen niemand mehr passen.\n\nHintergrund: "Three Good Things" aus der Positiven Psychologie (Seligman), auf Team-Ebene gedreht: schult Wahrnehmung der Mitspieler, baut Sozialklima und Selbstvertrauen der Genannten auf.',
   varianten:'- Trainer notiert die Nennungen in der App (Team-Pinnwand) – über die Saison entsteht ein Stärken-Archiv\n- Themen-Kreis: heute nur Dinge OHNE Ball (Laufen, Anfeuern, Helfen)\n- Eltern-Version beim Saisonabschluss',
   coaching:'Konkret einfordern: Was genau? Wann genau?\nDarauf achten, dass über Wochen JEDES Kind mehrfach genannt wird – stille Kinder ggf. selbst nennen\nKurz halten – 5 Minuten, kein Stuhlkreis-Marathon',
   svg:'',tags:['mindset']
@@ -3501,7 +3501,7 @@ coaching:'Konzentration ist ein Muskel – man kann sie trainieren!\nWenn du abg
   kurz:'Mutige VERSUCHE zählen doppelt so viel wie Tore: Finten und schwacher Fuß bringen 2 Punkte – egal ob sie klappen.',
   spieler:'6–12',feld:'20×15m',dauer:'10–12',
   spass:5,diff:1,
-  ablauf:'Normale Spielform 3gg3 auf Minitore – aber die Punktwertung wird umgedreht: 1 Punkt für jedes Tor, 2 Punkte für jeden VERSUCH einer Finte im 1gg1 (egal ob sie klappt), 2 Punkte für jeden Abschluss mit dem schwachen Fuß (egal ob Tor). Bei mehr als 6 Kindern ein zweites Feld aufbauen oder 4gg4 mit gleicher Wertung spielen.\n\nDer Trainer ruft die Bonus-Punkte laut aus ("Zwei Punkte – mutige Finte von Mika!").\n\nHintergrund: Fehlerkultur & implizites Lernen (Horst Wein) – kreative Lösungen entstehen nur, wenn Fehler nichts kosten. Die Wertung macht Mut messbar und sichtbar.',
+  ablauf:'Normale Spielform 3gg3 auf Minitore – aber die Punktwertung wird umgedreht: 1 Punkt für jedes Tor, 2 Punkte für jeden VERSUCH einer Finte im 1gg1 (egal ob sie klappt), 2 Punkte für jeden Abschluss mit dem schwachen Fuß (egal ob Tor). Bei mehr als 6 Kindern ein zweites Feld aufbauen oder 4gg4 mit gleicher Wertung spielen.\n\nDer Trainer ruft die Bonus-Punkte laut aus ("Zwei Punkte – mutige Finte!").\n\nHintergrund: Fehlerkultur & implizites Lernen (Horst Wein) – kreative Lösungen entstehen nur, wenn Fehler nichts kosten. Die Wertung macht Mut messbar und sichtbar.',
   varianten:'- Bonus-Aktion der Woche wechseln (Übersteiger, Ausguck vor Ballannahme, Steilpass)\n- Kinder schlagen selbst vor, was heute Bonuspunkte gibt\n- "Straßenkicker-Modus": nur Tore nach Finte zählen',
   coaching:'Versuche wirklich lauter feiern als Tore\nNie eine misslungene Finte korrigieren – nur den Mut loben, Technik separat üben\nVerbindung zum Profil: zahlt direkt auf Dribbling & Selbstvertrauen ein',
   svg:'',tags:['mindset']
@@ -3512,7 +3512,7 @@ coaching:'Konzentration ist ein Muskel – man kann sie trainieren!\nWenn du abg
   kurz:'Kinder kommentieren die eigene Aktion laut und positiv. Positives Selbstgespräch spielerisch verankern.',
   spieler:'4–13',feld:'Dribbelparcours',dauer:'6–8',
   spass:4,diff:1,
-  ablauf:'Dribbelparcours (Slalom, Wende, Torschuss). Regel: Jedes Kind kommentiert seinen eigenen Lauf laut wie ein TV-Kommentator – aber nur POSITIV ("Und Jonas zieht am ersten Hütchen vorbei... was für ein Tempo... er schießt... KNAPP daneben, aber was für ein Versuch!").\n\nDer Trainer macht einen übertriebenen Beispiel-Lauf vor. Lachen ist ausdrücklich erwünscht.\n\nHintergrund: Positives Selbstgespräch (Self-Talk) aus dem sportpsychologischen Fertigkeitstraining – über die Kommentator-Rolle kindgerecht und ohne Peinlichkeit eingeführt.',
+  ablauf:'Dribbelparcours (Slalom, Wende, Torschuss). Regel: Jedes Kind kommentiert seinen eigenen Lauf laut wie ein TV-Kommentator – aber nur POSITIV ("Und er zieht am ersten Hütchen vorbei... was für ein Tempo... er schießt... KNAPP daneben, aber was für ein Versuch!").\n\nDer Trainer macht einen übertriebenen Beispiel-Lauf vor. Lachen ist ausdrücklich erwünscht.\n\nHintergrund: Positives Selbstgespräch (Self-Talk) aus dem sportpsychologischen Fertigkeitstraining – über die Kommentator-Rolle kindgerecht und ohne Peinlichkeit eingeführt.',
   varianten:'- Partner-Kommentator: Kinder kommentieren sich gegenseitig (nur positiv!)\n- Flüster-Modus: Selbstgespräch nur noch leise für sich – Transfer Richtung Spiel\n- "Ich schaff das"-Satz vor schwierigen Stationen fest einbauen',
   coaching:'Negative Selbstkommentare sofort spielerisch umdrehen lassen\nZiel benennen: "Was du dir selbst sagst, hören deine Beine mit"\nTransfer ansprechen: den Satz auch im Spiel vor einem Elfer nutzen',
   svg:'',tags:['mindset']
@@ -3558,7 +3558,7 @@ coaching:'Konzentration ist ein Muskel – man kann sie trainieren!\nWenn du abg
   kurz:'Torschussspiel mit rotierendem Torwart – alle Kinder sammeln TW-Erfahrung (DFB-Empfehlung F-Jugend).',
   spieler:'6–13',feld:'Strafraum + 1 Jugendtor',dauer:'10–12',
   spass:5,diff:1,
-  ablauf:'Torschusswettbewerb, bei dem JEDES Kind reihum 4–5 Schüsse lang im Tor steht (Handschuhe/Leibchen wandern mit). Schützen dribbeln vom Mittelhütchen an und schließen ab; der TW sammelt Punkte für jede Parade, die Schützen für Tore.\n\nDer DFB empfiehlt für die F-Jugend ausdrücklich, dass alle Kinder Feld- UND Torwarterfahrung sammeln – die Rotation gehört fest ins Training, nicht nur Lukas, Hugo und Kolja ins Tor.',
+  ablauf:'Torschusswettbewerb, bei dem JEDES Kind reihum 4–5 Schüsse lang im Tor steht (Handschuhe/Leibchen wandern mit). Schützen dribbeln vom Mittelhütchen an und schließen ab; der TW sammelt Punkte für jede Parade, die Schützen für Tore.\n\nDer DFB empfiehlt für die F-Jugend ausdrücklich, dass alle Kinder Feld- UND Torwarterfahrung sammeln – die Rotation gehört fest ins Training, nicht nur die üblichen zwei, drei Kinder ins Tor.',
   varianten:'- TW darf nach Parade sofort per Abwurf einen Konter auf ein Minitor einleiten (Aufbau-Basics nebenbei)\n- Zwei Tore, zwei rotierende TW, zwei Gruppen – doppelte Schussfrequenz\n- "TW-Punkte zählen doppelt"-Runde: macht die TW-Rolle attraktiv',
   coaching:'W-Haltung und Korb aus den Basics einfordern – kurze Erinnerung pro Kind\nParaden genauso laut feiern wie Tore\nBeobachten: Wem macht das Tor Spaß? (Kandidaten für die TW-Rotation)',
   svg:'',tags:['torwart']
@@ -3701,7 +3701,7 @@ tf096:{s:[[140,50,'g'],[175,62,'g'],[190,92,'g'],[175,122,'g'],[140,134,'g'],[10
 tf097:{s:[[140,58,'g','C'],[80,120,'g'],[110,132,'g'],[140,138,'g'],[170,132,'g'],[200,120,'g']],tx:[[140,35,'Kapitän des Tages'],[140,165,'sagt das Aufwärmen an – JEDES Kind kommt dran']]},
 tf098:{tor:[[120,163,'h',40]],s:[[140,152,'b','TW'],[140,80,'g','S'],[62,166,'g'],[84,171,'g'],[196,171,'g'],[218,166,'g']],b:[[140,105]],p:[[140,110,132,158,'s']],tx:[[140,30,'Publikum zählt: 5 – 4 – 3 – 2 – 1'],[140,60,'danach jubeln IMMER alle']]},
 tf099:{tor:[[14,78,'v',24],[259,78,'v',24]],s:[[80,60,'g'],[110,110,'g'],[85,140,'g'],[200,60,'r'],[170,110,'r'],[195,140,'r']],b:[[118,102]],p:[[118,104,155,95,'d']],tx:[[140,30,'Finte versucht = 2 Punkte · schwacher Fuß = 2 Punkte'],[140,165,'Mut zählt – egal ob es klappt']]},
-tf100:{tor:[[216,163,'h',40]],h:[[60,90],[100,110],[140,90]],s:[[28,105,'g','J']],b:[[36,112]],p:[[36,100,57,94,'d'],[66,96,97,104,'d'],[106,104,137,96,'d'],[147,96,228,158,'s']],tx:[[140,30,'Und Jonas zieht vorbei … was für ein Tempo!'],[140,172,'den eigenen Lauf laut und POSITIV kommentieren']]},
+tf100:{tor:[[216,163,'h',40]],h:[[60,90],[100,110],[140,90]],s:[[28,105,'g','J']],b:[[36,112]],p:[[36,100,57,94,'d'],[66,96,97,104,'d'],[106,104,137,96,'d'],[147,96,228,158,'s']],tx:[[140,30,'Und er zieht vorbei … was für ein Tempo!'],[140,172,'den eigenen Lauf laut und POSITIV kommentieren']]},
 tf101:{s:[[140,45,'w','T'],[140,120,'b','TW']],b:[[150,54]],p:[[133,52,128,88,'p'],[147,54,158,105,'p']],tx:[[85,75,'hoch = W-Griff'],[205,95,'flach = Korb'],[140,165,'aus 3–4 m zuwerfen – Ball vor dem Gesicht fangen']]},
 tf102:{h:[[140,92],[140,42],[192,92],[140,142],[88,92]],s:[[122,108,'b','TW']],p:[[140,84,140,52,'l'],[148,92,184,92,'l'],[140,100,140,134,'l'],[132,92,96,92,'l']],tx:[[140,25,'Sidesteps zum gezeigten Hütchen – nicht überkreuzen'],[140,168,'antippen, zurück zur Mitte, Grundstellung']]},
 tf103:{z:[[85,55,110,75]],s:[[140,85,'b','TW'],[48,130,'w','T']],b:[[58,137]],p:[[125,95,160,115,'d'],[56,128,105,112,'p']],tx:[[140,40,'weicher Boden / Matte'],[140,165,'Purzelbaum · rollen · erstes Hechten']]},

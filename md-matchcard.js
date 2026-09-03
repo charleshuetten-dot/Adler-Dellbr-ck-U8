@@ -709,7 +709,7 @@ async function rotPersistTimes(){
 /* PO v399: „wenn ich den Wechsel timer resete dann sollten auch die Spielzeiten der
    Spieler reseten oder?" – ja. Vorher wurden nur der Zähler und die BANK-Zeiten
    genullt, die Feldzeiten liefen weiter: nach dem Reset stand 4:00 auf der Uhr und
-   2:54 neben Piet. Ein halber Reset ist schlimmer als keiner, weil man ihm nicht
+   2:54 neben einem Kind. Ein halber Reset ist schlimmer als keiner, weil man ihm nicht
    ansieht, was er stehen gelassen hat.
    Weil das die erfassten Einsatzzeiten dieses Spiels verwirft, wird gefragt – und die
    Nullen werden auch gespeichert, sonst käme die alte Zahl beim nächsten Laden zurück. */

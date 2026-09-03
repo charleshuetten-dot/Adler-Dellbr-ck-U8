@@ -353,6 +353,10 @@ document.addEventListener("click",e=>{
    damit die const-Bindung + alle getKader()/KADER.map()-Aufrufe unveraendert bleiben.
    Anon-Modi (Eltern/Delegate/Quiz) rufen loadKader NIE auf und sehen nie geb/medical.
 ═══════════════════════════════════ */
+/* Globaler Kader – leer bis loadKader() ihn aus der Datenbank fuellt. `var`, damit die
+   Bindung an window haengt (Pruefwerkzeug setzt window.KADER); Welle 1, damit kein
+   Welle-1-Code je ueber „KADER is not defined" stolpert. */
+var KADER=[];
 async function loadKader(){
   try{
     const r=await fetch(`${SB_URL}/rest/v1/kader?select=*&order=sort_order.asc,name.asc`,{headers:sbAuthHeaders()});

@@ -80,7 +80,7 @@ async function fundbueroUpload(btn){
   finally{if(btn)btn.disabled=false;}
 }
 async function fundbueroClaim(id){
-  const label=(prompt("Wem gehört es? (z. B. Familie Mika)","")||"").trim();
+  const label=(prompt("Wem gehört es? (z. B. Familie Müller)","")||"").trim();
   if(!label)return;
   try{
     const r=await fetch(`${SB_URL}/rest/v1/rpc/fundbuero_claim`,{method:"POST",headers:sbAuthHeaders(),body:JSON.stringify({p_id:id,p_label:label})});

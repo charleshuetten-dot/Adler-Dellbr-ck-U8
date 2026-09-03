@@ -342,8 +342,8 @@ function tqSpeak(btn){
 
 function tqPersonalize(text){
   if(!tqPlayer)return text;
-  // J2: dir/Dir/dich NICHT ersetzen ("Merke es dir" darf nicht zu "Merke es Hugo" werden)
-  // du/Du NICHT ersetzen: Verb bliebe unkonjugiert ("Wie nimmst du" -> "Wie nimmst Hugo" ist falsch,
+  // J2: dir/Dir/dich NICHT ersetzen ("Merke es dir" darf nicht zu "Merke es <Name>" werden)
+  // du/Du NICHT ersetzen: Verb bliebe unkonjugiert ("Wie nimmst du" -> "Wie nimmst <Name>" ist falsch,
   // korrekt wäre "nimmt"). "Dein" -> Name+"s" bleibt, das ist als Possessiv grammatisch unproblematisch.
   return text.replace(/\bDein\b/g,tqPlayer+"s");
 }
