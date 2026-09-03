@@ -962,6 +962,38 @@ async function terminIdForDatum(datum){
 /* ── Einheitlicher Modal-Kopf im App-Look (Design-Sprache v293+): farbige Icon-Kachel +
    Titel + Untertitel + Schließen-×. Band mit Links-Akzent, funktioniert bei jedem
    Card-Padding (keine negativen Margins). col = Familien-Farbe der Kategorie. ── */
+/* ── Nutzungslog (v453, Plan-Punkt F) ─────────────────────────────────────────
+   Welche Bereiche, Kacheln und Aktionen werden wirklich benutzt? Gesammelt werden nur
+   Ereignis, Ziel, Rolle und Version – keine Kindernamen, keine Inhalte. Die Eintraege
+   werden gebuendelt geschickt (alle 8 s oder beim Verlassen); ohne Anmeldung passiert
+   nichts, die Tabelle nimmt ohnehin nur die eigene uid an. Ausgewertet wird das unter
+   Orga → Nutzung; erst danach wird ausgemistet, nicht vorher. */
+let _nutzungPuffer=[], _nutzungTimer=null;
+function nutzungRolle(){
+  if(window._nutzungRolle)return window._nutzungRolle;
+  return /\/eltern\//.test(location.pathname)?"eltern":"trainer";
+}
+function nutzungLog(ereignis,ziel){
+  try{
+    if(typeof sbToken!=="function"||!sbToken())return;
+    const letzte=_nutzungPuffer[_nutzungPuffer.length-1];
+    if(letzte&&letzte.ereignis===ereignis&&letzte.ziel===(ziel==null?null:String(ziel))&&Date.now()-letzte._t<1500)return; // Doppeltipp
+    _nutzungPuffer.push({rolle:nutzungRolle(),ereignis:String(ereignis).slice(0,40),ziel:ziel==null?null:String(ziel).slice(0,80),
+      version:(typeof APP_VERSION!=="undefined")?String(APP_VERSION):null,_t:Date.now()});
+    if(_nutzungPuffer.length>=25)nutzungFlush();
+    else if(!_nutzungTimer)_nutzungTimer=setTimeout(nutzungFlush,8000);
+  }catch(e){}
+}
+function nutzungFlush(){
+  clearTimeout(_nutzungTimer); _nutzungTimer=null;
+  if(!_nutzungPuffer.length)return;
+  const rows=_nutzungPuffer.map(({_t,...r})=>r); _nutzungPuffer=[];
+  try{
+    fetch(`${SB_URL}/rest/v1/nutzung_log`,{method:"POST",keepalive:true,headers:{...sbAuthHeaders(),'Prefer':'return=minimal'},body:JSON.stringify(rows)}).catch(()=>{});
+  }catch(e){}
+}
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden")nutzungFlush(); });
+
 function mdlHead(modalId,emoji,title,sub,col){
   col=col||"#1e3a8a";
   return `<div style="display:flex;align-items:center;gap:11px;margin-bottom:12px;padding:10px 12px;background:linear-gradient(90deg,${col}18,${col}05);border-left:4px solid ${col};border-radius:12px">
