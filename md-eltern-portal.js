@@ -282,6 +282,7 @@ function elternThemeOnToggle(){
    Async-Loader ihre Slots füllen); der Button zeigt nur das gewählte Panel im Vollbild-Overlay. */
 function elternCatOpen(id){
   const ov=document.getElementById("el-cat-overlay"); if(!ov)return;
+  if(typeof nutzungLog==="function")nutzungLog("eltern-bereich",id);
   const T={todo:"📌 Zu erledigen",news:"📣 Adler News",mehr:"📰 Mehr vom Team",regeln:"📋 Regeln & Vereinbarungen",datenschutz:"🔒 Datenschutz & Freigaben",kontakt:"⚙️ Kontakt & Benachrichtigungen"};
   ov.querySelectorAll(".el-cat-panel").forEach(p=>p.style.display="none");
   const panel=document.getElementById("cat-"+id); if(panel)panel.style.display="block";

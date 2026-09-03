@@ -2973,6 +2973,7 @@ function tpPickerInfo(idx){
    alles in EINER Welle, ein Direktlink auf trainer/?handover traefe sie aber leer an.
    Darum kurz warten statt hart aufrufen - und nach 4 s ehrlich Bescheid sagen. */
 function routeRender(name,arg){
+  if(typeof nutzungLog==="function")nutzungLog("route",name);
   if(typeof window[name]==="function"){window[name](arg);return;}
   let n=0;
   const iv=setInterval(()=>{

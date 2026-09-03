@@ -2217,6 +2217,7 @@ function _open(key){
 }
 function go(key){
   const tabId=sectionTab(key); if(!tabId||!SECS[key])return;
+  if(typeof nutzungLog==="function")nutzungLog("bereich",key);
   document.querySelectorAll("#main-nav .nb").forEach(b=>{b.classList.remove("active");b.removeAttribute("aria-current");b.style.background="";});
   const nbAktiv=document.getElementById("nb-"+tabId);
   if(nbAktiv){
@@ -3383,7 +3384,8 @@ async function saisonCockpitOpen(){
 ═══════════════════════════════════ */
 const HELP=[
   {cat:"🏠 Start", items:[
-    {t:"Startseite", d:"To-Do-Banner (nur bei offenen Aufgaben), „Bist du dabei?“ mit den Terminen der nächsten 14 Tage, für die deine Antwort noch fehlt (beantwortet = Karte weg), nächster Termin mit Wetter, Termin-Karussell, der Knopf zu allen Terminen und sechs große Kacheln – dahinter jeweils ein Kachel-Menü.", go:"home"},
+    {t:"Diese Woche", d:"Alle Termine der nächsten 7 Tage auf einen Blick: wie viele Kinder zugesagt haben, ob genug Trainer da sind, ob der Trainingsplan steht und die Aufstellung fürs Spiel. Antippen öffnet den Termin.", run:"document.getElementById('home-woche')?.scrollIntoView({behavior:'smooth',block:'center'})"},
+    {t:"Startseite", d:"To-Do-Banner (nur bei offenen Aufgaben), „Bist du dabei?“ mit den Terminen der nächsten 14 Tage, für die deine Antwort noch fehlt (beantwortet = Karte weg), „Diese Woche“ mit dem Stand je Termin, nächster Termin mit Wetter, Termin-Karussell, der Knopf zu allen Terminen und sechs große Kacheln – dahinter jeweils ein Kachel-Menü.", go:"home"},
   ]},
   {cat:"👥 Team", items:[
     {t:"Saison-Cockpit", d:"Torschützen, Anwesenheit, Rückmelde-Tempo der Familien, faire Einsätze, Eltern-Puls, Rückmelde-Tempo – alles auf einen Blick.", run:"saisonCockpitOpen()"},
@@ -3421,6 +3423,7 @@ const HELP=[
     {t:"Quiz (Kinder)", d:"Kinder spielen über den Kids-Link (?quiz); Ergebnisse unter Eltern & Kinder → Quiz-Ergebnisse.", go:"quizresults"},
   ]},
   {cat:"📅 Orga", items:[
+    {t:"Nutzung", d:"Welche Bereiche, Kacheln und Aktionen in den letzten 7, 30 oder 90 Tagen wirklich benutzt wurden – und welche Kacheln gar nicht. Grundlage fürs Ausmisten. Keine Kindernamen, nur Ereignisse.", run:"nutzungOpen()"},
     {t:"Trainerplan", d:"Alle kommenden Trainings, Spiele und Turniere als Tabelle: Termine untereinander, der Trainerstab als Spalten, ein Tap je Zelle wechselt zwischen dabei ✓, unsicher ?, nicht dabei ✕ und keine Antwort. Der Balken links zeigt die Zahl der Zusagen – rot keine, orange eine, hellgrün zwei, dunkelgrün ab drei. Er bewertet nicht, er zählt: ob ein Termin damit läuft, entscheidet ihr. Der Filter „Höchstens eine Zusage“ zeigt nur die Termine, bei denen noch wenig steht. Unterschied zu „Bist du dabei?“ auf der Startseite: dort beantwortest DU deine Termine, hier siehst du das ganze Team.", run:"trainerPlanOpen()"},
     {t:"Termine", d:"Das Formular zeigt nur, was zum Typ gehört: eine Treffzeit gibt es bei Spiel, Turnier und Event (bei Spielen −45 Min. vom Anpfiff vorgeschlagen) – beim Training kommen ohnehin alle zur Trainingszeit. „Wiederholen“ steht beim Event, weil Spiele und Turniere jedes Mal andere sind. Unter „Wer hilft“ sagst du, was die Eltern übernehmen sollen: beim Training die Anzahl Funino-Tore und Jugendtore (leer = ohne Zahl anbieten, 0 = wird nicht gebraucht), dazu bei jedem Typ ein freier Hinweis. Das steht im Eltern-Bereich als Beschreibung unter der Aufgabe – ohne sie trägt sich niemand ein. Dazu: anlegen/bearbeiten · Endzeit (danach automatisch ins Archiv) · Platz · Trainer-Verfügbarkeit · Wetter · Ferien-Warnung.", go:"termine"},
     {t:"Gegner-Datenbank", d:"Adresse, Ansprechpartner, Telefon/WhatsApp, bisherige Spiele.", run:"gegnerManageOpen()"},
@@ -3467,7 +3470,7 @@ function hilfeRender(q){
   box.innerHTML=html||`<div style="font-size:12px;color:var(--text3);padding:10px 0">Nichts gefunden.</div>`;
 }
 const TOUR=[
-  {emo:"🦅", t:"Willkommen in der Adler-App", d:"Die Startseite ist bewusst schlank: Ganz oben erscheinen DEINE To-Dos (nur wenn etwas offen ist), darunter „Bist du dabei?“ – nur die Termine der nächsten 14 Tage, für die deine Antwort noch fehlt; ein Tap auf ✅ 🤔 ❌ genügt, und ist alles beantwortet, verschwindet die Karte. Danach der nächste Termin mit Wetter, ein festgelegtes Trainer-Meeting (falls eines ansteht, mit der Zahl offener Themen), das Termin-Karussell, ein Knopf zu allen Terminen der Saison – und sechs große Kacheln. Hinter jeder Kachel wartet wieder ein Kachel-Menü. Diese Tour findest du jederzeit über ❓ oben rechts."},
+  {emo:"🦅", t:"Willkommen in der Adler-App", d:"Die Startseite ist bewusst schlank: Ganz oben erscheinen DEINE To-Dos (nur wenn etwas offen ist), darunter „Bist du dabei?“ – nur die Termine der nächsten 14 Tage, für die deine Antwort noch fehlt; ein Tap auf ✅ 🤔 ❌ genügt, und ist alles beantwortet, verschwindet die Karte. Danach „Diese Woche“ – die Termine der nächsten sieben Tage mit dem Stand (Zusagen, Trainer, Plan, Aufstellung), dann der nächste Termin mit Wetter, ein festgelegtes Trainer-Meeting (falls eines ansteht, mit der Zahl offener Themen), das Termin-Karussell, ein Knopf zu allen Terminen der Saison – und sechs große Kacheln. Hinter jeder Kachel wartet wieder ein Kachel-Menü. Diese Tour findest du jederzeit über ❓ oben rechts."},
   {emo:"🏃", t:"Kachel: Training", d:"Vier Wege: Anwesenheit (heute + kommende Termine), Trainingsplan mit Stationen und Trainingsstart (die Trainer-Reihe oben zeigt farbig, wer für den Termin zu-, ab- oder noch nicht geantwortet hat), die Übungs-Datenbank und das 🏆 Trainingsturnier, das du vorab planen kannst – auch Eltern gegen Kinder. Die Nachbewertung meldet sich nach dem Training von selbst als To-Do auf der Startseite."},
   {emo:"⚽", t:"Kachel: Spieltag", d:"Der Ablauf von oben nach unten: „Teams festlegen“ beantwortet einmal für den ganzen Tag, wer dabei ist und wie viele Teams wir stellen – die Kinder verteilt die App automatisch, du korrigierst nur. Darunter je Team eine Kachel mit Kader, Rollen, Uhr, Rotations-Timer und Liveticker; ganz unten die Team-Quests für alle Teams zusammen. Dazu die Rollen-Empfehlung aus den Bewertungen und die Analyse. Steht ein Turnier an, erscheint hier automatisch der Turnier-Bereich (Heimturnier ausrichten mit öffentlichem Link für die Gast-Trainer)."},
   {emo:"👥", t:"Kachel: Team", d:"Kader verwalten, Spieler alle 6 Wochen in 16 Kriterien bewerten (Live-Radar), Profil mit Sprachlob und Entwicklungs-Report, dazu Saison-Cockpit, Anwesenheit über die Saison und Rollen-Matrix. Auch Notfallkarten und Probetraining wohnen hier."},
@@ -3729,6 +3732,184 @@ async function topbarNaechsterTermin(){
   }catch(e){/* Kopfzeile ist Beiwerk – niemals stören */}
 }
 
+/* ── Diese Woche (v452, Plan-Punkt D) ──────────────────────────────────────────
+   Die Startseite kannte den NAECHSTEN Termin und ein Karussell der naechsten fuenf –
+   aber nicht den Stand: Wie viele Kinder haben zugesagt, sind genug Trainer da, steht
+   der Plan, ist die Aufstellung gemacht? Genau das entscheidet, ob ein Trainer heute
+   noch etwas tun muss. Eine Karte, sieben Tage, je Termin eine Zeile mit Chips. Die
+   Chips tragen ihre Bedeutung im Text, die Farbe kommt nur dazu (Hausregel). */
+const WOCHE_TAGE=7;
+function _wocheChip(text,art){
+  const f={ok:["var(--green-bg)","var(--green)"],warn:["var(--amber-bg)","var(--amber)"],rot:["var(--red-bg)","var(--red)"],neutral:["var(--surface2)","var(--text2)"]}[art||"neutral"];
+  return `<span style="display:inline-block;font-size:11px;font-weight:700;line-height:1.3;padding:3px 8px;border-radius:10px;background:${f[0]};color:${f[1]};border:1px solid ${f[1]}33">${text}</span>`;
+}
+function wocheOpen(id,datum,typ){
+  if(typeof nutzungLog==="function")nutzungLog("aktion","woche:"+typ);
+  if(typeof tmDetailOpen==="function")tmDetailOpen(id); else go("termine");
+}
+async function homeWocheLoad(){
+  const slot=document.getElementById("home-woche"); if(!slot)return;
+  if(!sbToken()){slot.innerHTML="";return;}
+  const heute=new Date().toISOString().slice(0,10);
+  const bis=new Date(Date.now()+WOCHE_TAGE*864e5).toISOString().slice(0,10);
+  const karte=inner=>`<div class="card" style="padding:12px 14px;margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text2)">🗓️ Diese Woche</div>
+      <div style="font-size:11px;color:var(--text3)">nächste ${WOCHE_TAGE} Tage</div>
+    </div>${inner}</div>`;
+  let termine=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,datum,uhrzeit,uhrzeit_ende,typ,titel,gegner,ort,platz,trainer_status&datum=gte.${heute}&datum=lt.${bis}&order=datum.asc,uhrzeit.asc.nullslast`,{headers:sbAuthHeaders()});
+    if(sbCheck401(r)||!r.ok){slot.innerHTML="";return;}
+    termine=((await r.json())||[]).filter(t=>!(typeof terminVorbei==="function"&&terminVorbei(t)));
+  }catch(e){slot.innerHTML="";return;}
+  if(!document.getElementById("home-woche"))return;   // Tab schon verlassen
+  if(!termine.length){
+    slot.innerHTML=karte(`<div style="font-size:12.5px;color:var(--text2)">Diese Woche kein Termin. <a href="#" onclick="go('termine');return false" style="color:var(--blue-text);font-weight:700">Termin erfassen ›</a></div>`);
+    return;
+  }
+  const inList=a=>`in.(${a.map(x=>encodeURIComponent(x)).join(",")})`;
+  const ids=termine.map(t=>t.id), tage=[...new Set(termine.map(t=>t.datum))];
+  const hole=async url=>{ try{const r=await fetch(`${SB_URL}/rest/v1/${url}`,{headers:sbAuthHeaders()}); return r.ok?((await r.json())||[]):[];}catch(e){return [];} };
+  const [rsvp,plaene,gruppen,noms]=await Promise.all([
+    hole(`rueckmeldungen?select=termin_id,status&termin_id=${inList(ids)}`),
+    hole(`trainingsplan?select=datum,plan&datum=${inList(tage)}`),
+    hole(`trainingsgruppen?select=datum&datum=${inList(tage)}`),
+    hole(`nominierungen?select=datum,data&datum=${inList(tage.map(d=>d+"__nom"))}`)
+  ]);
+  if(!document.getElementById("home-woche"))return;
+  const aktive=(KADER||[]).filter(k=>k.aktiv!==false).length;
+  const zeilen=termine.map(t=>{
+    const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ};
+    const d=new Date(t.datum+"T00:00:00");
+    const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
+    const inTagen=Math.round((d-new Date(heute+"T00:00:00"))/864e5);
+    const zeit=t.uhrzeit?String(t.uhrzeit).slice(0,5):"";
+    const chips=[];
+    if(t.typ==="training"||t.typ==="spiel"||t.typ==="turnier"){
+      const rm=rsvp.filter(x=>x.termin_id===t.id);
+      const ja=rm.filter(x=>x.status==="zugesagt").length;
+      const nein=rm.filter(x=>x.status==="abgesagt"||x.status==="krank").length;
+      const offen=Math.max(0,aktive-rm.length);
+      chips.push(_wocheChip(`${ja} zugesagt`,ja>=6?"ok":ja?"warn":"rot"));
+      if(nein)chips.push(_wocheChip(`${nein} abgesagt`,"neutral"));
+      if(offen)chips.push(_wocheChip(`${offen} offen`,"neutral"));
+      const trainerJa=Object.keys(t.trainer_status||{}).filter(n=>t.trainer_status[n]==="ja").length;
+      chips.push(trainerJa?_wocheChip(`🧢 ${trainerJa} Trainer`,trainerJa>=2?"ok":"warn"):_wocheChip("🧢 kein Trainer",inTagen<=2?"rot":"warn"));
+    }
+    if(t.typ==="training"){
+      const plan=plaene.find(p=>p.datum===t.datum&&Array.isArray(p.plan)&&p.plan.length);
+      chips.push(plan?_wocheChip("📋 Plan steht","ok"):_wocheChip("📋 kein Plan",inTagen<=2?"warn":"neutral"));
+      if(gruppen.some(g=>g.datum===t.datum))chips.push(_wocheChip("👥 Gruppen","neutral"));
+    }
+    if(t.typ==="spiel"||t.typ==="turnier"){
+      const nom=noms.find(n=>n.datum===t.datum+"__nom");
+      const dabei=nom&&nom.data?Object.keys(nom.data).filter(k=>k.charAt(0)!=="_"&&nom.data[k]==="dabei").length:0;
+      chips.push(dabei?_wocheChip(`🧩 ${dabei} nominiert`,"ok"):_wocheChip("🧩 Aufstellung offen",inTagen<=2?"warn":"neutral"));
+    }
+    const titel=esc(t.titel||t.gegner||m.label);
+    const ort=t.platz||t.ort;
+    return `<div class="woche-zeile" role="button" tabindex="0" onclick="wocheOpen(${t.id},'${t.datum}','${esc(t.typ)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"
+        style="display:flex;gap:10px;align-items:flex-start;min-height:44px;padding:8px 4px;border-top:1px solid var(--rand-bedien);cursor:pointer">
+      <div style="flex:0 0 52px;text-align:center">
+        <div style="font-size:11px;font-weight:800;color:${inTagen===0?"var(--red)":"var(--text2)"}">${inTagen===0?"HEUTE":wtag}</div>
+        <div style="font-size:14px;font-weight:800;line-height:1.2">${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}</div>
+        <div style="font-size:11px;color:var(--text2)">${zeit||"&nbsp;"}</div>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13.5px;font-weight:800;line-height:1.25">${m.icon} ${titel}${ort?` <span style="font-weight:500;color:var(--text2);font-size:11.5px">· ${esc(ort)}</span>`:""}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">${chips.join("")}</div>
+      </div>
+      <div aria-hidden="true" style="align-self:center;color:var(--text3);font-size:16px">›</div>
+    </div>`;
+  });
+  slot.innerHTML=karte(`<div style="margin:0 -4px">${zeilen.join("")}</div>`);
+}
+
+/* ── Nutzung (v453, Plan-Punkt F) ── Auswertung des Nutzungslogs fuer Trainer */
+let _nutzungTage=30;
+async function nutzungOpen(){
+  if(!sbToken()){toast("Bitte zuerst als Trainer anmelden","err");return;}
+  document.getElementById("nutzung-modal")?.remove();
+  const m=document.createElement("div"); m.id="nutzung-modal";
+  m.setAttribute("role","dialog"); m.setAttribute("aria-modal","true"); m.setAttribute("aria-label","Nutzung");
+  m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10020;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto";
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.innerHTML=`<div style="background:var(--surface);color:var(--text);border-radius:16px;padding:16px;max-width:520px;width:100%;margin:auto">
+    ${mdlHead("nutzung-modal","📊","Nutzung","Was wirklich benutzt wird – die Grundlage fürs Ausmisten","var(--fam-orga)")}
+    <div id="nutzung-zeitraum" style="display:flex;gap:8px;margin-bottom:10px"></div>
+    <div id="nutzung-body"><div style="font-size:12px;color:var(--text2)">Lade Auswertung…</div></div>
+    <button class="btn btn-sm" style="width:100%;margin-top:12px" onclick="nutzungAufraeumen()"><i class="ti ti-trash"></i>Einträge älter als 90 Tage löschen</button>
+  </div>`;
+  document.body.appendChild(m);
+  nutzungLaden(_nutzungTage);
+}
+function _nutzungZeitraumHtml(){
+  return [7,30,90].map(t=>`<button class="btn btn-sm" aria-pressed="${t===_nutzungTage?"true":"false"}" onclick="nutzungLaden(${t})"
+    style="flex:1;font-weight:${t===_nutzungTage?"800":"500"};${t===_nutzungTage?"background:var(--blue);color:#fff;border-color:var(--blue)":""}">${t} Tage</button>`).join("");
+}
+/* Alle Kacheln und Aktionen, die es gibt – aus denselben Kachelseiten, die der Nutzer
+   sieht. So faellt „nie benutzt" nicht aus einer gepflegten Liste, sondern aus dem Bestand. */
+function _nutzungAlleAktionen(){
+  const out=new Set();
+  try{
+    Object.keys(KACHELN).forEach(k=>{
+      const html=_kachelInhalt(k)||"";
+      const re=/kachelRun\('([^']+)'(?:,'([^']*)')?\)/g; let mm;
+      while((mm=re.exec(html)))out.add(mm[1]+(mm[2]!==undefined?":"+mm[2]:""));
+    });
+  }catch(e){}
+  return out;
+}
+async function nutzungLaden(tage){
+  _nutzungTage=tage;
+  const zr=document.getElementById("nutzung-zeitraum"); if(zr)zr.innerHTML=_nutzungZeitraumHtml();
+  const box=document.getElementById("nutzung-body"); if(!box)return;
+  let rows=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/nutzung_auswertung`,{method:"POST",headers:{...sbAuthHeaders(),"Content-Type":"application/json"},body:JSON.stringify({p_tage:tage})});
+    if(sbCheck401(r))return;
+    if(!r.ok){box.innerHTML=`<div style="font-size:12.5px;color:var(--text2)">Auswertung gerade nicht erreichbar – später noch einmal öffnen.</div>`;return;}
+    rows=(await r.json())||[];
+  }catch(e){box.innerHTML=`<div style="font-size:12.5px;color:var(--text2)">Kein Netz – die Auswertung braucht den Server.</div>`;return;}
+  if(!document.getElementById("nutzung-body"))return;
+  if(!rows.length){box.innerHTML=`<div style="font-size:12.5px;color:var(--text2)">Noch keine Einträge in den letzten ${tage} Tagen. Das Log läuft seit v453 – einfach benutzen, die Zahlen kommen von selbst.</div>`;return;}
+  const tageHer=ts=>{const d=Math.round((Date.now()-new Date(ts))/864e5);return d<=0?"heute":d===1?"gestern":`vor ${d} Tagen`;};
+  const gruppe=(titel,ereignis,rolle)=>{
+    const l=rows.filter(x=>x.ereignis===ereignis&&(!rolle||x.rolle===rolle)).sort((a,b)=>b.anzahl-a.anzahl);
+    if(!l.length)return "";
+    const max=Math.max(...l.map(x=>+x.anzahl));
+    return `<div style="font-size:13px;font-weight:800;margin:14px 0 6px">${titel}</div>`+l.map(x=>`
+      <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;font-size:12.5px;padding:5px 0;border-top:1px solid var(--rand-bedien)">
+        <div style="min-width:0"><div style="font-weight:700;overflow:hidden;text-overflow:ellipsis">${esc(x.ziel||"–")}</div>
+          <div style="height:4px;border-radius:2px;background:var(--surface2);margin-top:4px"><div style="height:4px;border-radius:2px;background:var(--blue);width:${Math.max(4,Math.round(100*x.anzahl/max))}%"></div></div></div>
+        <div style="text-align:right;font-variant-numeric:tabular-nums"><b>${x.anzahl}</b>×<div style="font-size:10.5px;color:var(--text2)">${x.nutzer} Nutzer</div></div>
+        <div style="font-size:10.5px;color:var(--text2);text-align:right;min-width:60px">${tageHer(x.zuletzt)}</div>
+      </div>`).join("");
+  };
+  const benutzt=new Set(rows.filter(x=>x.ereignis==="aktion").map(x=>x.ziel));
+  const nie=[..._nutzungAlleAktionen()].filter(a=>!benutzt.has(a)).sort();
+  box.innerHTML=
+    gruppe("Bereiche (Reiter)","bereich","trainer")+
+    gruppe("Kacheln","kachel","trainer")+
+    gruppe("Aktionen in den Kacheln","aktion","trainer")+
+    gruppe("Eltern-Bereich","eltern-bereich")+
+    gruppe("Sonderseiten","route")+
+    (nie.length?`<div style="font-size:13px;font-weight:800;margin:14px 0 6px">Nie benutzt in ${tage} Tagen (${nie.length})</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">${nie.map(a=>`<span style="font-size:11px;padding:3px 8px;border-radius:10px;background:var(--surface2);color:var(--text2);border:1px solid var(--rand-bedien)">${esc(a)}</span>`).join("")}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px">Kandidaten fürs Ausmisten – erst nach 4–6 Wochen Daten entscheiden.</div>`:"");
+}
+async function nutzungAufraeumen(){
+  if(!confirm("Alle Log-Einträge löschen, die älter als 90 Tage sind?"))return;
+  const bis=new Date(Date.now()-90*864e5).toISOString();
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/nutzung_log?ts=lt.${encodeURIComponent(bis)}`,{method:"DELETE",headers:sbAuthHeaders()});
+    if(sbCheck401(r))return;
+    if(r.ok)toast("Alte Einträge gelöscht ✓"); else toast("Löschen nicht möglich","err");
+  }catch(e){toast("Kein Netz","err");}
+  nutzungLaden(_nutzungTage);
+}
+
 async function renderHome(){
   const box=document.getElementById("home-content");
   if(!box)return;
@@ -3787,6 +3968,7 @@ async function renderHome(){
     <div id="trainer-todo-slot"></div>
     <div id="trainer-termine-slot"></div>
     <div id="eg-trainer"></div>
+    <div id="home-woche"></div>
     <div id="home-next">${card('<div style="font-size:12px;color:var(--text3)">Lade nächsten Termin...</div>')}</div>
     <div id="home-meeting"></div>
     <div id="home-carousel"></div>
@@ -3803,6 +3985,7 @@ async function renderHome(){
   appVersionInto("app-version");   // liest die Version aus dem geladenen Cache
   elterngespraecheTrainerLoad(); // offene Elterngespräch-Wünsche (handeln nötig → bleibt oben)
   trainerTodoLoad();             // To-Do-Banner (leer = unsichtbar)
+  homeWocheLoad();               // Diese Woche: Termine mit Zusagen, Trainern, Plan-Stand
   trainerTermineHomeLoad();      // Termine der nächsten 14 Tage zum Antippen
   trainerMeetingHomeLoad();      // festgelegtes Trainer-Meeting (steht nicht in `termine`)
   if(typeof tlCheck==="function")tlCheck(); // läuft gerade ein Trainingsstart? → Bereit-Fenster ploppt auf
@@ -4414,7 +4597,8 @@ async function homeRsvpNudge(){
   let rm=[];
   try{const r=await fetch(`${SB_URL}/rest/v1/rueckmeldungen?termin_id=eq.${t.id}&select=spieler_id`,{headers:sbAuthHeaders()});if(r.ok)rm=await r.json();}catch(e){}
   const responded=new Set(rm.map(x=>x.spieler_id));
-  const offen=(KADER||[]).filter(k=>k.aktiv!==false&&!responded.has(k.id)).length;
+  // KADER traegt die Datenbank-ID als _id; ueber k.id zaehlte hier jedes Kind als offen
+  const offen=(KADER||[]).filter(k=>k.aktiv!==false&&!responded.has(k._id!=null?k._id:k.id)).length;
   if(!offen){slot.innerHTML="";return;}
   const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ};
   const d=new Date(t.datum+"T00:00:00"), wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
@@ -4820,6 +5004,7 @@ function _kachelNavId(){ return (document.querySelector("#main-nav .nb.active")|
 function kachelRun(fn,arg){
   const f=window[fn];
   if(typeof f!=="function"){toast("Da fehlt noch eine Verknüpfung ("+fn+") – bitte kurz melden","err");return;}
+  if(typeof nutzungLog==="function")nutzungLog("aktion",fn+(arg!==undefined?":"+arg:""));
   const navVor=_kachelNavId(), navigiert=KACHEL_NAVIGIERT.includes(fn);
   if(navigiert)document.getElementById("kachel-modal")?.remove();
   arg===undefined?f():f(arg);
@@ -4847,6 +5032,7 @@ const KACHELN={
 };
 function kachelOpen(key){
   const k=KACHELN[key]; if(!k)return;
+  if(typeof nutzungLog==="function")nutzungLog("kachel",key);
   document.getElementById("kachel-modal")?.remove();
   const m=document.createElement("div");m.id="kachel-modal";
   m.setAttribute("role","dialog");m.setAttribute("aria-modal","true");m.setAttribute("aria-label",k.titel);
@@ -4962,7 +5148,8 @@ function _kachelInhalt(key){
     +kSec("Einstellungen")
     +`<div id="push-slot-trainer" style="margin-bottom:10px"></div>`
     +kTiles([
-      {emo:"🔑",label:"Passwort ändern",fn:"pwChangeOpen"}
+      {emo:"🔑",label:"Passwort ändern",fn:"pwChangeOpen"},
+      {emo:"📊",label:"Nutzung",fn:"nutzungOpen"}
     ],col);
   return "";
 }

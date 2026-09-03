@@ -40,6 +40,7 @@ function kabineZeitTick(){
     : "";
 }
 async function kabineOpen(){
+  window._nutzungRolle="kind";   // Nutzungslog: die Kabine ist der Kinderbereich
   isKidsMode=true;
   kabineAktivSet(true);
   try{ if(!localStorage.getItem(KABINE_START_KEY))localStorage.setItem(KABINE_START_KEY,String(Date.now())); }catch(e){}
