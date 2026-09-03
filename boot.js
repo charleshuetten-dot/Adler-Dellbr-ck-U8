@@ -344,7 +344,7 @@ async function teamSyncUpsert(table,datum,data,extra){
     const r=await fetch(`${SB_URL}/rest/v1/${table}?on_conflict=datum`,{
       method:"POST",
       headers:{...sbTeamHeaders(),'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify(Object.assign({datum,data},extra||{})) // HOTFIX 3-FE: optional termin_id
+      body:JSON.stringify(Object.assign({datum,data:(table==="anwesenheit"&&typeof kidMapToIds==="function")?kidMapToIds(data):data},extra||{})) // HOTFIX 3-FE: optional termin_id
     });
     /* Vorher wurde r.ok NIE geprueft: bei 403/500 glaubte der Trainer "gespeichert",
        das Zweitgeraet sah aber nichts. Einmal pro Minute ehrlich Bescheid geben. */
@@ -389,7 +389,8 @@ async function teamSyncLoad(){
         const lts=localTs[row.datum];
         // Remote übernehmen, wenn lokal nichts da ist oder Remote jünger ist
         if(!localObj[row.datum]||!lts||new Date(row.updated_at||0)>=new Date(lts)){
-          localObj[row.datum]=row.data;
+          // Anwesenheit liegt in der Datenbank nach kader.id, im Speicher nach Name
+          localObj[row.datum]=(table==="anwesenheit"&&typeof kidMapFromIds==="function")?kidMapFromIds(row.data):row.data;
         }
       });
       // Push-Back: lokale Änderungen, die beim Offline-Speichern nie ankamen (oder neuer als
@@ -671,7 +672,7 @@ async function _kgPersist(gruppen){
     if(!r.ok)return;
     const rows=await r.json();
     if(!rows.length)return; // kein Termin an dem Tag -> nur Anzeige, kein Fehler
-    await fetch(`${SB_URL}/rest/v1/termine?id=eq.${rows[0].id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({buddies:gruppen})});
+    await fetch(`${SB_URL}/rest/v1/termine?id=eq.${rows[0].id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({buddies:gruppen.map(g=>kidListToIds(g))})});
   }catch(e){}
 }
 
@@ -698,7 +699,7 @@ async function awPrefillFromNomination(datum){
   if(!datum||AW_DATA[datum])return;          // bereits erfasst -> nicht überschreiben
   let data=null;
   try{ const r=await fetch(`${SB_URL}/rest/v1/nominierungen?datum=eq.${encodeURIComponent(datum)}&select=data`,{headers:sbAuthHeaders()});
-    if(!sbCheck401(r)&&r.ok){const rows=await r.json(); data=rows[0]&&rows[0].data;} }catch(e){}
+    if(!sbCheck401(r)&&r.ok){const rows=await r.json(); data=rows[0]&&kidMapFromIds(rows[0].data);} }catch(e){}
   if(!data)return;
   let n=0;
   KADER.forEach(k=>{ if(data[k.name]==="dabei"){ const t=document.querySelector(`.aw-tile[data-player="${k.name}"]`); if(t&&!t.classList.contains("on")){t.classList.add("on");n++;} } });
@@ -2508,10 +2509,15 @@ function _tlSnapshot(){
   });
   return stationen.map(({si,...rest})=>rest);
 }
+/* Kinder im Live-Plan: kader.id in der Datenbank, Name im Speicher und auf dem Handy */
+function _tlPlanMit(plan,f){
+  if(!plan||!Array.isArray(plan.slots))return plan;
+  return {...plan,slots:plan.slots.map(st=>({...st,gruppen:(st.gruppen||[]).map(g=>({...g,kinder:Array.isArray(g.kinder)?f(g.kinder):g.kinder}))}))};
+}
 async function _tlFetch(){
   try{
     const r=await fetch(`${SB_URL}/rest/v1/training_live?datum=eq.${_tlHeute()}&select=*`,{headers:sbAuthHeaders()});
-    if(r.ok)return ((await r.json())||[])[0]||null;
+    if(r.ok){const row=((await r.json())||[])[0]||null; if(row&&row.plan)row.plan=_tlPlanMit(row.plan,kidListFromIds); return row;}
   }catch(e){}
   return undefined; // undefined = Netzproblem, null = keine Session
 }
@@ -2544,14 +2550,14 @@ async function tlStart(){
       // BUGFIX (PO-Test): eine hängen gebliebene Lobby (z. B. alte Testrunde mit anderen
       // Trainern) wartete ewig auf Leute, die gar nicht da sind. Ein neuer Start setzt
       // Pflicht-Trainer und Plan frisch auf – solange noch keine Station gelaufen ist.
-      await _tlPatch({status:"lobby",slot:0,slot_start:null,bereit:{[me]:true},fertig:{},pflicht,plan:{slots:_tlSnapshot()}});
+      await _tlPatch({status:"lobby",slot:0,slot_start:null,bereit:{[me]:true},fertig:{},pflicht,plan:_tlPlanMit({slots:_tlSnapshot()},kidListToIds)});
       const neu=await _tlFetch(); if(neu)_tl.row=neu; else _tl.row=vorhanden;
     }else{
       _tl.row=vorhanden;
     }
     tlOverlayOpen(); _tlPollStart(); await _tlAdvance(); return;
   }
-  const body={datum:_tlHeute(),status:"lobby",slot:0,slot_start:null,bereit:{[me]:true},fertig:{},pflicht,plan:{slots:_tlSnapshot()}};
+  const body={datum:_tlHeute(),status:"lobby",slot:0,slot_start:null,bereit:{[me]:true},fertig:{},pflicht,plan:_tlPlanMit({slots:_tlSnapshot()},kidListToIds)};
   try{
     const r=await fetch(`${SB_URL}/rest/v1/training_live?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(body)});
     if(!r.ok&&r.status!==201){toast(sbDeniedMsg(r,"Konnte nicht starten"),"err");return;}
@@ -2829,7 +2835,7 @@ async function tgSync(){
   let tg=null, offline=false;
   try{
     const r=await fetch(`${SB_URL}/rest/v1/trainingsgruppen?datum=eq.${encodeURIComponent(d)}&select=gruppen,aus_anwesenheit`,{headers:sbAuthHeaders()});
-    if(r.ok){const row=((await r.json())||[])[0];if(row)tg={gruppen:row.gruppen,ausAnwesenheit:row.aus_anwesenheit};}
+    if(r.ok){const row=((await r.json())||[])[0];if(row)tg={gruppen:_tgMitNamen(row.gruppen),ausAnwesenheit:row.aus_anwesenheit};}
     else offline=true;
   }catch(e){offline=true;}
   if(!tg&&offline){try{tg=JSON.parse(localStorage.getItem("adler_tg_"+d)||"null");}catch(e){}}
@@ -2838,6 +2844,9 @@ async function tgSync(){
   _tgCache={datum:d,tg,geladen:true};
   if(JSON.stringify(tg)!==vorher&&typeof tpRenderTimeline==="function")tpRenderTimeline();
 }
+// Gruppen: in der Datenbank kader.id, im Speicher Namen (siehe kidListToIds in views.js)
+function _tgMitIds(gruppen){ return (gruppen||[]).map(g=>({...g,kinder:kidListToIds(g.kinder||[])})); }
+function _tgMitNamen(gruppen){ return (gruppen||[]).map(g=>({...g,kinder:kidListFromIds(g.kinder||[])})); }
 function tgSave(tg){
   const d=_tgDatum();
   _tgCache={datum:d,tg,geladen:true};
@@ -2847,7 +2856,7 @@ function tgSave(tg){
     try{
       const r=await fetch(`${SB_URL}/rest/v1/trainingsgruppen?on_conflict=datum`,{method:"POST",
         headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},
-        body:JSON.stringify({datum:d,gruppen:tg.gruppen,aus_anwesenheit:!!tg.ausAnwesenheit,updated_at:new Date().toISOString()})});
+        body:JSON.stringify({datum:d,gruppen:_tgMitIds(tg.gruppen),aus_anwesenheit:!!tg.ausAnwesenheit,updated_at:new Date().toISOString()})});
       if(!r.ok&&r.status!==201)toast("Gruppen nur lokal gespeichert (kein Trainer-Recht/Netz)","err");
     }catch(e){toast("Kein Netz – Gruppen nur auf diesem Gerät gespeichert","err");}
   },800);

@@ -424,16 +424,17 @@ async function nomLoad(){
       const rows=await r.json();
       const global=rows.find(x=>x.datum===nomKey());
       if(global&&global.data){
-        const d={...global.data}; if(Array.isArray(d._ovr))nomOvr=new Set(d._ovr); delete d._ovr; nomStatus=d;
+        const d=kidMapFromIds(global.data); if(Array.isArray(d._ovr))nomOvr=new Set(kidListFromIds(d._ovr)); delete d._ovr; nomStatus=d;
       }else{
         /* Altbestand vor v393: die Nominierung lag je Team. Wer in IRGENDEINEM Team dabei
            war, war an diesem Spieltag dabei – sonst stuende ein alter Spieltag plötzlich leer.
            „dabei" gewinnt deshalb immer gegen ein „nicht" aus einer anderen Team-Zeile. */
         rows.forEach(x=>{
           if(/__teams$/.test(x.datum)||!x.data)return;
-          Object.keys(x.data).forEach(name=>{
+          const alt=kidMapFromIds(x.data);
+          Object.keys(alt).forEach(name=>{
             if(name==="_ovr")return;
-            const st=x.data[name];
+            const st=alt[name];
             if(st==="dabei"||!nomStatus[name])nomStatus[name]=st;
           });
         });
@@ -474,7 +475,7 @@ function nomSet(name,status){
 }
 async function nomSave(){
   if(!document.getElementById("spieltag-date")?.value)return;
-  try{await fetch(`${SB_URL}/rest/v1/nominierungen?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({datum:nomKey(),data:{...nomStatus,_ovr:[...nomOvr]}})});}catch(e){}
+  try{await fetch(`${SB_URL}/rest/v1/nominierungen?on_conflict=datum`,{method:"POST",headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({datum:nomKey(),data:kidMapToIds({...nomStatus,_ovr:kidListToIds([...nomOvr])})})});}catch(e){}
   // Eltern-Ansicht und Ticker lesen die Team-Zeilen – die müssen mitziehen.
   if(typeof teamsSyncBald==="function")teamsSyncBald();
 }
@@ -549,7 +550,7 @@ async function _blzDbSpeichern(){
   try{
     await fetch(`${SB_URL}/rest/v1/trainingsturnier?on_conflict=datum`,{method:"POST",
       headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates,return=minimal'},
-      body:JSON.stringify({datum:BLZ.datum,data:BLZ,updated_at:new Date().toISOString()})});
+      body:JSON.stringify({datum:BLZ.datum,data:_blzMit(BLZ,kidListToIds),updated_at:new Date().toISOString()})});
   }catch(e){/* lokal ist gespeichert – der Server ist die Kür, nicht die Pflicht */}
 }
 async function _blzDbLaden(datum){
@@ -559,8 +560,14 @@ async function _blzDbLaden(datum){
     if(typeof sbCheck401==="function"&&sbCheck401(r))return null;
     if(!r.ok)return null;
     const rows=await r.json();
-    return (rows[0]&&rows[0].data)||null;
+    return (rows[0]&&rows[0].data)?_blzMit(rows[0].data,kidListFromIds):null;
   }catch(e){return null;}
+}
+/* Teams in der Datenbank nach kader.id, im Speicher nach Name; Trainer-Marken („🧢 …")
+   und Eltern-Teams bleiben, wie sie sind. */
+function _blzMit(b,f){
+  if(!b||!Array.isArray(b.teams))return b;
+  return {...b,teams:b.teams.map(t=>({...t,spieler:Array.isArray(t.spieler)?f(t.spieler):t.spieler}))};
 }
 /* Wurde für DIESEN Termin schon etwas vorbereitet – auf einem anderen Gerät oder vor
    Tagen? Dann nachladen. Nur wenn lokal nichts zu diesem Termin liegt: was der Trainer
