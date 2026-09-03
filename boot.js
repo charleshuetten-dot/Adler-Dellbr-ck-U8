@@ -1029,7 +1029,12 @@ async function tpTrainerRsvpLaden(datum){
   datum=datum||document.getElementById("tp-date")?.value||"";
   if(datum&&typeof sbAuthHeaders==="function"){
     try{
-      const r=await fetch(`${SB_URL}/rest/v1/termine?select=trainer_status&datum=eq.${encodeURIComponent(datum)}&order=uhrzeit.asc.nullslast&limit=1`,{headers:sbAuthHeaders()});
+      /* typ=eq.training ist entscheidend: die Auswahl gab bisher den FRUEHESTEN Termin
+         des Tages her. Am 17.07. standen Spiel (10:45, ohne Rueckmeldungen), Training
+         (16:45, drei Rueckmeldungen) und Event am selben Tag - geladen wurde das Spiel,
+         und weil dann niemand zugesagt hatte, belegte die Automatik still nur den
+         eingeloggten Trainer vor. Das Dropdown des Plans bietet ohnehin nur Trainings an. */
+      const r=await fetch(`${SB_URL}/rest/v1/termine?select=trainer_status&datum=eq.${encodeURIComponent(datum)}&typ=eq.training&order=uhrzeit.asc.nullslast&limit=1`,{headers:sbAuthHeaders()});
       if(r.ok){const t=((await r.json())||[])[0];
         if(t&&t.trainer_status&&typeof t.trainer_status==="object")TP_RSVP=t.trainer_status;}
     }catch(e){}
