@@ -787,19 +787,9 @@ function awRenderTrainerStats(){
     const trainers=AW_DATA[d]._trainers||[];
     trainers.forEach(t=>{if(stats[t])stats[t].da++;});
   });
-  const evalDates=Object.keys(EVAL_DATA);
-  const trainerExercises={};
-  allTrainers.forEach(t=>{trainerExercises[t]=[];});
-  evalDates.forEach(d=>{
-    const items=EVAL_DATA[d];
-    if(!items)return;
-    items.forEach(it=>{
-      if(it.skipped)return; // uebersprungen = nicht von diesem Trainer durchgefuehrt
-      if(it.trainer&&trainerExercises[it.trainer]){
-        trainerExercises[it.trainer].push(it.name);
-      }
-    });
-  });
+  /* Hier stand bis v465 eine Auswertung der durchgefuehrten Uebungen je Trainer aus
+     EVAL_DATA. Sie wurde bei jedem Zeichnen berechnet und nie ausgegeben – PO hat sich
+     gegen das Feature entschieden. Die Spalte „Einheiten" zeigt die Anwesenheit. */
   let html='<div class="card" style="overflow:hidden;font-size:12px">';
   html+='<div style="display:grid;grid-template-columns:1fr 60px 70px;padding:6px 10px;background:var(--surface2);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">';
   html+='<div>Trainer</div><div>Quote</div><div>Einheiten</div></div>';
