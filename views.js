@@ -1030,16 +1030,31 @@ async function notfallTrainerOpen(){
     <button class="btn btn-sm" style="margin-top:6px" onclick="document.getElementById('nf-tr-modal').remove()">Schließen</button>`;
   modal.appendChild(c); document.body.appendChild(modal);
 }
+/* Die Kaderliste kommt aus dem KADER, nicht aus den Bewertungen. Bis v459 stand hier
+   `Object.keys(DB)` – die Namen aus `spielerprofile`. Nach dem Saisonstart-Reset (v446)
+   ist diese Tabelle leer, und damit war die ganze Kader-Ansicht leer: „Kein Spieler für
+   diesen Filter", obwohl 14 Kinder im Kader stehen. Eine Mannschaft hoert nicht auf zu
+   existieren, weil noch niemand bewertet wurde. Bewertungen sind jetzt eine SPALTE der
+   Zeile, nicht die Bedingung dafuer, dass es sie gibt. */
 function renderKader(){
-  const names=Object.keys(DB).sort();const wrap=document.getElementById("kader-content");
+  const wrap=document.getElementById("kader-content");
+  const bewertet=Object.keys(DB);
+  const aktive=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false).map(k=>k.name);
+  // Ohne Kader vom Server (401, offline) wenigstens die bewerteten Namen zeigen
+  const names=aktive.length?aktive:bewertet.slice().sort();
+  const letzter=n=>{const s=DB[n];return (s&&s.length)?s[s.length-1]:null;};
   if(!window._dbLoaded&&!names.length){wrap.innerHTML=skeletonRows(3);return;} // L2
+  if(!names.length){
+    wrap.innerHTML='<div class="empty"><i class="ti ti-users"></i>Noch kein Kind im Kader. <a href="#" onclick="kaderEditOpen();return false" style="color:var(--blue-text);font-weight:700">Spieler verwalten ›</a></div>';
+    renderRauteMap([]); return;
+  }
   const filtered=names.filter(n=>{
-    const lat=DB[n][DB[n].length-1];
+    const lat=letzter(n);
     if(activeFilter==="all")return true;
-    if(activeFilter==="tw")return lat.tw===true||getKader(n)?.tw;
-    return lat.position===activeFilter;
+    if(activeFilter==="tw")return (lat&&lat.tw===true)||getKader(n)?.tw;
+    return lat?lat.position===activeFilter:false;   // eine Rolle hat nur, wer bewertet ist
   });
-  if(!filtered.length){wrap.innerHTML='<div class="empty"><i class="ti ti-filter"></i>Kein Spieler für diesen Filter</div>';renderRauteMap(names);return;}
+  if(!filtered.length){wrap.innerHTML='<div class="empty"><i class="ti ti-filter"></i>Kein Spieler für diesen Filter</div>';renderRauteMap(bewertet);return;}
   const dimCols=["var(--blue)","#7c3aed","var(--amber)","var(--green)","#0e7490"];
   // Kader-Werkzeuge als einheitliche Kachel-Reihe (Design-Sprache), nicht mehr rechtsbündig verstreut.
   const kTool=(label,fn,title)=>`<button onclick="${fn}" title="${title}" style="flex:1 1 calc(33.3% - 6px);min-width:120px;min-height:46px;border:1px solid var(--rand-bedien);border-radius:var(--rl);cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text);background:var(--surface);padding:0 10px">${label}</button>`;
@@ -1049,7 +1064,19 @@ function renderKader(){
       ${kTool("🚑 Notfallkarten","notfallTrainerOpen()","Notfall-/Gesundheitskarten der Kinder – schreibgeschützt, für den Platz auch offline")}
     </div><table class="kader-t"><thead><tr><th>Spieler</th><th>Rolle</th><th>Grp</th><th>Tech.</th><th>Wahr.</th><th>Phys.</th><th>Ges.</th><th>Pot.</th><th>Von</th><th></th></tr></thead><tbody>`;
   filtered.forEach(name=>{
-    const lat=DB[name][DB[name].length-1];
+    const lat=letzter(name);
+    const kd=getKader(name);
+    const nrBadge=kd&&kd.nr?`<span style="font-size:9px;font-weight:700;color:var(--text3);background:var(--surface2);border:var(--border);border-radius:8px;padding:1px 5px;margin-right:4px">${kd.nr}</span>`:"";
+    if(!lat){
+      /* Noch nicht bewertet: das Kind steht trotzdem im Kader – mit dem Weg zur ersten
+         Bewertung statt einer Zeile voller Nullen, die Koennen vortaeuschen wuerden. */
+      html+=`<tr>
+        <td><div style="font-weight:600;font-size:12.5px">${nrBadge}${esc(name)}${kd&&kd.tw?' <span style="font-size:9px;color:var(--teal);font-weight:700">🥅</span>':""}</div></td>
+        <td colspan="7" style="font-size:11.5px;color:var(--text2)">noch nicht bewertet</td>
+        <td style="white-space:nowrap"><button class="btn btn-sm" onclick="kaderBewerten('${jsq(name)}')" title="Erste Bewertung anlegen"><i class="ti ti-clipboard-plus"></i></button></td>
+      </tr>`;
+      return;
+    }
     const sc=safeParse(lat.scores,[0,0,0,0,0]);
     const isTw=lat.tw===true||getKader(name)?.tw;
     const prim=lat.position||"flex";
@@ -1078,9 +1105,25 @@ function renderKader(){
     </tr>`;
   });
   html+="</tbody></table>";
+  const offen=filtered.filter(n=>!letzter(n)).length;
   wrap.innerHTML='<div class="kader-wrap">'+html+'</div>'
+    +(offen?`<div class="kader-hint">${offen} von ${filtered.length} Kindern ${offen===1?"ist":"sind"} noch nicht bewertet – nach dem Saisonstart normal.</div>`:"")
     +'<div class="kader-hint">Technik, Wahrnehmung und Physis stehen je Spieler im <b>Profil</b>.</div>';
-  renderRauteMap(names);
+  renderRauteMap(bewertet.filter(n=>names.includes(n)));   // die Raute kennt nur Bewertete
+}
+/* Erste Bewertung aus der Kaderliste heraus starten: Reiter wechseln, Kind vorwaehlen. */
+function kaderBewerten(name){
+  go("bew");
+  setTimeout(()=>{
+    const sel=document.getElementById("p-name");
+    if(sel){
+      sel.value=name;
+      if(typeof onChange==="function")onChange();
+      if(typeof updateTierHL==="function")updateTierHL();
+      if(typeof updateDimPills==="function")updateDimPills();
+    }
+    if(typeof toast==="function")toast(name+" – Bewertung starten");
+  },120);
 }
 
 function renderRauteMap(names){
@@ -2192,7 +2235,7 @@ const SECS={
   quizresults:{cid:"train-sub-quizresults",sub:true, init:()=>w2("tqRenderTrainerView")},
   team:       {cid:"train-sub-team",       sub:true, init:()=>{w2("tnLoad");w2("teamStatsRender");tvInit();}},
   analyse:    {cid:"train-sub-analyse",    sub:true, init:()=>w2("anInit")},
-  spieltag:   {cid:"train-sub-spieltag",   sub:true, init:()=>{w2("rotRenderControls");w2("nomInit");}},
+  spieltag:   {cid:"train-sub-spieltag",   sub:true, init:()=>{spieltagPhasenZu();w2("rotRenderControls");w2("nomInit");}},
 };
 const tabState={}; // zuletzt geöffnete Sektion je Tab (UX: Rückkehr an dieselbe Stelle)
 let curSection="bew"; // aktuell sichtbare Sektion (für Pull-to-Refresh)
@@ -2239,6 +2282,14 @@ function go(key){
   tabState[tabId]=key;
   curSection=key;
   try{sessionStorage.setItem("adler_letzte_seite",key);}catch(e){}   // fuers Neuladen (sessionStorage: nur dieser Tab)
+}
+/* Beim Betreten des Spieltags stehen alle Phasen zu (PO: „bei Match alle Punkte
+   eingeklappt haben"). <details> merkt sich seinen Zustand im DOM – wer gestern
+   „Waehrend des Spiels" aufgeklappt hat, fand es beim naechsten Besuch offen vor und
+   scrollte an fuenf offenen Bloecken vorbei. Gezielte Spruenge (tmJump auf das
+   Blitz-Rating, Match-Uhr auf „Waehrend des Spiels") laufen SPAETER und oeffnen weiter. */
+function spieltagPhasenZu(){
+  document.querySelectorAll("#train-sub-spieltag details.el-sect").forEach(d=>{d.open=false;});
 }
 function openTab(tabId){ if(!TABS[tabId])return; go(tabState[tabId]||TABS[tabId].sections[0].key); }
 // Kompatibilitäts-Shims: bestehende sv()/switchTrainSub()-Aufrufe im Code bleiben gültig
@@ -3473,7 +3524,7 @@ function hilfeRender(q){
 const TOUR=[
   {emo:"🦅", t:"Willkommen in der Adler-App", d:"Die Startseite ist bewusst schlank: Ganz oben erscheinen DEINE To-Dos (nur wenn etwas offen ist), darunter „Bist du dabei?“ – nur die Termine der nächsten 14 Tage, für die deine Antwort noch fehlt; ein Tap auf ✅ 🤔 ❌ genügt, und ist alles beantwortet, verschwindet die Karte. Danach „Diese Woche“ – die Termine der nächsten sieben Tage mit dem Stand (Zusagen, Trainer, Plan, Aufstellung); die erste Zeile ist der nächste Termin mit Wetter, Packtipp und Sprungknopf. Dann ein festgelegtes Trainer-Meeting (falls eines ansteht, mit der Zahl offener Themen), das Termin-Karussell, ein Knopf zu allen Terminen der Saison – und sechs große Kacheln. Hinter jeder Kachel wartet wieder ein Kachel-Menü. Diese Tour findest du jederzeit über ❓ oben rechts."},
   {emo:"🏃", t:"Kachel: Training", d:"Vier Wege: Anwesenheit (heute + kommende Termine), Trainingsplan mit Stationen und Trainingsstart (die Trainer-Reihe oben zeigt farbig, wer für den Termin zu-, ab- oder noch nicht geantwortet hat), die Übungs-Datenbank und das 🏆 Trainingsturnier, das du vorab planen kannst – auch Eltern gegen Kinder. Die Nachbewertung meldet sich nach dem Training von selbst als To-Do auf der Startseite."},
-  {emo:"⚽", t:"Kachel: Spieltag", d:"Der Ablauf von oben nach unten: „Teams festlegen“ beantwortet einmal für den ganzen Tag, wer dabei ist und wie viele Teams wir stellen – die Kinder verteilt die App automatisch, du korrigierst nur. Darunter je Team eine Kachel mit Kader, Rollen, Uhr, Rotations-Timer und Liveticker; ganz unten die Team-Quests für alle Teams zusammen. Dazu die Rollen-Empfehlung aus den Bewertungen und die Analyse. Steht ein Turnier an, erscheint hier automatisch der Turnier-Bereich (Heimturnier ausrichten mit öffentlichem Link für die Gast-Trainer)."},
+  {emo:"⚽", t:"Kachel: Spieltag", d:"Der Ablauf von oben nach unten: „Teams festlegen“ beantwortet einmal für den ganzen Tag, wer dabei ist und wie viele Teams wir stellen – die Kinder verteilt die App automatisch, du korrigierst nur. Darunter je Team eine Kachel mit Kader, Rollen, Uhr, Rotations-Timer und Liveticker; danach die Team-Quests für alle Teams zusammen. Beim Öffnen sind alle Abschnitte eingeklappt – du tippst auf, was du gerade brauchst. Dazu die Rollen-Empfehlung aus den Bewertungen und die Analyse. Steht ein Turnier an, erscheint ganz unten der Turnier-Bereich (Heimturnier ausrichten mit öffentlichem Link für die Gast-Trainer)."},
   {emo:"👥", t:"Kachel: Team", d:"Kader verwalten, Spieler alle 6 Wochen in 16 Kriterien bewerten (Live-Radar), Profil mit Sprachlob und Entwicklungs-Report, dazu Saison-Cockpit, Anwesenheit über die Saison und Rollen-Matrix. Auch Notfallkarten und Probetraining wohnen hier."},
   {emo:"🎯", t:"Kachel: Taktik", d:"Das Taktikboard: Formationen stellen, Laufwege und Pässe zeichnen, als Bild teilen – auf dem Tablet im großen Pro-Modus. Daneben die Übungs-Datenbank."},
   {emo:"🪶", t:"Kachel: Eltern & Kinder", d:"Team-Ansage mit Gelesen-Status, Eltern einladen, Elterngespräche – und die ganze Adler-Welt der Kinder: Federn, Karten, Abzeichen, Kabinen-Wahl, Sammelalbum-Fotos, Team-Quests, Urkunden-Studio und das Adler Nest."},
