@@ -511,7 +511,8 @@ function nomRender(){
       <button class="btn btn-sm" onclick="nomApplyRsvp()" style="margin-left:auto;flex-direction:column;align-items:flex-start;gap:0;text-align:left" title="Setzt die Nominierung auf den Stand der Eltern-Rückmeldungen zurück"><span><i class="ti ti-arrow-back-up" style="margin-right:5px"></i>Meine Änderungen verwerfen</span><span style="font-size:10px;font-weight:400;color:var(--text3)">Nominierung folgt wieder den Eltern</span></button>
     </div>`;
   }
-  box.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">${dabeiAlle} von ${KADER.length} dabei – gilt für den ganzen Spieltag</div>`+sum;
+  const kaderAktiv=KADER.filter(k=>k.aktiv!==false).length;   // ausgetragene Kinder zaehlen nicht mit
+  box.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:8px">${dabeiAlle} von ${kaderAktiv} dabei – gilt für den ganzen Spieltag</div>`+sum;
 }
 
 /* ═══════════════════════════════════

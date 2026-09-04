@@ -152,27 +152,18 @@ function teamsAuto(){
   let pool=teamZusagen();
   TEAMS={};
   if(!pool.length){ teamsRender(); return; }
-  const kap=teamPlatzProTeam(n,pool.length); // Sollgröße, ggf. +1 damit niemand zusehen muss
+  /* Frueher setzte die Automatik „Ueberzaehlige" von sich aus auf die Bank, sobald mehr
+     Kinder zugesagt hatten als die Sollstaerke fasst. Seit v461 gilt: wer dabei ist,
+     spielt mit – die Automatik verteilt ALLE, und ob dafuer ein zweites Team noetig ist,
+     entscheidet der Trainer (Hinweis in teamsRender, Vorschlag ueber der Teamzahl). */
 
-  // 1) Überzählige bestimmen – Torwarte nur opfern, wenn danach noch genug bleiben
-  const ueber=Math.max(0,pool.length-n*kap);
-  if(ueber>0){
-    const raus=[];
-    for(const name of teamPausenReihenfolge(pool)){
-      if(raus.length>=ueber)break;
-      if(kd.tw&&istTorwart(name)){
-        const twUebrig=pool.filter(x=>istTorwart(x)&&raus.indexOf(x)<0&&x!==name).length;
-        if(twUebrig<n*kd.tw)continue;                 // dieser Torwart wird gebraucht
-      }
-      raus.push(name);
-    }
-    pool=pool.filter(x=>raus.indexOf(x)<0);           // Rest bleibt ohne Team (TEAMS[name] fehlt)
-  }
-
+  /* Sollstaerke je Team – nur noch fuer die REIHENFOLGE der Verteilung (das schwaechste
+     Team zuerst auffuellen), nicht mehr als harte Grenze: es bleibt niemand uebrig. */
+  const kap=Math.max(1,Math.ceil(pool.length/n));
   const wert=x=>Math.max(0,teamStaerke(x));           // unbewertet zählt als 0
   const summe=new Array(n+1).fill(0);
   const twPlatz=new Array(n+1).fill(kd.tw);
-  const feldPlatz=new Array(n+1).fill(kap-kd.tw);     // Feldplätze = Kapazität minus Torwart
+  const feldPlatz=new Array(n+1).fill(kap-kd.tw);     // Feldplätze = Sollgröße minus Torwart
   const einsetzen=(name,t,alsTw)=>{TEAMS[name]=t;summe[t]+=wert(name);if(alsTw)twPlatz[t]--;else feldPlatz[t]--;};
 
   // 2) Torwarte: pro Team einer, stärkster zuerst
@@ -189,7 +180,12 @@ function teamsAuto(){
   rest.forEach(name=>{
     let ziel=0;
     for(let t=1;t<=n;t++){ if(feldPlatz[t]<=0)continue; if(!ziel||summe[t]<summe[ziel])ziel=t; }
-    if(!ziel)return;                                   // kein Platz mehr -> pausiert
+    /* Sind alle Sollplaetze belegt, bleibt niemand mehr uebrig (v461): das Kind kommt ins
+       kleinste Team. Wer pausieren soll, wird vom Trainer auf „Pausiert" gestellt. */
+    if(!ziel){
+      const groesse=t=>Object.keys(TEAMS).filter(x=>TEAMS[x]===t).length;
+      ziel=1; for(let t=2;t<=n;t++) if(groesse(t)<groesse(ziel))ziel=t;
+    }
     einsetzen(name,ziel,false);
   });
   teamsRender();
@@ -362,15 +358,19 @@ function teamKaderRender(){
    zusagt, spielt erst mal mit; pausieren ist eine Entscheidung, kein Ausgangszustand.
    Gefüllt wird das momentan kleinste Team mit freiem Platz. Sind alle voll, bleibt das
    Kind ohne Team – dann stimmt „pausiert" auch, und der Hinweis oben erklärt es. */
+/* „Wenn ein Kind auf DABEI gesetzt ist, dann automatisch SPIELT MIT. Der Trainer kann
+   das dann haendisch aendern." (PO v461) Bis dahin sortierte diese Funktion nur ein,
+   solange die Sollstaerke Platz liess – bei 14 Zusagen und einem Team standen acht
+   Kinder als „Pausiert" da, ohne dass es jemand entschieden haette. Jetzt landet jedes
+   zugesagte Kind im kleinsten Team; dass die Mannschaft dann ueber der Sollstaerke ist,
+   sagt der Hinweis darueber (teamsRender) – Pause ist eine Entscheidung, kein Restposten. */
 function teamPlatzEinsortieren(name){
   if(TEAMS[name])return false;
-  const kap=teamPlatzProTeam(TEAM_ANZAHL,teamZusagen().length);
-  let ziel=0, klein=Infinity;
+  let ziel=1, klein=Infinity;
   for(let t=1;t<=TEAM_ANZAHL;t++){
     const n=Object.keys(TEAMS).filter(x=>TEAMS[x]===t).length;
-    if(n<kap&&n<klein){ klein=n; ziel=t; }
+    if(n<klein){ klein=n; ziel=t; }
   }
-  if(!ziel)return false;
   TEAMS[name]=ziel;
   return true;
 }
@@ -700,14 +700,29 @@ function teamsRender(){
     </div>`;
   };
 
-  const ohneTeam=pool.filter(n=>!TEAMS[n]);
-  if(ohneTeam.length){
+  /* Zwei verschiedene Dinge, getrennt gehalten: wen der Trainer pausieren laesst (eine
+     Entscheidung) und ob die Teams ueber der Sollstaerke liegen (eine Information). */
+  const grosse=[];
+  for(let t=1;t<=TEAM_ANZAHL;t++){
+    const anz=Object.keys(TEAMS).filter(x=>TEAMS[x]===t).length;
+    if(anz>kd.gesamt+1)grosse.push({t,anz});
+  }
+  if(grosse.length){
+    const vor=teamAnzahlVorschlag();
     html+=`<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:10px;padding:8px 10px;margin-bottom:6px">
-      <div style="font-size:12px;font-weight:700;color:var(--amber)">⏸ ${ohneTeam.length} Kind${ohneTeam.length===1?"":"er"} pausiert: ${ohneTeam.map(esc).join(", ")}</div>
-      <div style="font-size:11px;color:var(--amber);margin-top:2px">Mehr Zusagen als Plätze – ${TEAM_ANZAHL===1?"ein Team fasst":TEAM_ANZAHL+" Teams fassen"} ${TEAM_ANZAHL*teamPlatzProTeam()} Kinder. Vorgeschlagen nach den meisten Saison-Einsätzen, dann nach der geringsten Trainingsbeteiligung – unten in der Liste änderbar.</div>
+      <div style="font-size:12px;font-weight:700;color:var(--amber)">👥 ${grosse.length===1&&TEAM_ANZAHL===1?`${grosse[0].anz} Kinder in einem Team`:grosse.map(g=>`Team ${g.t}: ${g.anz} Kinder`).join(" · ")}</div>
+      <div style="font-size:11px;color:var(--amber);margin-top:2px">Sollstärke sind ${kd.gesamt} pro Team${vor>TEAM_ANZAHL?` – mit ${vor} Teams passt es`:""}. Alle spielen mit; wen du pausieren lassen willst, stellst du unten auf „Pausiert“.</div>
     </div>`;
   }
-  html+=KADER.map(k=>zeile(k.name)).join("");
+  const ohneTeam=pool.filter(n=>!TEAMS[n]);
+  if(ohneTeam.length){
+    html+=`<div style="background:var(--surface2);border:var(--border);border-radius:10px;padding:8px 10px;margin-bottom:6px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2)">⏸ ${ohneTeam.length} Kind${ohneTeam.length===1?"":"er"} pausiert: ${ohneTeam.map(esc).join(", ")}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px">Von dir auf Pause gestellt – tippe auf „Spielt mit“, um das zurückzunehmen.</div>
+    </div>`;
+  }
+  // Ausgetragene Kinder gehoeren nicht in die Nominierung (sie tauchten hier noch auf)
+  html+=KADER.filter(k=>k.aktiv!==false).map(k=>zeile(k.name)).join("");
   box.innerHTML=html;
 }
 
