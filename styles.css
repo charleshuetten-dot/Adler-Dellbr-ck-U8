@@ -958,3 +958,8 @@ html[data-theme="dark"] .aw-tile.on,body.dark .aw-tile.on{background:#14532d;bor
 
 /* Trainer-Chips in der Planung: eine wischbare Zeile, Chips schrumpfen nicht */
 #tp-trainer-checks .tp-check{flex:none}
+
+/* Der Browser laedt bei „nach unten wischen" die ganze Seite neu und landet auf der
+   Startseite. Die App hat ihren eigenen Pull-to-Refresh (boot.js), der die Daten still
+   nachlaedt und die Seite haelt – deshalb den des Browsers abschalten. */
+html,body{overscroll-behavior-y:contain}

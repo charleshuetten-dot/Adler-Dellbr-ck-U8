@@ -2238,6 +2238,7 @@ function go(key){
   if(SECS[key].init)setTimeout(SECS[key].init,50);
   tabState[tabId]=key;
   curSection=key;
+  try{sessionStorage.setItem("adler_letzte_seite",key);}catch(e){}   // fuers Neuladen (sessionStorage: nur dieser Tab)
 }
 function openTab(tabId){ if(!TABS[tabId])return; go(tabState[tabId]||TABS[tabId].sections[0].key); }
 // Kompatibilitäts-Shims: bestehende sv()/switchTrainSub()-Aufrufe im Code bleiben gültig
@@ -3385,7 +3386,7 @@ async function saisonCockpitOpen(){
 const HELP=[
   {cat:"🏠 Start", items:[
     {t:"Diese Woche", d:"Alle Termine der nächsten 7 Tage auf einen Blick: wie viele Kinder zugesagt haben, ob genug Trainer da sind, ob der Trainingsplan steht und die Aufstellung fürs Spiel. Antippen öffnet den Termin.", run:"document.getElementById('home-woche')?.scrollIntoView({behavior:'smooth',block:'center'})"},
-    {t:"Startseite", d:"To-Do-Banner (nur bei offenen Aufgaben), „Bist du dabei?“ mit den Terminen der nächsten 14 Tage, für die deine Antwort noch fehlt (beantwortet = Karte weg), „Diese Woche“ mit dem Stand je Termin, nächster Termin mit Wetter, Termin-Karussell, der Knopf zu allen Terminen und sechs große Kacheln – dahinter jeweils ein Kachel-Menü.", go:"home"},
+    {t:"Startseite", d:"To-Do-Banner (nur bei offenen Aufgaben), „Bist du dabei?“ mit den Terminen der nächsten 14 Tage, für die deine Antwort noch fehlt (beantwortet = Karte weg), „Diese Woche“ mit dem Stand je Termin – die erste Zeile ist der nächste Termin mit Wetter, Packtipp und Sprungknopf –, Termin-Karussell, der Knopf zu allen Terminen und sechs große Kacheln – dahinter jeweils ein Kachel-Menü.", go:"home"},
   ]},
   {cat:"👥 Team", items:[
     {t:"Saison-Cockpit", d:"Torschützen, Anwesenheit, Rückmelde-Tempo der Familien, faire Einsätze, Eltern-Puls, Rückmelde-Tempo – alles auf einen Blick.", run:"saisonCockpitOpen()"},
@@ -3470,7 +3471,7 @@ function hilfeRender(q){
   box.innerHTML=html||`<div style="font-size:12px;color:var(--text3);padding:10px 0">Nichts gefunden.</div>`;
 }
 const TOUR=[
-  {emo:"🦅", t:"Willkommen in der Adler-App", d:"Die Startseite ist bewusst schlank: Ganz oben erscheinen DEINE To-Dos (nur wenn etwas offen ist), darunter „Bist du dabei?“ – nur die Termine der nächsten 14 Tage, für die deine Antwort noch fehlt; ein Tap auf ✅ 🤔 ❌ genügt, und ist alles beantwortet, verschwindet die Karte. Danach „Diese Woche“ – die Termine der nächsten sieben Tage mit dem Stand (Zusagen, Trainer, Plan, Aufstellung), dann der nächste Termin mit Wetter, ein festgelegtes Trainer-Meeting (falls eines ansteht, mit der Zahl offener Themen), das Termin-Karussell, ein Knopf zu allen Terminen der Saison – und sechs große Kacheln. Hinter jeder Kachel wartet wieder ein Kachel-Menü. Diese Tour findest du jederzeit über ❓ oben rechts."},
+  {emo:"🦅", t:"Willkommen in der Adler-App", d:"Die Startseite ist bewusst schlank: Ganz oben erscheinen DEINE To-Dos (nur wenn etwas offen ist), darunter „Bist du dabei?“ – nur die Termine der nächsten 14 Tage, für die deine Antwort noch fehlt; ein Tap auf ✅ 🤔 ❌ genügt, und ist alles beantwortet, verschwindet die Karte. Danach „Diese Woche“ – die Termine der nächsten sieben Tage mit dem Stand (Zusagen, Trainer, Plan, Aufstellung); die erste Zeile ist der nächste Termin mit Wetter, Packtipp und Sprungknopf. Dann ein festgelegtes Trainer-Meeting (falls eines ansteht, mit der Zahl offener Themen), das Termin-Karussell, ein Knopf zu allen Terminen der Saison – und sechs große Kacheln. Hinter jeder Kachel wartet wieder ein Kachel-Menü. Diese Tour findest du jederzeit über ❓ oben rechts."},
   {emo:"🏃", t:"Kachel: Training", d:"Vier Wege: Anwesenheit (heute + kommende Termine), Trainingsplan mit Stationen und Trainingsstart (die Trainer-Reihe oben zeigt farbig, wer für den Termin zu-, ab- oder noch nicht geantwortet hat), die Übungs-Datenbank und das 🏆 Trainingsturnier, das du vorab planen kannst – auch Eltern gegen Kinder. Die Nachbewertung meldet sich nach dem Training von selbst als To-Do auf der Startseite."},
   {emo:"⚽", t:"Kachel: Spieltag", d:"Der Ablauf von oben nach unten: „Teams festlegen“ beantwortet einmal für den ganzen Tag, wer dabei ist und wie viele Teams wir stellen – die Kinder verteilt die App automatisch, du korrigierst nur. Darunter je Team eine Kachel mit Kader, Rollen, Uhr, Rotations-Timer und Liveticker; ganz unten die Team-Quests für alle Teams zusammen. Dazu die Rollen-Empfehlung aus den Bewertungen und die Analyse. Steht ein Turnier an, erscheint hier automatisch der Turnier-Bereich (Heimturnier ausrichten mit öffentlichem Link für die Gast-Trainer)."},
   {emo:"👥", t:"Kachel: Team", d:"Kader verwalten, Spieler alle 6 Wochen in 16 Kriterien bewerten (Live-Radar), Profil mit Sprachlob und Entwicklungs-Report, dazu Saison-Cockpit, Anwesenheit über die Saison und Rollen-Matrix. Auch Notfallkarten und Probetraining wohnen hier."},
@@ -3752,20 +3753,28 @@ async function homeWocheLoad(){
   if(!sbToken()){slot.innerHTML="";return;}
   const heute=new Date().toISOString().slice(0,10);
   const bis=new Date(Date.now()+WOCHE_TAGE*864e5).toISOString().slice(0,10);
+  let fern=false;   // kein Termin in 7 Tagen → der naechste danach
   const karte=inner=>`<div class="card" style="padding:12px 14px;margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text2)">🗓️ Diese Woche</div>
-      <div style="font-size:11px;color:var(--text3)">nächste ${WOCHE_TAGE} Tage</div>
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text2)">🗓️ ${fern?"Als Nächstes":"Diese Woche"}</div>
+      <div style="font-size:11px;color:var(--text3)">${fern?"kein Termin in den nächsten "+WOCHE_TAGE+" Tagen":"nächste "+WOCHE_TAGE+" Tage"}</div>
     </div>${inner}</div>`;
   let termine=[];
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/termine?select=id,datum,uhrzeit,uhrzeit_ende,typ,titel,gegner,ort,platz,trainer_status&datum=gte.${heute}&datum=lt.${bis}&order=datum.asc,uhrzeit.asc.nullslast`,{headers:sbAuthHeaders()});
+    const felder="id,datum,uhrzeit,uhrzeit_ende,typ,titel,gegner,ort,platz,spielform,trainer_status";
+    const r=await fetch(`${SB_URL}/rest/v1/termine?select=${felder}&datum=gte.${heute}&datum=lt.${bis}&order=datum.asc,uhrzeit.asc.nullslast`,{headers:sbAuthHeaders()});
     if(sbCheck401(r)||!r.ok){slot.innerHTML="";return;}
     termine=((await r.json())||[]).filter(t=>!(typeof terminVorbei==="function"&&terminVorbei(t)));
+    /* Nichts in sieben Tagen (Ferien): dann den naechsten Termin danach zeigen – die
+       Karte „Naechster Termin" gibt es nicht mehr, ihr Platz ist hier. */
+    if(!termine.length){
+      const r2=await fetch(`${SB_URL}/rest/v1/termine?select=${felder}&datum=gte.${bis}&order=datum.asc,uhrzeit.asc.nullslast&limit=1`,{headers:sbAuthHeaders()});
+      if(r2.ok){termine=((await r2.json())||[]); fern=termine.length>0;}
+    }
   }catch(e){slot.innerHTML="";return;}
   if(!document.getElementById("home-woche"))return;   // Tab schon verlassen
   if(!termine.length){
-    slot.innerHTML=karte(`<div style="font-size:12.5px;color:var(--text2)">Diese Woche kein Termin. <a href="#" onclick="go('termine');return false" style="color:var(--blue-text);font-weight:700">Termin erfassen ›</a></div>`);
+    slot.innerHTML=karte(`<div style="font-size:12.5px;color:var(--text2)">Kein Termin geplant. <a href="#" onclick="go('termine');return false" style="color:var(--blue-text);font-weight:700">Termin erfassen ›</a></div>`);
     return;
   }
   const inList=a=>`in.(${a.map(x=>encodeURIComponent(x)).join(",")})`;
@@ -3779,8 +3788,8 @@ async function homeWocheLoad(){
   ]);
   if(!document.getElementById("home-woche"))return;
   const aktive=(KADER||[]).filter(k=>k.aktiv!==false).length;
-  const zeilen=termine.map(t=>{
-    const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ};
+  const zeilen=termine.map((t,idx)=>{
+    const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"var(--blue)"};
     const d=new Date(t.datum+"T00:00:00");
     const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
     const inTagen=Math.round((d-new Date(heute+"T00:00:00"))/864e5);
@@ -3809,21 +3818,40 @@ async function homeWocheLoad(){
     }
     const titel=esc(t.titel||t.gegner||m.label);
     const ort=t.platz||t.ort;
+    const istSpiel=t.typ==="spiel"||t.typ==="turnier";
+    /* Erste Zeile = der naechste Termin: hier wohnen jetzt Sprungknopf, Adresse, Wetter,
+       Packtipp und Gegner-Kontakt – frueher eine eigene Karte direkt darunter. */
+    const erweitert=idx!==0?"":`<div class="woche-erweitert" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()" style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          ${istSpiel?`<button class="btn btn-p btn-sm" onclick="tmJump('blitz','${t.datum}','${esc(t.spielform||"")}')" style="white-space:nowrap"><i class="ti ti-ball-football"></i>Matchday</button>`
+            :t.typ==="event"?`<button class="btn btn-sm" onclick="mitbringTrainerOpen()" style="white-space:nowrap"><i class="ti ti-basket"></i>Mitbringliste</button>`
+            :`<button class="btn btn-sm" onclick="tmJump('planung','${t.datum}')" style="white-space:nowrap"><i class="ti ti-clipboard-list"></i>Plan</button>`}
+          ${t.spielform?`<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:${m.col}22;color:${m.col}">${esc(t.spielform)}</span>`:""}
+          ${t.ort?`<span style="font-size:11.5px;color:var(--text2)">📍 ${mapsAnchor(t.ort)}</span>`:""}
+        </div>
+        <div id="wetter-home"></div><div id="wetter-warn-home"></div><div id="gegner-contact-home"></div>
+      </div>`;
     return `<div class="woche-zeile" role="button" tabindex="0" onclick="wocheOpen(${t.id},'${t.datum}','${esc(t.typ)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"
         style="display:flex;gap:10px;align-items:flex-start;min-height:44px;padding:8px 4px;border-top:1px solid var(--rand-bedien);cursor:pointer">
       <div style="flex:0 0 52px;text-align:center">
-        <div style="font-size:11px;font-weight:800;color:${inTagen===0?"var(--red)":"var(--text2)"}">${inTagen===0?"HEUTE":wtag}</div>
+        <div style="font-size:11px;font-weight:800;color:${inTagen===0?"var(--red)":"var(--text2)"}">${inTagen===0?"HEUTE":inTagen===1?"morgen":wtag}</div>
         <div style="font-size:14px;font-weight:800;line-height:1.2">${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}</div>
         <div style="font-size:11px;color:var(--text2)">${zeit||"&nbsp;"}</div>
       </div>
       <div style="flex:1;min-width:0">
         <div style="font-size:13.5px;font-weight:800;line-height:1.25">${m.icon} ${titel}${ort?` <span style="font-weight:500;color:var(--text2);font-size:11.5px">· ${esc(ort)}</span>`:""}</div>
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">${chips.join("")}</div>
+        ${erweitert}
       </div>
       <div aria-hidden="true" style="align-self:center;color:var(--text3);font-size:16px">›</div>
     </div>`;
   });
   slot.innerHTML=karte(`<div style="margin:0 -4px">${zeilen.join("")}</div>`);
+  // Wetter, Warnung und Gegner-Kontakt fuer den ersten Termin – wie frueher in der eigenen Karte
+  const t0=termine[0];
+  try{ if(typeof wetterInto==="function")wetterInto("wetter-home",t0.datum,t0.ort,t0.uhrzeit); }catch(e){}
+  try{ if(t0.typ!=="event"&&typeof wetterWarnHome==="function")wetterWarnHome(t0); }catch(e){}
+  try{ if((t0.typ==="spiel"||t0.typ==="turnier")&&typeof gegnerContactInto==="function")gegnerContactInto("gegner-contact-home",t0.titel||t0.gegner); }catch(e){}
 }
 
 /* ── Nutzung (v453, Plan-Punkt F) ── Auswertung des Nutzungslogs fuer Trainer */
@@ -3969,7 +3997,7 @@ async function renderHome(){
     <div id="trainer-termine-slot"></div>
     <div id="eg-trainer"></div>
     <div id="home-woche"></div>
-    <div id="home-next">${card('<div style="font-size:12px;color:var(--text3)">Lade nächsten Termin...</div>')}</div>
+    <div id="home-next"></div>
     <div id="home-meeting"></div>
     <div id="home-carousel"></div>
     <div id="trainer-alle-termine-slot"></div>
@@ -4013,35 +4041,14 @@ async function renderHome(){
          jetzt aus derselben Quelle gesetzt wie dieser Knopf (trainerTermineHomeLoad),
          damit beide Zahlen gar nicht mehr auseinanderlaufen KÖNNEN. */
     }catch(e){}
-    if(!rows.length){slot.innerHTML=card(`<div style="font-size:12.5px">📅 Kein Termin geplant. <a href="#" onclick="go('termine');return false" style="color:var(--blue-text)">Jetzt anlegen</a></div>`);return;}
-    const t=rows[0];
-    const m=(typeof TM_META!=="undefined"&&TM_META[t.typ])||{icon:"📅",label:t.typ,col:"var(--blue)"};
-    const d=new Date(t.datum+"T00:00:00");
-    const wtag=["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
-    const inTagen=Math.round((d-new Date(heute+"T00:00:00"))/86400000);
-    const wann=inTagen===0?"HEUTE":inTagen===1?"morgen":`in ${inTagen} Tagen`;
-    const zeit=t.uhrzeit?String(t.uhrzeit).slice(0,5)+" Uhr":"";
-    const istSpiel=t.typ==="spiel"||t.typ==="turnier";
-    slot.innerHTML=card(`
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <div onclick="tmDetailOpen(${t.id})" style="cursor:pointer;flex:1;min-width:0" title="Termin-Details öffnen">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">Nächster Termin · ${wann} · ansehen ›</div>
-          <div style="font-size:15px;font-weight:800;margin-top:2px">${m.icon} ${esc(t.titel||t.gegner||m.label)}${t.spielform?` <span style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;background:${m.col}22;color:${m.col}">${esc(t.spielform)}</span>`:""}</div>
-          <div style="font-size:11.5px;color:var(--text2);margin-top:2px">${wtag} ${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}${zeit?" · "+zeit:""}${t.ort?" · "+mapsAnchor(t.ort):""}${t.platz?" · 🏟️ "+esc(t.platz):""}</div>
-        </div>
-        ${istSpiel?`<button class="btn btn-p btn-sm" onclick="tmJump('blitz','${t.datum}','${t.spielform||''}')" style="white-space:nowrap"><i class="ti ti-ball-football"></i>Matchday</button>`
-                  :t.typ==="event"?`<button class="btn btn-sm" onclick="mitbringTrainerOpen()" style="white-space:nowrap"><i class="ti ti-basket"></i>Mitbringliste</button>`
-                  :`<button class="btn btn-sm" onclick="tmJump('planung','${t.datum}')" style="white-space:nowrap"><i class="ti ti-clipboard-list"></i>Plan</button>`}
-      </div>
-      <div id="wetter-home"></div>
-      <div id="wetter-warn-home"></div>
-      <div id="gegner-contact-home"></div>`,m.col);
-    wetterInto("wetter-home",t.datum,t.ort,t.uhrzeit); // Wetter am Termin-Ort + Uhrzeit (stundengenau)
-    if(t.typ!=="event")wetterWarnHome(t); // Wetter-Warnung + Schnellaktion (nur Outdoor-Events)
-    if(istSpiel&&typeof gegnerContactInto==="function")gegnerContactInto("gegner-contact-home",t.titel||t.gegner); // Ansprechpartner aus Gegner-DB (Welle 2 – guarden, sonst faellt die ganze Karte in den Offline-Zweig)
+    /* Die Karte „Naechster Termin" stand hier – direkt unter „Diese Woche", deren erste
+       Zeile derselbe Termin ist (PO: „doppeln sich"). Wetter, Packtipp, Sprungknopf und
+       Gegner-Kontakt leben jetzt in der ersten Zeile der Wochenkarte (homeWocheLoad).
+       Der Abruf bleibt fuer Karussell, Kachel-Badges und TM_TERMINE. */
+    slot.innerHTML="";
   }catch(e){
     const slot=document.getElementById("home-next");
-    if(slot)slot.innerHTML=card('<div style="font-size:12px;color:var(--text3)">Offline – kein Terminabruf.</div>');
+    if(slot)slot.innerHTML="";
   }
 }
 
