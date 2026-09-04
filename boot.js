@@ -991,9 +991,12 @@ function tpParallelTrainer(mainIdx){
    die ueberzaehligen Gruppen spielen bei den kleinsten Feldern mit – nur fuer diesen
    Hauptteil, die Auslosung selbst bleibt unangetastet (ein anderer Hauptteil ohne Block
    hat wieder alle Gruppen). Kein Kind verschwindet, keine Gruppe wird gespeichert. */
-function tpFelderGruppen(tg,n){
-  const g=(tg&&tg.gruppen)||[];
-  if(!g.length)return [];
+function tpFelderGruppen(tg,n,weg){
+  const alle=(tg&&tg.gruppen)||[];
+  if(!alle.length)return [];
+  const raus=Array.isArray(weg)?weg:[];
+  // Vom Trainer weggelassene Felder: ihre Gruppe wird auf die anderen verteilt
+  const g=alle.filter((x,i)=>!raus.includes(i)).concat(alle.filter((x,i)=>raus.includes(i)));
   n=Math.max(1,Math.min(n||g.length,g.length));
   const felder=g.slice(0,n).map(x=>({...x,kinder:(x.kinder||[]).slice(),dazu:[]}));
   g.slice(n).forEach(x=>{
@@ -1003,7 +1006,26 @@ function tpFelderGruppen(tg,n){
   felder.forEach(f=>{ if(f.dazu.length)f.name=f.name+" + "+f.dazu.join(" + "); });
   return felder;
 }
+/* „✕ Feld weglassen" im Trainer-Dropdown eines Hauptteils: weniger Uebungen als Felder
+   moeglich – die Gruppe dieses Feldes spielt bei den anderen mit. Position der Felder
+   dahinter rueckt nach, die Trainer-Zuordnung wandert mit. Zurueck ueber „wieder aufnehmen". */
+function tpFeldWeglassen(si,p){
+  const slot=tpSlots[si]; if(!slot)return;
+  const anzahl=document.querySelectorAll(`.tp-form-sel[id^="tp-form-${si}-"]`).length;
+  if(anzahl<=1)return;
+  const weg=Array.isArray(slot.weg)?slot.weg.slice():[];
+  // p ist die Position unter den SICHTBAREN Feldern; auf den Gruppen-Index abbilden
+  const tg=(typeof tgFor==="function")?tgFor():null;
+  const sichtbar=tg&&tg.gruppen?tg.gruppen.map((x,i)=>i).filter(i=>!weg.includes(i)):null;
+  weg.push(sichtbar?(sichtbar[p]!=null?sichtbar[p]:p):(weg.length+p));
+  slot.weg=weg;
+  for(let q=p;q<anzahl-1;q++){const a=tpCoaches[`tp-form-${si}-${q+1}`]; if(a)tpCoaches[`tp-form-${si}-${q}`]=a; else delete tpCoaches[`tp-form-${si}-${q}`];}
+  delete tpCoaches[`tp-form-${si}-${anzahl-1}`];
+  tpRenderTimeline(); tpPlanSaveDebounced();
+}
+function tpFeldZurueck(si){ if(tpSlots[si]){delete tpSlots[si].weg; tpRenderTimeline(); tpPlanSaveDebounced();} }
 function tpSetCoach(stationId,name){
+  if(name==="__weg"){const m=String(stationId).match(/^tp-form-(\d+)-(\d+)$/); if(m)tpFeldWeglassen(+m[1],+m[2]); return;}
   tpCoaches[stationId]=name;
   tpPlanSaveDebounced();                        // Zuordnung am Datum festhalten
   if(typeof evalRenderList==="function")evalRenderList(); // Bewertungs-Liste zieht nach
@@ -1011,12 +1033,13 @@ function tpSetCoach(stationId,name){
   const m=String(stationId).match(/^tp-form-(\d+)-0$/);
   if(m&&tpIstParallel(tpSlots[+m[1]]))tpRenderTimeline();
 }
-function tpCoachSelect(stationId,ausschluss){
+function tpCoachSelect(stationId,ausschluss,wegOption){
   const avail=tpGetCheckedTrainers();
   const cur=tpCoaches[stationId]||"";
   const list=(avail.length?avail:TRAINER).filter(t=>!(ausschluss&&ausschluss.has(t)&&t!==cur));
+  const weg=wegOption?`<option value="__weg">✕ Feld weglassen</option>`:"";
   return `<select class="tp-coach-sel" data-station="${stationId}" onchange="tpSetCoach('${stationId}',this.value)" aria-label="Trainer für diese Station" title="Wer leitet diese Station?">
-    <option value="">👤 Trainer?</option>${list.map(t=>`<option value="${t}"${t===cur?" selected":""}>${t}</option>`).join("")}
+    <option value="">👤 Trainer?</option>${list.map(t=>`<option value="${t}"${t===cur?" selected":""}>${t}</option>`).join("")}${weg}
   </select>`;
 }
 
@@ -1146,8 +1169,10 @@ function tpRenderTimeline(){
        freien Trainer – ohne die Untergrenze „Gruppenzahl", denn die ueberzaehligen Gruppen
        spielen hier bei den anderen Feldern mit (tpFelderGruppen). Sonst gilt weiter: nie
        weniger Felder als Gruppen, damit bei einer Absage keine Gruppe verschwindet. */
-    const parallelSlots=noGroups?1:(typ==="main"&&gebunden.size)?Math.min(Math.max(1,trainers.length),5):Math.min(Math.max(1,trainerCount,tgAnz),5);
-    const felderGruppen=(typ==="main"&&typeof tgFor==="function"&&tgFor())?tpFelderGruppen(tgFor(),parallelSlots):null;
+    const weg=(typ==="main"&&Array.isArray(slot.weg))?slot.weg:[];
+    const basisFelder=noGroups?1:(typ==="main"&&gebunden.size)?Math.min(Math.max(1,trainers.length),5):Math.min(Math.max(1,trainerCount,tgAnz),5);
+    const parallelSlots=Math.max(1,basisFelder-weg.length);   // vom Trainer weggelassene Felder
+    const felderGruppen=(typ==="main"&&typeof tgFor==="function"&&tgFor())?tpFelderGruppen(tgFor(),parallelSlots,weg):null;
     const filtered=tpFilteredOpts(typ);
     const formOpts=filtered.map(x=>`<option value="${x.i}">${x.f.name} (${x.f.dauer})</option>`).join("");
 
@@ -1168,9 +1193,11 @@ function tpRenderTimeline(){
     if(typ==="main"&&(slot.dauer||0)>=15){
       html+=`<div style="font-size:10.5px;color:var(--text3);padding:2px 0 4px">💡 Nach ~10 Min. variieren oder steigern – 20 Min. dieselbe Übung überfordert die Aufmerksamkeit von 7–9-Jährigen</div>`;
     }
-    if(typ==="main"&&gebunden.size){
+    if(typ==="main"&&(gebunden.size||weg.length)){
       const zusammen=(felderGruppen||[]).filter(f=>f.dazu.length).map(f=>`${f.dazu.join(" + ")} spielt bei ${f.emo} ${f.name.split(" + ")[0]} mit`).join(" · ");
-      html+=`<div class="tp-parallel-hinweis" style="font-size:11px;color:var(--text2);padding:2px 0 6px">🧤 ${esc([...gebunden].join(", "))} ${gebunden.size===1?"ist":"sind"} beim Torwart-/Einzeltraining – ${parallelSlots} Feld${parallelSlots===1?"":"er"} statt ${Math.max(1,trainersAlle.length)}${zusammen?" · "+esc(zusammen):""}</div>`;
+      const grund=gebunden.size?`🧤 ${esc([...gebunden].join(", "))} ${gebunden.size===1?"ist":"sind"} beim Torwart-/Einzeltraining`:"";
+      const wegText=weg.length?`✕ ${weg.length} Feld${weg.length===1?"":"er"} weggelassen`:"";
+      html+=`<div class="tp-parallel-hinweis" style="font-size:11px;color:var(--text2);padding:2px 0 6px">${[grund,wegText].filter(Boolean).join(" · ")} – ${parallelSlots} Feld${parallelSlots===1?"":"er"} statt ${Math.max(1,trainersAlle.length)}${zusammen?" · "+esc(zusammen):""}${weg.length?` <button class="tp-feld-zurueck" onclick="tpFeldZurueck(${si})" style="margin-left:6px;min-height:28px;padding:2px 10px;border:1px solid var(--rand-bedien);border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:11px;font-weight:700;cursor:pointer">↩ Feld wieder aufnehmen</button>`:""}</div>`;
     }
     if(typ==="warmup"){
       html+=`<div style="font-size:10.5px;color:var(--text3);padding:2px 0 4px">🏃 Ankommensspiel wählen: ab dem ERSTEN Kind spielbar, Nachzügler docken einfach an – kein Warten, kein Laufen ohne Ball</div>`;
@@ -1234,7 +1261,7 @@ function tpRenderTimeline(){
           <div class="tp-station-head">
             <span class="tp-station-nr">${noGroups?"👥":(tgg?tgg.emo:p+1)}</span>
             <span class="tp-station-titel">${noGroups?"Alle Kinder":(tgg?`${tgg.name} (${tgg.kinder.length})`:`Gruppe ${p+1}`)}</span>
-            ${noGroups?"":tpCoachSelect(selId,gebunden)}
+            ${noGroups?"":tpCoachSelect(selId,gebunden,isMain&&parallelSlots>1)}
           </div>`;
         // Kategorie-Dropdown entfällt – der Übungs-Picker gruppiert selbst (PO: keine Ellenlisten)
         html+=`<div class="tp-feld"><label for="${selId}">Übung</label>
@@ -1906,20 +1933,47 @@ function tpPlanEntries(){
 /* Plan pro Datum sichern (debounced). Ohne Trainer-Token still ueberspringen –
    der Plan ist trainer-only und darf offline nicht die Queue verstopfen. */
 let _tpPlanTimer=null;
-function tpPlanSaveDebounced(){ clearTimeout(_tpPlanTimer); _tpPlanTimer=setTimeout(tpPlanSave,1200); }
-async function tpPlanSave(){
-  if(!sbToken())return;
-  const datum=document.getElementById("tp-date")?.value; if(!datum)return;
-  const plan=tpPlanEntries(); if(!plan.length)return; // leeren Plan nie ueber einen vollen schreiben
+function tpPlanSaveDebounced(){ clearTimeout(_tpPlanTimer); _tpPlanTimer=setTimeout(()=>tpPlanSave(false),1200); }
+/* Die Zuordnung gehoert zur Struktur: welcher Trainer welches Feld hat, wer am Torwart-
+   oder Einzelblock steht, welche Torhueter angehakt sind, welches Kind einzeln trainiert.
+   Bis v455 lebte das alles nur im DOM und in tpCoaches – nach dem Neuladen war Finn nicht
+   mehr am Torwart-Block, und der Hauptteil hatte wieder vier Felder. Kinder als kader.id. */
+function tpSlotsMitZuordnung(){
+  const ids=arr=>(typeof kidListToIds==="function")?kidListToIds(arr):arr;
+  const id=n=>{const k=(typeof kidId==="function")?kidId(n):null; return k!=null?k:n;};
+  return tpSlots.map((s,si)=>{
+    const o={...s}; delete o.coaches; delete o.trainer; delete o.tw; delete o.kind;
+    const typ=s.typ||"main";
+    if(tpKannParallel(typ)){
+      const t=tpCoaches[`tp-form-${si}-0`]; if(t)o.trainer=t;
+      if(typ==="tw"){const an=[...document.querySelectorAll(`.tp-tw-player[data-slot="${si}"]`)]; if(an.length)o.tw=ids(an.filter(c=>c.checked).map(c=>c.value));}
+      else{const k=document.getElementById(`tp-ind-player-${si}`)?.value; if(k)o.kind=id(k);}
+    }else if(typ==="main"){
+      const c=[]; document.querySelectorAll(`.tp-form-sel[id^="tp-form-${si}-"]`).forEach((sel,p)=>{c[p]=tpCoaches[sel.id]||"";});
+      if(c.some(Boolean))o.coaches=c;
+    }
+    return o;
+  });
+}
+async function tpPlanSave(erzwungen){
+  if(!sbToken()){if(erzwungen)toast("Bitte zuerst als Trainer anmelden","err");return;}
+  const datum=document.getElementById("tp-date")?.value; if(!datum){if(erzwungen)toast("Bitte einen Termin wählen","err");return;}
+  const plan=tpPlanEntries();
+  const slots=tpSlotsMitZuordnung();
+  const zuordnung=slots.some(s=>s.trainer||s.coaches||s.tw||s.kind!=null);
+  // Automatik: einen leeren Plan nie ueber einen vollen schreiben. Der Knopf darf immer.
+  if(!plan.length&&!zuordnung&&!erzwungen)return;
   try{
-    await fetch(`${SB_URL}/rest/v1/trainingsplan?on_conflict=datum`,{method:"POST",
+    const r=await fetch(`${SB_URL}/rest/v1/trainingsplan?on_conflict=datum`,{method:"POST",
       headers:{...sbAuthHeaders(),'Prefer':'resolution=merge-duplicates,return=minimal'},
-      /* `slots` traegt die STRUKTUR der Einheit (welche Phasen, wie lang, was parallel).
-         Ohne sie kam beim zweiten Trainer nur die Uebungsauswahl an, und die Phasen
-         standen wieder auf der Standardvorlage - eine geloeschte Phase oder ein auf
-         45 Minuten verlaengertes Abschlussspiel waren fuer alle anderen unsichtbar. */
-      body:JSON.stringify({datum,plan,slots:tpSlots,updated_at:new Date().toISOString()})});
-  }catch(e){/* Plan ist Komfort, kein Muss */}
+      /* `slots` traegt die STRUKTUR der Einheit (welche Phasen, wie lang, was parallel)
+         samt Zuordnung. Ohne sie kam beim zweiten Trainer nur die Uebungsauswahl an. */
+      body:JSON.stringify({datum,plan,slots,updated_at:new Date().toISOString()})});
+    if(erzwungen){
+      if(r.ok)toast("Plan gespeichert ✓");
+      else toast("Plan nicht gespeichert – "+((r.status===401||r.status===403)?"kein Trainer-Recht":"Server antwortet "+r.status),"err");
+    }
+  }catch(e){ if(erzwungen)toast("Kein Netz – Plan nicht gespeichert","err"); }
 }
 async function tpPlanLoad(datum){
   if(!sbToken())return [];
@@ -1955,7 +2009,19 @@ async function tpPlanRestore(datum){
   if(slots){
     tpSlots.length=0;
     slots.forEach(s=>tpSlots.push({...s}));
+    // Zuordnung des Termins: Feld-Trainer, Trainer am Torwart-/Einzelblock – VOR dem
+    // Zeichnen, denn das Zeichnen liest tpCoaches und rechnet daraus die Felder.
+    tpCoaches={};
+    slots.forEach((s,si)=>{
+      if(Array.isArray(s.coaches))s.coaches.forEach((t,p)=>{if(t)tpCoaches[`tp-form-${si}-${p}`]=t;});
+      if(s.trainer)tpCoaches[`tp-form-${si}-0`]=s.trainer;
+    });
     tpRenderTimeline();
+    // nach dem Zeichnen: Torwart-Haken und das Kind im Einzeltraining (kader.id → Name)
+    slots.forEach((s,si)=>{
+      if(Array.isArray(s.tw)){const namen=new Set((typeof kidListFromIds==="function")?kidListFromIds(s.tw):s.tw); document.querySelectorAll(`.tp-tw-player[data-slot="${si}"]`).forEach(c=>{c.checked=namen.has(c.value);});}
+      if(s.kind!=null){const sel=document.getElementById(`tp-ind-player-${si}`); const n=(typeof kidName==="function"&&/^\d+$/.test(String(s.kind)))?kidName(s.kind):s.kind; if(sel&&n&&[...sel.options].some(o=>o.value===n)){sel.value=n; if(typeof tpIndPlayerChange==="function")tpIndPlayerChange(si);}}
+    });
   }
   const plan=await tpPlanLoad(datum); if(!plan||!plan.length)return;
   const allForms=tpAllForms();
@@ -2532,7 +2598,7 @@ function _tlSnapshot(){
     if(tpIstParallel(slot))return; // dockt unten an
     const gruppen=[];
     const sels=document.querySelectorAll(`.tp-form-sel[id^="tp-form-${si}-"]`);
-    const felder=(tg&&tg.gruppen&&(slot.typ||"main")==="main")?tpFelderGruppen(tg,sels.length):null;
+    const felder=(tg&&tg.gruppen&&(slot.typ||"main")==="main")?tpFelderGruppen(tg,sels.length,slot.weg):null;
     sels.forEach((s,p)=>{
       const f=s.value?forms[Number(s.value)]:null;
       const tgg=felder?felder[p]:null;
