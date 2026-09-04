@@ -9,6 +9,11 @@ module.exports = async function (h) {
     go("anwesenheit");
     return { overscroll: getComputedStyle(document.body).overscrollBehaviorY, gemerkt: sessionStorage.getItem("adler_letzte_seite"), sektion: curSection };
   });
+  /* Erst den Puffer der ALTEN Seite leeren: beim Entladen schickt die App ihn per
+     `keepalive` noch los (visibilitychange) – dieser Eintrag stammt vom echten Besuch
+     oben, nicht vom Wiederherstellen, und machte die Pruefung sonst zufaellig rot. */
+  await s.page.evaluate(() => nutzungFlush());
+  await s.page.waitForTimeout(200);
   s.gesendet.length = 0;
   await s.page.reload({ waitUntil: "networkidle" });
   await s.page.waitForTimeout(1200);

@@ -606,15 +606,6 @@
          fest drei - man konnte auf "Adler 3" tippen, bevor ueberhaupt entschieden war,
          wie viele Teams wir stellen, und die App legte Daten dafuer an. -->
     </div><!-- /Karte Spieltag -->
-    <!-- Turnier-Banner: NUR wenn der gewaehlte Spieltag ein Turnier ist (PO: „ein Turnier
-         kommt selten vor und wird vorab in der Termin-Anlage organisiert"). spieltagDatesLoad
-         holt den Typ ohnehin mit; _spieltagTurnierBanner() schaltet um. Gleiche Logik wie die
-         kontextuelle Turnier-Gruppe im Kachel-Menue (_kachelTurnierCheck). -->
-    <button id="spieltag-turnier-banner" hidden onclick="turnierOpen()" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 14px;margin-bottom:12px;border:none;border-radius:14px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(217,119,6,.25)">
-      <span style="font-size:22px;line-height:1">🏆</span>
-      <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:800">Turnier-Modus</span><span style="display:block;font-size:11.5px;opacity:.92;margin-top:1px">Mehrere Kurzspiele erfassen – Spielplan &amp; Ergebnisse</span></span>
-      <span style="font-size:18px;opacity:.85">›</span>
-    </button>
     <!-- Spieltag-Phasen: Vor / Während / Nach dem Spiel – einklappbar für den Fokus -->
     <!-- GLOBAL, nicht je Team: wie viele Teams, wer betreut sie, wer spielt wo.
          Erst danach die Team-Kacheln – das ist die Reihenfolge, in der der PO denkt. -->
@@ -700,6 +691,18 @@
         </div>
       </div>
     </details>
+
+    <!-- Turnier-Banner: NUR wenn der gewaehlte Spieltag ein Turnier ist (PO: „ein Turnier
+         kommt selten vor und wird vorab in der Termin-Anlage organisiert"). spieltagDatesLoad
+         holt den Typ ohnehin mit; _spieltagTurnierBanner() schaltet um. Gleiche Logik wie die
+         kontextuelle Turnier-Gruppe im Kachel-Menue (_kachelTurnierCheck).
+         Steht seit v459 GANZ UNTEN (PO): ein Turnier ist die Ausnahme, oben gehoert der
+         normale Ablauf hin – Teams festlegen, vor/waehrend/nach dem Spiel. -->
+    <button id="spieltag-turnier-banner" hidden onclick="turnierOpen()" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 14px;margin-bottom:12px;border:none;border-radius:14px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-family:inherit;cursor:pointer;box-shadow:0 2px 10px rgba(217,119,6,.25)">
+      <span style="font-size:22px;line-height:1">🏆</span>
+      <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:800">Turnier-Modus</span><span style="display:block;font-size:11.5px;opacity:.92;margin-top:1px">Mehrere Kurzspiele erfassen – Spielplan &amp; Ergebnisse</span></span>
+      <span style="font-size:18px;opacity:.85">›</span>
+    </button>
   </div><!-- /train-sub-spieltag -->
 
 </div><!-- /view-training -->

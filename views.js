@@ -2192,7 +2192,7 @@ const SECS={
   quizresults:{cid:"train-sub-quizresults",sub:true, init:()=>w2("tqRenderTrainerView")},
   team:       {cid:"train-sub-team",       sub:true, init:()=>{w2("tnLoad");w2("teamStatsRender");tvInit();}},
   analyse:    {cid:"train-sub-analyse",    sub:true, init:()=>w2("anInit")},
-  spieltag:   {cid:"train-sub-spieltag",   sub:true, init:()=>{w2("rotRenderControls");w2("nomInit");}},
+  spieltag:   {cid:"train-sub-spieltag",   sub:true, init:()=>{spieltagPhasenZu();w2("rotRenderControls");w2("nomInit");}},
 };
 const tabState={}; // zuletzt geöffnete Sektion je Tab (UX: Rückkehr an dieselbe Stelle)
 let curSection="bew"; // aktuell sichtbare Sektion (für Pull-to-Refresh)
@@ -2239,6 +2239,14 @@ function go(key){
   tabState[tabId]=key;
   curSection=key;
   try{sessionStorage.setItem("adler_letzte_seite",key);}catch(e){}   // fuers Neuladen (sessionStorage: nur dieser Tab)
+}
+/* Beim Betreten des Spieltags stehen alle Phasen zu (PO: „bei Match alle Punkte
+   eingeklappt haben"). <details> merkt sich seinen Zustand im DOM – wer gestern
+   „Waehrend des Spiels" aufgeklappt hat, fand es beim naechsten Besuch offen vor und
+   scrollte an fuenf offenen Bloecken vorbei. Gezielte Spruenge (tmJump auf das
+   Blitz-Rating, Match-Uhr auf „Waehrend des Spiels") laufen SPAETER und oeffnen weiter. */
+function spieltagPhasenZu(){
+  document.querySelectorAll("#train-sub-spieltag details.el-sect").forEach(d=>{d.open=false;});
 }
 function openTab(tabId){ if(!TABS[tabId])return; go(tabState[tabId]||TABS[tabId].sections[0].key); }
 // Kompatibilitäts-Shims: bestehende sv()/switchTrainSub()-Aufrufe im Code bleiben gültig
@@ -3473,7 +3481,7 @@ function hilfeRender(q){
 const TOUR=[
   {emo:"🦅", t:"Willkommen in der Adler-App", d:"Die Startseite ist bewusst schlank: Ganz oben erscheinen DEINE To-Dos (nur wenn etwas offen ist), darunter „Bist du dabei?“ – nur die Termine der nächsten 14 Tage, für die deine Antwort noch fehlt; ein Tap auf ✅ 🤔 ❌ genügt, und ist alles beantwortet, verschwindet die Karte. Danach „Diese Woche“ – die Termine der nächsten sieben Tage mit dem Stand (Zusagen, Trainer, Plan, Aufstellung); die erste Zeile ist der nächste Termin mit Wetter, Packtipp und Sprungknopf. Dann ein festgelegtes Trainer-Meeting (falls eines ansteht, mit der Zahl offener Themen), das Termin-Karussell, ein Knopf zu allen Terminen der Saison – und sechs große Kacheln. Hinter jeder Kachel wartet wieder ein Kachel-Menü. Diese Tour findest du jederzeit über ❓ oben rechts."},
   {emo:"🏃", t:"Kachel: Training", d:"Vier Wege: Anwesenheit (heute + kommende Termine), Trainingsplan mit Stationen und Trainingsstart (die Trainer-Reihe oben zeigt farbig, wer für den Termin zu-, ab- oder noch nicht geantwortet hat), die Übungs-Datenbank und das 🏆 Trainingsturnier, das du vorab planen kannst – auch Eltern gegen Kinder. Die Nachbewertung meldet sich nach dem Training von selbst als To-Do auf der Startseite."},
-  {emo:"⚽", t:"Kachel: Spieltag", d:"Der Ablauf von oben nach unten: „Teams festlegen“ beantwortet einmal für den ganzen Tag, wer dabei ist und wie viele Teams wir stellen – die Kinder verteilt die App automatisch, du korrigierst nur. Darunter je Team eine Kachel mit Kader, Rollen, Uhr, Rotations-Timer und Liveticker; ganz unten die Team-Quests für alle Teams zusammen. Dazu die Rollen-Empfehlung aus den Bewertungen und die Analyse. Steht ein Turnier an, erscheint hier automatisch der Turnier-Bereich (Heimturnier ausrichten mit öffentlichem Link für die Gast-Trainer)."},
+  {emo:"⚽", t:"Kachel: Spieltag", d:"Der Ablauf von oben nach unten: „Teams festlegen“ beantwortet einmal für den ganzen Tag, wer dabei ist und wie viele Teams wir stellen – die Kinder verteilt die App automatisch, du korrigierst nur. Darunter je Team eine Kachel mit Kader, Rollen, Uhr, Rotations-Timer und Liveticker; danach die Team-Quests für alle Teams zusammen. Beim Öffnen sind alle Abschnitte eingeklappt – du tippst auf, was du gerade brauchst. Dazu die Rollen-Empfehlung aus den Bewertungen und die Analyse. Steht ein Turnier an, erscheint ganz unten der Turnier-Bereich (Heimturnier ausrichten mit öffentlichem Link für die Gast-Trainer)."},
   {emo:"👥", t:"Kachel: Team", d:"Kader verwalten, Spieler alle 6 Wochen in 16 Kriterien bewerten (Live-Radar), Profil mit Sprachlob und Entwicklungs-Report, dazu Saison-Cockpit, Anwesenheit über die Saison und Rollen-Matrix. Auch Notfallkarten und Probetraining wohnen hier."},
   {emo:"🎯", t:"Kachel: Taktik", d:"Das Taktikboard: Formationen stellen, Laufwege und Pässe zeichnen, als Bild teilen – auf dem Tablet im großen Pro-Modus. Daneben die Übungs-Datenbank."},
   {emo:"🪶", t:"Kachel: Eltern & Kinder", d:"Team-Ansage mit Gelesen-Status, Eltern einladen, Elterngespräche – und die ganze Adler-Welt der Kinder: Federn, Karten, Abzeichen, Kabinen-Wahl, Sammelalbum-Fotos, Team-Quests, Urkunden-Studio und das Adler Nest."},
