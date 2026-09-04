@@ -96,10 +96,12 @@ function teamUeberzaehlig(){
    „Wir müssen die Trainingseinsätze und Einsätze neu berechnen. Es gelten nur die beiden
    Trainings dieser Woche, und Spiele fangen wir neu an zu zählen ab morgen."
    Vorher zählte die Trainingsquote ein rollendes 42-Tage-Fenster und die Einsätze alles
-   ab Saisonstart (1. Juli) – darin steckten noch Testtermine aus dem Sommer. Gelöscht
-   wird nichts: die Saison-Übersicht im Team-Bereich zeigt weiterhin die ganze Historie,
-   nur die Zahlen NEBEN der Nominierung (die über die faire Einteilung entscheiden) fangen
-   hier an. Neue Saison = beide Daten hochsetzen. */
+   ab Saisonstart (1. Juli) – darin steckten noch Testtermine aus dem Sommer.
+   Nachtrag (PO, gleicher Tag): „Saisonübersicht zählt auch mit den gleichen Angaben. Die
+   Saison hat diese Woche erst angefangen." Die Testtermine sind aus der Datenbank
+   gelöscht, und saisonStart() liefert jetzt denselben Stichtag – damit rechnet die
+   Saison-Übersicht (Quoten, Torschützen, Rollen) auf derselben Grundlage wie die Zahlen
+   neben der Nominierung. Neue Saison = die beiden Daten hier hochsetzen, sonst nichts. */
 const STATS_AB_TRAINING="2026-08-31";   // Montag dieser Woche
 const STATS_AB_SPIEL="2026-09-05";      // erstes gezähltes Spiel: Turnier am 05.09.
 let TEAM_TRAININGSTAGE=null;            // Termine vom Typ „training" ab dem Stichtag (null = noch nicht geladen)
@@ -117,17 +119,25 @@ function teamTrainingsQuote(name){
   });
   return gesamt?{da,gesamt}:null;
 }
-function saisonStart(){
-  const h=new Date(); const jahr=h.getMonth()>=6?h.getFullYear():h.getFullYear()-1;  // ab 1. Juli
-  return `${jahr}-07-01`;
+/* Saisonstart = Trainings-Stichtag. Frueher rechnete das den 1. Juli aus; seit die
+   Saison real diese Woche beginnt, waere jeder fruehere Tag nur noch leerer Zeitraum. */
+function saisonStart(){ return STATS_AB_TRAINING; }
+function spieleAb(){ return STATS_AB_SPIEL; }
+/* Trainingstage ab dem Stichtag – eine Quelle fuer die Quote neben der Nominierung
+   UND fuer die Saison-Uebersicht in views.js (Welle 1, ruft nur ueber typeof-Wache).
+   Einmal geladen, dann gemerkt; offline bleibt sie null und es zaehlen wie bisher
+   alle Tage ab dem Stichtag. */
+async function trainingstageLaden(){
+  if(TEAM_TRAININGSTAGE)return TEAM_TRAININGSTAGE;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/termine?typ=eq.training&datum=gte.${STATS_AB_TRAINING}&select=datum`,{headers:sbAuthHeaders()});
+    if(r.ok)TEAM_TRAININGSTAGE=new Set(((await r.json())||[]).map(x=>x.datum));
+  }catch(e){}
+  return TEAM_TRAININGSTAGE;
 }
 async function teamStatsLoad(){
   TEAM_STATS={};
-  // Trainingstage ab dem Stichtag – fuer die Quote neben der Nominierung
-  try{
-    const rt=await fetch(`${SB_URL}/rest/v1/termine?typ=eq.training&datum=gte.${STATS_AB_TRAINING}&select=datum`,{headers:sbAuthHeaders()});
-    if(rt.ok)TEAM_TRAININGSTAGE=new Set(((await rt.json())||[]).map(x=>x.datum));
-  }catch(e){/* offline: Quote zaehlt wie bisher alle Tage ab dem Stichtag */}
+  await trainingstageLaden();   // Trainingstage ab dem Stichtag – fuer die Quote neben der Nominierung
   const ab=STATS_AB_SPIEL, bis=spieltagRawDate();
   let termine=[], noms=[];
   try{

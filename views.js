@@ -2852,10 +2852,18 @@ async function einheitSave(){
 async function anwesenheitQuoteInto(el){
   if(!el)return;
   const active=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false);
-  const ab=(typeof saisonStart==="function")?saisonStart():"2000-01-01"; // Quote pro Saison + bounded fetch
+  /* Dieselben Stichtage wie die Zahlen neben der Nominierung (md-teams.js, Welle 2):
+     die Saison hat diese Woche angefangen, alles davor waren Testtermine. Ohne die
+     typeof-Wache riesse ein fehlendes Modul hier den try-Block mit. */
+  const abTr=(typeof saisonStart==="function")?saisonStart():"2000-01-01";
+  const ab=(typeof spieleAb==="function")?spieleAb():abTr;   // Spiele zaehlen ab dem eigenen Stichtag
+  /* Nur echte Trainingstage: am Spiel- oder Turniertag wird auch eine Anwesenheit
+     gefuehrt, und die zaehlte hier bisher in die Trainingsquote hinein. */
+  let tage=null;
+  if(typeof trainingstageLaden==="function"){try{tage=await trainingstageLaden();}catch(e){}}
   const tr={}, gm={}; active.forEach(k=>{tr[k.name]={p:0,t:0};gm[k.name]={p:0,t:0};});
   // Training: AW_DATA[datum][name].da (true=da, false=gefehlt); ohne Eintrag = unbekannt
-  try{Object.keys(AW_DATA||{}).forEach(d=>{const day=AW_DATA[d]||{};active.forEach(k=>{const e=day[k.name];if(e&&typeof e.da==="boolean"){tr[k.name].t++;if(e.da)tr[k.name].p++;}});});}catch(e){}
+  try{Object.keys(AW_DATA||{}).forEach(d=>{if(d<abTr)return;if(tage&&!tage.has(d))return;const day=AW_DATA[d]||{};active.forEach(k=>{const e=day[k.name];if(e&&typeof e.da==="boolean"){tr[k.name].t++;if(e.da)tr[k.name].p++;}});});}catch(e){}
   // Spiele/Turniere: nominierungen.data[name] = dabei/nicht/verletzt
   try{const r=await fetch(`${SB_URL}/rest/v1/nominierungen?select=data&datum=gte.${ab}`,{headers:sbAuthHeaders()});if(r.ok){(await r.json()).forEach(row=>{const data=kidMapFromIds(row.data||{});active.forEach(k=>{const s=data[k.name];if(s&&(s==="dabei"||s==="nicht"||s==="verletzt")){gm[k.name].t++;if(s==="dabei")gm[k.name].p++;}});});}}catch(e){}
   const pct=(o)=>o.t?Math.round(o.p/o.t*100):null;
@@ -2869,7 +2877,7 @@ async function anwesenheitQuoteInto(el){
       <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)"><td style="padding:4px 8px">Spieler</td><td style="padding:4px 8px;text-align:right">🏃 Training</td><td style="padding:4px 8px;text-align:right">⚽ Spiele</td></tr>
       ${rows||'<tr><td style="padding:8px;color:var(--text3)">Noch keine Daten.</td></tr>'}
     </table></div>
-    <div style="font-size:11px;color:var(--text3);margin-top:8px">Training aus der Anwesenheitsliste, Spiele aus den Nominierungen · nur Info</div>`;
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">Training aus der Anwesenheitsliste, Spiele aus den Nominierungen · gezählt ab Saisonbeginn ${esc(abTr)} bzw. ${esc(ab)} · nur Info</div>`;
 }
 async function anwesenheitOpen(){
   document.getElementById("aq-modal")?.remove();
@@ -3441,7 +3449,7 @@ const HELP=[
   ]},
   {cat:"👥 Team", items:[
     {t:"Saison-Cockpit", d:"Torschützen, Anwesenheit, Rückmelde-Tempo der Familien, faire Einsätze, Eltern-Puls, Rückmelde-Tempo – alles auf einen Blick.", run:"saisonCockpitOpen()"},
-    {t:"Anwesenheit (Saison)", d:"Drei Reiter: Quote je Kind im Training, Anwesenheit der Trainer, und die Quote inklusive Spiele aus den Nominierungen.", run:"awUebersichtOpen()"},
+    {t:"Anwesenheit (Saison)", d:"Drei Reiter: Quote je Kind im Training, Anwesenheit der Trainer, und die Quote inklusive Spiele aus den Nominierungen. Gezählt wird ab dem Saisonstichtag – dieselbe Grundlage wie die Zahlen neben der Nominierung, und Spieltage zählen nicht als Training.", run:"awUebersichtOpen()"},
     {t:"Probetraining", d:"Schnupperkinder verwalten – bewusst getrennt vom Kader, Auto-Löschung nach Entscheidung.", run:"probeOpen()"},
     {t:"Kader", d:"Spieler anlegen/bearbeiten, Trikotnummer, Foto, Kontakte, Foto-Freigabe.", go:"kader"},
     {t:"Bewerten", d:"Spieler in 16 Kriterien einschätzen – mit Live-Radar.", go:"bew"},
