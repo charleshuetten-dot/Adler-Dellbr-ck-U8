@@ -135,6 +135,9 @@ async function trainingstageLaden(){
   }catch(e){}
   return TEAM_TRAININGSTAGE;
 }
+/* Synchroner Blick auf dasselbe Set – fuer die Tabellen in boot.js, die ohne await
+   zeichnen. null heisst „noch nicht geladen", nicht „keine Trainingstage". */
+function trainingstageSet(){ return TEAM_TRAININGSTAGE; }
 async function teamStatsLoad(){
   TEAM_STATS={};
   await trainingstageLaden();   // Trainingstage ab dem Stichtag – fuer die Quote neben der Nominierung

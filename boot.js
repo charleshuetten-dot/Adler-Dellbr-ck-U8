@@ -754,12 +754,33 @@ function awUebersichtZeig(art){
   wrap.innerHTML=art==="spieler"?'<div id="aw-stats"></div>':'<div id="aw-trainer-stats"></div>';
   art==="spieler"?awRenderStats():awRenderTrainerStats();
 }
+/* Zähltage der Saison – EINE Grundlage fuer Spieler-Tabelle, Trainer-Tabelle und Serie.
+   Dieselben zwei Regeln wie die Zahlen neben der Nominierung (v462/v463): erst ab dem
+   Saison-Stichtag, und nur echte Trainingstage – am Spiel- oder Turniertag wird auch
+   eine Anwesenheit gefuehrt, die hier sonst als Training durchginge.
+   saisonStart()/trainingstageSet() liegen in Welle 2, deshalb nur ueber die typeof-Wache;
+   ohne das Modul zaehlen wie frueher alle erfassten Tage. */
+let _awTageGeholt=false;
+function awZaehltage(){
+  const ab=(typeof saisonStart==="function")?saisonStart():"0000-01-01";
+  const tage=(typeof trainingstageSet==="function")?trainingstageSet():null;
+  /* Beim ersten Zeichnen ist das Set oft noch nicht da. Einmal nachladen und die
+     offenen Tabellen neu zeichnen – sonst zaehlten sie dauerhaft die Spieltage mit. */
+  if(!tage&&!_awTageGeholt&&typeof trainingstageLaden==="function"){
+    _awTageGeholt=true;
+    trainingstageLaden().then(()=>{
+      if(document.getElementById("aw-stats"))awRenderStats();
+      if(document.getElementById("aw-trainer-stats"))awRenderTrainerStats();
+    }).catch(()=>{});
+  }
+  return Object.keys(AW_DATA||{}).filter(d=>d>=ab&&(!tage||tage.has(d))).sort();
+}
 function awRenderTrainerStats(){
   const wrap=document.getElementById("aw-trainer-stats");
   if(!wrap)return;
-  const dates=Object.keys(AW_DATA).sort();
+  const dates=awZaehltage();
   const allTrainers=((typeof TRAINER!=="undefined"&&TRAINER)||[]); // Single Source: TRAINER aus data.js (Welle 1), keine Notfall-Kopie mehr
-  if(!dates.length){wrap.innerHTML='<div style="color:var(--text2);font-size:12px;padding:8px">Noch keine Daten erfasst</div>';return;}
+  if(!dates.length){wrap.innerHTML='<div style="color:var(--text2);font-size:12px;padding:8px">Noch kein Training in dieser Saison erfasst.</div>';return;}
   const stats={};
   allTrainers.forEach(t=>{stats[t]={da:0,total:dates.length};});
   dates.forEach(d=>{
@@ -793,6 +814,7 @@ function awRenderTrainerStats(){
     </div>`;
   });
   html+='</div>';
+  html+=`<div style="font-size:10px;color:var(--text3);margin-top:6px">Grundlage: ${dates.length} Training${dates.length===1?"":"s"} dieser Saison – Spiel- und Turniertage zählen nicht mit.</div>`;
   wrap.innerHTML=html;
 }
 
@@ -801,7 +823,9 @@ function awRenderTrainerStats(){
    (Kind fehlt im Datensatz) werden übersprungen, nicht als Lücke gewertet. */
 const AW_STREAK_MILES=[3,5,8,12,16,20];
 function awStreak(name){
-  const dates=Object.keys(AW_DATA).sort().reverse();
+  // Dieselben Zähltage: ein Turnier, bei dem das Kind nicht dabei war, ist keine
+  // gerissene Trainings-Serie.
+  const dates=awZaehltage().reverse();
   let s=0;
   for(const d of dates){ const day=AW_DATA[d]; if(!day||!(name in day))continue; if(day[name]&&day[name].da)s++; else break; }
   return s;
@@ -821,8 +845,8 @@ function awStreakAward(data){
 function awRenderStats(){
   const wrap=document.getElementById("aw-stats");
   if(!wrap)return;
-  const dates=Object.keys(AW_DATA).sort();
-  if(!dates.length){wrap.innerHTML='<div style="color:var(--text2);font-size:12px;padding:8px">Noch keine Daten erfasst</div>';return;}
+  const dates=awZaehltage();
+  if(!dates.length){wrap.innerHTML='<div style="color:var(--text2);font-size:12px;padding:8px">Noch kein Training in dieser Saison erfasst.</div>';return;}
   const stats={};
   KADER.forEach(k=>{stats[k.name]={total:0,da:0,qualSum:0,qualCount:0};});
   dates.forEach(d=>{
