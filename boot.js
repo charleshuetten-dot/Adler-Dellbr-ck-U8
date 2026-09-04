@@ -987,6 +987,22 @@ function tpParallelTrainer(mainIdx){
   tpSlots.forEach((sl,i)=>{ if(tpIstParallel(sl)&&sl.parallelZu===mainIdx){const t=tpCoaches[`tp-form-${i}-0`]; if(t)s.add(t);} });
   return s;
 }
+/* Weniger Felder als ausgeloste Gruppen (weil ein Trainer am Torwart-/Einzelblock steht):
+   die ueberzaehligen Gruppen spielen bei den kleinsten Feldern mit – nur fuer diesen
+   Hauptteil, die Auslosung selbst bleibt unangetastet (ein anderer Hauptteil ohne Block
+   hat wieder alle Gruppen). Kein Kind verschwindet, keine Gruppe wird gespeichert. */
+function tpFelderGruppen(tg,n){
+  const g=(tg&&tg.gruppen)||[];
+  if(!g.length)return [];
+  n=Math.max(1,Math.min(n||g.length,g.length));
+  const felder=g.slice(0,n).map(x=>({...x,kinder:(x.kinder||[]).slice(),dazu:[]}));
+  g.slice(n).forEach(x=>{
+    let ziel=felder[0]; felder.forEach(f=>{if(f.kinder.length<ziel.kinder.length)ziel=f;});
+    ziel.kinder=ziel.kinder.concat(x.kinder||[]); ziel.dazu.push(x.name);
+  });
+  felder.forEach(f=>{ if(f.dazu.length)f.name=f.name+" + "+f.dazu.join(" + "); });
+  return felder;
+}
 function tpSetCoach(stationId,name){
   tpCoaches[stationId]=name;
   tpPlanSaveDebounced();                        // Zuordnung am Datum festhalten
@@ -1126,7 +1142,12 @@ function tpRenderTimeline(){
     const gebunden=typ==="main"?tpParallelTrainer(si):new Set();
     const trainersAlle=tpGetCheckedTrainers();
     const trainers=trainersAlle.filter(t=>!gebunden.has(t));
-    const parallelSlots=noGroups?1:Math.min(Math.max(1,typ==="main"?trainers.length:trainerCount,tgAnz),5);
+    /* Haengt ein Trainer am Torwart-/Einzelblock, zaehlen fuer diesen Hauptteil nur die
+       freien Trainer – ohne die Untergrenze „Gruppenzahl", denn die ueberzaehligen Gruppen
+       spielen hier bei den anderen Feldern mit (tpFelderGruppen). Sonst gilt weiter: nie
+       weniger Felder als Gruppen, damit bei einer Absage keine Gruppe verschwindet. */
+    const parallelSlots=noGroups?1:(typ==="main"&&gebunden.size)?Math.min(Math.max(1,trainers.length),5):Math.min(Math.max(1,trainerCount,tgAnz),5);
+    const felderGruppen=(typ==="main"&&typeof tgFor==="function"&&tgFor())?tpFelderGruppen(tgFor(),parallelSlots):null;
     const filtered=tpFilteredOpts(typ);
     const formOpts=filtered.map(x=>`<option value="${x.i}">${x.f.name} (${x.f.dauer})</option>`).join("");
 
@@ -1148,7 +1169,8 @@ function tpRenderTimeline(){
       html+=`<div style="font-size:10.5px;color:var(--text3);padding:2px 0 4px">💡 Nach ~10 Min. variieren oder steigern – 20 Min. dieselbe Übung überfordert die Aufmerksamkeit von 7–9-Jährigen</div>`;
     }
     if(typ==="main"&&gebunden.size){
-      html+=`<div class="tp-parallel-hinweis" style="font-size:11px;color:var(--text2);padding:2px 0 6px">🧤 ${esc([...gebunden].join(", "))} ${gebunden.size===1?"ist":"sind"} beim Torwart-/Einzeltraining – ${parallelSlots} Feld${parallelSlots===1?"":"er"} statt ${Math.max(1,trainersAlle.length)}</div>`;
+      const zusammen=(felderGruppen||[]).filter(f=>f.dazu.length).map(f=>`${f.dazu.join(" + ")} spielt bei ${f.emo} ${f.name.split(" + ")[0]} mit`).join(" · ");
+      html+=`<div class="tp-parallel-hinweis" style="font-size:11px;color:var(--text2);padding:2px 0 6px">🧤 ${esc([...gebunden].join(", "))} ${gebunden.size===1?"ist":"sind"} beim Torwart-/Einzeltraining – ${parallelSlots} Feld${parallelSlots===1?"":"er"} statt ${Math.max(1,trainersAlle.length)}${zusammen?" · "+esc(zusammen):""}</div>`;
     }
     if(typ==="warmup"){
       html+=`<div style="font-size:10.5px;color:var(--text3);padding:2px 0 4px">🏃 Ankommensspiel wählen: ab dem ERSTEN Kind spielbar, Nachzügler docken einfach an – kein Warten, kein Laufen ohne Ball</div>`;
@@ -1159,7 +1181,7 @@ function tpRenderTimeline(){
       html+=`<div style="font-size:11px;color:var(--text2);padding:4px 0">Freies Spiel – Standard: 3 gegen 3 auf 4 Minitore (FUNiño), ohne Torwart</div>
         <button class="btn btn-sm" style="margin-top:4px" onclick="blitzOpen(${Number(slot.dauer)||15})" title="Trainingsturnier mit dieser Slot-Dauer als Zeitbudget – vorab planbar, wird zum Termin gespeichert">🏆 Als Trainingsturnier spielen (${slot.dauer} Min.)</button>`;
     } else if(typ==="tw"){
-      const twPlayers=KADER.filter(k=>k.tw);
+      const twPlayers=KADER.filter(k=>k.tw&&k.aktiv!==false);   // ausgetragene Torhueter nicht mehr anbieten
       html+=`<div style="margin-top:6px">
         <div style="font-size:10px;color:var(--text2);font-weight:600;margin-bottom:4px">Torwart-Spieler</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
@@ -1178,7 +1200,7 @@ function tpRenderTimeline(){
         <div id="tp-form-${si}-0-hist"></div>
       </div>`;
     } else if(typ==="individual"){
-      const playerOpts=KADER.map(k=>`<option value="${esc(k.name)}">${esc(k.name)}</option>`).join("");
+      const playerOpts=KADER.filter(k=>k.aktiv!==false).map(k=>`<option value="${esc(k.name)}">${esc(k.name)}</option>`).join("");
       html+=`<div class="tp-feld"><label for="tp-ind-player-${si}">Spieler</label>
         <select id="tp-ind-player-${si}" onchange="tpIndPlayerChange(${si})">
           <option value="">— Spieler wählen —</option>${playerOpts}
@@ -1200,7 +1222,7 @@ function tpRenderTimeline(){
       const tg=(typeof tgFor==="function")?tgFor():null; // Trainingsgruppen: Namen + Trainer je Gruppe
       for(let p=0;p<parallelSlots;p++){
         const selId=`tp-form-${si}-${p}`;
-        const tgg=(tg&&tg.gruppen&&!noGroups)?tg.gruppen[p]:null;
+        const tgg=(!noGroups)?(felderGruppen?felderGruppen[p]:(tg&&tg.gruppen?tg.gruppen[p]:null)):null;
         if(tpCoaches[selId]&&gebunden.has(tpCoaches[selId]))delete tpCoaches[selId]; // steht jetzt am Torwart-/Einzelblock
         const vorschlag=(tgg&&tgg.trainer&&!gebunden.has(tgg.trainer))?tgg.trainer:trainers[p];
         if(!tpCoaches[selId]&&!noGroups&&vorschlag)tpCoaches[selId]=vorschlag; // Station dem Gruppen-Trainer zuweisen
@@ -2509,9 +2531,11 @@ function _tlSnapshot(){
   tpSlots.forEach((slot,si)=>{
     if(tpIstParallel(slot))return; // dockt unten an
     const gruppen=[];
-    document.querySelectorAll(`.tp-form-sel[id^="tp-form-${si}-"]`).forEach((s,p)=>{
+    const sels=document.querySelectorAll(`.tp-form-sel[id^="tp-form-${si}-"]`);
+    const felder=(tg&&tg.gruppen&&(slot.typ||"main")==="main")?tpFelderGruppen(tg,sels.length):null;
+    sels.forEach((s,p)=>{
       const f=s.value?forms[Number(s.value)]:null;
-      const tgg=(tg&&tg.gruppen&&(slot.typ||"main")==="main")?tg.gruppen[p]:null;
+      const tgg=felder?felder[p]:null;
       gruppen.push({
         trainer:tpCoaches[s.id]||(tgg&&tgg.trainer)||trainers[p]||"Alle",
         uebung:f?f.name:"(keine Übung gewählt)",
