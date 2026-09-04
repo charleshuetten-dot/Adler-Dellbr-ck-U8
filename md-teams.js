@@ -92,12 +92,26 @@ function teamUeberzaehlig(){
 /* Zwei Kennzahlen, damit die Auswahl "wer pausiert" begründbar ist:
    – Trainingsbeteiligung der letzten 6 Wochen (aus AW_DATA, lokal + gesyncte anwesenheit)
    – Spiele und Turniere in dieser Saison (ab 1. Juli), aus den Nominierungen. */
+/* ── Zählstichtage (PO, 04.09.2026) ────────────────────────────────────────────
+   „Wir müssen die Trainingseinsätze und Einsätze neu berechnen. Es gelten nur die beiden
+   Trainings dieser Woche, und Spiele fangen wir neu an zu zählen ab morgen."
+   Vorher zählte die Trainingsquote ein rollendes 42-Tage-Fenster und die Einsätze alles
+   ab Saisonstart (1. Juli) – darin steckten noch Testtermine aus dem Sommer. Gelöscht
+   wird nichts: die Saison-Übersicht im Team-Bereich zeigt weiterhin die ganze Historie,
+   nur die Zahlen NEBEN der Nominierung (die über die faire Einteilung entscheiden) fangen
+   hier an. Neue Saison = beide Daten hochsetzen. */
+const STATS_AB_TRAINING="2026-08-31";   // Montag dieser Woche
+const STATS_AB_SPIEL="2026-09-05";      // erstes gezähltes Spiel: Turnier am 05.09.
+let TEAM_TRAININGSTAGE=null;            // Termine vom Typ „training" ab dem Stichtag (null = noch nicht geladen)
 function teamTrainingsQuote(name){
   if(typeof AW_DATA==="undefined")return null;
-  const grenze=new Date(Date.now()-42*864e5).toISOString().slice(0,10);
   let da=0,gesamt=0;
   Object.keys(AW_DATA).forEach(d=>{
-    if(d<grenze)return;
+    if(d<STATS_AB_TRAINING)return;
+    /* Nur echte Trainings: am Spiel- oder Turniertag wird auch eine Anwesenheit
+       geführt, und die zählte bisher in die Trainingsquote hinein. Solange die
+       Terminliste nicht geladen ist, zählen wie bisher alle Tage ab dem Stichtag. */
+    if(TEAM_TRAININGSTAGE&&!TEAM_TRAININGSTAGE.has(d))return;
     const tag=AW_DATA[d]; if(!tag||!tag[name])return;
     gesamt++; if(tag[name].da)da++;
   });
@@ -109,13 +123,20 @@ function saisonStart(){
 }
 async function teamStatsLoad(){
   TEAM_STATS={};
-  const ab=saisonStart(), bis=spieltagRawDate();
+  // Trainingstage ab dem Stichtag – fuer die Quote neben der Nominierung
+  try{
+    const rt=await fetch(`${SB_URL}/rest/v1/termine?typ=eq.training&datum=gte.${STATS_AB_TRAINING}&select=datum`,{headers:sbAuthHeaders()});
+    if(rt.ok)TEAM_TRAININGSTAGE=new Set(((await rt.json())||[]).map(x=>x.datum));
+  }catch(e){/* offline: Quote zaehlt wie bisher alle Tage ab dem Stichtag */}
+  const ab=STATS_AB_SPIEL, bis=spieltagRawDate();
   let termine=[], noms=[];
   try{
     const r=await fetch(`${SB_URL}/rest/v1/termine?typ=in.(spiel,turnier)&datum=gte.${ab}&datum=lt.${bis}&select=datum`,{headers:sbAuthHeaders()});
     if(r.ok)termine=await r.json();
   }catch(e){}
-  if(!termine.length)return;
+  /* Kein gezaehlter Spieltag (Saisonanfang / frisch gesetzter Stichtag): dann ist die
+     Zahl 0 und nicht „unbekannt" – „– Einsätze" haette wie fehlende Daten ausgesehen. */
+  if(!termine.length){ KADER.forEach(k=>{TEAM_STATS[k.name]={einsaetze:0};}); return; }
   try{
     const r=await fetch(`${SB_URL}/rest/v1/nominierungen?datum=gte.${ab}&select=datum,data`,{headers:sbAuthHeaders()});
     if(r.ok)noms=await r.json();
