@@ -978,15 +978,27 @@ function tpShowExercise(formIdx){
 
 // Stationen-Board: Trainer-Zuweisung pro Übungs-Station (wer macht was)
 let tpCoaches={};
+/* Ein Trainer, ein Platz: wer an einem parallelen Block (Torwart-/Einzeltraining) dieses
+   Hauptteils haengt, steht fuer dessen Felder nicht zur Verfuegung. Vorher zaehlte die
+   Feldzahl alle angehakten Trainer – vier Trainer, Finn beim Torwart-Training, und
+   trotzdem vier Felder, das vierte mit einem Trainer, der schon eines hatte. */
+function tpParallelTrainer(mainIdx){
+  const s=new Set();
+  tpSlots.forEach((sl,i)=>{ if(tpIstParallel(sl)&&sl.parallelZu===mainIdx){const t=tpCoaches[`tp-form-${i}-0`]; if(t)s.add(t);} });
+  return s;
+}
 function tpSetCoach(stationId,name){
   tpCoaches[stationId]=name;
   tpPlanSaveDebounced();                        // Zuordnung am Datum festhalten
   if(typeof evalRenderList==="function")evalRenderList(); // Bewertungs-Liste zieht nach
+  // Trainer eines parallelen Blocks gewechselt → die Felder des Hauptteils rechnen neu
+  const m=String(stationId).match(/^tp-form-(\d+)-0$/);
+  if(m&&tpIstParallel(tpSlots[+m[1]]))tpRenderTimeline();
 }
-function tpCoachSelect(stationId){
+function tpCoachSelect(stationId,ausschluss){
   const avail=tpGetCheckedTrainers();
-  const list=avail.length?avail:TRAINER;
   const cur=tpCoaches[stationId]||"";
+  const list=(avail.length?avail:TRAINER).filter(t=>!(ausschluss&&ausschluss.has(t)&&t!==cur));
   return `<select class="tp-coach-sel" data-station="${stationId}" onchange="tpSetCoach('${stationId}',this.value)" aria-label="Trainer für diese Station" title="Wer leitet diese Station?">
     <option value="">👤 Trainer?</option>${list.map(t=>`<option value="${t}"${t===cur?" selected":""}>${t}</option>`).join("")}
   </select>`;
@@ -1057,6 +1069,13 @@ async function tpTrainerRsvpLaden(datum){
 function tpRenderTimeline(){
   const wrap=document.getElementById("tp-timeline");
   if(!wrap)return;
+  /* Die Leiste wird komplett neu gezeichnet – bei jeder Dauer, jedem Trainerwechsel.
+     Gewaehlte Uebungen, Torwart-Haken und das Einzeltrainings-Kind lebten nur im DOM
+     und waren danach weg. Hier merken, unten wieder einsetzen. */
+  const merk={sel:{},tw:{},ind:{}};
+  wrap.querySelectorAll(".tp-form-sel").forEach(s=>{if(s.value)merk.sel[s.id]=s.value;});
+  wrap.querySelectorAll(".tp-tw-player").forEach(c=>{merk.tw[c.dataset.slot+"|"+c.value]=c.checked;});
+  wrap.querySelectorAll('select[id^="tp-ind-player-"]').forEach(s=>{if(s.value)merk.ind[s.id]=s.value;});
   if(typeof renderTeamDiagnose==="function")renderTeamDiagnose(); // Phase 7-C: Team-Diagnose oben
   const trainerCount=tpGetTrainerCount();
   const allForms=tpAllForms();
@@ -1080,6 +1099,8 @@ function tpRenderTimeline(){
   // Altbestand + neu angelegte Blöcke ohne Ziel: an den ersten Hauptteil hängen (umstellbar
   // über „Läuft parallel zu"). Gilt seit v383 auch für Torwart-Blöcke.
   tpSlots.forEach(s=>{if(tpKannParallel(s.typ)&&s.parallelZu==null){const mi=tpSlots.findIndex(x=>(x.typ||"main")==="main");if(mi>=0)s.parallelZu=mi;}});
+  // Parallele Bloecke dauern so lange wie ihr Hauptteil – auch im gespeicherten Plan
+  tpSlots.forEach(s=>{if(tpIstParallel(s))s.dauer=tpSlots[s.parallelZu].dauer;});
   let acc=0; const startsArr=tpSlots.map(s=>{const st0=acc;if(!tpIstParallel(s))acc+=s.dauer;return st0;});
   /* Render-Reihenfolge: parallele Blöcke stehen direkt UNTER ihrem Ziel-Slot
      (PO: „zeitlich vor dem Abschluss, aber optisch dahinter eingereiht"). si bleibt der
@@ -1102,7 +1123,10 @@ function tpRenderTimeline(){
        existieren. Sagt ein Trainer nach der Auslosung ab, fiel sonst eine komplette
        Gruppe aus Anzeige und Trainingsstart – die Kinder tauchten nirgends mehr auf. */
     const tgAnz=((typeof tgFor==="function"&&tgFor())||{}).gruppen?.length||0;
-    const parallelSlots=noGroups?1:Math.min(Math.max(1,trainerCount,tgAnz),5);
+    const gebunden=typ==="main"?tpParallelTrainer(si):new Set();
+    const trainersAlle=tpGetCheckedTrainers();
+    const trainers=trainersAlle.filter(t=>!gebunden.has(t));
+    const parallelSlots=noGroups?1:Math.min(Math.max(1,typ==="main"?trainers.length:trainerCount,tgAnz),5);
     const filtered=tpFilteredOpts(typ);
     const formOpts=filtered.map(x=>`<option value="${x.i}">${x.f.name} (${x.f.dauer})</option>`).join("");
 
@@ -1122,6 +1146,9 @@ function tpRenderTimeline(){
     }
     if(typ==="main"&&(slot.dauer||0)>=15){
       html+=`<div style="font-size:10.5px;color:var(--text3);padding:2px 0 4px">💡 Nach ~10 Min. variieren oder steigern – 20 Min. dieselbe Übung überfordert die Aufmerksamkeit von 7–9-Jährigen</div>`;
+    }
+    if(typ==="main"&&gebunden.size){
+      html+=`<div class="tp-parallel-hinweis" style="font-size:11px;color:var(--text2);padding:2px 0 6px">🧤 ${esc([...gebunden].join(", "))} ${gebunden.size===1?"ist":"sind"} beim Torwart-/Einzeltraining – ${parallelSlots} Feld${parallelSlots===1?"":"er"} statt ${Math.max(1,trainersAlle.length)}</div>`;
     }
     if(typ==="warmup"){
       html+=`<div style="font-size:10.5px;color:var(--text3);padding:2px 0 4px">🏃 Ankommensspiel wählen: ab dem ERSTEN Kind spielbar, Nachzügler docken einfach an – kein Warten, kein Laufen ohne Ball</div>`;
@@ -1170,12 +1197,13 @@ function tpRenderTimeline(){
       <div class="tp-feld"><label>Trainer</label>${tpCoachSelect(`tp-form-${si}-0`)}</div>
       <div id="tp-form-${si}-0-hist"></div>`;
     } else {
-      const trainers=tpGetCheckedTrainers();
       const tg=(typeof tgFor==="function")?tgFor():null; // Trainingsgruppen: Namen + Trainer je Gruppe
       for(let p=0;p<parallelSlots;p++){
         const selId=`tp-form-${si}-${p}`;
         const tgg=(tg&&tg.gruppen&&!noGroups)?tg.gruppen[p]:null;
-        if(!tpCoaches[selId]&&!noGroups&&((tgg&&tgg.trainer)||trainers[p]))tpCoaches[selId]=(tgg&&tgg.trainer)||trainers[p]; // Station dem Gruppen-Trainer zuweisen
+        if(tpCoaches[selId]&&gebunden.has(tpCoaches[selId]))delete tpCoaches[selId]; // steht jetzt am Torwart-/Einzelblock
+        const vorschlag=(tgg&&tgg.trainer&&!gebunden.has(tgg.trainer))?tgg.trainer:trainers[p];
+        if(!tpCoaches[selId]&&!noGroups&&vorschlag)tpCoaches[selId]=vorschlag; // Station dem Gruppen-Trainer zuweisen
         const isMain=typ==="main";
         // Eine Karte je Station. Frueher stand hier eine einzige Zeile, die am Handy in
         // fuenf Elemente umbrach – man sah nicht mehr, welches Feld zu welcher Gruppe gehoert.
@@ -1184,7 +1212,7 @@ function tpRenderTimeline(){
           <div class="tp-station-head">
             <span class="tp-station-nr">${noGroups?"👥":(tgg?tgg.emo:p+1)}</span>
             <span class="tp-station-titel">${noGroups?"Alle Kinder":(tgg?`${tgg.name} (${tgg.kinder.length})`:`Gruppe ${p+1}`)}</span>
-            ${noGroups?"":tpCoachSelect(selId)}
+            ${noGroups?"":tpCoachSelect(selId,gebunden)}
           </div>`;
         // Kategorie-Dropdown entfällt – der Übungs-Picker gruppiert selbst (PO: keine Ellenlisten)
         html+=`<div class="tp-feld"><label for="${selId}">Übung</label>
@@ -1218,6 +1246,10 @@ function tpRenderTimeline(){
     <select id="tp-dauer" onchange="tpRenderTimeline()" style="font-size:13px;min-height:40px;padding:4px 8px;border:1px solid var(--rand-bedien);border-radius:8px;font-family:inherit;background:var(--surface);color:var(--text)">${[60,75,90].map(d=>`<option value="${d}"${zielDauer===d?" selected":""}>${d}</option>`).join("")}</select>
     Min.${passt?(frei>0?` · noch ${frei} Min. frei`:""):" – zu lang!"}</div>`;
   wrap.innerHTML=html;
+  // Gemerkte Auswahl wieder einsetzen (siehe oben)
+  Object.keys(merk.sel).forEach(id=>{const s=document.getElementById(id); if(s&&[...s.options].some(o=>o.value===merk.sel[id])){s.value=merk.sel[id]; if(typeof tpPickSync==="function")tpPickSync(id); const hd=document.getElementById(id+"-hist"); if(hd&&typeof tpExerciseHistoryHtml==="function")hd.innerHTML=tpExerciseHistoryHtml(parseInt(s.value));}});
+  wrap.querySelectorAll(".tp-tw-player").forEach(c=>{const k=c.dataset.slot+"|"+c.value; if(k in merk.tw)c.checked=merk.tw[k];});
+  Object.keys(merk.ind).forEach(id=>{const s=document.getElementById(id); if(s){s.value=merk.ind[id]; if(typeof tpIndPlayerChange==="function"&&s.value)tpIndPlayerChange(Number(id.replace("tp-ind-player-","")));}});
   tpPrognoseLoad(); // G3: erwartete Kinderzahl fürs gewählte Datum
   if(typeof zielUebungenHint==="function")zielUebungenHint(); // B: Übungen zu offenen Entwicklungszielen
   if(typeof tlCheck==="function")tlCheck(); // laufender Trainingsstart? → Bereit-Fenster
@@ -1437,7 +1469,7 @@ function tpAddSlot(){
      „Abschlussspiel · 15 Min.", eingefuegt wurden 20, und aus „Torwart-Training" wurde in
      der Leiste „Torwart-Spielen (rotierend)". Jetzt beschreibt TP_ADD_OPTS beides. */
   const opts=TP_ADD_OPTS;
-  let btns=opts.map((o,i)=>`<button onclick="tpDoAddSlot(${i});this.closest('div[style*=fixed]').remove()" style="display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;border:1px solid var(--rand-bedien);border-left:3px solid ${o.farbe};border-radius:var(--r);background:var(--surface);cursor:pointer;font-family:inherit;font-size:12px;text-align:left"><span style="font-size:18px">${o.icon}</span><div><strong>${o.label}</strong><br><span style="font-size:10px;color:var(--text2)">${o.dauer} Min.</span></div></button>`).join("");
+  let btns=opts.map((o,i)=>`<button onclick="tpDoAddSlot(${i});this.closest('div[style*=fixed]').remove()" style="display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;border:1px solid var(--rand-bedien);border-left:3px solid ${o.farbe};border-radius:var(--r);background:var(--surface);cursor:pointer;font-family:inherit;font-size:12px;text-align:left"><span style="font-size:18px">${o.icon}</span><div><strong>${o.label}</strong><br><span style="font-size:10px;color:var(--text2)">${tpKannParallel(o.typ)?"parallel zum Hauptteil, gleiche Dauer":o.dauer+" Min."}</span></div></button>`).join("");
   modal.innerHTML=`<div style="background:var(--surface);border-radius:var(--rl);padding:16px;max-width:320px;width:100%">
     <div style="font-size:13px;font-weight:700;margin-bottom:10px">Phase hinzufügen</div>
     <div style="display:flex;flex-direction:column;gap:6px">${btns}</div>
@@ -1468,6 +1500,7 @@ function tpDauerSelect(si,slot){
 function tpSetDauer(si,wert){
   if(!tpSlots[si])return;
   tpSlots[si].dauer=Math.max(1,Number(wert)||10);
+  tpSlots.forEach(s=>{if(tpKannParallel(s.typ)&&s.parallelZu===si)s.dauer=tpSlots[si].dauer;}); // Torwart/Einzel laufen genauso lang
   tpRenderTimeline();
 }
 function tpDoAddSlot(idx){
@@ -1477,7 +1510,7 @@ function tpDoAddSlot(idx){
   // Torwart/Individual hängen sich parallel an den letzten Hauptteil (PO: nie ans Ende der Kette)
   if(tpKannParallel(neu.typ)){
     let mi=-1; tpSlots.forEach((s,i)=>{if((s.typ||"main")==="main")mi=i;});
-    if(mi>=0)neu.parallelZu=mi;
+    if(mi>=0){neu.parallelZu=mi;neu.dauer=tpSlots[mi].dauer;}   // gleiche Dauer wie der Hauptteil
   }
   tpSlots.push(neu);
   tpRenderTimeline();
