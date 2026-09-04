@@ -975,6 +975,7 @@ function nutzungRolle(){
 }
 function nutzungLog(ereignis,ziel){
   try{
+    if(window._nutzungStumm)return;
     if(typeof sbToken!=="function"||!sbToken())return;
     const letzte=_nutzungPuffer[_nutzungPuffer.length-1];
     if(letzte&&letzte.ereignis===ereignis&&letzte.ziel===(ziel==null?null:String(ziel))&&Date.now()-letzte._t<1500)return; // Doppeltipp

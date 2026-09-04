@@ -271,7 +271,18 @@ function toggleTF(id){
 
 // p-date (Bewertung), tp-date (Planung) und aw-date (Anwesenheit) sind jetzt Termin-Dropdowns –
 // gefüllt aus den echten Terminen beim Öffnen des jeweiligen Tabs (terminSelectFill).
-loadKader().then(()=>loadDB()).then(()=>{if(curSection==="home")renderHome();}).then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500)); // Kader (Supabase) zuerst, dann G1 + KI-Light + Home-Stats
+/* Nach einem Neuladen (Browser-Refresh, Tab-Wiederherstellung) wieder dort landen, wo man
+   war – nicht auf der Startseite. Erst nach loadKader, damit die Seite ihre Daten vorfindet. */
+/* Sofort lesen: openTab("home") drei Zeilen weiter unten schreibt „home" hinein, bevor
+   die Kette unten fertig ist – gelesen wird also, was VOR dem Neuladen galt. */
+const _bootLetzteSeite=(()=>{try{return sessionStorage.getItem("adler_letzte_seite");}catch(e){return null;}})();
+function bootSeiteZurueck(){
+  const k=_bootLetzteSeite;
+  if(!k||k==="home"||typeof SECS==="undefined"||!SECS[k])return false;
+  window._nutzungStumm=true; try{go(k);}finally{window._nutzungStumm=false;}   // ein Neuladen ist kein Besuch
+  return true;
+}
+loadKader().then(()=>loadDB()).then(()=>{if(!bootSeiteZurueck()&&curSection==="home")renderHome();}).then(()=>teamSyncLoad()).then(()=>setTimeout(showMilestoneHint,1500)); // Kader (Supabase) zuerst, dann G1 + KI-Light + Home-Stats
 loadCustomForms();
 openTab("home"); // Start auf dem Trainer-Dashboard + Sub-Tab-Leiste initial rendern
 /* loadTeamConfig lebt in md-quests.js = Welle 2. Seit dem Zwei-Wellen-Laden ist es hier
