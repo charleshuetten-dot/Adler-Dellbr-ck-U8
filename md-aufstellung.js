@@ -30,10 +30,21 @@ function kombiFromSuggestion(){
   renderLineupEditor();
   toast("Vorschlag übernommen");
 }
+/* Wer steht zur Auswahl? Die NOMINIERTEN des Spieltags, sonst der aktive Kader – nicht
+   `Object.keys(DB)`. Das waren die Namen aus `spielerprofile`; nach dem Saisonstart-Reset
+   (v446) ist die Tabelle leer, und damit boten Aufstellung und Bank kein einziges Kind an.
+   Die Rollen-EMPFEHLUNG braucht weiterhin Bewertungen und sagt das selbst (renderKombi) –
+   aber ein Kind von Hand aufstellen muss auch ohne Bewertung gehen. */
+function _lineupNamen(){
+  const nom=(typeof nominierteSpieler==="function")?nominierteSpieler():[];
+  if(nom&&nom.length)return nom.slice();
+  const kad=(typeof KADER!=="undefined"?KADER:[]).filter(k=>k.aktiv!==false).map(k=>k.name);
+  return kad.length?kad:Object.keys(DB).sort();
+}
 function renderLineupEditor(){
   const box=document.getElementById("lineup-editor");
   if(!box)return;
-  const names=Object.keys(DB).sort();
+  const names=_lineupNamen();
   const selected=Object.values(kombiLineup).filter(Boolean);
   const bench=names.filter(n=>!selected.includes(n));
   const opts=(cur)=>`<option value="">— frei —</option>`+names.map(n=>`<option value="${esc(n)}"${n===cur?" selected":""}>${esc(n)}${getKader(n)?.nr?" (#"+getKader(n).nr+")":""}${getKader(n)?.tw?" 🥅":""}</option>`).join("");
@@ -68,7 +79,7 @@ function kombiToMatch(){
   tbFormation="4+1"; // die Raute-Aufstellung ist eine 4+1-Formation
   rotTW=kombiLineup.tw||null;
   rotField=[...feld];
-  const squad=(typeof nominierteSpieler==="function"&&nominierteSpieler().length)?nominierteSpieler():Object.keys(DB);
+  const squad=_lineupNamen();
   const inLineup=new Set([rotTW,...feld].filter(Boolean));
   rotBench=squad.filter(n=>!inLineup.has(n));
   rotBenchSec={};rotFieldSec={};[...squad,...inLineup].forEach(n=>{rotBenchSec[n]=0;rotFieldSec[n]=0;});
@@ -79,7 +90,7 @@ function kombiToMatch(){
 }
 // Die festgelegte Aufstellung als 4+1-Raute + Bank aufs Canvas zeichnen und teilen
 function kombiShareLineupBild(){
-  const names=Object.keys(DB).sort();
+  const names=_lineupNamen();
   const selected=Object.values(kombiLineup).filter(Boolean);
   const bench=names.filter(n=>!selected.includes(n));
   const W=600, PITCH=690, BENCH=160, H=PITCH+BENCH;
@@ -171,7 +182,7 @@ async function kombiLoadLineup(){
 function kombiShareLineup(){
   const datum=document.getElementById("lineup-date")?.value||"";
   const posName={tw:"🥅 Torwart",auf:"Aufpasser",fll:"Flitzer L",flr:"Flitzer R",jaeg:"Jäger"};
-  const names=Object.keys(DB).sort();
+  const names=_lineupNamen();
   const selected=Object.values(kombiLineup).filter(Boolean);
   const bench=names.filter(n=>!selected.includes(n));
   const zeilen=[`⚽ Aufstellung U9${datum?" · "+datum:""}`,""];

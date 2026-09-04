@@ -1,0 +1,60 @@
+/* v460 – „der Kader ist leer, alle Kinder sind weg". Die Kaderliste stand auf
+   Object.keys(DB) – den Namen aus `spielerprofile`. Nach dem Saisonstart-Reset (v446) ist
+   die Tabelle leer, also war die ganze Ansicht leer, obwohl der Kader vollstaendig ist.
+   Geprueft: ohne jede Bewertung stehen alle aktiven Kinder da, ausgetragene nicht,
+   der TW-Filter greift ueber den Kader, Rollenfilter bleiben leer, und mit Bewertung
+   erscheinen die Werte. */
+module.exports = async function (h) {
+  const K = h.KINDER, RAUS = K[6], probleme = [], zeilen = [];
+  const rows = h.kaderZeilen({ inaktiv: [RAUS] }); rows[0].tw = true; rows[1].tw = true;
+  const s = await h.starten({ supabase: h.supabaseAttrappe({ kader: rows, spielerprofile: [] }), hoehe: 2000 });
+  const r = await s.page.evaluate(async ({ K, RAUS }) => {
+    await loadKader();
+    DB = {}; window._dbLoaded = true;
+    const zeilen = () => [...document.querySelectorAll("#kader-content tbody tr")].map(t => t.textContent.replace(/\s+/g, " ").trim());
+    const out = {};
+    go("kader"); await new Promise(r => setTimeout(r, 400));
+    activeFilter = "all"; renderKader();
+    out.leer = zeilen();
+    out.text = document.getElementById("kader-content").textContent.replace(/\s+/g, " ").trim().slice(0, 200);
+    out.bewertenKnopf = !!document.querySelector('#kader-content button[onclick^="kaderBewerten"]');
+    activeFilter = "tw"; renderKader(); out.tw = zeilen().length;
+    activeFilter = "aufpasser"; renderKader(); out.rolle = document.getElementById("kader-content").textContent.includes("Kein Spieler für diesen Filter");
+    // jetzt eine echte Bewertung fuer ein Kind
+    DB[K[0]] = [{ name: K[0], datum: "2026-09-01", scores: "[60,50,40,0,0]", total_score: 55, pot_score: 70, position: "aufpasser", trainer: "T" }];
+    activeFilter = "all"; renderKader();
+    out.mitBewertung = zeilen().length;
+    out.werte = zeilen().find(z => z.startsWith("1 " + K[0]) || z.includes(K[0])) || "";
+    out.hinweis = document.getElementById("kader-content").textContent.includes("noch nicht bewertet");
+    activeFilter = "aufpasser"; renderKader(); out.rolleJetzt = zeilen().length;
+    activeFilter = "all";
+    return out;
+  }, { K, RAUS });
+  const fehler = s.fehler(); await s.schliessen();
+  if (r.leer.length !== 14) probleme.push(`ohne Bewertungen ${r.leer.length} Zeilen statt 14`);
+  if (r.leer.some(z => z.includes(RAUS))) probleme.push("ausgetragenes Kind steht in der Liste");
+  if (/Kein Spieler für diesen Filter/.test(r.text)) probleme.push("Liste meldet weiter „Kein Spieler für diesen Filter“");
+  if (!r.bewertenKnopf) probleme.push("kein Weg zur ersten Bewertung");
+  if (r.tw !== 2) probleme.push(`TW-Filter zeigt ${r.tw} statt 2 (aus dem Kader, nicht aus Bewertungen)`);
+  if (!r.rolle) probleme.push("Rollenfilter ohne Bewertungen muesste leer melden");
+  if (r.mitBewertung !== 14) probleme.push(`mit einer Bewertung ${r.mitBewertung} Zeilen statt 14`);
+  if (!/55%/.test(r.werte)) probleme.push("Werte des bewerteten Kindes fehlen: " + r.werte);
+  if (!r.hinweis) probleme.push("Hinweis „noch nicht bewertet“ fehlt");
+  if (r.rolleJetzt !== 1) probleme.push(`Rollenfilter zeigt ${r.rolleJetzt} statt 1`);
+  // Dieselbe Annahme sass im Aufstellungs-Editor: ohne Bewertungen bot er kein Kind an
+  const a = await h.starten({ supabase: h.supabaseAttrappe({ kader: rows, spielerprofile: [] }), hoehe: 1600 });
+  const auf = await a.page.evaluate(async () => {
+    await loadKader(); DB = {}; window._dbLoaded = true;
+    let box = document.getElementById("lineup-editor"); if (!box) { box = document.createElement("div"); box.id = "lineup-editor"; document.body.appendChild(box); }
+    kombiLineup = { tw: "", auf: "", fll: "", flr: "", jaeg: "" };
+    renderLineupEditor();
+    const sel = box.querySelector("select");
+    return { optionen: sel ? [...sel.options].filter(o => o.value).length : 0, bank: box.textContent.replace(/\s+/g, " ").trim().length };
+  });
+  await a.schliessen();
+  if (auf.optionen !== 14) probleme.push(`Aufstellungs-Editor bietet ${auf.optionen} Kinder statt 14`);
+  zeilen.push(`Aufstellungs-Editor: ${auf.optionen} Kinder waehlbar`);
+  if (fehler.length) probleme.push(...fehler.slice(0, 3));
+  zeilen.push(`ohne Bewertungen ${r.leer.length} Zeilen · TW ${r.tw} · mit Bewertung ${r.mitBewertung}, Rollenfilter ${r.rolleJetzt}`);
+  return h.ergebnis("Kader und Aufstellung zeigen die Mannschaft, auch ohne eine einzige Bewertung", !probleme.length, zeilen.concat(probleme));
+};
