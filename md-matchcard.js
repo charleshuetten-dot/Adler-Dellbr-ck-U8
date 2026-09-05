@@ -128,7 +128,17 @@ async function renderDelegateView(token){
     return;
   }
   let selected=null;
-  const squad=KADER.map(k=>k.name); // KADER ist ohnehin oeffentlich im Client-Code enthalten
+  /* v469: Bis hierher stand `KADER.map(...)` – und KADER bleibt im Helfer-Modus LEER,
+     weil loadKader() ohne Trainer-Token an der RLS scheitert (steht so im Kommentar dort).
+     Der Helfer sah also gar keine Namen; der Link war unbenutzbar. Die Kinder kommen
+     jetzt ueber den Schluessel aus der RPC ticker_kader – zwei Bloecke wie beim Trainer,
+     dazu die Torhueter, damit „Parade" nur bei ihnen erscheint. */
+  let feld=[], weitere=[], twListe=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/ticker_kader`,{method:"POST",headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_token:token})});
+    if(r.ok){ const j=await r.json(); if(j){ feld=j.feld||[]; weitere=j.weitere||[]; twListe=j.tw||[]; } }
+  }catch(e){}
+  const istTW=n=>twListe.includes(n);
   function draw(){
     const dauer=m.spieldauer_min||10;
     const minuteNow=mcMinuteLabel({half:m.half,clock_status:m.clock_status,started_at:m.started_at,paused_ms:m.paused_ms},dauer,m.halbzeiten||2);
@@ -139,13 +149,15 @@ async function renderDelegateView(token){
         <div style="font-size:12px;color:#64748b">Spielminute: ${elternEsc(minuteNow)} · Erst Kind, dann Aktion antippen.</div>
       </div>
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin-bottom:12px">
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
-          ${squad.map(n=>`<button onclick="dgPick('${n.replace(/'/g,"")}')" style="font-size:12px;padding:7px 10px;border-radius:16px;border:1px solid var(--rand-bedien);background:${selected===n?"#1e3a8a":"#f1f5f9"};color:${selected===n?"#fff":"#1e293b"};cursor:pointer;font-family:inherit">${elternEsc(n)}</button>`).join("")}
-        </div>
+        ${(()=>{ const chip=n=>`<button onclick="dgPick('${n.replace(/'/g,"")}')" style="font-size:12px;padding:7px 10px;border-radius:16px;border:1px solid var(--rand-bedien);background:${selected===n?"#1e3a8a":"#f1f5f9"};color:${selected===n?"#fff":"#1e293b"};cursor:pointer;font-family:inherit">${elternEsc(n)}</button>`;
+          if(!feld.length&&!weitere.length)return '<div style="font-size:12.5px;color:#94a3b8;margin-bottom:12px">Für heute ist noch niemand eingetragen – frag kurz beim Trainer nach.</div>';
+          return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:${weitere.length?"8":"12"}px">${feld.map(chip).join("")}</div>
+          ${weitere.length?`${feld.length?'<div style="display:flex;align-items:center;gap:8px;margin:2px 0 8px"><span style="flex:1;border-top:2px dashed #cbd5e1"></span><span style="font-size:10px;font-weight:800;letter-spacing:.5px;color:#94a3b8">AUCH HEUTE DABEI</span><span style="flex:1;border-top:2px dashed #cbd5e1"></span></div>':""}
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${weitere.map(chip).join("")}</div>`:""}`; })()}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <button onclick="dgSend('tor')" ${selected?"":"disabled"} style="min-height:52px;border:none;border-radius:12px;background:#15803d;color:#fff;font-weight:700;font-size:13px;cursor:pointer">⚽ Tor!</button>
           <button onclick="dgSend('aktion')" ${selected?"":"disabled"} style="min-height:52px;border:none;border-radius:12px;background:#1a56db;color:#fff;font-weight:700;font-size:13px;cursor:pointer">👏 Starke Aktion</button>
-          ${(selected&&getKader(selected)?.tw)?`<button onclick="dgSend('parade')" style="min-height:52px;border:none;border-radius:12px;background:#854d0e;color:#fff;font-weight:700;font-size:13px;cursor:pointer;grid-column:span 2">🧤 Parade</button>`:""}
+          ${(selected&&istTW(selected))?`<button onclick="dgSend('parade')" style="min-height:52px;border:none;border-radius:12px;background:#854d0e;color:#fff;font-weight:700;font-size:13px;cursor:pointer;grid-column:span 2">🧤 Parade</button>`:""}
         </div>
         <button onclick="dgSend('gegentor')" style="width:100%;margin-top:8px;min-height:44px;border:1px solid var(--rand-bedien);border-radius:12px;background:#f1f5f9;color:#334155;font-size:12.5px;cursor:pointer">Gegentor melden</button>
       </div>

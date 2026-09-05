@@ -39,6 +39,17 @@ function atWeitereSpieler(){
   const oben=new Set(atOnFieldPlayers());
   return atAlleHeute().filter(n=>!oben.has(n));
 }
+/* v469 – PO: „Bei Parade kann ich ausschliesslich die Torhueter anbieten, weil ein
+   Feldspieler keine Parade macht." Beim BEWERTEN unterscheidet die App das laengst
+   (atActionsFor gibt Torhuetern eigene Knoepfe); im Live-Vollbild war es vergessen.
+   Beruecksichtigt wird, wer im Kader als Torwart markiert ist UND wer laut Aufstellung
+   gerade im Tor steht. Ist niemand markiert, bleibt die volle Liste stehen – ein leerer
+   Bildschirm am Spielfeldrand waere schlimmer als eine zu lange Liste. */
+function atTorhueter(namen){
+  const imTor=(typeof rotTW!=="undefined"&&rotTW)?rotTW:null;
+  const tw=namen.filter(n=>n===imTor||(typeof getKader==="function"&&getKader(n)&&getKader(n).tw));
+  return tw.length?tw:namen;
+}
 let atLiveClockId=null;
 function atLiveOpen(){
   document.getElementById("at-live")?.remove();
@@ -109,11 +120,13 @@ function atLiveRender(){
     </div>`;
   }else{
     const a=AT_LIVE_ACTS.find(x=>x.key===atLiveAction)||{label:atLiveAction,emo:"",col:"#1e293b"};
-    const players=atOnFieldPlayers(), weitere=atWeitereSpieler();
+    const nurTW=atLiveAction==="parade";
+    const players=nurTW?atTorhueter(atOnFieldPlayers()):atOnFieldPlayers();
+    const weitere=nurTW?atTorhueter(atWeitereSpieler()).filter(n=>!players.includes(n)):atWeitereSpieler();
     const knopf=(n,dunkel)=>`<button onclick="atLiveRecord('${n.replace(/'/g,"")}')" style="min-height:66px;border:${dunkel?"none":"1.5px solid #334155"};border-radius:16px;background:${dunkel?"#1e293b":"transparent"};color:#fff;font-size:18px;font-weight:700;font-family:inherit;cursor:pointer">${getKader(n)?.tw?"🥅 ":(getKader(n)?.nr?getKader(n).nr+" ":"")}${esc(n)}</button>`;
     const trenner=weitere.length?`<div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;margin:6px 0 2px">
         <span style="flex:1;border-top:2px dashed #334155"></span>
-        <span style="font-size:10.5px;font-weight:800;letter-spacing:.5px;color:#94a3b8">AUCH HEUTE DABEI</span>
+        <span style="font-size:10.5px;font-weight:800;letter-spacing:.5px;color:#94a3b8">${nurTW?"WEITERE TORHÜTER":"AUCH HEUTE DABEI"}</span>
         <span style="flex:1;border-top:2px dashed #334155"></span>
       </div>`:"";
     body=`<div style="padding:12px 14px;font-size:16px;font-weight:800;background:${a.col}"> ${a.emo} ${a.label} – wer war's?</div>

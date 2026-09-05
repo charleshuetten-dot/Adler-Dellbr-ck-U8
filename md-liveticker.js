@@ -110,9 +110,14 @@ function tickerRenderControls(){
       <button class="btn ${open?"btn-p":""}" onclick="tickerToggle()">${open?"🔴 Ticker läuft – stoppen":"▶️ Liveticker starten"}</button>
       <button class="btn btn-sm" onclick="tickerShareViewLink()"><i class="ti ti-eye"></i>Ansehen-Link</button>
       <button class="btn btn-sm" onclick="tickerShareKonfLink()" title="Ein Link für alle Teams (Konferenz)"><i class="ti ti-users-group"></i>Konferenz-Link</button>
-      <button class="btn btn-sm" onclick="tickerShareDelegateLink()"><i class="ti ti-user-share"></i>Helfer-Link</button>
       <span style="font-size:10.5px;color:var(--text2)">${open?"Eltern sehen positive Highlights live.":"Eltern sehen: „Trainer fokussieren sich zu 100% auf die Kids – kein Ticker heute.“"}</span>
     </div>
+    ${open?`<!-- v469 – PO: „dass der Trainer waehrend des Spiels keine Zeit hat, den Liveticker
+         zu bedienen." Den Helfer-Link gab es schon, aber als kleinen Knopf zwischen zwei
+         anderen – er wurde nie gefunden. Jetzt gross und genau in dem Moment, in dem die
+         Frage aufkommt: direkt nachdem der Ticker gestartet ist. -->
+    <button onclick="tickerShareDelegateLink()" style="width:100%;min-height:52px;margin-bottom:10px;border:1.5px dashed var(--rand-bedien);border-radius:12px;background:var(--surface2);color:var(--text);font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">🙋 Jemand anderen tickern lassen</button>
+    <div style="font-size:10.5px;color:var(--text3);margin:-6px 0 10px">Schickt einen Link per WhatsApp oder Mail. Wer ihn öffnet, sieht nur die Kinder von heute und die Aktionsknöpfe – keine Bewertungen, keine Kaderdaten. Er gilt nur, solange der Ticker läuft.</div>`:""}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center">
       <button class="btn btn-sm" onclick="matchReport()"><i class="ti ti-news"></i>Spielbericht</button>
       <button class="btn btn-sm" onclick="ergebnisKarte()"><i class="ti ti-photo"></i>Ergebnis-Karte</button>
