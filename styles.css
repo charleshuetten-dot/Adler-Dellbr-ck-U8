@@ -963,3 +963,12 @@ html[data-theme="dark"] .aw-tile.on,body.dark .aw-tile.on{background:#14532d;bor
    Startseite. Die App hat ihren eigenen Pull-to-Refresh (boot.js), der die Daten still
    nachlaedt und die Seite haelt – deshalb den des Browsers abschalten. */
 html,body{overscroll-behavior-y:contain}
+
+/* ── Live-Kachel im Eltern-Bereich (v467) ────────────────────────────────────────
+   PO wollte „vielleicht sogar blinkend". Hartes Blinken ist ein Barrierefreiheits-
+   Problem (manchen Menschen wird davon koerperlich unwohl), deshalb ein langsamer
+   Puls – und die Bedeutung haengt nicht an der Bewegung: das Wort LIVE steht daneben.
+   Wer „weniger Bewegung" eingestellt hat, sieht den Punkt ruhig. */
+@keyframes elLivePuls{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.78)}}
+.el-live-dot{animation:elLivePuls 1.6s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.el-live-dot{animation:none}}
