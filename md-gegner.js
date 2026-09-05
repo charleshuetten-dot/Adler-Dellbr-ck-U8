@@ -253,15 +253,38 @@ function tmDetailOpen(id){
   modal.id="tmd-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");modal.setAttribute("aria-label","Termin-Details");
   modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10040;display:flex;flex-direction:column;padding:14px;overflow-y:auto";
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  modal.dataset.tid=String(t.id);   // damit tmDetailNeu weiss, welcher Termin offen ist
   const c=document.createElement("div");
+  c.id="tmd-inhalt";
   c.style.cssText="max-width:460px;width:100%;margin:auto";
-  c.innerHTML=`<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="document.getElementById('tmd-modal').remove()" aria-label="Schließen" style="border:none;background:rgba(255,255,255,.92);width:40px;height:40px;border-radius:50%;font-size:22px;color:#334155;cursor:pointer;line-height:1">×</button></div>${tmCard(t)}`;
+  c.innerHTML=_tmdInhalt(t);
   modal.appendChild(c);document.body.appendChild(modal);
-  // Nachlader wie in der Terminliste anstoßen (Wetter + Büdchen füllen ihre Slots per id).
+  _tmdNachlader(t);
+}
+function _tmdInhalt(t){
+  return `<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="document.getElementById('tmd-modal').remove()" aria-label="Schließen" style="border:none;background:rgba(255,255,255,.92);width:40px;height:40px;border-radius:50%;font-size:22px;color:#334155;cursor:pointer;line-height:1">×</button></div>${tmCard(t)}`;
+}
+// Nachlader wie in der Terminliste anstoßen (Wetter + Büdchen füllen ihre Slots per id).
+function _tmdNachlader(t){
   try{ wetterInto("wx-tm-"+t.id,t.datum,t.ort,t.uhrzeit); }catch(e){}
   if(t.heim===true&&(t.typ==="spiel"||t.typ==="turnier")){ try{ buedchenTrainerFill(t); }catch(e){} }
   if(["training","spiel","turnier"].includes(t.typ)&&t.datum<new Date().toISOString().slice(0,10)){ try{ pulsTrainerFill(t); }catch(e){} } // F4
   if(t.datum>=new Date().toISOString().slice(0,10)){ try{ helferTrainerFill(t); }catch(e){} } // G4
+}
+/* Das Detailfenster zeichnet sich NICHT ueber tmLoad() mit: das steigt ohne die
+   Terminliste im DOM sofort wieder aus (`if(!up||!pa)return`), und vom Startbildschirm
+   aus ist die Liste nie da. Bis v466 tippte der Trainer dort auf „Trainer dabei?" oder
+   „Faellt aus", der Server nahm es an – und im Fenster aenderte sich nichts.
+   Scrollstand bleibt, sonst springt das Fenster bei jedem Tippen nach oben. */
+function tmDetailNeu(id){
+  const modal=document.getElementById("tmd-modal");
+  if(!modal||Number(modal.dataset.tid)!==Number(id))return;
+  const t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(id)); if(!t)return;
+  const box=document.getElementById("tmd-inhalt"); if(!box)return;
+  const oben=modal.scrollTop;
+  box.innerHTML=_tmdInhalt(t);
+  modal.scrollTop=oben;
+  _tmdNachlader(t);
 }
 // G4: Helferliste im Trainer-Termindetail (Lesesicht; Löschen dürfen Eltern selbst / Trainer per RLS).
 async function helferTrainerFill(t){
@@ -394,6 +417,7 @@ async function platzAmpelSet(id,status){
   const t=(TM_TERMINE||[]).find(x=>Number(x.id)===Number(id)); if(t){t.platz_status=status;t.platz_status_at=new Date().toISOString();}
   try{navigator.vibrate&&navigator.vibrate(20);}catch(e){}
   toast(`Eltern sehen jetzt: ${PLATZ_AMPEL[status].emo} ${PLATZ_AMPEL[status].lbl}`);
+  tmDetailNeu(id);   // offenes Detailfenster mitziehen
   tmLoad();  // Liste neu rendern → aktiver Button + Hinweisfeld
 }
 async function platzAmpelNote(id,val){
@@ -709,6 +733,7 @@ async function tmTrainerToggle(id,name){
   if(st[name]===undefined)delete st[name];
   t.trainer_status=st;
   try{const r=await fetch(`${SB_URL}/rest/v1/termine?id=eq.${id}`,{method:"PATCH",headers:sbAuthHeaders(),body:JSON.stringify({trainer_status:st})});if(sbCheck401(r))return;}catch(e){}
+  tmDetailNeu(id);   // offenes Detailfenster mitziehen – tmLoad() zeichnet nur die Liste
   tmLoad();
 }
 // Schnell-Sprung von einem Termin zum passenden Werkzeug, Datum vorbelegt.
