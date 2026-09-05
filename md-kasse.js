@@ -1161,6 +1161,75 @@ async function elternDataExport(btn){
 function elternTickerKonf(datum){
   location.href=location.pathname+"?ticker="+encodeURIComponent(datum+"__konf");
 }
+/* ── Live-Kachel ganz oben (PO v467) ─────────────────────────────────────────────
+   „Wenn der Liveticker aktiviert wird, sollten Eltern sofort oben eine Kachel sehen."
+   Der Einstieg gab es schon – aber unten IN der Terminkarte, und er erschien an JEDEM
+   Spieltag, auch wenn nie jemand getickert hat. Eltern tippten dann auf eine leere Seite.
+   Deshalb zwei Regeln: ganz oben, und nur wenn es wirklich etwas zu sehen gibt.
+
+   „Aktiviert" ist kein eigener Schalter – ticker_open ist ein AUS-Schalter (false =
+   Wolff-Fuss). Als Startsignal zaehlt darum: die Spieluhr laeuft ODER es steht schon ein
+   Ticker-Eintrag da. Beides heisst „da passiert gerade was". */
+const EL_LIVE_WEG="adler_live_weg";   // wegklickt – merkt sich den Spieltag, nicht „nie wieder"
+function elternLiveSlotHtml(){ return '<div id="eltern-live-slot"></div>'; }
+function elternLiveWeggeklickt(datum){
+  try{ return localStorage.getItem(EL_LIVE_WEG)===String(datum); }catch(e){ return false; }
+}
+function elternLiveWeg(datum){
+  try{ localStorage.setItem(EL_LIVE_WEG,String(datum)); }catch(e){}
+  const slot=document.getElementById("eltern-live-slot"); if(slot)slot.innerHTML="";
+}
+// Teilen: bewusst der ANSEHEN-Link (?ticker=…), niemals der Helfer-/Delegate-Link –
+// den kennen Eltern gar nicht, und mit ihm koennte jeder in den Ticker schreiben.
+function elternLiveTeilen(key){
+  const url=location.origin+location.pathname+"?ticker="+encodeURIComponent(key);
+  const text=`📣 Liveticker SV Adler Dellbrück U9:\n${url}`;
+  if(navigator.share){ navigator.share({title:"Liveticker U9",text,url}).catch(()=>{}); return; }
+  if(navigator.clipboard){ navigator.clipboard.writeText(url).then(()=>elternToast&&elternToast("Link kopiert ✓"),()=>{}); }
+}
+/* Laeuft an einem Spieltag gerade ein Ticker? Prueft alle Team-Schluessel des Tages.
+   Liefert den Schluessel des Teams, dessen Ticker laeuft (bevorzugt das eigene Team). */
+async function elternLiveKachelLoad(termin,eigenesTeam){
+  const slot=document.getElementById("eltern-live-slot"); if(!slot)return;
+  slot.innerHTML="";
+  if(!termin||(termin.typ!=="spiel"&&termin.typ!=="turnier"))return;
+  const datum=termin.datum;
+  if(datum!==new Date().toISOString().slice(0,10))return;      // nur am Spieltag selbst
+  if(elternLiveWeggeklickt(datum))return;
+  const keys=[datum,datum+"__t2",datum+"__t3"];
+  let mds=[],evs=[];
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/matchday?datum=in.(${keys.map(encodeURIComponent).join(",")})&select=datum,clock_status,ticker_open`,{headers:sbAuthHeaders()});
+    if(r.ok)mds=await r.json();
+  }catch(e){ return; }
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/ticker_events?datum=in.(${keys.map(encodeURIComponent).join(",")})&select=datum&limit=1`,{headers:sbAuthHeaders()});
+    if(r.ok)evs=await r.json();
+  }catch(e){}
+  const zu=new Set(mds.filter(m=>m.ticker_open===false).map(m=>m.datum));   // Wolff-Fuss respektieren
+  const laeuft=k=>{ if(zu.has(k))return false;
+    const m=mds.find(x=>x.datum===k);
+    return !!(m&&m.clock_status&&m.clock_status!=="stopped")||evs.some(e=>e.datum===k); };
+  const offen=keys.filter(laeuft);
+  if(!offen.length)return;
+  // Das eigene Team zuerst – sonst der erste laufende Ticker des Tages.
+  const eigen=Number(eigenesTeam)>1?`${datum}__t${Number(eigenesTeam)}`:datum;
+  const key=offen.includes(eigen)?eigen:offen[0];
+  const m=/__t(\d+)$/.exec(key); const teamTxt=m?`Adler ${m[1]}`:"Adler 1";
+  slot.innerHTML=`<div class="el-live" style="background:linear-gradient(135deg,#dc2626,#b91c1c);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 4px 18px rgba(220,38,38,.28);color:#fff">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="el-live-dot" aria-hidden="true" style="width:11px;height:11px;border-radius:50%;background:#fff;flex:none"></span>
+      <span style="font-size:11px;font-weight:900;letter-spacing:1.2px">LIVE</span>
+      <span style="font-size:12px;font-weight:700;opacity:.92">${esc(teamTxt)} · Liveticker läuft</span>
+      <button onclick="elternLiveWeg('${esc(datum)}')" aria-label="Hinweis für heute ausblenden" style="margin-left:auto;border:none;background:rgba(255,255,255,.18);color:#fff;width:32px;height:32px;border-radius:50%;font-size:17px;line-height:1;cursor:pointer;font-family:inherit;flex:none">×</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button onclick="location.href=location.pathname+'?ticker=${encodeURIComponent(key)}'" style="flex:1;min-width:150px;min-height:46px;border:none;border-radius:10px;background:#fff;color:#b91c1c;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">📣 Liveticker öffnen</button>
+      <button onclick="elternLiveTeilen('${esc(key)}')" style="min-height:46px;padding:0 16px;border:1.5px solid rgba(255,255,255,.85);border-radius:10px;background:transparent;color:#fff;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer">🔗 Teilen</button>
+    </div>
+    <div style="font-size:10.5px;opacity:.85;margin-top:7px">Der Link funktioniert ohne Anmeldung – auch für Oma und Opa. Nach dem Spieltag zeigt er nur noch das Ergebnis.</div>
+  </div>`;
+}
 // Container – die eigentliche Auswahl macht elternTickerLoad async (Team-Auto-Erkennung).
 function elternTickerHtml(termin){
   if(termin.typ!=="spiel"&&termin.typ!=="turnier")return "";
@@ -1193,6 +1262,10 @@ async function elternTickerLoad(termin){
     <div style="font-size:12.5px;font-weight:700;color:#dc2626;margin-bottom:2px">📣 Liveticker</div>${inner}</div>`;
   const bigBtn=(label,onclick,filled)=>`<button onclick="${onclick}" style="width:100%;min-height:48px;margin-top:6px;padding:12px;border:1.5px solid #dc2626;border-radius:10px;background:${filled?"#dc2626":"#fff"};color:${filled?"#fff":"#dc2626"};font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">${label}</button>`;
   const konfBtn = anzahl>1 ? bigBtn("👥 Konferenz · alle Teams live",`elternTickerKonf('${datum}')`,false) : "";
+  /* Die Live-Kachel ganz oben braucht dasselbe Ergebnis der Team-Erkennung – hier ist es
+     schon da, ein zweiter Durchlauf waere nur zusaetzliche Last auf dem Elterntelefon. */
+  const eigenesTeam = myTeams.size===1 ? [...myTeams][0] : 0;
+  try{ elternLiveKachelLoad(termin,eigenesTeam); }catch(e){}
 
   if(myTeams.size===1){
     const t=[...myTeams][0];

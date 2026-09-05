@@ -183,6 +183,13 @@ async function renderTickerView(key){
   let adlerkasseHtml=""; // FEAT Z: Spenden-Button, einmal geladen (draw() laeuft alle 15s)
   let clocks={};         // key -> matchday-Zeile
   const teamName=k=>{ const m=/__t(\d+)$/.exec(k); return m?`Adler ${m[1]}`:"Adler 1"; };
+  // Sichtbar am Spieltag und die drei Tage danach; ab dem vierten Tag nur noch der Endstand.
+  const TICKER_SICHTBAR_TAGE=3;
+  function tickerArchiviert(){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(baseDatum))return false;   // unerwarteter Schluessel: lieber zeigen
+    const grenze=new Date(Date.now()-TICKER_SICHTBAR_TAGE*864e5).toISOString().slice(0,10);
+    return baseDatum<grenze;
+  }
   async function loadClocks(){
     try{
       const r=await fetch(`${SB_URL}/rest/v1/matchday?datum=in.(${keys.map(encodeURIComponent).join(",")})&select=datum,gegner,half,clock_status,started_at,paused_ms,ticker_open,spieldauer_min,halbzeiten`,{headers:anon});
@@ -202,6 +209,34 @@ async function renderTickerView(key){
     }catch(e){}
     // Wolff-Fuss je Team respektieren: Events eines Teams mit ticker_open=false ausblenden.
     events=events.filter(e=>{const c=clocks[e.datum]; return !(c&&c.ticker_open===false);});
+    /* 3-Tage-Grenze (PO v467): „für den live ticker nach 3 tagen aber nicht mehr historisch
+       sichtbar sein." Geloescht wird nichts – die Zeilen bleiben in der Datenbank und
+       fuettern das Adler Nest. Nur der oeffentliche Link macht die Tuer zu: Aufbewahrung
+       und Sichtbarkeit sind zwei verschiedene Dinge. Ein weitergeleiteter Link laeuft
+       damit nicht ins Leere, sondern auf den Endstand. */
+    if(tickerArchiviert()){
+      clearInterval(tickerViewTimer); clearInterval(tickerViewMinuteTimer);
+      let t=0,g=0; events.forEach(e=>{ if(e.typ==="tor")t++; else if(e.typ==="gegentor")g++; });
+      const c0=clocks[key]||clocks[baseDatum]||{};
+      const geg=c0.gegner?elternEsc(c0.gegner):"Gegner";
+      const dStr=(()=>{ const d=new Date(baseDatum+"T12:00:00");
+        return isNaN(d)?baseDatum:d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"}); })();
+      root.innerHTML=`
+        <div style="text-align:center;margin:8px 0 14px">
+          <img src="logo.png" style="width:56px;height:56px" alt="SV Adler Dellbrück">
+          <div style="font-size:16px;font-weight:800;color:#1e3a8a;margin-top:6px">📣 Liveticker U9${konf?" · Konferenz":teamLabelFromKey(key)}</div>
+          <div style="font-size:12px;color:#64748b">${dStr}</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:20px;text-align:center">
+          <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#94a3b8">Endstand</div>
+          <div style="font-size:34px;font-weight:900;color:#1e3a8a;margin:4px 0">${t}:${g}</div>
+          <div style="font-size:12.5px;color:#64748b">Adler U9 gegen ${geg}</div>
+          <div style="font-size:12.5px;color:#334155;margin-top:14px;line-height:1.5">Der Liveticker dieses Spieltags ist beendet.<br>Die Höhepunkte stehen im Adler Nest.</div>
+          <a href="${appRoot()}?heft" style="display:inline-block;margin-top:14px;min-height:46px;line-height:46px;padding:0 20px;border-radius:10px;background:#1e3a8a;color:#fff;text-decoration:none;font-weight:800;font-size:14px">📰 Zum Adler Nest</a>
+        </div>
+        <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:14px">SV Adler Dellbrück e.V.</div>`;
+      return;
+    }
     // B1: Applaus-Zähler des Spieltags (aggregiert über alle Teams via baseDatum)
     let claps=0; try{const cr=await fetch(`${SB_URL}/rest/v1/ticker_claps?datum=eq.${encodeURIComponent(baseDatum)}&select=count`,{headers:anon});if(cr.ok){const cj=await cr.json();claps=(cj[0]&&cj[0].count)||0;}}catch(e){}
     const clapBar=`<div style="text-align:center;margin-top:16px">
