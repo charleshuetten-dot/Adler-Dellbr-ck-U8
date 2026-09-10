@@ -33,7 +33,11 @@
   var p = location.pathname;
   var rest = p.indexOf(ALT) === 0 ? p.slice(ALT.length) : "";
   if (rest === "index.html") rest = "";
-  var ziel = NEU + rest + location.search + location.hash;
+  /* Merkmal fuer die neue App (v515): sie zeigt dann einmalig, was jetzt zu tun ist –
+     neu anmelden, Push wieder erlauben, App neu ablegen – und nimmt das Merkmal sofort
+     wieder aus der Adresszeile, damit es niemand weiterreicht. */
+  var such = location.search ? location.search + "&umzug=1" : "?umzug=1";
+  var ziel = NEU + rest + such + location.hash;
   document.getElementById("w").href = ziel;
   /* Der alte Service Worker koennte diese Seite ueberhaupt nicht zu Gesicht bekommen
      (siehe sw.js daneben). Falls er es doch tut: hier abraeumen, damit der naechste
@@ -45,6 +49,6 @@
   location.replace(ziel);
 })();
 </script>
-<noscript><meta http-equiv="refresh" content="0;url=https://sv-adler-dellbrueck.github.io/u9-app/"></noscript>
+<noscript><meta http-equiv="refresh" content="0;url=https://sv-adler-dellbrueck.github.io/u9-app/?umzug=1"></noscript>
 </body>
 </html>
