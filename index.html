@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Adler U9 – neue Adresse</title>
+<style>
+  :root{color-scheme:light dark}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       background:#1e3a8a;color:#fff;padding:24px;box-sizing:border-box;text-align:center}
+  .k{max-width:420px}
+  h1{font-size:20px;margin:0 0 10px}
+  p{margin:0 0 18px;opacity:.9}
+  a{display:inline-block;min-height:44px;line-height:44px;padding:0 22px;border-radius:12px;
+    background:#fff;color:#1e3a8a;text-decoration:none;font-weight:800}
+</style>
+</head>
+<body>
+<div class="k">
+  <h1>🦅 Die App ist umgezogen</h1>
+  <p>Du wirst gleich weitergeleitet. Bitte den neuen Link speichern.</p>
+  <a id="w" href="#">Weiter zur App</a>
+</div>
+<script>
+/* Leitet JEDEN Pfad der alten Adresse auf denselben Pfad der neuen um und nimmt
+   Fragezeichen-Teil UND Raute-Teil mit – sonst verlieren Turnier-, Ticker- und
+   Kind-Links unterwegs genau das, was sie ausmacht (?turnier=…&code=…, ?kind=…,
+   ?handover#h=…). */
+(function () {
+  var NEU = "https://sv-adler-dellbrueck.github.io/u9-app/";   // die neue Adresse
+  var ALT = "/Adler-Dellbr-ck-U8/";
+  var p = location.pathname;
+  var rest = p.indexOf(ALT) === 0 ? p.slice(ALT.length) : "";
+  if (rest === "index.html") rest = "";
+  var ziel = NEU + rest + location.search + location.hash;
+  document.getElementById("w").href = ziel;
+  /* Der alte Service Worker koennte diese Seite ueberhaupt nicht zu Gesicht bekommen
+     (siehe sw.js daneben). Falls er es doch tut: hier abraeumen, damit der naechste
+     Aufruf sauber ist. */
+  try {
+    if (navigator.serviceWorker) navigator.serviceWorker.getRegistrations().then(function (rs) { rs.forEach(function (r) { r.unregister(); }); });
+    if (window.caches) caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); });
+  } catch (e) {}
+  location.replace(ziel);
+})();
+</script>
+<noscript><meta http-equiv="refresh" content="0;url=https://sv-adler-dellbrueck.github.io/u9-app/"></noscript>
+</body>
+</html>
