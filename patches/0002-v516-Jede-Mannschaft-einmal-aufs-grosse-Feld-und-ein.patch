@@ -1,0 +1,288 @@
+From 30068a63285b1b98b1b86ec6c0e9d11f5e57c4f4 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 10 Sep 2026 21:38:44 +0000
+Subject: [PATCH 2/4] v516: Jede Mannschaft einmal aufs grosse Feld, und eine
+ Warnung bei zu kleinen Teams
+
+PO beim Blick in den fertigen Plan fuers Festival am 12.09.: "Adler 2 hat aber nur
+4 Kinder und kann so kein 4+1 spielen." Er hatte recht - und es war nicht nur die
+eigene Mannschaft: im Kaefig standen ZWEI Vierer-Teams.
+
+Zwei Ursachen, beide fuer sich plausibel. fstTeamsVorschlag rechnet mit dem
+DURCHSCHNITT der Feldgroessen: Kaefig + 2x FUNiNo ergibt (5+3+3)/3 = 3,67 plus ein
+Wechselkind, also 4,67 je Team. Auf FUNiNo stimmt das, auf 4+1 fehlt genau einer.
+Und fstPlanBauen verteilt die Felder mit (k+s)%F, rein nach Position - die
+Kinderzahl steht an jedem Team, wurde aber nie gelesen. Nebenwirkung, die der PO
+sonst erst am Platz gemerkt haette: eine Mannschaft kam NIE aufs Jugendtor-Feld,
+auch nicht in einer fuenften Runde.
+
+fstFelderAusgleichen laeuft jetzt am Ende von fstPlanBauen und tauscht die Felder
+zweier Partien DERSELBEN Zeitscheibe - Paarungen, Runden und Uhrzeiten bleiben
+unangetastet, es aendert sich nur, wo gespielt wird. Getauscht wird, wenn dadurch
+MEHR Mannschaften erstmals aufs grosse Feld kommen; ein starres
+"nur wenn dort schon alle dran waren" haette den entscheidenden Tausch verpasst.
+
+fstZuKlein meldet, wo ein Team unter der Feldgroesse liegt, mit Runde, Feld und
+Namen; fstZuKleinHtml stellt es ueber den Plan. BEWUSST raeumt die App zu kleine
+Teams NICHT vom grossen Feld: der PO laesst lieber jemanden aushelfen, als ein
+Team das 4+1 nie sehen zu lassen. Eine Automatik haette hier genau das Gegenteil
+seiner Entscheidung getan - sagen statt still umsortieren.
+
+Lehre: eine Zahl, die mitgefuehrt und nie gelesen wird, ist eine verkleidete
+Luecke - dieselbe Art Fund wie das immer leer geschriebene Notizfeld in v483.
+
+Der erzeugte Plan stimmt jetzt mit dem ueberein, der fuer den 12.09. von Hand
+gesetzt wurde. Hilfe nachgezogen. 80 Pruefungen gruen (78 Dateien + Parsen +
+Ladearchitektur, ausgezaehlt), Gegenprobe gegen v515 rot. sw.js auf v516.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015JKAQq498Kne3nqP57iJtw
+---
+ md-turnierplan.js                        |  70 ++++++++++++-
+ sw.js                                    |   2 +-
+ tests/checks/v516-feld-passt-zum-team.js | 121 +++++++++++++++++++++++
+ views.js                                 |   2 +-
+ 4 files changed, 192 insertions(+), 3 deletions(-)
+ create mode 100644 tests/checks/v516-feld-passt-zum-team.js
+
+diff --git a/md-turnierplan.js b/md-turnierplan.js
+index aca7f53..a3f804c 100644
+--- a/md-turnierplan.js
++++ b/md-turnierplan.js
+@@ -2248,7 +2248,74 @@ function fstPlanBauen(teams,cfg){
+       plan.push({runde:s+1,feld:fi+1,form:felder[fi].form||"funino",zeit,a:p[0],b:p[1],phase:"Runde "+(s+1)});
+     });
+   });
+-  return plan;
++  return fstFelderAusgleichen(plan,felder);
++}
++/* ═══ v516 – Jede Mannschaft einmal aufs grosse Feld ═══
++   PO nach dem Blick in den fertigen Plan: „Jedes Team soll auf jeden Fall mal 4+1 spielen."
++   fstPlanBauen verteilt die Felder mit (k+s)%F – rein nach Position in der Zeitscheibe. Bei
++   fuenf Teams auf Kaefig + 2× FUNiño kam so eine Mannschaft NIE auf das Jugendtor-Feld, auch
++   nicht in einer fuenften Runde: die haette gar kein Kaefig-Spiel.
++
++   Dieser Nachlauf tauscht die Felder ZWEIER Partien DERSELBEN Zeitscheibe. Paarungen, Runden
++   und Zeiten bleiben damit unangetastet – es aendert sich nur, WO gespielt wird. Genau der
++   Handgriff, den der Trainer sonst mit vier Tipps von Hand macht.
++
++   Getauscht wird, wenn dadurch MEHR Mannschaften erstmals aufs grosse Feld kommen. Nicht
++   „nur wenn dort schon alle dran waren": in Runde 3 stand im Kaefig eine neue Mannschaft und
++   daneben zwei – ein Tausch bringt dort eine mehr, ein starres Nur-wenn-keiner-neu-ist haette
++   ihn verpasst.
++
++   Was er BEWUSST nicht tut: zu kleine Mannschaften vom grossen Feld wegraeumen. Der PO
++   entscheidet lieber, jemanden aushelfen zu lassen, als ein Team das 4+1 nie sehen zu lassen.
++   Dafuer gibt es die Warnung (fstZuKlein) – sagen statt still umsortieren. */
++function fstFelderAusgleichen(plan,felder){
++  const f=(felder&&felder.length)?felder:FST_STANDARD_FELDER;
++  const jug=nr=>_fstJugendtore(((f[nr-1]||{}).form)||"funino");     // p.feld ist 1-basiert
++  const p=(plan||[]).map(x=>({...x}));
++  const hatte=new Set();                                            // wer war schon auf einem Jugendtor-Feld
++  [...new Set(p.map(x=>x.runde))].sort((a,b)=>a-b).forEach(r=>{
++    const sp=p.filter(x=>x.runde===r);
++    const neu=x=>[x.a,x.b].filter(t=>!hatte.has(t)).length;
++    sp.forEach(g=>{
++      if(!jug(g.feld))return;
++      const k=sp.filter(x=>x!==g&&!jug(x.feld)).sort((x,y)=>neu(y)-neu(x))[0];
++      if(!k||neu(k)<=neu(g))return;
++      const fe=g.feld, fo=g.form;
++      g.feld=k.feld; g.form=k.form; k.feld=fe; k.form=fo;
++    });
++    sp.forEach(x=>{ if(jug(x.feld)){hatte.add(x.a);hatte.add(x.b);} });
++  });
++  return p;
++}
++/* ═══ v516 – „Team zu klein fuer dieses Feld" ═══
++   Jede Mannschaft traegt ihre Kinderzahl mit sich (fstTeamsBauen setzt `kinder`) – die
++   Feldverteilung hat sie nie gelesen. Und fstTeamsVorschlag rechnet mit dem DURCHSCHNITT der
++   Feldgroessen: Kaefig + 2× FUNiño ergibt (5+3+3)/3 = 3,67 plus ein Wechselkind, also 4,67 je
++   Team. Auf FUNiño stimmt das, auf 4+1 fehlt genau einer. So standen am 12.09. zwei Teams mit
++   vier Kindern im Kaefig, und niemandem fiel es auf, bis der Trainer den Plan gelesen hat.
++   Gemeldet wird es dort, wo es sich noch aendern laesst: beim Planen. */
++function fstZuKlein(plan,teams,felder){
++  const f=(felder&&felder.length)?felder:FST_STANDARD_FELDER;
++  const out=[];
++  (plan||[]).forEach(p=>{
++    const auf=_fstF(p.form).auf;
++    [p.a,p.b].forEach(i=>{
++      const t=(teams||[])[i];
++      if(!t||t.kinder==null||t.kinder>=auf)return;
++      out.push({runde:p.runde,feld:fstFeldName(f,(p.feld||1)-1),kurz:_fstF(p.form).label,
++                auf,name:t.name,kinder:t.kinder,fehlt:auf-t.kinder});
++    });
++  });
++  return out;
++}
++function fstZuKleinHtml(plan,teams,felder){
++  const l=fstZuKlein(plan,teams,felder);
++  if(!l.length)return "";
++  const zeilen=l.map(x=>`<li><b>Runde ${x.runde}</b>, ${esc(x.feld)} (${esc(x.kurz)}, ${x.auf} auf dem Feld): ${esc(x.name)} hat ${x.kinder} – <b>${x.fehlt} zu wenig</b>.</li>`).join("");
++  return `<div style="font-size:11.5px;color:var(--amber);background:var(--amber-bg);border:1px solid var(--amber);border-radius:10px;padding:9px 11px;margin-bottom:8px;line-height:1.5">
++    <b>⚠️ Zu wenig Kinder für das Feld</b>
++    <ul style="margin:6px 0 6px;padding-left:18px">${zeilen}</ul>
++    Aushelfen lassen (ein Kind aus einer Mannschaft, die in der Runde pausiert), das Feld auf eine kleinere Spielform stellen – oder die Partien der Runde tauschen.</div>`;
+ }
+ /* Wie viele Zeitscheiben braucht es fuer die volle Runde? Fuer die ehrliche Ansage
+    „passt in eine Stunde" bzw. „dafuer braucht ihr X Minuten". */
+@@ -2868,6 +2935,7 @@ function fstRender(){
+           </div>`
+         : ""}
+       ${fstAufwaermZeile(_HT)?`<div style="font-size:11.5px;color:var(--text2);background:var(--surface2);border-radius:10px;padding:8px 10px;margin-bottom:8px">🔥 <b>Aufwärmen vor der ersten Runde:</b> ${fstAufwaermZeile(_HT)}</div>`:""}
++      ${fstZuKleinHtml(plan,fstTeamsBauen(cfg.vereine||[]),felder)}
+       <div style="font-size:11px;color:var(--text3);margin-bottom:6px">${_fstTauschWahl?"Tauschen: jetzt das zweite Team antippen":"Teams antippen zum Tauschen · Ergebnis rechts antippen"}</div>
+       ${fstPlanHtml(plan,_HT.teams||[],felder,false,true,cfg)}
+       <button class="btn" onclick="htShare()" style="width:100%;min-height:48px;margin-top:8px"><i class="ti ti-share"></i>Spielplan-Link teilen</button>
+diff --git a/sw.js b/sw.js
+index d4ec6e5..4285e76 100644
+--- a/sw.js
++++ b/sw.js
+@@ -1,4 +1,4 @@
+-const CACHE="u9i-adler-v515";
++const CACHE="u9i-adler-v516";
+ const PRECACHE=[
+   "./",
+   "./index.html",
+diff --git a/tests/checks/v516-feld-passt-zum-team.js b/tests/checks/v516-feld-passt-zum-team.js
+new file mode 100644
+index 0000000..8433a4f
+--- /dev/null
++++ b/tests/checks/v516-feld-passt-zum-team.js
+@@ -0,0 +1,121 @@
++/* v516 – PO beim Blick in den fertigen Plan fürs Festival am 12.09.: „Adler 2 hat aber nur
++   4 Kinder und kann so kein 4+1 spielen." Er hatte recht, und es war nicht nur seine
++   Mannschaft: im Käfig standen ZWEI Vierer-Teams.
++   Zwei Ursachen, beide für sich plausibel. fstTeamsVorschlag rechnet mit dem DURCHSCHNITT der
++   Feldgrößen – (5+3+3)/3 = 3,67 plus ein Wechselkind –, das stimmt auf FUNiño und ist auf 4+1
++   genau einer zu wenig. Und fstPlanBauen verteilt die Felder mit (k+s)%F, also rein nach
++   Position: die Kinderzahl steht an jedem Team, wurde aber nie gelesen. Nebenwirkung: eine
++   Mannschaft kam NIE aufs Jugendtor-Feld, auch nicht in einer fünften Runde.
++   PO: „Jedes Team soll auf jeden Fall mal 4+1 spielen." Deshalb gleicht die App die Felder aus
++   und WARNT bei zu kleinen Teams – sie räumt sie NICHT weg. Der Trainer lässt lieber jemanden
++   aushelfen, als ein Team das große Feld nie sehen zu lassen.
++   Geprüft wird beides am echten Aufbau des 12.09. (9 · 5 · 9 Kinder, Käfig + 2× FUNiño). */
++module.exports = async function (h) {
++  const probleme = [], zeilen = [];
++  const s = await h.starten({
++    supabase: h.supabaseAttrappe({ kader: h.kaderZeilen(), termine: [], heimturnier: (u, req) => req.method() === "GET" ? [] : { status: 204, body: "" } }),
++    hoehe: 1800
++  });
++
++  const r = await s.page.evaluate(async ({ kh }) => {
++    eval(kh);                                             // __kontrastVon(el)
++    const warte = ms => new Promise(r => setTimeout(r, ms));
++    for (const n of ["fstFelderAusgleichen", "fstZuKlein", "fstZuKleinHtml", "fstPlanBauen", "fstTeamsBauen"])
++      if (typeof window[n] !== "function") return { fehlt: n };
++
++    /* Der echte Aufbau vom 12.09.2026 – der Fall, an dem es aufgefallen ist. */
++    const vereine = [{ name: "SV Adler Dellbrück", teams: 2, kinder: 9 },
++                     { name: "Rath-Heumar", teams: 1, kinder: 5 },
++                     { name: "Wahn Grengel", teams: 2, kinder: 9 }];
++    const felder = [{ form: "f4" }, { form: "funino" }, { form: "funino" }];
++    const cfg = { art: "festival", format: "festival", start: "10:15", dauer: 60, spieldauer: 10, wechsel: 5, felder, vereine, infos: "" };
++    const teams = fstTeamsBauen(vereine);
++    const plan = fstPlanBauen(teams, cfg);
++
++    // ── Kommt jede Mannschaft einmal aufs Jugendtor-Feld? ────────────────────
++    const gross = new Set();
++    plan.forEach(p => { if (_fstJugendtore(p.form)) { gross.add(p.a); gross.add(p.b); } });
++    const ohneGrosses = teams.map((t, i) => gross.has(i) ? null : t.name).filter(Boolean);
++
++    // ── Was der Ausgleich NICHT anfassen darf ────────────────────────────────
++    const roh = [];
++    _fstRunden(teams.length).forEach(pa => pa.forEach(x => roh.push(x.slice().sort().join("-"))));
++    const fremd = plan.filter(p => !roh.includes([p.a, p.b].sort().join("-"))).length;
++    let teamDoppelt = 0, feldDoppelt = 0;
++    [...new Set(plan.map(p => p.runde))].forEach(rd => {
++      const sp = plan.filter(p => p.runde === rd);
++      const idx = sp.flatMap(p => [p.a, p.b]), fd = sp.map(p => p.feld);
++      if (new Set(idx).size !== idx.length) teamDoppelt++;
++      if (new Set(fd).size !== fd.length) feldDoppelt++;
++    });
++    /* Zeiten und Runden bleiben, weil nur innerhalb einer Zeitscheibe getauscht wird:
++       jede Runde behält genau eine Uhrzeit. */
++    const zeitProRunde = [...new Set(plan.map(p => p.runde))]
++      .map(rd => new Set(plan.filter(p => p.runde === rd).map(p => p.zeit)).size);
++
++    // ── Der Ausgleich ist eine reine Feldvertauschung ────────────────────────
++    const vorher = fstFelderAusgleichen(plan, felder);      // zweiter Lauf ändert nichts mehr
++    const stabil = JSON.stringify(vorher) === JSON.stringify(plan);
++
++    // ── Die Warnung nennt genau die knappen Teams ────────────────────────────
++    const warn = fstZuKlein(plan, teams, felder)
++      .map(x => "R" + x.runde + " " + x.feld + " " + x.name + " " + x.kinder + "/" + x.auf);
++
++    // Alle gross genug → keine Warnung
++    const dicke = fstTeamsBauen([{ name: "A", teams: 1, kinder: 8 }, { name: "B", teams: 1, kinder: 8 }]);
++    const ohneWarn = fstZuKlein(fstPlanBauen(dicke, { ...cfg, vereine: [] }), dicke, felder).length;
++    const leerHtml = fstZuKleinHtml(fstPlanBauen(dicke, { ...cfg, vereine: [] }), dicke, felder);
++
++    // ── Und sie steht wirklich in der Planer-Ansicht ─────────────────────────
++    _HT = { id: 6, slug: "kinderfestival-12-09", name: "Kinderfestival", datum: "2026-09-12",
++            edit_code: "X", config: cfg, teams: teams.map(t => t.name), plan };
++    const body = document.createElement("div"); body.id = "ht-body"; document.body.appendChild(body);
++    fstRender(); await warte(150);
++    const kasten = [...document.querySelectorAll("div")].find(d => /Zu wenig Kinder für das Feld/.test(d.textContent) && d.querySelector("ul"));
++    const sichtbar = !!kasten;
++    const kastenText = sichtbar ? kasten.textContent.replace(/\s+/g, " ").trim() : "";
++    const punkte = sichtbar ? [...kasten.querySelectorAll("li")].length : 0;
++    const kontrast = sichtbar ? __kontrastVon(kasten) : 0;
++    body.remove();
++
++    return { teams: teams.map(t => t.name + ":" + t.kinder), ohneGrosses, fremd, teamDoppelt, feldDoppelt,
++             zeitProRunde, stabil, warn, ohneWarn, leerHtml, sichtbar, kastenText, punkte, kontrast,
++             felderJeRunde: [...new Set(plan.map(p => p.runde))].map(rd =>
++               plan.filter(p => p.runde === rd).map(p => fstFeldName(felder, p.feld - 1)).join("+")) };
++  }, { kh: h.kontrastHelfer });
++  const fehler = s.fehler(); await s.schliessen();
++  if (r.fehlt) { probleme.push(`${r.fehlt} fehlt`); return h.ergebnis("Feld passt zum Team", false, probleme); }
++
++  // ── Jede Mannschaft einmal aufs grosse Feld ───────────────────────────────
++  if (r.ohneGrosses.length)
++    probleme.push(`Nie auf dem Jugendtor-Feld: ${r.ohneGrosses.join(", ")} – „jedes Team soll auf jeden Fall mal 4+1 spielen“`);
++
++  // ── Was der Ausgleich nicht anfassen darf ─────────────────────────────────
++  if (r.fremd) probleme.push(`${r.fremd} Paarung(en) stehen nicht in der Kreismethode – der Ausgleich darf nur Felder tauschen, nie Gegner`);
++  if (r.teamDoppelt) probleme.push(`In ${r.teamDoppelt} Runde(n) spielt ein Team zweimal`);
++  if (r.feldDoppelt) probleme.push(`In ${r.feldDoppelt} Runde(n) ist ein Feld doppelt belegt`);
++  if (r.zeitProRunde.some(x => x !== 1)) probleme.push(`Eine Runde hat mehrere Uhrzeiten (${r.zeitProRunde.join(",")}) – getauscht wird nur innerhalb einer Zeitscheibe`);
++  if (!r.stabil) probleme.push("Ein zweiter Durchlauf des Ausgleichs ändert den Plan noch einmal – er ist nicht in sich fertig");
++
++  // ── Die Warnung ───────────────────────────────────────────────────────────
++  if (r.warn.length !== 2) probleme.push(`Die Warnung nennt ${r.warn.length} Fälle statt 2: ${r.warn.join(" · ")}`);
++  if (!r.warn.every(x => /^R1 Käfig/.test(x))) probleme.push(`Gewarnt wird für ${r.warn.join(" · ")} – erwartet beide Vierer-Teams in Runde 1 im Käfig`);
++  if (!r.warn.some(x => /Adler Dellbrück 2 4\/5/.test(x))) probleme.push("Adler Dellbrück 2 (4 Kinder auf 4+1) wird nicht gemeldet");
++  if (!r.warn.some(x => /Wahn Grengel 2 4\/5/.test(x))) probleme.push("Wahn Grengel 2 (4 Kinder auf 4+1) wird nicht gemeldet – es ist nicht nur die eigene Mannschaft");
++  if (r.ohneWarn !== 0) probleme.push(`Bei ausreichend grossen Teams meldet die App ${r.ohneWarn} Fälle`);
++  if (r.leerHtml !== "") probleme.push("Ohne Befund bleibt trotzdem ein Kasten stehen");
++
++  // ── Sie steht in der Ansicht, lesbar ──────────────────────────────────────
++  if (!r.sichtbar) probleme.push("Im Festival-Planer steht keine Warnung – dort, wo es sich noch ändern liesse");
++  if (r.punkte !== 2) probleme.push(`Der Kasten führt ${r.punkte} Zeilen statt 2 auf`);
++  if (r.sichtbar && !/aushelfen/i.test(r.kastenText)) probleme.push("Der Kasten sagt nicht, was jetzt hilft");
++  if (r.sichtbar && !/Adler Dellbrück 2/.test(r.kastenText)) probleme.push("Der Kasten nennt die Mannschaft nicht beim Namen – Farbe allein trägt die Bedeutung nicht");
++  if (r.kontrast && r.kontrast < 4.5) probleme.push(`Warnkasten ${r.kontrast}:1 (mindestens 4.5)`);
++  if (fehler.length) probleme.push(...fehler.slice(0, 3));
++
++  zeilen.push(`Teams: ${r.teams.join(" · ")}`);
++  zeilen.push(`Felder je Runde: ${r.felderJeRunde.join(" | ")} · alle einmal am Jugendtor: ${!r.ohneGrosses.length}`);
++  zeilen.push(`Unangetastet: Paarungen ${r.fremd === 0} · Team doppelt ${r.teamDoppelt} · Feld doppelt ${r.feldDoppelt} · in sich fertig ${r.stabil}`);
++  zeilen.push(`Warnung: ${r.warn.join(" · ")} · ohne Befund kein Kasten: ${r.leerHtml === ""} · Kontrast ${r.kontrast}:1`);
++  return h.ergebnis("Feld passt zum Team – und jeder kommt einmal aufs grosse Feld", !probleme.length, zeilen.concat(probleme));
++};
+diff --git a/views.js b/views.js
+index ed157af..b79dd0e 100644
+--- a/views.js
++++ b/views.js
+@@ -3524,7 +3524,7 @@ const HELP=[
+     {t:"Match", d:"Zuerst „Teams festlegen“ in zwei Blöcken: „Wer ist dabei?“ (zugeklappt, sobald jemand dabei ist – vorbelegt aus den Eltern-Rückmeldungen, ohne Antwort bleibt ein Kind offen, „N Offene auf Dabei setzen“ erledigt das am Platz auf einmal; „Dabei“ ist zugleich die Anwesenheit dieses Spieltags und zählt für die Spiele-Quote) und darunter die Teams als Karten mit den Namen: ein Tipp auf einen Namen schiebt das Kind ins nächste Team, zuletzt in die Pause. Die Team-Kacheln darunter zeigen die Namen ohne Aufklappen. Dazu, wie viele Teams wir stellen und welche Spielform jedes Team spielt (beim Kinderfestival etwa Adler 1 auf 4+1, Adler 2 FUNiño, dazu 3+1 und 5+1). Die Automatik setzt Torwart-Kinder zuerst auf die Teams mit Torwart, füllt dann die Felder und verteilt die übrigen Kinder so, dass die Spielzeit je Kind über alle Teams möglichst gleich ist – der Anteil steht je Team dabei. Steht ein Spielplan für den Tag (Festival oder Heimspiel), kommt alles Weitere von dort: „Teams festlegen“ zeigt je Runde, auf welchem Feld ein Team spielt, in welcher Spielform und gegen wen, und die Runde wechselt mit dem Anpfiff im Planer – geändert wird im Spielplan, „Im Spielplan ändern“ führt hin. Auch die Match-Uhr nimmt an so einem Tag ihre Spielzeit von dort (8 Minuten statt der üblichen 10), spielt sie ohne Halbzeit durch und läuft erst, wenn die Runde angepfiffen ist – „Spiel läuft“ steht dann auf den Team-Kacheln, die gerade auf dem Feld sind, und der Wechsel-Timer startet mit – mit der halben Spielzeit als Intervall (bei 8 Minuten also einer in der Mitte, einer am Ende); anhalten kannst du ihn jederzeit. Vor der ersten Runde teilt der Plan die Aufwärmfelder zu: wir immer im Käfig, die Gastvereine der Reihe nach auf die übrigen Felder; auf der Gast-Seite steht das ganz oben. Ohne Spielplan (Auswärtsturnier) legst du die Felder des Tages selbst an (Feld 1: 4+1, Feld 2: FUNiño …): die festen Teams wandern dann mit „Nächste Runde“ ein Feld weiter, und fehlt einem Team auf seinem Feld ein Kind, hilft eines aus dem Team mit der meisten Bank aus – nur für diese Runde, Torwart-Kinder wechseln sich dabei ab, welcher Trainer sie betreut – die Kinder werden dabei automatisch verteilt und lassen sich von Hand umsetzen. „Dabei“ heißt automatisch „Spielt mit“ – wen du pausieren lassen willst, stellst du selbst um. Neben jedem Kind stehen die Trainingsquote und die Zahl der Einsätze; beide zählen ab einem Stichtag (zurzeit: Trainings ab dem 31.08., Spiele ab dem 05.09.2026), damit die faire Einteilung nicht an alten Zahlen hängt. Den Kapitän wählst du in derselben Team-Karte – er bleibt es für den ganzen Spieltag, die App zählt über alle Spiele mit und sortiert die Auswahl nach „am seltensten dran“ (⭐ = noch nie). Danach hat jedes Team seine eigene Kachel in drei Schritten: „① Vor dem Spiel“ zeigt den Kapitän und die Aufstellung (Torwart fest, „Feld & Bank fair besetzen“, das Mini-Feld mit Bank); „② Während des Spiels“ hält Match-Uhr und Wechseltimer, Live-Aktionen und Liveticker sind darunter zugeklappt; „③ Nach dem Spiel“ sammelt die Ergebnisse (am Festivaltag alle Spiele dieses Teams aus dem Spielplan), Spielbericht und Ergebnis-Karte – und ganz zum Schluss das Blitz-Rating. Am Festivaltag ist die Runde aus dem Spielplan das Spiel: jede Live-Aktion, jeder Ticker-Eintrag und jeder Wechsel trägt sie, der Anpfiff im Planer schaltet um. Tore und Gegentore einer Runde werden von selbst zum Ergebnis im Festival-Plan, der Ticker bekommt bei dir und bei den Eltern einen Absatz je Spiel („Runde 3 · gegen Rath-Heumar 2 · Käfig · 2:1“), das Live-Ergebnis im Vollbild zählt nur die laufende Runde – Blitz-Rating und Spielbericht bleiben einmal je Tag. Den Liveticker startest du selbst mit „▶️ Liveticker starten“ – er hängt nicht am Anpfiff und nicht an der Aufstellung. Sobald er läuft, erscheint bei den Eltern ganz oben eine rote LIVE-Kachel mit Teilen-Knopf – der Link geht auch an Oma und Opa, ohne Anmeldung. Stoppst du ihn wieder, kommt nur nichts Neues mehr dazu – das Bisherige bleibt für die Eltern sichtbar. Drei Tage nach dem Spieltag zeigt der Link nur noch den Endstand; die Ereignisse bleiben gespeichert. Beim Blitz-Rating nach dem Spiel zählt pro Kind, Trainer und Spieltag genau eine Bewertung – gehst du ein zweites Mal durch, korrigierst du die erste, statt sie zu verdoppeln. In der Live-Aktion stehen oben die Kinder aus der Aufstellung und unter einer gestrichelten Linie alle weiteren, die heute dabei sind – du kannst also auch tickern, wenn die Aufstellung nicht gepflegt ist. Bei „Parade“ erscheinen nur die Torhüter. Hast du selbst keine Hand frei: „🙋 Jemand anderen tickern lassen“ verschickt einen Link an einen Helfer am Spielfeldrand; der sieht nur die Kinder von heute und die Aktionsknöpfe und kann Tore, Paraden und Gegentore melden – keine Bewertungen, keine Kaderdaten. Der Link gilt nur, solange der Ticker läuft. Die Team-Quests stehen darunter und gelten für alle Teams zusammen. Ist heute Spieltag, öffnet sich beim Betreten der Abschnitt, der zur Uhrzeit passt – vor dem Anpfiff „Vor dem Spiel“, während „Live“, danach „Nach dem Spiel“.", go:"spieltag"},
+     {t:"Aufstellung", d:"Rollen-Empfehlung aus den Bewertungen: wer passt als Aufpasser, Jäger, Flitzer links/rechts. Braucht mindestens 4 bewertete Kinder – wer noch niemanden bewertet hat, nutzt im Spieltag „Feld & Bank fair besetzen“ (verteilt nach Einsatzzeiten).", go:"kombi"},
+     {t:"Analyse", d:"Auswertung nach dem Spiel: Entwicklungs-Meilensteine aus den Bewertungen, Einsatz-Fairness (zählt Spieltage mit Blitz-Rating je Kind) und Formtrend. Solange kein Spiel bewertet ist, steht dort nur ein Satz mit dem Weg zum Spieltag.", go:"analyse"},
+-    {t:"Heimspiel & Festival planen", d:"Für jeden Spieltag bei uns – ein Kinderfestival mit zwei bis drei Gastvereinen genauso wie ein normales Heimspiel, bei dem nur ein Gegner kommt, der aber mehrere Teams stellen kann. Beim Heimspiel steht der Gegner schon im Termin und wird gleich mit eingetragen. Unsere Kinder und Teams kommen aus „Teams festlegen“ (änderbar, „Wieder übernehmen“ holt sie zurück); die Gastvereine trägst du mit ihren angereisten Kindern ein, die App macht daraus Teams (10 Kinder = zwei Teams). Standard sind alle vier Felder – Käfig (4+1), Funino 1, Funino 2 und 4+1 oben; je Feld wählst du 4+1, 3+1 (drei Feldspieler und Torwart, ebenfalls auf Jugendtore) oder FUNiño – Teamgröße, Feldname, Skizze und Regelkarte ziehen mit. Braucht der Plan weniger Felder, fallen sie beim Erstellen von hinten weg, zuerst das zweite Jugendtor-Feld oben. Beginn ist die Uhrzeit des Termins (sonst 10:15), zwischen den Runden 5 Minuten Trinkpause. Steht der Plan, klappt die Vorbereitung (Vereine, Felder, Zeiten) zu und im Spielplan ist nur die Runde offen, die gerade läuft oder als Nächstes kommt – auf der Gast-Seite genauso; der Aushang druckt weiter alles. Im fertigen Plan tauschst du zwei Teams, indem du beide antippst, und trägst rechts das Ergebnis ein (freiwillig, es gibt keine Tabelle) – der Plan liegt in der Datenbank und ist für alle Trainer änderbar. Am Festivaltag pfeifst du jede Runde gemeinsam an: „Runde 1 anpfeifen“ startet einen Countdown, den alle Trainer sehen – in der App und im Gast-Link. Läuft die Zeit ab, gibt dein Handy ein Signal und die Trinkpause zählt rückwärts bis zum nächsten Anpfiff; angepfiffen wird immer von Hand. Die geplanten Uhrzeiten ziehen dabei mit: pfeifst du Runde 2 drei Minuten später an, stehen alle folgenden Runden drei Minuten später. Derselbe Anpfiff startet auch die Match-Uhr der Adler-Teams dieser Runde, und umgekehrt startet der Anpfiff an der Match-Uhr im Spieltag die Festival-Runde – Ticker, Wechsel und Countdown zeigen dieselbe Zeit. Zum Weitergeben gibt es zwei Knöpfe: „Spielplan-Link teilen“ ist der Link für alle – Gast-Trainer, Gast-Eltern und unsere Eltern, nur zum Ansehen. „Ergebnis-Link“ ist derselbe Plan mit Schreib-Code, nur für den Anzeigetisch und die Gast-Trainer; ihr korrigiert Ergebnisse in der App. Auf der Gast-Seite gibt es außerdem „Regeln“ – eine Karte je Spielform, die auf den Feldern steht (4+1, 3+1, FUNiño), und unsere Vereinbarungen. Daneben steht „Am Rand“: unser Codex fürs Verhalten am Spielfeldrand – zwölf kurze Punkte, acht davon direkt aus dem Fairplay-Codex der Eltern-App (änderst du sie dort, ändern sie sich auch für die Gäste). Ganz oben darin und als Karte auf der Gast-Startseite steht die Platzseiten-Regel: an den oberen Feldern sind nur Spieler und Trainer, angefeuert wird am Käfig und an den vorderen Feldern. Welche Felder „oben“ liegen, rechnet die App aus dem Aufbau – bei drei Feldern rutscht das zweite Funino-Feld nach oben, bei vieren ist es das zweite Jugendtor-Feld. Die Skizze zeichnet das mit, samt Schildern „nur Spieler & Trainer“ auf dem oberen Feld und „anfeuern & jubeln“ auf dem vorderen, und der Aushang druckt die Zeile mit. Der Spielplan-Link ist ausdrücklich auch für die Eltern gedacht – nur der Ergebnis-Link mit Schreib-Code bleibt bei den Trainern. Die Felder heißen wie am Platz – „Käfig“ für das erste 4+1-Feld, „Funino 1/2“, „4+1 oben“ für ein zweites – und jeder Name lässt sich je Feld überschreiben. Aus Beginn, Gesamtdauer und Spielzeit entsteht ein Runden-Plan: pro Runde spielen alle Felder gleichzeitig, jede Mannschaft trifft möglichst jede andere und wechselt dabei zwischen den Formaten. Keine Tabelle – bei uns gewinnt die Freude am Spiel. Den fertigen Plan schickst du als Spielplan-Link (mit Wappen, Feldern und Zeiten, ohne Login) oder druckst ihn als Aushang. Auf der Gast-Seite steht ein Info-Knopf „Anfahrt, Parken & Felder“: Adresse mit Kartenlink, der Parkhinweis (am Platz oft voll, besser an der Straße) mit Skizze, eine Skizze, wo welches Feld liegt, und deine Zeilen aus „Infos für die Gäste“ – Kaffee und Brötchen, WC, Turnierleitung. Am Spieltag führt die Turnier-Kachel im Spieltag hierher, wenn wir ausrichten; sind wir zu Gast, öffnet sie den Turnier-Modus zum Erfassen der Kurzspiele.", run:"htOpen()"},
++    {t:"Heimspiel & Festival planen", d:"Für jeden Spieltag bei uns – ein Kinderfestival mit zwei bis drei Gastvereinen genauso wie ein normales Heimspiel, bei dem nur ein Gegner kommt, der aber mehrere Teams stellen kann. Beim Heimspiel steht der Gegner schon im Termin und wird gleich mit eingetragen. Unsere Kinder und Teams kommen aus „Teams festlegen“ (änderbar, „Wieder übernehmen“ holt sie zurück); die Gastvereine trägst du mit ihren angereisten Kindern ein, die App macht daraus Teams (10 Kinder = zwei Teams). Standard sind alle vier Felder – Käfig (4+1), Funino 1, Funino 2 und 4+1 oben; je Feld wählst du 4+1, 3+1 (drei Feldspieler und Torwart, ebenfalls auf Jugendtore) oder FUNiño – Teamgröße, Feldname, Skizze und Regelkarte ziehen mit. Braucht der Plan weniger Felder, fallen sie beim Erstellen von hinten weg, zuerst das zweite Jugendtor-Feld oben. Beginn ist die Uhrzeit des Termins (sonst 10:15), zwischen den Runden 5 Minuten Trinkpause. Steht der Plan, klappt die Vorbereitung (Vereine, Felder, Zeiten) zu und im Spielplan ist nur die Runde offen, die gerade läuft oder als Nächstes kommt – auf der Gast-Seite genauso; der Aushang druckt weiter alles. Im fertigen Plan tauschst du zwei Teams, indem du beide antippst, und trägst rechts das Ergebnis ein (freiwillig, es gibt keine Tabelle) – der Plan liegt in der Datenbank und ist für alle Trainer änderbar. Am Festivaltag pfeifst du jede Runde gemeinsam an: „Runde 1 anpfeifen“ startet einen Countdown, den alle Trainer sehen – in der App und im Gast-Link. Läuft die Zeit ab, gibt dein Handy ein Signal und die Trinkpause zählt rückwärts bis zum nächsten Anpfiff; angepfiffen wird immer von Hand. Die geplanten Uhrzeiten ziehen dabei mit: pfeifst du Runde 2 drei Minuten später an, stehen alle folgenden Runden drei Minuten später. Derselbe Anpfiff startet auch die Match-Uhr der Adler-Teams dieser Runde, und umgekehrt startet der Anpfiff an der Match-Uhr im Spieltag die Festival-Runde – Ticker, Wechsel und Countdown zeigen dieselbe Zeit. Zum Weitergeben gibt es zwei Knöpfe: „Spielplan-Link teilen“ ist der Link für alle – Gast-Trainer, Gast-Eltern und unsere Eltern, nur zum Ansehen. „Ergebnis-Link“ ist derselbe Plan mit Schreib-Code, nur für den Anzeigetisch und die Gast-Trainer; ihr korrigiert Ergebnisse in der App. Auf der Gast-Seite gibt es außerdem „Regeln“ – eine Karte je Spielform, die auf den Feldern steht (4+1, 3+1, FUNiño), und unsere Vereinbarungen. Daneben steht „Am Rand“: unser Codex fürs Verhalten am Spielfeldrand – zwölf kurze Punkte, acht davon direkt aus dem Fairplay-Codex der Eltern-App (änderst du sie dort, ändern sie sich auch für die Gäste). Ganz oben darin und als Karte auf der Gast-Startseite steht die Platzseiten-Regel: an den oberen Feldern sind nur Spieler und Trainer, angefeuert wird am Käfig und an den vorderen Feldern. Welche Felder „oben“ liegen, rechnet die App aus dem Aufbau – bei drei Feldern rutscht das zweite Funino-Feld nach oben, bei vieren ist es das zweite Jugendtor-Feld. Die Skizze zeichnet das mit, samt Schildern „nur Spieler & Trainer“ auf dem oberen Feld und „anfeuern & jubeln“ auf dem vorderen, und der Aushang druckt die Zeile mit. Der Spielplan-Link ist ausdrücklich auch für die Eltern gedacht – nur der Ergebnis-Link mit Schreib-Code bleibt bei den Trainern. Die Felder heißen wie am Platz – „Käfig“ für das erste 4+1-Feld, „Funino 1/2“, „4+1 oben“ für ein zweites – und jeder Name lässt sich je Feld überschreiben. Aus Beginn, Gesamtdauer und Spielzeit entsteht ein Runden-Plan: pro Runde spielen alle Felder gleichzeitig, jede Mannschaft trifft möglichst jede andere und wechselt dabei zwischen den Formaten. Dabei kommt jede Mannschaft mindestens einmal aufs Jugendtor-Feld: passt das nicht von allein, tauschen zwei Partien derselben Runde das Feld – Gegner, Runde und Uhrzeit bleiben, es ändert sich nur, wo gespielt wird. Hat ein Team weniger Kinder, als die Spielform braucht – vier Kinder auf 4+1 –, steht das als Warnung über dem Plan, mit Runde, Feld und Namen. Weggeräumt wird deshalb nichts: ob jemand aus einer pausierenden Mannschaft aushilft, das Feld eine Nummer kleiner läuft oder ihr die Partien der Runde tauscht, entscheidet ihr. Keine Tabelle – bei uns gewinnt die Freude am Spiel. Den fertigen Plan schickst du als Spielplan-Link (mit Wappen, Feldern und Zeiten, ohne Login) oder druckst ihn als Aushang. Auf der Gast-Seite steht ein Info-Knopf „Anfahrt, Parken & Felder“: Adresse mit Kartenlink, der Parkhinweis (am Platz oft voll, besser an der Straße) mit Skizze, eine Skizze, wo welches Feld liegt, und deine Zeilen aus „Infos für die Gäste“ – Kaffee und Brötchen, WC, Turnierleitung. Am Spieltag führt die Turnier-Kachel im Spieltag hierher, wenn wir ausrichten; sind wir zu Gast, öffnet sie den Turnier-Modus zum Erfassen der Kurzspiele.", run:"htOpen()"},
+   ]},
+   {cat:"🎯 Taktik", items:[
+     {t:"Taktikboard", d:"Formationen stellen, Laufwege und Pässe zeichnen, als Bild teilen. Oben eine Karte: die vier Spielformen als gleich breite Kacheln, darunter Zeichnen · Teilen · Pro-Modus; Speichern, Bibliothek, KI-Coach, Video und „Leeres Feld“ liegen hinter „Mehr“. Der Pro-Modus macht das Feld groß und blendet alles andere aus – am Handy einspaltig mit der Bank als Streifen darunter, am Tablet mit der Bank rechts daneben; „Pro-Modus beenden“ steht oben. Auf dem Board stehen nur Kinder, die im Kader aktiv sind.", go:"taktik"},
+-- 
+2.43.0
+
